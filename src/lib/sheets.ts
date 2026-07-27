@@ -120,7 +120,19 @@ export async function getCampagne(): Promise<Campagna[]> {
     }));
 }
 
-/** Aggiunge la campagna alla tab Campagne se non è già mappata, con tipo_campagna vuoto da classificare a mano. */
+/**
+ * Prova a dedurre il tipo_campagna dal prefisso tra parentesi quadre nel nome campagna
+ * (convenzione di naming: "[Progetto] resto del nome"). Torna stringa vuota se non riconosce
+ * il pattern, così la campagna resta "da classificare" a mano invece di prendere un valore sbagliato.
+ */
+function guessTipoCampagnaFromNome(nomeCampagna: string): string {
+  const match = nomeCampagna.match(/^\[([^\]]+)\]/);
+  const testo = match?.[1]?.trim();
+  if (!testo) return "";
+  return testo.charAt(0).toUpperCase() + testo.slice(1).toLowerCase();
+}
+
+/** Aggiunge la campagna alla tab Campagne se non è già mappata, deducendo tipo_campagna dal nome (vuoto se non riconosciuto). */
 export async function ensureCampagnaMapped(
   campaignId: string,
   clienteId: string,
@@ -128,7 +140,8 @@ export async function ensureCampagnaMapped(
 ): Promise<void> {
   const esistenti = await getCampagne();
   if (esistenti.some((c) => c.campaignId === campaignId)) return;
-  await appendRows(TAB.campagne, [[campaignId, clienteId, nomeCampagna, ""]]);
+  const tipoCampagna = guessTipoCampagnaFromNome(nomeCampagna);
+  await appendRows(TAB.campagne, [[campaignId, clienteId, nomeCampagna, tipoCampagna]]);
 }
 
 export async function getMetaDaily(): Promise<MetaDailyRow[]> {
