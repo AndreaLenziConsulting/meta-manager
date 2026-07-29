@@ -14,10 +14,7 @@ export function TrendChart({ trend }: { trend: TrendPoint[] }) {
 
   if (trend.length === 0) {
     return (
-      <div
-        className="rounded-xl border p-6 text-sm"
-        style={{ borderColor: "var(--border-hairline)", background: "var(--surface-1)", color: "var(--text-secondary)" }}
-      >
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 text-sm text-gray-500">
         Nessun dato nel periodo selezionato.
       </div>
     );
@@ -52,12 +49,13 @@ export function TrendChart({ trend }: { trend: TrendPoint[] }) {
   }
 
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: "var(--border-hairline)", background: "var(--surface-1)" }}>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
-          Investimento vs Fatturato
-        </h3>
-        <ul className="flex gap-4 text-xs" style={{ color: "var(--text-secondary)" }}>
+    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-5 rounded-full bg-brand" />
+          <h3 className="font-semibold text-gray-900 text-[15px]">Investimento vs Fatturato</h3>
+        </div>
+        <ul className="flex gap-4 text-xs text-gray-500">
           <li className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded" style={{ background: "var(--series-1)" }} />
             Investimento
@@ -129,22 +127,18 @@ export function TrendChart({ trend }: { trend: TrendPoint[] }) {
 
         {active && (
           <div
-            className="pointer-events-none absolute top-2 rounded-lg border px-3 py-2 text-xs shadow-sm"
+            className="pointer-events-none absolute top-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-sm"
             style={{
               left: `${(PADDING.left + xFor(hoverIndex!)) / WIDTH * 100}%`,
               transform: "translateX(-50%)",
-              borderColor: "var(--border-hairline)",
-              background: "var(--surface-1)",
             }}
           >
-            <p className="font-medium mb-1" style={{ color: "var(--text-secondary)" }}>
-              {formatMese(active.mese)}
-            </p>
-            <p className="flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
+            <p className="font-medium mb-1 text-gray-500">{formatMese(active.mese)}</p>
+            <p className="flex items-center gap-1.5 text-gray-900">
               <span className="inline-block w-2.5 h-0.5" style={{ background: "var(--series-1)" }} />
               <strong>{formatEuro(active.investimento)}</strong>
             </p>
-            <p className="flex items-center gap-1.5" style={{ color: "var(--text-primary)" }}>
+            <p className="flex items-center gap-1.5 text-gray-900">
               <span className="inline-block w-2.5 h-0.5" style={{ background: "var(--series-2)" }} />
               <strong>{formatEuro(active.fatturato)}</strong>
             </p>

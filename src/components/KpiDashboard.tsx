@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { KpiCard } from "@/components/KpiCard";
 import { TrendChart } from "@/components/TrendChart";
 import { KpiTable } from "@/components/KpiTable";
+import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import type { KpiResponse } from "@/types/kpi";
 
@@ -25,6 +26,9 @@ export function KpiDashboard({ code, clienteId }: Props) {
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [sincronizzando, setSincronizzando] = useState(false);
+  const [esitoSync, setEsitoSync] = useState<string | null>(null);
 
   useEffect(() => {
     if (!code && !clienteId) return;
@@ -48,44 +52,59 @@ export function KpiDashboard({ code, clienteId }: Props) {
       .then((data: KpiResponse) => setDati(data))
       .catch((err) => setErrore(err.message))
       .finally(() => setCaricamento(false));
-  }, [code, clienteId, da, a]);
+  }, [code, clienteId, da, a, refreshTick]);
+
+  async function handleAggiornaKpi() {
+    if (!clienteId) return;
+    setSincronizzando(true);
+    setEsitoSync(null);
+    try {
+      const res = await fetch("/api/sync-meta", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Aggiornamento non riuscito");
+      setEsitoSync(`Aggiornate ${body.righe} righe da Meta Ads`);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setEsitoSync(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSincronizzando(false);
+    }
+  }
 
   return (
     <div className="viz-root space-y-6">
-      <div className="flex flex-wrap items-end gap-3">
-        <label className="text-sm">
-          <span className="block mb-1" style={{ color: "var(--text-secondary)" }}>
-            Da
-          </span>
-          <input
-            type="month"
-            value={da}
-            onChange={(e) => setDa(e.target.value)}
-            className="rounded-lg border px-3 py-2 bg-transparent"
-            style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
-          />
-        </label>
-        <label className="text-sm">
-          <span className="block mb-1" style={{ color: "var(--text-secondary)" }}>
-            A
-          </span>
-          <input
-            type="month"
-            value={a}
-            onChange={(e) => setA(e.target.value)}
-            className="rounded-lg border px-3 py-2 bg-transparent"
-            style={{ borderColor: "var(--border-hairline)", color: "var(--text-primary)" }}
-          />
-        </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <MonthRangePicker
+          da={da}
+          a={a}
+          onChange={(nDa, nA) => {
+            setDa(nDa);
+            setA(nA);
+          }}
+        />
+
+        {clienteId && (
+          <button
+            type="button"
+            onClick={handleAggiornaKpi}
+            disabled={sincronizzando}
+            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand/40 disabled:opacity-50 transition"
+          >
+            <RefreshIcon spinning={sincronizzando} />
+            {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
+          </button>
+        )}
+
+        {esitoSync && <span className="text-xs text-gray-500">{esitoSync}</span>}
       </div>
 
       {errore && <p className="text-sm text-red-600">{errore}</p>}
 
-      {caricamento && !dati && (
-        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-          Caricamento…
-        </p>
-      )}
+      {caricamento && !dati && <p className="text-sm text-gray-500">Caricamento…</p>}
 
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
@@ -108,5 +127,25 @@ export function KpiDashboard({ code, clienteId }: Props) {
         </div>
       )}
     </div>
+  );
+}
+
+function RefreshIcon({ spinning }: { spinning: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={spinning ? "animate-spin" : ""}
+    >
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+    </svg>
   );
 }

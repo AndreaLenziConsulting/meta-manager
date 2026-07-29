@@ -22,11 +22,12 @@ export function formatRoas(value: number | null): string {
   return `${value.toFixed(2)}x`;
 }
 
+export const MESI_BREVI = [
+  "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
+];
+
 export function formatMese(mese: string): string {
   const [anno, m] = mese.split("-");
-  const nomi = [
-    "Gen", "Feb", "Mar", "Apr", "Mag", "Giu", "Lug", "Ago", "Set", "Ott", "Nov", "Dic",
-  ];
   const idx = Number(m) - 1;
-  return `${nomi[idx] ?? m} ${anno.slice(2)}`;
+  return `${MESI_BREVI[idx] ?? m} ${anno.slice(2)}`;
 }

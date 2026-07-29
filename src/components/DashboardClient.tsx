@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AppHeader } from "@/components/AppHeader";
 import { ClientSwitcher } from "@/components/ClientSwitcher";
 import { KpiDashboard } from "@/components/KpiDashboard";
 
@@ -29,13 +30,16 @@ export function DashboardClient() {
   }, [router]);
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold">Meta Manager ALC</h1>
-        {clienti.length > 0 && <ClientSwitcher clienti={clienti} value={clienteId} onChange={setClienteId} />}
-      </div>
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader />
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-xl font-bold text-gray-900">Dashboard team</h2>
+          {clienti.length > 0 && <ClientSwitcher clienti={clienti} value={clienteId} onChange={setClienteId} />}
+        </div>
 
-      {clienteId && <KpiDashboard clienteId={clienteId} />}
+        {clienteId && <KpiDashboard clienteId={clienteId} />}
+      </div>
     </div>
   );
 }
