@@ -28,6 +28,18 @@ const until = new Date().toISOString().slice(0, 10);
 
 const LEAD_ACTION_PRIORITY = ["onsite_conversion.lead_grouped", "lead", "offsite_conversion.fb_pixel_lead"];
 
+// Google Sheets converte le date scritte come testo (es. "2026-07-24") in numero seriale
+// (giorni dal 30/12/1899): va sempre riconvertito prima di confrontarlo con le date testuali
+// che arrivano dalla API di Meta, altrimenti il controllo duplicati non trova mai un match.
+const SHEETS_EPOCH_UTC_MS = Date.UTC(1899, 11, 30);
+
+function normalizeData(value) {
+  if (typeof value === "number") {
+    return new Date(SHEETS_EPOCH_UTC_MS + Math.round(value) * 86400000).toISOString().slice(0, 10);
+  }
+  return value === undefined || value === null ? "" : String(value);
+}
+
 function guessTipoCampagnaFromNome(nomeCampagna) {
   const match = nomeCampagna.match(/^\[([^\]]+)\]/);
   const testo = match?.[1]?.trim();
@@ -112,7 +124,7 @@ async function main() {
   });
   const indexByKey = new Map();
   (metaDailyRes.data.values || []).forEach((r, i) => {
-    indexByKey.set(`${r[1]}|${r[2]}|${r[0]}`, i + 2);
+    indexByKey.set(`${r[1]}|${r[2]}|${normalizeData(r[0])}`, i + 2);
   });
 
   for (const cliente of clienti) {
