@@ -32,3 +32,13 @@ export function isValidSessionCookieValue(cookieValue: string | undefined): bool
 }
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;
+
+/** Verifica l'header `Authorization: Bearer <API_KEY>` per l'accesso via API key (integrazioni esterne). */
+export function isValidApiKey(authHeader: string | null): boolean {
+  const expected = process.env.API_KEY;
+  if (!expected || !authHeader?.startsWith("Bearer ")) return false;
+  const provided = authHeader.slice("Bearer ".length);
+  const a = Buffer.from(provided);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
