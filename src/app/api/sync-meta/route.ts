@@ -1,21 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { isValidApiKey, isValidSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { isValidSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { getClienti } from "@/lib/sheets";
 import { syncCliente } from "@/lib/sync";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-async function isAutenticato(req: NextRequest): Promise<boolean> {
-  if (isValidApiKey(req.headers.get("authorization"))) return true;
+export async function POST(req: NextRequest) {
   const cookieStore = await cookies();
   const session = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  return isValidSessionCookieValue(session);
-}
-
-export async function POST(req: NextRequest) {
-  if (!(await isAutenticato(req))) {
+  if (!isValidSessionCookieValue(session)) {
     return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
   }
 

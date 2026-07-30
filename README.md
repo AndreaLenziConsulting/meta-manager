@@ -77,16 +77,3 @@ curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/syn
 ## Deploy
 
 Push su `main` → deploy automatico su Vercel. Il cron gira ogni giorno alle 05:00 UTC (`vercel.json`) e rilegge gli ultimi 3 giorni per catturare aggiornamenti tardivi di attribuzione Meta.
-
-## API esterna
-
-`POST /api/sync-meta` è utilizzabile anche da integrazioni esterne (script, automazioni) tramite API key, in alternativa al cookie di sessione team:
-
-```bash
-curl -X POST https://meta-manager-alc.vercel.app/api/sync-meta \
-  -H "Authorization: Bearer <API_KEY>" \
-  -H "Content-Type: application/json" \
-  -d '{"clienteId": "mobilieri"}'
-```
-
-Specifica completa in [`openapi.yaml`](./openapi.yaml). `API_KEY` è una variabile d'ambiente separata da `CRON_SECRET` (che resta riservato al cron di Vercel).
