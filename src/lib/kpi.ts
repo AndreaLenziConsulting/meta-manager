@@ -127,3 +127,25 @@ export function computeKpi(
 
   return { gruppi, totale, trend };
 }
+
+/**
+ * Spesa e lead di un cliente su una finestra di date reali (non mesi interi) — usata per la vista
+ * "salute clienti" a 7 giorni. Le vendite del Funnel sono tracciate solo a livello mensile, quindi
+ * su una finestra sub-mensile non sono attendibili: qui il segnale è sempre il costo per lead.
+ */
+export function computeSpesaLeadPeriodo(
+  clienteId: string,
+  daData: string, // YYYY-MM-DD
+  aData: string, // YYYY-MM-DD
+  metaDaily: MetaDailyRow[]
+): { investimento: number; numeroLead: number; costoPerLead: number | null } {
+  let investimento = 0;
+  let numeroLead = 0;
+  for (const row of metaDaily) {
+    if (row.clienteId !== clienteId) continue;
+    if (row.data < daData || row.data > aData) continue;
+    investimento += row.spesa;
+    numeroLead += row.lead;
+  }
+  return { investimento, numeroLead, costoPerLead: divideOrNull(investimento, numeroLead) };
+}

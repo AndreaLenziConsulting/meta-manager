@@ -1,11 +1,11 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
-import { getCampagne, getClienti, getFunnel, getMetaDaily } from "@/lib/sheets";
-import { computeKpi } from "@/lib/kpi";
+import { getClienti, getMetaDaily } from "@/lib/sheets";
+import { computeSpesaLeadPeriodo } from "@/lib/kpi";
 import { calcolaSalute } from "@/lib/salute";
 import { AppHeader } from "@/components/AppHeader";
-import { SaluteClienti, type SaluteClienteItem } from "@/components/SaluteClienti";
+import { SaluteClienti, LegendaSalute, type SaluteClienteItem } from "@/components/SaluteClienti";
 
 const ORDINE_STATO: Record<string, number> = {
   interveni: 0,
@@ -15,8 +15,10 @@ const ORDINE_STATO: Record<string, number> = {
   "no-target": 4,
 };
 
-function meseCorrente(): string {
-  return new Date().toISOString().slice(0, 7);
+const GIORNI_FINESTRA = 7;
+
+function formatData(d: Date): string {
+  return d.toISOString().slice(0, 10);
 }
 
 export default async function SalutePage() {
@@ -30,20 +32,30 @@ export default async function SalutePage() {
     redirect("/dashboard");
   }
 
-  const mese = meseCorrente();
-  const [clienti, metaDaily, campagne, funnel] = await Promise.all([
-    getClienti(),
-    getMetaDaily(),
-    getCampagne(),
-    getFunnel(),
-  ]);
+  const oggi = new Date();
+  const inizio = new Date(oggi);
+  inizio.setDate(inizio.getDate() - (GIORNI_FINESTRA - 1));
+  const daData = formatData(inizio);
+  const aData = formatData(oggi);
+
+  const [clienti, metaDaily] = await Promise.all([getClienti(), getMetaDaily()]);
 
   const items: SaluteClienteItem[] = clienti
     .filter((c) => c.attivo)
     .map((cliente) => {
-      const { totale } = computeKpi(cliente.clienteId, mese, mese, metaDaily, campagne, funnel);
-      const valutazione = calcolaSalute(totale, cliente.targetCpa, cliente.targetCpl);
-      return { cliente, totale, valutazione };
+      const { investimento, numeroLead, costoPerLead } = computeSpesaLeadPeriodo(
+        cliente.clienteId,
+        daData,
+        aData,
+        metaDaily
+      );
+      // Nessuna vendita a livello giornaliero disponibile su questa finestra: il segnale è sempre CPL.
+      const valutazione = calcolaSalute(
+        { investimento, numeroVendite: 0, cpa: null, costoPerLead },
+        cliente.targetCpa,
+        cliente.targetCpl
+      );
+      return { cliente, investimento, numeroLead, valutazione };
     })
     .sort((a, b) => ORDINE_STATO[a.valutazione.stato] - ORDINE_STATO[b.valutazione.stato]);
 
@@ -54,10 +66,12 @@ export default async function SalutePage() {
         <div>
           <h2 className="text-xl font-bold text-gray-900">Salute clienti</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Mese corrente — CPA su vendita se disponibile, altrimenti costo per lead come proxy. Sotto la
-            spesa minima (2,5× il target) il cliente resta &ldquo;dati insufficienti&rdquo;.
+            Ultimi 7 giorni ({daData} → {aData}) — costo per lead vs target. Le vendite sono tracciate solo
+            a livello mensile, quindi su questa finestra il segnale è sempre il costo per lead, mai il CPA
+            su vendita.
           </p>
         </div>
+        <LegendaSalute />
         <SaluteClienti items={items} />
       </div>
     </div>
