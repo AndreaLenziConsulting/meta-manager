@@ -4,7 +4,26 @@ export type Cliente = {
   adAccountId: string;
   accessCode: string;
   attivo: boolean;
+  consulenteId: string;
+  targetCpa: number | null;
+  targetCpl: number | null;
 };
+
+export type Consulente = {
+  consulenteId: string;
+  nome: string;
+  password: string;
+  attivo: boolean;
+};
+
+export type Ruolo = "admin" | "consulente";
+
+export type Sessione = {
+  ruolo: Ruolo;
+  consulenteId?: string;
+};
+
+export type Salute = "scala" | "mantieni" | "interveni" | "dati-insufficienti" | "no-target";
 
 export type Campagna = {
   campaignId: string;

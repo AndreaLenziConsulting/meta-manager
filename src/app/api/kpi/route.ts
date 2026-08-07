@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { isValidSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { getCampagne, getClienteByAccessCode, getClienti, getFunnel, getMetaDaily } from "@/lib/sheets";
+import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi } from "@/lib/kpi";
 import type { KpiResponse } from "@/types/kpi";
 
@@ -30,18 +31,18 @@ export async function GET(req: NextRequest) {
     nomeCliente = cliente.nome;
   } else {
     const cookieStore = await cookies();
-    const session = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-    if (!isValidSessionCookieValue(session)) {
+    const sessione = parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+    if (!sessione) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }
     if (!clienteIdParam) {
       return NextResponse.json({ error: "clienteId mancante" }, { status: 400 });
     }
     const clienti = await getClienti();
-    const cliente = clienti.find((c) => c.clienteId === clienteIdParam);
-    if (!cliente) {
-      return NextResponse.json({ error: "Cliente non trovato" }, { status: 404 });
+    if (!puoVedereCliente(sessione, clienteIdParam, clienti)) {
+      return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
     }
+    const cliente = clienti.find((c) => c.clienteId === clienteIdParam)!;
     clienteId = cliente.clienteId;
     nomeCliente = cliente.nome;
   }

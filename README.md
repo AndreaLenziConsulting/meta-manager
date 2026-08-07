@@ -12,12 +12,16 @@ Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lea
 
 ### 1. Google Sheet centrale
 
-Crea uno spreadsheet Google con **4 tab**, ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione):
+Crea uno spreadsheet Google con **6 tab**, ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione):
 
 **Clienti**
-| A cliente_id | B nome | C ad_account_id | D access_code | E attivo |
-|---|---|---|---|---|
-| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` |
+| A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl |
+|---|---|---|---|---|---|---|---|
+| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` | id del consulente assegnato (vedi tab Consulenti) | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) |
+
+**Consulenti** — un consulente vede solo i clienti con il proprio `consulente_id` in colonna F della tab Clienti.
+| A consulente_id | B nome | C password | D attivo |
+|---|---|---|---|
 
 **Campagne** — popolata automaticamente dal cron alla prima comparsa di una campagna (tipo_campagna vuoto); valorizza `tipo_campagna` a mano.
 | A campaign_id | B cliente_id | C nome_campagna | D tipo_campagna |
@@ -69,10 +73,11 @@ App su `http://localhost:3000`. Il cron (`/api/cron/sync-meta`) va chiamato manu
 curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/sync-meta
 ```
 
-## Accessi
+## Accessi — tre livelli
 
-- **Team**: `/login` con `TEAM_PASSWORD` → `/dashboard` con selettore cliente
-- **Cliente finale**: link diretto `/report/<access_code>` (colonna D della tab Clienti) — sola lettura, filtrato sul suo cliente
+- **Amministratore**: `/login` con `TEAM_PASSWORD` → `/dashboard` con tutti i clienti + link "Salute clienti" (`/dashboard/salute`, panoramica con badge 🔴🟡🟢 basato su CPA/CPL vs target)
+- **Consulente**: stesso `/login`, ma con la password individuale definita nella tab `Consulenti` → `/dashboard` mostra solo i clienti con quel `consulente_id` assegnato
+- **Cliente finale**: link diretto `/report/<access_code>` (colonna D della tab Clienti) — sola lettura, filtrato sul suo cliente, non passa da `/login`
 
 ## Deploy
 

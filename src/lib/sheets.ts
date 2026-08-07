@@ -1,11 +1,12 @@
 import { google } from "googleapis";
-import type { Campagna, Cliente, FunnelRow, MetaDailyRow } from "@/types/kpi";
+import type { Campagna, Cliente, Consulente, FunnelRow, MetaDailyRow } from "@/types/kpi";
 
 const TAB = {
   clienti: "Clienti",
   campagne: "Campagne",
   metaDaily: "MetaDaily",
   funnel: "Funnel",
+  consulenti: "Consulenti",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -115,6 +116,12 @@ function toNumber(value: CellValue): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+function toNumberOrNull(value: CellValue): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
 export async function getClienti(): Promise<Cliente[]> {
   const rows = await readTab(TAB.clienti);
   return rows
@@ -125,6 +132,21 @@ export async function getClienti(): Promise<Cliente[]> {
       adAccountId: asText(r[2]),
       accessCode: asText(r[3]),
       attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
+      consulenteId: asText(r[5]),
+      targetCpa: toNumberOrNull(r[6]),
+      targetCpl: toNumberOrNull(r[7]),
+    }));
+}
+
+export async function getConsulenti(): Promise<Consulente[]> {
+  const rows = await readTab(TAB.consulenti);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      consulenteId: asText(r[0]),
+      nome: asText(r[1]),
+      password: asText(r[2]),
+      attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
     }));
 }
 
