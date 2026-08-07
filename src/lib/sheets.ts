@@ -8,7 +8,13 @@ const TAB = {
   funnel: "Funnel",
 } as const;
 
+// Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
+// lo scambio refresh_token -> access_token ad ogni singola lettura/scrittura.
+let clientCache: { sheets: ReturnType<typeof google.sheets>; sheetId: string } | null = null;
+
 function getSheetsClient() {
+  if (clientCache) return clientCache;
+
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
@@ -23,19 +29,36 @@ function getSheetsClient() {
   const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshToken });
 
-  return { sheets: google.sheets({ version: "v4", auth }), sheetId };
+  clientCache = { sheets: google.sheets({ version: "v4", auth }), sheetId };
+  return clientCache;
 }
 
 type CellValue = string | number | boolean | undefined | null;
 
+// Cache breve in memoria per evitare di rileggere l'intera tab ad ogni richiesta quando i dati
+// non sono cambiati (es. cambio range di date, più utenti che guardano la dashboard). Vive solo
+// nell'istanza serverless "calda" corrente — nessuna condivisione tra istanze, va bene così: è
+// un'ottimizzazione best-effort, non una fonte di verità.
+const READ_CACHE_TTL_MS = 30_000;
+const readCache = new Map<string, { data: CellValue[][]; scadenza: number }>();
+
+function invalidateTabCache(tabName: string) {
+  readCache.delete(tabName);
+}
+
 async function readTab(tabName: string): Promise<CellValue[][]> {
+  const cached = readCache.get(tabName);
+  if (cached && cached.scadenza > Date.now()) return cached.data;
+
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
     range: `${tabName}!A2:Z`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
-  return (res.data.values as CellValue[][]) ?? [];
+  const data = (res.data.values as CellValue[][]) ?? [];
+  readCache.set(tabName, { data, scadenza: Date.now() + READ_CACHE_TTL_MS });
+  return data;
 }
 
 // Con UNFORMATTED_VALUE, Google Sheets rappresenta le date/i mesi che ha riconosciuto come
@@ -73,6 +96,7 @@ async function appendRows(tabName: string, rows: (string | number)[][]) {
     valueInputOption: "USER_ENTERED",
     requestBody: { values: rows },
   });
+  invalidateTabCache(tabName);
 }
 
 async function updateRow(tabName: string, rowNumber: number, row: (string | number)[]) {
@@ -83,6 +107,7 @@ async function updateRow(tabName: string, rowNumber: number, row: (string | numb
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [row] },
   });
+  invalidateTabCache(tabName);
 }
 
 function toNumber(value: CellValue): number {
