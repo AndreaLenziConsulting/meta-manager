@@ -81,7 +81,7 @@ export function SaluteClienti({ items }: { items: SaluteClienteItem[] }) {
         return (
           <Link
             key={cliente.clienteId}
-            href={`/dashboard?cliente=${encodeURIComponent(cliente.clienteId)}`}
+            href={`/dashboard/cliente/${encodeURIComponent(cliente.clienteId)}`}
             className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 hover:border-brand/40 transition block"
           >
             <div className="flex items-start justify-between gap-2">

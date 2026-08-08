@@ -5,6 +5,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { TrendChart } from "@/components/TrendChart";
 import { KpiTable } from "@/components/KpiTable";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
+import { CampagneFilter } from "@/components/CampagneFilter";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import type { KpiResponse } from "@/types/kpi";
 
@@ -30,11 +31,22 @@ export function KpiDashboard({ code, clienteId }: Props) {
   const [sincronizzando, setSincronizzando] = useState(false);
   const [esitoSync, setEsitoSync] = useState<string | null>(null);
 
+  // Il filtro campagne è legato al contesto (cliente/codice + periodo) in cui è stato scelto: se quel
+  // contesto cambia, le campagne disponibili non sono più le stesse e si torna a "tutte" — senza bisogno
+  // di un effect dedicato, è solo un valore derivato da confrontare col contesto corrente.
+  const contestoAttuale = `${code ?? ""}|${clienteId ?? ""}|${da}|${a}`;
+  const [filtroCampagne, setFiltroCampagne] = useState<{ contesto: string; selezionate: Set<string> | null }>({
+    contesto: contestoAttuale,
+    selezionate: null,
+  });
+  const campagneSelezionate = filtroCampagne.contesto === contestoAttuale ? filtroCampagne.selezionate : null;
+
   useEffect(() => {
     if (!code && !clienteId) return;
     const params = new URLSearchParams({ da, a });
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
+    if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
 
     Promise.resolve()
       .then(() => {
@@ -52,7 +64,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
       .then((data: KpiResponse) => setDati(data))
       .catch((err) => setErrore(err.message))
       .finally(() => setCaricamento(false));
-  }, [code, clienteId, da, a, refreshTick]);
+  }, [code, clienteId, da, a, campagneSelezionate, refreshTick]);
 
   async function handleAggiornaKpi() {
     if (!clienteId) return;
@@ -86,6 +98,14 @@ export function KpiDashboard({ code, clienteId }: Props) {
             setA(nA);
           }}
         />
+
+        {dati && (
+          <CampagneFilter
+            campagneDisponibili={dati.campagneDisponibili}
+            selezionate={campagneSelezionate}
+            onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, selezionate })}
+          />
+        )}
 
         {clienteId && (
           <button
@@ -121,9 +141,9 @@ export function KpiDashboard({ code, clienteId }: Props) {
             <KpiCard label="CPA" value={formatEuro(dati.totale.cpa)} />
           </div>
 
-          <TrendChart trend={dati.trend} />
+          <TrendChart trend={dati.trend} trendSettimanale={dati.trendSettimanale} />
 
-          <KpiTable gruppi={dati.gruppi} totale={dati.totale} />
+          <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} />
         </div>
       )}
     </div>

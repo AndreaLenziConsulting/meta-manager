@@ -3,8 +3,8 @@ import { cookies } from "next/headers";
 import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
 import { getCampagne, getClienteByAccessCode, getClienti, getFunnel, getMetaDaily } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { computeKpi } from "@/lib/kpi";
-import type { KpiResponse } from "@/types/kpi";
+import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
+import type { CampagnaDisponibile, KpiResponse } from "@/types/kpi";
 
 export const runtime = "nodejs";
 
@@ -18,6 +18,8 @@ export async function GET(req: NextRequest) {
   const clienteIdParam = searchParams.get("clienteId");
   const da = searchParams.get("da") || meseCorrente();
   const a = searchParams.get("a") || meseCorrente();
+  const campagneParam = searchParams.get("campagne");
+  const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
 
   let clienteId: string;
   let nomeCliente: string;
@@ -48,7 +50,35 @@ export async function GET(req: NextRequest) {
   }
 
   const [metaDaily, campagne, funnel] = await Promise.all([getMetaDaily(), getCampagne(), getFunnel()]);
-  const { gruppi, totale, trend } = computeKpi(clienteId, da, a, metaDaily, campagne, funnel);
+
+  const { gruppi, totale, trend, trendSettimanale } = computeKpi(
+    clienteId,
+    da,
+    a,
+    metaDaily,
+    campagne,
+    funnel,
+    campagneSelezionate
+  );
+  const righeCampagne = computeKpiPerCampagna(clienteId, da, a, metaDaily, campagne, campagneSelezionate);
+
+  const infoCampagna = new Map(campagne.filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c]));
+  const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
+  for (const row of metaDaily) {
+    if (row.clienteId !== clienteId) continue;
+    const mese = row.data.slice(0, 7);
+    if (mese < da || mese > a) continue;
+    if (campagneDisponibiliMap.has(row.campaignId)) continue;
+    const info = infoCampagna.get(row.campaignId);
+    campagneDisponibiliMap.set(row.campaignId, {
+      campaignId: row.campaignId,
+      nomeCampagna: info?.nomeCampagna ?? row.campaignId,
+      tipoCampagna: info?.tipoCampagna || "Non classificata",
+    });
+  }
+  const campagneDisponibili = Array.from(campagneDisponibiliMap.values()).sort((a, b) =>
+    a.nomeCampagna.localeCompare(b.nomeCampagna)
+  );
 
   const response: KpiResponse = {
     cliente: { clienteId, nome: nomeCliente },
@@ -56,6 +86,9 @@ export async function GET(req: NextRequest) {
     gruppi,
     totale,
     trend,
+    trendSettimanale,
+    campagne: righeCampagne,
+    campagneDisponibili,
   };
 
   return NextResponse.json(response);

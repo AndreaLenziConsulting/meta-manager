@@ -31,3 +31,10 @@ export function formatMese(mese: string): string {
   const idx = Number(m) - 1;
   return `${MESI_BREVI[idx] ?? m} ${anno.slice(2)}`;
 }
+
+/** Formatta una data YYYY-MM-DD (il lunedì di inizio settimana) come "24 Lug". */
+export function formatSettimana(settimana: string): string {
+  const [, m, giorno] = settimana.split("-");
+  const idx = Number(m) - 1;
+  return `${Number(giorno)} ${MESI_BREVI[idx] ?? m}`;
+}

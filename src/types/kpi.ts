@@ -75,10 +75,28 @@ export type KpiGroup = {
   cpa: number | null;
 };
 
+export type RigaCampagna = {
+  campaignId: string;
+  nomeCampagna: string;
+  tipoCampagna: string;
+  investimento: number;
+  numeroLead: number;
+  costoPerLead: number | null;
+};
+
+export type CampagnaDisponibile = {
+  campaignId: string;
+  nomeCampagna: string;
+  tipoCampagna: string;
+};
+
 export type KpiResponse = {
   cliente: { clienteId: string; nome: string };
   periodo: { da: string; a: string };
   gruppi: KpiGroup[];
   totale: KpiGroup;
   trend: { mese: string; investimento: number; fatturato: number }[];
+  trendSettimanale: { settimana: string; investimento: number }[];
+  campagne: RigaCampagna[];
+  campagneDisponibili: CampagnaDisponibile[];
 };
