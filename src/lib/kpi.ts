@@ -1,4 +1,4 @@
-import type { Campagna, FunnelRow, KpiGroup, MetaDailyRow } from "@/types/kpi";
+import type { Campagna, FunnelRow, KpiGroup, MetaDailyRow, RigaCampagna } from "@/types/kpi";
 
 const NON_CLASSIFICATA = "Non classificata";
 
@@ -159,15 +159,6 @@ export function computeKpi(
   return { gruppi, totale, trend, trendSettimanale };
 }
 
-export type RigaCampagna = {
-  campaignId: string;
-  nomeCampagna: string;
-  tipoCampagna: string;
-  investimento: number;
-  numeroLead: number;
-  costoPerLead: number | null;
-};
-
 /**
  * Spesa/lead per singola campagna (non aggregati per tipo) — solo le metriche derivate da Meta Ads,
  * dato che il Funnel (vendite, fatturato, ecc.) è tracciato solo per tipo_campagna, non per campagna.
@@ -205,6 +196,7 @@ export function computeKpiPerCampagna(
         campaignId,
         nomeCampagna: info?.nomeCampagna ?? campaignId,
         tipoCampagna: info?.tipoCampagna || NON_CLASSIFICATA,
+        stato: info?.stato ?? "",
         investimento: v.investimento,
         numeroLead: v.numeroLead,
         costoPerLead: divideOrNull(v.investimento, v.numeroLead),

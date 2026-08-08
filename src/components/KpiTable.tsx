@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
-import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
+import { formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string }[] = [
@@ -92,26 +92,39 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
             <thead>
               <tr className="border-b border-gray-100">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-white text-gray-500">Campagna</th>
+                <th className="text-left font-medium px-4 py-3 text-gray-500">Stato</th>
                 <th className="text-right font-medium px-4 py-3 text-gray-500">Investimento</th>
                 <th className="text-right font-medium px-4 py-3 text-gray-500">Lead</th>
                 <th className="text-right font-medium px-4 py-3 text-gray-500">Costo/Lead</th>
               </tr>
             </thead>
             <tbody>
-              {campagne.map((c) => (
-                <tr key={c.campaignId} className="border-b border-gray-100">
-                  <td className="px-5 py-3 sticky left-0 bg-white text-gray-900 font-medium">
-                    {c.nomeCampagna}
-                    <span className="block text-[11px] text-gray-400 font-normal">{c.tipoCampagna}</span>
-                  </td>
-                  <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.investimento)}</td>
-                  <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatNumero(c.numeroLead)}</td>
-                  <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.costoPerLead)}</td>
-                </tr>
-              ))}
+              {campagne.map((c) => {
+                const stato = formatStatoCampagna(c.stato);
+                return (
+                  <tr key={c.campaignId} className="border-b border-gray-100">
+                    <td className="px-5 py-3 sticky left-0 bg-white text-gray-900 font-medium">
+                      {c.nomeCampagna}
+                      <span className="block text-[11px] text-gray-400 font-normal">{c.tipoCampagna}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      {stato ? (
+                        <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border ${stato.classe}`}>
+                          {stato.label}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.investimento)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatNumero(c.numeroLead)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.costoPerLead)}</td>
+                  </tr>
+                );
+              })}
               {campagne.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-5 py-6 text-center text-gray-400">
+                  <td colSpan={5} className="px-5 py-6 text-center text-gray-400">
                     Nessuna campagna nel periodo selezionato.
                   </td>
                 </tr>
@@ -119,6 +132,7 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
               {campagne.length > 0 && (
                 <tr>
                   <td className="px-5 py-3 font-semibold sticky left-0 bg-white text-gray-900">Totale</td>
+                  <td className="px-4 py-3" />
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-gray-900">
                     {formatEuro(totaleCampagne.investimento)}
                   </td>

@@ -104,3 +104,40 @@ export async function fetchCampaignInsights(
 
   return { rows, campagne };
 }
+
+type MetaCampaignStatus = { id: string; effective_status?: string };
+
+/** Stato corrente (ACTIVE/PAUSED/...) di tutte le campagne di un ad account, per campaign_id. */
+export async function fetchStatoCampagne(adAccountId: string): Promise<Map<string, string>> {
+  const token = process.env.META_ACCESS_TOKEN;
+  const apiVersion = process.env.META_API_VERSION || "v21.0";
+  if (!token) {
+    throw new Error("META_ACCESS_TOKEN non configurato");
+  }
+
+  const url = new URL(`https://graph.facebook.com/${apiVersion}/act_${adAccountId}/campaigns`);
+  url.searchParams.set("fields", "id,effective_status");
+  url.searchParams.set("access_token", token);
+  url.searchParams.set("limit", "500");
+
+  const stati = new Map<string, string>();
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const json: { data?: MetaCampaignStatus[]; paging?: { next?: string }; error?: { message: string } } =
+      await res.json();
+
+    if (!res.ok || json.error) {
+      throw new Error(`Meta API error: ${json.error?.message || res.statusText}`);
+    }
+
+    for (const item of json.data ?? []) {
+      if (item.effective_status) stati.set(item.id, item.effective_status);
+    }
+
+    nextUrl = json.paging?.next ?? null;
+  }
+
+  return stati;
+}

@@ -23,9 +23,9 @@ Crea uno spreadsheet Google con **6 tab**, ognuna con la riga 1 come intestazion
 | A consulente_id | B nome | C password | D attivo |
 |---|---|---|---|
 
-**Campagne** — popolata automaticamente dal cron alla prima comparsa di una campagna (tipo_campagna vuoto); valorizza `tipo_campagna` a mano.
-| A campaign_id | B cliente_id | C nome_campagna | D tipo_campagna |
-|---|---|---|---|
+**Campagne** — popolata automaticamente dal cron alla prima comparsa di una campagna (tipo_campagna vuoto); valorizza `tipo_campagna` a mano. `stato` è scritta SOLO dal sync (stato Meta grezzo: `ACTIVE`, `PAUSED`, ...), non modificare a mano.
+| A campaign_id | B cliente_id | C nome_campagna | D tipo_campagna | E stato |
+|---|---|---|---|---|
 
 **MetaDaily** — scritta SOLO dal cron, non modificare a mano.
 | A data | B cliente_id | C campaign_id | D spesa | E impressions | F clicks | G ctr | H cpc | I cpm | J lead |

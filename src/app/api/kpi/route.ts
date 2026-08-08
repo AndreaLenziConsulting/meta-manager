@@ -74,6 +74,7 @@ export async function GET(req: NextRequest) {
       campaignId: row.campaignId,
       nomeCampagna: info?.nomeCampagna ?? row.campaignId,
       tipoCampagna: info?.tipoCampagna || "Non classificata",
+      stato: info?.stato ?? "",
     });
   }
   const campagneDisponibili = Array.from(campagneDisponibiliMap.values()).sort((a, b) =>

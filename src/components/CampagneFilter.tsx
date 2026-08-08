@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { CampagnaDisponibile } from "@/types/kpi";
+import { formatStatoCampagna } from "@/lib/format";
 
 type Props = {
   campagneDisponibili: CampagnaDisponibile[];
@@ -90,17 +91,23 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
                     {tipo}
                   </label>
                   <div className="mt-1 ml-5 space-y-1">
-                    {lista.map((c) => (
-                      <label key={c.campaignId} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={attive.has(c.campaignId)}
-                          onChange={() => toggleCampagna(c.campaignId)}
-                          className="accent-current text-brand"
-                        />
-                        <span className="truncate">{c.nomeCampagna}</span>
-                      </label>
-                    ))}
+                    {lista.map((c) => {
+                      const stato = formatStatoCampagna(c.stato);
+                      return (
+                        <label key={c.campaignId} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={attive.has(c.campaignId)}
+                            onChange={() => toggleCampagna(c.campaignId)}
+                            className="accent-current text-brand"
+                          />
+                          {stato && (
+                            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stato.puntino}`} title={stato.label} />
+                          )}
+                          <span className="truncate">{c.nomeCampagna}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 </div>
               );

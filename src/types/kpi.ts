@@ -31,6 +31,7 @@ export type Campagna = {
   clienteId: string;
   nomeCampagna: string;
   tipoCampagna: string;
+  stato: string; // valore grezzo Meta: ACTIVE, PAUSED, DELETED, ARCHIVED, ...
 };
 
 export type MetaDailyRow = {
@@ -79,6 +80,7 @@ export type RigaCampagna = {
   campaignId: string;
   nomeCampagna: string;
   tipoCampagna: string;
+  stato: string;
   investimento: number;
   numeroLead: number;
   costoPerLead: number | null;
@@ -88,6 +90,7 @@ export type CampagnaDisponibile = {
   campaignId: string;
   nomeCampagna: string;
   tipoCampagna: string;
+  stato: string;
 };
 
 export type KpiResponse = {

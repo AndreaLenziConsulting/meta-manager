@@ -165,6 +165,7 @@ export async function getCampagne(): Promise<Campagna[]> {
       clienteId: asText(r[1]),
       nomeCampagna: asText(r[2]),
       tipoCampagna: asText(r[3]),
+      stato: asText(r[4]),
     }));
 }
 
@@ -189,7 +190,35 @@ export async function ensureCampagnaMapped(
   const esistenti = await getCampagne();
   if (esistenti.some((c) => c.campaignId === campaignId)) return;
   const tipoCampagna = guessTipoCampagnaFromNome(nomeCampagna);
-  await appendRows(TAB.campagne, [[campaignId, clienteId, nomeCampagna, tipoCampagna]]);
+  await appendRows(TAB.campagne, [[campaignId, clienteId, nomeCampagna, tipoCampagna, ""]]);
+}
+
+/** Aggiorna la colonna stato per le campagne presenti in `statiPerCampagna` (campaign_id -> stato Meta). */
+export async function aggiornaStatoCampagne(statiPerCampagna: Map<string, string>): Promise<void> {
+  if (statiPerCampagna.size === 0) return;
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.campagne}!A2:E`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+
+  const data: { range: string; values: string[][] }[] = [];
+  righe.forEach((r, i) => {
+    const campaignId = asText(r[0]);
+    const nuovoStato = statiPerCampagna.get(campaignId);
+    if (nuovoStato !== undefined && nuovoStato !== asText(r[4])) {
+      data.push({ range: `${TAB.campagne}!E${i + 2}`, values: [[nuovoStato]] });
+    }
+  });
+  if (data.length === 0) return;
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.campagne);
 }
 
 export async function getMetaDaily(): Promise<MetaDailyRow[]> {
