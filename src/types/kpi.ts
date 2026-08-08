@@ -7,6 +7,7 @@ export type Cliente = {
   consulenteId: string;
   targetCpa: number | null;
   targetCpl: number | null;
+  mostraTabExtra: boolean;
 };
 
 export type Consulente = {

@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { getClienteByAccessCode } from "@/lib/sheets";
 import { AppHeader } from "@/components/AppHeader";
-import { KpiDashboard } from "@/components/KpiDashboard";
+import { SchedaCliente } from "@/components/SchedaCliente";
 
 export default async function ReportPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -16,7 +16,7 @@ export default async function ReportPage({ params }: { params: Promise<{ code: s
       <AppHeader subtitle={cliente.nome} />
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
         <h2 className="text-xl font-bold text-gray-900">{cliente.nome}</h2>
-        <KpiDashboard code={code} />
+        <SchedaCliente code={code} tuttiITab={cliente.mostraTabExtra} />
       </div>
     </div>
   );

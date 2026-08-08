@@ -135,6 +135,7 @@ export async function getClienti(): Promise<Cliente[]> {
       consulenteId: asText(r[5]),
       targetCpa: toNumberOrNull(r[6]),
       targetCpl: toNumberOrNull(r[7]),
+      mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
     }));
 }
 

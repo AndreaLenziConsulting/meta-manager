@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { AppHeader } from "@/components/AppHeader";
 import { ClientSwitcher } from "@/components/ClientSwitcher";
-import { KpiDashboard } from "@/components/KpiDashboard";
+import { SchedaCliente } from "@/components/SchedaCliente";
 import type { Ruolo } from "@/types/kpi";
 
 type ClienteOption = { clienteId: string; nome: string };
@@ -46,7 +46,7 @@ export function DashboardClient({
         </div>
 
         {clienteId ? (
-          <KpiDashboard clienteId={clienteId} />
+          <SchedaCliente clienteId={clienteId} tuttiITab />
         ) : (
           <p className="text-sm text-gray-500">Nessun cliente assegnato.</p>
         )}

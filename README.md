@@ -15,9 +15,9 @@ Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lea
 Crea uno spreadsheet Google con **6 tab**, ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione):
 
 **Clienti**
-| A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl |
-|---|---|---|---|---|---|---|---|
-| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` | id del consulente assegnato (vedi tab Consulenti) | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) |
+| A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl | I mostra_tab_extra |
+|---|---|---|---|---|---|---|---|---|
+| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` | id del consulente assegnato (vedi tab Consulenti) | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) | `TRUE` per mostrare al cliente finale anche i tab Attività/Meeting (default `FALSE` = solo KPI) |
 
 **Consulenti** — un consulente vede solo i clienti con il proprio `consulente_id` in colonna F della tab Clienti.
 | A consulente_id | B nome | C password | D attivo |
@@ -78,6 +78,10 @@ curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/syn
 - **Amministratore**: `/login` con `TEAM_PASSWORD` → `/dashboard` con tutti i clienti + link "Salute clienti" (`/dashboard/salute`, panoramica con badge 🔴🟡🟢 basato su CPA/CPL vs target)
 - **Consulente**: stesso `/login`, ma con la password individuale definita nella tab `Consulenti` → `/dashboard` mostra solo i clienti con quel `consulente_id` assegnato
 - **Cliente finale**: link diretto `/report/<access_code>` (colonna D della tab Clienti) — sola lettura, filtrato sul suo cliente, non passa da `/login`
+
+## Scheda cliente — tab
+
+Team/consulente/admin vedono sempre 3 tab: **KPI** (quello di sempre), **Attività** e **Meeting** (placeholder, da sviluppare — il secondo integrerà Fast Report). Il cliente finale vede solo KPI a meno che `mostra_tab_extra` sia `TRUE` per quel cliente in `Clienti`.
 
 ## Deploy
 
