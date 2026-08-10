@@ -34,7 +34,7 @@ function getSheetsClient() {
   return clientCache;
 }
 
-type CellValue = string | number | boolean | undefined | null;
+export type CellValue = string | number | boolean | undefined | null;
 
 // Cache breve in memoria per evitare di rileggere l'intera tab ad ogni richiesta quando i dati
 // non sono cambiati (es. cambio range di date, più utenti che guardano la dashboard). Vive solo
@@ -67,7 +67,7 @@ async function readTab(tabName: string): Promise<CellValue[][]> {
 // seriale (giorni dal 30/12/1899), non con la stringa originale. Va sempre riconvertito.
 const SHEETS_EPOCH_UTC_MS = Date.UTC(1899, 11, 30);
 
-function serialToIsoDate(serial: number): string {
+export function serialToIsoDate(serial: number): string {
   return new Date(SHEETS_EPOCH_UTC_MS + Math.round(serial) * 86400000).toISOString().slice(0, 10);
 }
 
@@ -77,13 +77,13 @@ function asText(value: CellValue): string {
 }
 
 /** Normalizza una cella "data" (YYYY-MM-DD) che Sheets potrebbe aver convertito in numero seriale. */
-function normalizeData(value: CellValue): string {
+export function normalizeData(value: CellValue): string {
   if (typeof value === "number") return serialToIsoDate(value);
   return asText(value);
 }
 
 /** Normalizza una cella "mese" (YYYY-MM) che Sheets potrebbe aver convertito in numero seriale o data completa. */
-function normalizeMese(value: CellValue): string {
+export function normalizeMese(value: CellValue): string {
   if (typeof value === "number") return serialToIsoDate(value).slice(0, 7);
   return asText(value).slice(0, 7);
 }
@@ -100,12 +100,12 @@ async function appendRows(tabName: string, rows: (string | number)[][]) {
   invalidateTabCache(tabName);
 }
 
-function toNumber(value: CellValue): number {
+export function toNumber(value: CellValue): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 }
 
-function toNumberOrNull(value: CellValue): number | null {
+export function toNumberOrNull(value: CellValue): number | null {
   if (value === undefined || value === null || value === "") return null;
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
@@ -163,7 +163,7 @@ export async function getCampagne(): Promise<Campagna[]> {
  * (convenzione di naming: "[Progetto] resto del nome"). Torna stringa vuota se non riconosce
  * il pattern, così la campagna resta "da classificare" a mano invece di prendere un valore sbagliato.
  */
-function guessTipoCampagnaFromNome(nomeCampagna: string): string {
+export function guessTipoCampagnaFromNome(nomeCampagna: string): string {
   const match = nomeCampagna.match(/^\[([^\]]+)\]/);
   const testo = match?.[1]?.trim();
   if (!testo) return "";

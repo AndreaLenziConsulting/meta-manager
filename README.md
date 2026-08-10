@@ -73,6 +73,17 @@ App su `http://localhost:3000`. Il cron (`/api/cron/sync-meta`) va chiamato manu
 curl -H "Authorization: Bearer <CRON_SECRET>" http://localhost:3000/api/cron/sync-meta
 ```
 
+### Test
+
+Test unitari (Vitest) sulla logica pura più delicata — aggregazione KPI, normalizzazione date da
+Sheets, classificazione salute cliente, sessione firmata — nessuna chiamata di rete, nessun bisogno
+di `.env.local`:
+
+```bash
+npm test          # una tantum
+npm run test:watch
+```
+
 ## Accessi — tre livelli
 
 - **Amministratore**: `/login` con `TEAM_PASSWORD` → `/dashboard` con tutti i clienti + link "Salute clienti" (`/dashboard/salute`, panoramica con badge 🔴🟡🟢 basato su CPA/CPL vs target)
