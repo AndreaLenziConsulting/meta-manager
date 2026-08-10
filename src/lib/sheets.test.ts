@@ -6,6 +6,8 @@ import {
   serialToIsoDate,
   toNumber,
   toNumberOrNull,
+  ultimoCambioDaRighe,
+  type CellValue,
 } from "./sheets";
 
 // Queste funzioni sono l'area esatta del bug di produzione (righe MetaDaily duplicate ~3.7x):
@@ -115,5 +117,30 @@ describe("toNumber / toNumberOrNull", () => {
     expect(toNumberOrNull(0)).toBe(0);
     expect(toNumberOrNull("15.5")).toBe(15.5);
     expect(toNumberOrNull("non un numero")).toBeNull();
+  });
+});
+
+describe("ultimoCambioDaRighe", () => {
+  it("tiene la data/ora più recente per ciascuna campagna, non la prima incontrata", () => {
+    const righe: CellValue[][] = [
+      ["2026-08-01T05:00:00.000Z", "c1", "alc-01", "Camp 1", "", "ACTIVE"],
+      ["2026-08-05T05:00:00.000Z", "c1", "alc-01", "Camp 1", "ACTIVE", "PAUSED"],
+      ["2026-08-02T05:00:00.000Z", "c2", "alc-01", "Camp 2", "", "ACTIVE"],
+    ];
+    const ultimo = ultimoCambioDaRighe(righe);
+    expect(ultimo.get("c1")).toBe("2026-08-05T05:00:00.000Z");
+    expect(ultimo.get("c2")).toBe("2026-08-02T05:00:00.000Z");
+  });
+
+  it("ignora righe senza campaign_id o data_ora, senza far esplodere nulla", () => {
+    const righe: CellValue[][] = [
+      ["", "c1", "alc-01", "Camp 1", "", "ACTIVE"],
+      ["2026-08-01T05:00:00.000Z", "", "alc-01", "Camp 1", "", "ACTIVE"],
+    ];
+    expect(ultimoCambioDaRighe(righe).size).toBe(0);
+  });
+
+  it("nessuna riga -> mappa vuota", () => {
+    expect(ultimoCambioDaRighe([]).size).toBe(0);
   });
 });

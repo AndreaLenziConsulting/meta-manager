@@ -81,6 +81,7 @@ export type RigaCampagna = {
   nomeCampagna: string;
   tipoCampagna: string;
   stato: string;
+  statoDal: string | null; // ISO datetime dell'ultimo cambio di stato rilevato, null se mai rilevato
   investimento: number;
   numeroLead: number;
   costoPerLead: number | null;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
-import { formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
+import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string }[] = [
@@ -109,9 +109,14 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {stato ? (
-                        <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border ${stato.classe}`}>
-                          {stato.label}
-                        </span>
+                        <>
+                          <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border ${stato.classe}`}>
+                            {stato.label}
+                          </span>
+                          {c.statoDal && (
+                            <span className="block text-[11px] text-gray-400 mt-1">dal {formatDataBreve(c.statoDal)}</span>
+                          )}
+                        </>
                       ) : (
                         <span className="text-xs text-gray-300">—</span>
                       )}

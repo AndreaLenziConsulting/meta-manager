@@ -169,7 +169,8 @@ export function computeKpiPerCampagna(
   aMese: string,
   metaDaily: MetaDailyRow[],
   campagne: Campagna[],
-  campagneSelezionate?: Set<string>
+  campagneSelezionate?: Set<string>,
+  ultimoCambioPerCampagna?: Map<string, string>
 ): RigaCampagna[] {
   const infoCampagna = new Map(
     campagne.filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c])
@@ -197,6 +198,7 @@ export function computeKpiPerCampagna(
         nomeCampagna: info?.nomeCampagna ?? campaignId,
         tipoCampagna: info?.tipoCampagna || NON_CLASSIFICATA,
         stato: info?.stato ?? "",
+        statoDal: ultimoCambioPerCampagna?.get(campaignId) ?? null,
         investimento: v.investimento,
         numeroLead: v.numeroLead,
         costoPerLead: divideOrNull(v.investimento, v.numeroLead),

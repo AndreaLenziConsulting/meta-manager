@@ -7,6 +7,7 @@ const TAB = {
   metaDaily: "MetaDaily",
   funnel: "Funnel",
   consulenti: "Consulenti",
+  storicoStato: "StoricoStatoCampagne",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -192,7 +193,13 @@ export async function ensureCampagneMappate(
   await appendRows(TAB.campagne, righe);
 }
 
-/** Aggiorna la colonna stato per le campagne presenti in `statiPerCampagna` (campaign_id -> stato Meta). */
+/**
+ * Aggiorna la colonna stato per le campagne presenti in `statiPerCampagna` (campaign_id -> stato Meta)
+ * e registra ogni cambiamento rilevato nella tab StoricoStatoCampagne (una riga per transizione, non
+ * per sync — se lo stato non cambia da un sync all'altro non si scrive nulla di nuovo). La prima volta
+ * che una campagna viene sincronizzata, stato_precedente è vuoto: non è un vero "cambiamento", ma vale
+ * comunque la pena registrarlo come prima rilevazione.
+ */
 export async function aggiornaStatoCampagne(statiPerCampagna: Map<string, string>): Promise<void> {
   if (statiPerCampagna.size === 0) return;
   const { sheets, sheetId } = getSheetsClient();
@@ -204,11 +211,18 @@ export async function aggiornaStatoCampagne(statiPerCampagna: Map<string, string
   const righe = (res.data.values as CellValue[][]) ?? [];
 
   const data: { range: string; values: string[][] }[] = [];
+  const cambiamenti: (string | number)[][] = [];
+  const oraIso = new Date().toISOString();
+
   righe.forEach((r, i) => {
     const campaignId = asText(r[0]);
+    const clienteId = asText(r[1]);
+    const nomeCampagna = asText(r[2]);
+    const statoAttuale = asText(r[4]);
     const nuovoStato = statiPerCampagna.get(campaignId);
-    if (nuovoStato !== undefined && nuovoStato !== asText(r[4])) {
+    if (nuovoStato !== undefined && nuovoStato !== statoAttuale) {
       data.push({ range: `${TAB.campagne}!E${i + 2}`, values: [[nuovoStato]] });
+      cambiamenti.push([oraIso, campaignId, clienteId, nomeCampagna, statoAttuale, nuovoStato]);
     }
   });
   if (data.length === 0) return;
@@ -218,6 +232,31 @@ export async function aggiornaStatoCampagne(statiPerCampagna: Map<string, string
     requestBody: { valueInputOption: "USER_ENTERED", data },
   });
   invalidateTabCache(TAB.campagne);
+
+  await appendRows(TAB.storicoStato, cambiamenti);
+}
+
+/** Riduce le righe (già lette) di StoricoStatoCampagne alla data/ora dell'ultimo cambio per ciascuna campagna. */
+export function ultimoCambioDaRighe(rows: CellValue[][]): Map<string, string> {
+  const ultimo = new Map<string, string>();
+  for (const r of rows) {
+    const campaignId = asText(r[1]);
+    const dataOra = asText(r[0]);
+    if (!campaignId || !dataOra) continue;
+    const precedente = ultimo.get(campaignId);
+    if (!precedente || dataOra > precedente) ultimo.set(campaignId, dataOra);
+  }
+  return ultimo;
+}
+
+/**
+ * Data/ora (ISO) dell'ultimo cambio di stato rilevato per ciascuna campagna, per campaign_id.
+ * È la data in cui il sync se n'è accorto (finestra rolling + cadenza del cron), non necessariamente
+ * l'istante esatto in cui è stato cambiato su Meta Ads.
+ */
+export async function getUltimoCambioPerCampagna(): Promise<Map<string, string>> {
+  const rows = await readTab(TAB.storicoStato);
+  return ultimoCambioDaRighe(rows);
 }
 
 export async function getMetaDaily(): Promise<MetaDailyRow[]> {

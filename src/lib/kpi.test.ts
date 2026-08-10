@@ -123,6 +123,18 @@ describe("computeKpiPerCampagna", () => {
     expect(investimenti).toEqual([...investimenti].sort((a, b) => b - a));
   });
 
+  it("include statoDal quando è disponibile una mappa di ultimo cambio, null se assente", () => {
+    const ultimoCambio = new Map([["c1", "2026-06-10T05:00:00.000Z"]]);
+    const righe = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, undefined, ultimoCambio);
+    const c1 = righe.find((r) => r.campaignId === "c1")!;
+    const c2 = righe.find((r) => r.campaignId === "c2")!;
+    expect(c1.statoDal).toBe("2026-06-10T05:00:00.000Z");
+    expect(c2.statoDal).toBeNull();
+
+    const senzaMappa = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE);
+    expect(senzaMappa.every((r) => r.statoDal === null)).toBe(true);
+  });
+
   it("una campagna con spesa ma non mappata in Campagne usa fallback ragionevoli", () => {
     const rigaNonMappata: MetaDailyRow = {
       data: "2026-06-01",

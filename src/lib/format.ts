@@ -39,6 +39,13 @@ export function formatSettimana(settimana: string): string {
   return `${Number(giorno)} ${MESI_BREVI[idx] ?? m}`;
 }
 
+/** Formatta una data ISO (YYYY-MM-DD, anche con orario — si guarda solo ai primi 10 caratteri) come "5 ago 2026". */
+export function formatDataBreve(dataIso: string): string {
+  const [anno, m, giorno] = dataIso.slice(0, 10).split("-");
+  const idx = Number(m) - 1;
+  return `${Number(giorno)} ${(MESI_BREVI[idx] ?? m).toLowerCase()} ${anno}`;
+}
+
 export type StatoCampagnaInfo = { label: string; classe: string; puntino: string };
 
 const STATI_CAMPAGNA: Record<string, StatoCampagnaInfo> = {

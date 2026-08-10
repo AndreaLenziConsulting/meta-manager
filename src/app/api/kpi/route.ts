@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getCampagne, getClienteByAccessCode, getClienti, getFunnel, getMetaDaily } from "@/lib/sheets";
+import {
+  getCampagne,
+  getClienteByAccessCode,
+  getClienti,
+  getFunnel,
+  getMetaDaily,
+  getUltimoCambioPerCampagna,
+} from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
 import type { CampagnaDisponibile, KpiResponse } from "@/types/kpi";
@@ -47,7 +54,12 @@ export async function GET(req: NextRequest) {
     nomeCliente = cliente.nome;
   }
 
-  const [metaDaily, campagne, funnel] = await Promise.all([getMetaDaily(), getCampagne(), getFunnel()]);
+  const [metaDaily, campagne, funnel, ultimoCambioPerCampagna] = await Promise.all([
+    getMetaDaily(),
+    getCampagne(),
+    getFunnel(),
+    getUltimoCambioPerCampagna(),
+  ]);
 
   const { gruppi, totale, trend, trendSettimanale } = computeKpi(
     clienteId,
@@ -58,7 +70,15 @@ export async function GET(req: NextRequest) {
     funnel,
     campagneSelezionate
   );
-  const righeCampagne = computeKpiPerCampagna(clienteId, da, a, metaDaily, campagne, campagneSelezionate);
+  const righeCampagne = computeKpiPerCampagna(
+    clienteId,
+    da,
+    a,
+    metaDaily,
+    campagne,
+    campagneSelezionate,
+    ultimoCambioPerCampagna
+  );
 
   const infoCampagna = new Map(campagne.filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c]));
   const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
