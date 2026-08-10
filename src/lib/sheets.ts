@@ -100,17 +100,6 @@ async function appendRows(tabName: string, rows: (string | number)[][]) {
   invalidateTabCache(tabName);
 }
 
-async function updateRow(tabName: string, rowNumber: number, row: (string | number)[]) {
-  const { sheets, sheetId } = getSheetsClient();
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: sheetId,
-    range: `${tabName}!A${rowNumber}:Z${rowNumber}`,
-    valueInputOption: "USER_ENTERED",
-    requestBody: { values: [row] },
-  });
-  invalidateTabCache(tabName);
-}
-
 function toNumber(value: CellValue): number {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
@@ -181,16 +170,26 @@ function guessTipoCampagnaFromNome(nomeCampagna: string): string {
   return testo.charAt(0).toUpperCase() + testo.slice(1).toLowerCase();
 }
 
-/** Aggiunge la campagna alla tab Campagne se non è già mappata, deducendo tipo_campagna dal nome (vuoto se non riconosciuto). */
-export async function ensureCampagnaMapped(
-  campaignId: string,
-  clienteId: string,
-  nomeCampagna: string
+/**
+ * Aggiunge alla tab Campagne tutte le campagne del lotto non ancora mappate, in un'unica scrittura
+ * (una `append` invece di una per campagna nuova), deducendo tipo_campagna dal nome per ciascuna
+ * (vuoto se il prefisso non è riconosciuto, resta "da classificare" a mano).
+ */
+export async function ensureCampagneMappate(
+  candidate: { campaignId: string; clienteId: string; nomeCampagna: string }[]
 ): Promise<void> {
+  if (candidate.length === 0) return;
   const esistenti = await getCampagne();
-  if (esistenti.some((c) => c.campaignId === campaignId)) return;
-  const tipoCampagna = guessTipoCampagnaFromNome(nomeCampagna);
-  await appendRows(TAB.campagne, [[campaignId, clienteId, nomeCampagna, tipoCampagna, ""]]);
+  const idEsistenti = new Set(esistenti.map((c) => c.campaignId));
+
+  const viste = new Set<string>();
+  const righe: (string | number)[][] = [];
+  for (const c of candidate) {
+    if (idEsistenti.has(c.campaignId) || viste.has(c.campaignId)) continue;
+    viste.add(c.campaignId);
+    righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), ""]);
+  }
+  await appendRows(TAB.campagne, righe);
 }
 
 /** Aggiorna la colonna stato per le campagne presenti in `statiPerCampagna` (campaign_id -> stato Meta). */
@@ -239,7 +238,12 @@ export async function getMetaDaily(): Promise<MetaDailyRow[]> {
     }));
 }
 
-/** Upsert per (clienteId, campaignId, data): aggiorna la riga se esiste, altrimenti la accoda. */
+/**
+ * Upsert per (clienteId, campaignId, data): aggiorna la riga se esiste, altrimenti la accoda.
+ * Le righe da aggiornare vengono scritte con un'unica `batchUpdate` (una cella per posizione di
+ * riga esistente) invece di una `update` HTTP separata per riga — con la finestra rolling che
+ * rilegge giorni già scritti, la maggior parte delle righe di ogni sync sono update, non insert.
+ */
 export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
   if (rows.length === 0) return;
   const { sheets, sheetId } = getSheetsClient();
@@ -254,6 +258,7 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
     indexByKey.set(`${asText(r[1])}|${asText(r[2])}|${normalizeData(r[0])}`, i + 2);
   });
 
+  const daAggiornare: { range: string; values: (string | number)[][] }[] = [];
   const daAggiungere: (string | number)[][] = [];
   for (const row of rows) {
     const key = `${row.clienteId}|${row.campaignId}|${row.data}`;
@@ -271,10 +276,18 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
     ];
     const existingRowNumber = indexByKey.get(key);
     if (existingRowNumber) {
-      await updateRow(TAB.metaDaily, existingRowNumber, rowValues);
+      daAggiornare.push({ range: `${TAB.metaDaily}!A${existingRowNumber}:J${existingRowNumber}`, values: [rowValues] });
     } else {
       daAggiungere.push(rowValues);
     }
+  }
+
+  if (daAggiornare.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { valueInputOption: "USER_ENTERED", data: daAggiornare },
+    });
+    invalidateTabCache(TAB.metaDaily);
   }
   await appendRows(TAB.metaDaily, daAggiungere);
 }

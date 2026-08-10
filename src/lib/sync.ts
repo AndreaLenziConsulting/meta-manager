@@ -1,4 +1,4 @@
-import { aggiornaStatoCampagne, ensureCampagnaMapped, upsertMetaDailyRows } from "@/lib/sheets";
+import { aggiornaStatoCampagne, ensureCampagneMappate, upsertMetaDailyRows } from "@/lib/sheets";
 import { fetchCampaignInsights, fetchStatoCampagne } from "@/lib/meta";
 import type { Cliente } from "@/types/kpi";
 
@@ -18,9 +18,9 @@ export async function syncCliente(cliente: Cliente): Promise<{ righe: number }> 
   const until = formatData(oggi);
 
   const { rows, campagne } = await fetchCampaignInsights(cliente.adAccountId, cliente.clienteId, since, until);
-  for (const c of campagne) {
-    await ensureCampagnaMapped(c.campaignId, cliente.clienteId, c.nomeCampagna);
-  }
+  await ensureCampagneMappate(
+    campagne.map((c) => ({ campaignId: c.campaignId, clienteId: cliente.clienteId, nomeCampagna: c.nomeCampagna }))
+  );
   await upsertMetaDailyRows(rows);
 
   try {
