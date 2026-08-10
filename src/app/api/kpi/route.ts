@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessione } from "@/lib/auth";
 import { getCampagne, getClienteByAccessCode, getClienti, getFunnel, getMetaDaily } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
@@ -32,8 +31,7 @@ export async function GET(req: NextRequest) {
     clienteId = cliente.clienteId;
     nomeCliente = cliente.nome;
   } else {
-    const cookieStore = await cookies();
-    const sessione = parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+    const sessione = await getSessione();
     if (!sessione) {
       return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
     }

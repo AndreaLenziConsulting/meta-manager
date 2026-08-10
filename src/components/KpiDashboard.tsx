@@ -43,6 +43,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
 
   useEffect(() => {
     if (!code && !clienteId) return;
+    const controller = new AbortController();
     const params = new URLSearchParams({ da, a });
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
@@ -52,7 +53,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
       .then(() => {
         setCaricamento(true);
         setErrore(null);
-        return fetch(`/api/kpi?${params.toString()}`);
+        return fetch(`/api/kpi?${params.toString()}`, { signal: controller.signal });
       })
       .then(async (res) => {
         if (!res.ok) {
@@ -62,8 +63,17 @@ export function KpiDashboard({ code, clienteId }: Props) {
         return res.json();
       })
       .then((data: KpiResponse) => setDati(data))
-      .catch((err) => setErrore(err.message))
-      .finally(() => setCaricamento(false));
+      .catch((err) => {
+        // Una richiesta abortita (perché ne è già partita una più recente) non è un errore da mostrare:
+        // i suoi setState arriverebbero comunque dopo quelli della richiesta in corso, sovrascrivendoli.
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setErrore(err.message);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setCaricamento(false);
+      });
+
+    return () => controller.abort();
   }, [code, clienteId, da, a, campagneSelezionate, refreshTick]);
 
   async function handleAggiornaKpi() {

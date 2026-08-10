@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessione } from "@/lib/auth";
 import { getClienti, getMetaDaily } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
@@ -22,8 +21,7 @@ function formatData(d: Date): string {
 }
 
 export default async function DashboardHomePage() {
-  const cookieStore = await cookies();
-  const sessione = parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  const sessione = await getSessione();
 
   if (!sessione) {
     redirect("/login");

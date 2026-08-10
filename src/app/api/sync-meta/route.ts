@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { cookies } from "next/headers";
-import { parseSessionCookieValue, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { getSessione } from "@/lib/auth";
 import { getClienti } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { syncCliente } from "@/lib/sync";
@@ -9,8 +8,7 @@ export const runtime = "nodejs";
 export const maxDuration = 30;
 
 export async function POST(req: NextRequest) {
-  const cookieStore = await cookies();
-  const sessione = parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  const sessione = await getSessione();
   if (!sessione) {
     return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
   }

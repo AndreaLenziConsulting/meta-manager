@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { cookies } from "next/headers";
 import type { Sessione } from "@/types/kpi";
 
 const SESSION_COOKIE = "mmalc_session";
@@ -25,6 +26,13 @@ export function verifyConsulentePassword(password: string, atteso: string): bool
   return timingSafeStringEqual(password, atteso);
 }
 
+/** Verifica l'header Authorization del cron Vercel a tempo costante. Fail-closed se CRON_SECRET non è configurato. */
+export function verifyCronSecret(authHeader: string | null): boolean {
+  const expected = process.env.CRON_SECRET;
+  if (!expected) return false;
+  return timingSafeStringEqual(authHeader ?? "", `Bearer ${expected}`);
+}
+
 export function createSessionCookieValue(sessione: Sessione): string {
   const payload = `${sessione.ruolo}:${sessione.consulenteId ?? ""}`;
   return `${payload}.${sign(payload)}`;
@@ -47,6 +55,12 @@ export function parseSessionCookieValue(cookieValue: string | undefined): Sessio
 /** Verifica solo che la sessione sia valida, senza bisogno del ruolo (usata dove basta "è autenticato"). */
 export function isValidSessionCookieValue(cookieValue: string | undefined): boolean {
   return parseSessionCookieValue(cookieValue) !== null;
+}
+
+/** Legge e valida la sessione dal cookie della richiesta corrente (route handler o server component). */
+export async function getSessione(): Promise<Sessione | null> {
+  const cookieStore = await cookies();
+  return parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
 }
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;

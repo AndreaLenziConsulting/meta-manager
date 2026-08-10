@@ -34,6 +34,36 @@ function extractLeads(actions: MetaAction[] | undefined): number {
   return 0;
 }
 
+function metaToken(): string {
+  const token = process.env.META_ACCESS_TOKEN;
+  if (!token) throw new Error("META_ACCESS_TOKEN non configurato");
+  return token;
+}
+
+function metaApiVersion(): string {
+  return process.env.META_API_VERSION || "v21.0";
+}
+
+/** Segue `paging.next` fino in fondo e accoda tutti gli elementi di `data`. Stessa gestione errori per ogni endpoint Meta. */
+async function fetchTutteLePagine<T>(url: URL): Promise<T[]> {
+  const risultati: T[] = [];
+  let nextUrl: string | null = url.toString();
+
+  while (nextUrl) {
+    const res: Response = await fetch(nextUrl);
+    const json: { data?: T[]; paging?: { next?: string }; error?: { message: string } } = await res.json();
+
+    if (!res.ok || json.error) {
+      throw new Error(`Meta API error: ${json.error?.message || res.statusText}`);
+    }
+
+    risultati.push(...(json.data ?? []));
+    nextUrl = json.paging?.next ?? null;
+  }
+
+  return risultati;
+}
+
 /**
  * Legge le insight giornaliere a livello campagna per un ad account, sulla finestra di date indicata.
  * `since`/`until` in formato YYYY-MM-DD.
@@ -44,57 +74,33 @@ export async function fetchCampaignInsights(
   since: string,
   until: string
 ): Promise<{ rows: MetaDailyRow[]; campagne: { campaignId: string; nomeCampagna: string }[] }> {
-  const token = process.env.META_ACCESS_TOKEN;
-  const apiVersion = process.env.META_API_VERSION || "v21.0";
-  if (!token) {
-    throw new Error("META_ACCESS_TOKEN non configurato");
-  }
-
   const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions";
-  const url = new URL(`https://graph.facebook.com/${apiVersion}/act_${adAccountId}/insights`);
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
   url.searchParams.set("level", "campaign");
   url.searchParams.set("time_increment", "1");
   url.searchParams.set("fields", fields);
-  url.searchParams.set(
-    "time_range",
-    JSON.stringify({ since, until })
-  );
-  url.searchParams.set("access_token", token);
+  url.searchParams.set("time_range", JSON.stringify({ since, until }));
+  url.searchParams.set("access_token", metaToken());
   url.searchParams.set("limit", "500");
+
+  const items = await fetchTutteLePagine<MetaInsightRow>(url);
 
   const rows: MetaDailyRow[] = [];
   const campagneVisteMap = new Map<string, string>();
-  let nextUrl: string | null = url.toString();
-
-  while (nextUrl) {
-    const res: Response = await fetch(nextUrl);
-    const json: {
-      data?: MetaInsightRow[];
-      paging?: { next?: string };
-      error?: { message: string };
-    } = await res.json();
-
-    if (!res.ok || json.error) {
-      throw new Error(`Meta API error: ${json.error?.message || res.statusText}`);
-    }
-
-    for (const item of json.data ?? []) {
-      campagneVisteMap.set(item.campaign_id, item.campaign_name);
-      rows.push({
-        data: item.date_start,
-        clienteId,
-        campaignId: item.campaign_id,
-        spesa: Number(item.spend || 0),
-        impressions: Number(item.impressions || 0),
-        clicks: Number(item.clicks || 0),
-        ctr: Number(item.ctr || 0),
-        cpc: Number(item.cpc || 0),
-        cpm: Number(item.cpm || 0),
-        lead: extractLeads(item.actions),
-      });
-    }
-
-    nextUrl = json.paging?.next ?? null;
+  for (const item of items) {
+    campagneVisteMap.set(item.campaign_id, item.campaign_name);
+    rows.push({
+      data: item.date_start,
+      clienteId,
+      campaignId: item.campaign_id,
+      spesa: Number(item.spend || 0),
+      impressions: Number(item.impressions || 0),
+      clicks: Number(item.clicks || 0),
+      ctr: Number(item.ctr || 0),
+      cpc: Number(item.cpc || 0),
+      cpm: Number(item.cpm || 0),
+      lead: extractLeads(item.actions),
+    });
   }
 
   const campagne = Array.from(campagneVisteMap.entries()).map(([campaignId, nomeCampagna]) => ({
@@ -109,35 +115,16 @@ type MetaCampaignStatus = { id: string; effective_status?: string };
 
 /** Stato corrente (ACTIVE/PAUSED/...) di tutte le campagne di un ad account, per campaign_id. */
 export async function fetchStatoCampagne(adAccountId: string): Promise<Map<string, string>> {
-  const token = process.env.META_ACCESS_TOKEN;
-  const apiVersion = process.env.META_API_VERSION || "v21.0";
-  if (!token) {
-    throw new Error("META_ACCESS_TOKEN non configurato");
-  }
-
-  const url = new URL(`https://graph.facebook.com/${apiVersion}/act_${adAccountId}/campaigns`);
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/campaigns`);
   url.searchParams.set("fields", "id,effective_status");
-  url.searchParams.set("access_token", token);
+  url.searchParams.set("access_token", metaToken());
   url.searchParams.set("limit", "500");
 
+  const items = await fetchTutteLePagine<MetaCampaignStatus>(url);
+
   const stati = new Map<string, string>();
-  let nextUrl: string | null = url.toString();
-
-  while (nextUrl) {
-    const res: Response = await fetch(nextUrl);
-    const json: { data?: MetaCampaignStatus[]; paging?: { next?: string }; error?: { message: string } } =
-      await res.json();
-
-    if (!res.ok || json.error) {
-      throw new Error(`Meta API error: ${json.error?.message || res.statusText}`);
-    }
-
-    for (const item of json.data ?? []) {
-      if (item.effective_status) stati.set(item.id, item.effective_status);
-    }
-
-    nextUrl = json.paging?.next ?? null;
+  for (const item of items) {
+    if (item.effective_status) stati.set(item.id, item.effective_status);
   }
-
   return stati;
 }
