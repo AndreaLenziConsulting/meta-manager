@@ -69,13 +69,21 @@ export default async function DashboardHomePage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <div>
-        <h2 className="text-xl font-bold text-gray-900">Salute clienti</h2>
-        <p className="text-sm text-gray-500 mt-1">
-          Ultimi 7 giorni ({daData} → {aData}) — costo per lead vs target. Le vendite sono tracciate solo a
-          livello mensile, quindi su questa finestra il segnale è sempre il costo per lead, mai il CPA su
-          vendita.
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Salute clienti</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            Ultimi 7 giorni ({daData} → {aData}) — costo per lead vs target. Le vendite sono tracciate solo a
+            livello mensile, quindi su questa finestra il segnale è sempre il costo per lead, mai il CPA su
+            vendita.
+          </p>
+        </div>
+        <a
+          href="/dashboard/nuovo-cliente"
+          className="flex-shrink-0 rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+        >
+          + Nuovo cliente
+        </a>
       </div>
       <LegendaSalute />
       <SaluteClienti items={items} />

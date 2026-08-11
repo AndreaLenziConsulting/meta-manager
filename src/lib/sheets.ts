@@ -1,5 +1,15 @@
 import { google } from "googleapis";
-import type { Campagna, Cliente, Consulente, FunnelRow, MetaDailyRow } from "@/types/kpi";
+import type {
+  AttivitaClienteRow,
+  Campagna,
+  Cliente,
+  Consulente,
+  FunnelRow,
+  MetaDailyRow,
+  Prodotto,
+  StatoAttivita,
+  TemplateTask,
+} from "@/types/kpi";
 
 const TAB = {
   clienti: "Clienti",
@@ -8,6 +18,9 @@ const TAB = {
   funnel: "Funnel",
   consulenti: "Consulenti",
   storicoStato: "StoricoStatoCampagne",
+  prodotti: "Prodotti",
+  templateAttivita: "TemplateAttivita",
+  attivitaCliente: "AttivitaCliente",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -126,7 +139,45 @@ export async function getClienti(): Promise<Cliente[]> {
       targetCpa: toNumberOrNull(r[6]),
       targetCpl: toNumberOrNull(r[7]),
       mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
+      prodottoId: asText(r[9]),
+      dataInizioProgetto: normalizeData(r[10]) || null,
     }));
+}
+
+export type NuovoClienteInput = {
+  clienteId: string;
+  nome: string;
+  adAccountId: string;
+  accessCode: string;
+  consulenteId: string;
+  targetCpa: number | null;
+  targetCpl: number | null;
+  mostraTabExtra: boolean;
+  prodottoId: string;
+  dataInizioProgetto: string | null;
+};
+
+/** Crea un nuovo cliente (sempre attivo). Rifiuta esplicitamente un clienteId già in uso. */
+export async function creaCliente(input: NuovoClienteInput): Promise<void> {
+  const esistenti = await getClienti();
+  if (esistenti.some((c) => c.clienteId === input.clienteId)) {
+    throw new Error(`Esiste già un cliente con id "${input.clienteId}"`);
+  }
+  await appendRows(TAB.clienti, [
+    [
+      input.clienteId,
+      input.nome,
+      input.adAccountId,
+      input.accessCode,
+      "TRUE",
+      input.consulenteId,
+      input.targetCpa ?? "",
+      input.targetCpl ?? "",
+      input.mostraTabExtra ? "TRUE" : "FALSE",
+      input.prodottoId,
+      input.dataInizioProgetto ?? "",
+    ],
+  ]);
 }
 
 export async function getConsulenti(): Promise<Consulente[]> {
@@ -345,4 +396,135 @@ export async function getFunnel(): Promise<FunnelRow[]> {
       vendite: toNumber(r[6]),
       fatturato: toNumber(r[7]),
     }));
+}
+
+export async function getProdotti(): Promise<Prodotto[]> {
+  const rows = await readTab(TAB.prodotti);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      prodottoId: asText(r[0]),
+      nome: asText(r[1]),
+      attivo: asText(r[2]).trim().toUpperCase() === "TRUE",
+      durataSettimane: toNumber(r[3]),
+      note: asText(r[4]),
+    }));
+}
+
+/** Template di roadmap per prodotto — solo lettura, mai scritta dall'app (editabile a mano per aggiungere prodotti). */
+export async function getTemplateAttivita(): Promise<TemplateTask[]> {
+  const rows = await readTab(TAB.templateAttivita);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      prodottoId: asText(r[0]),
+      taskId: asText(r[1]),
+      blocco: asText(r[2]),
+      fase: asText(r[3]),
+      descrizione: asText(r[4]),
+      responsabile: asText(r[5]),
+      tipo: asText(r[6]),
+      settimanaInizio: toNumber(r[7]),
+      settimanaFine: toNumber(r[8]),
+      giorniTesto: asText(r[9]),
+      nota: asText(r[10]),
+      ordine: toNumber(r[11]),
+    }));
+}
+
+export async function getAttivitaCliente(): Promise<AttivitaClienteRow[]> {
+  const rows = await readTab(TAB.attivitaCliente);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      attivitaId: asText(r[0]),
+      clienteId: asText(r[1]),
+      prodottoId: asText(r[2]),
+      taskId: asText(r[3]),
+      blocco: asText(r[4]),
+      fase: asText(r[5]),
+      descrizione: asText(r[6]),
+      responsabile: asText(r[7]),
+      tipo: asText(r[8]),
+      dataInizio: normalizeData(r[9]),
+      dataFine: normalizeData(r[10]),
+      stato: (asText(r[11]) || "todo") as StatoAttivita,
+      notaTeam: asText(r[12]),
+      ordine: toNumber(r[13]),
+    }));
+}
+
+/**
+ * Scrive le righe di roadmap generate per un cliente, in un'unica `append`, ignorando quelle
+ * il cui attivitaId esiste già — idempotente per costruzione (stesso schema di `ensureCampagneMappate`),
+ * sicura da richiamare in retry dopo un fallimento parziale.
+ */
+export async function creaAttivitaPerCliente(righe: AttivitaClienteRow[]): Promise<void> {
+  if (righe.length === 0) return;
+  const esistenti = await getAttivitaCliente();
+  const idEsistenti = new Set(esistenti.map((a) => a.attivitaId));
+  const daAggiungere = righe.filter((r) => !idEsistenti.has(r.attivitaId));
+  if (daAggiungere.length === 0) return;
+
+  await appendRows(
+    TAB.attivitaCliente,
+    daAggiungere.map((r) => [
+      r.attivitaId,
+      r.clienteId,
+      r.prodottoId,
+      r.taskId,
+      r.blocco,
+      r.fase,
+      r.descrizione,
+      r.responsabile,
+      r.tipo,
+      r.dataInizio,
+      r.dataFine,
+      r.stato,
+      r.notaTeam,
+      r.ordine,
+    ])
+  );
+}
+
+/** Numero di riga (1-based come nel foglio, riga 1 = header) della prima riga con quell'attivitaId, o null. */
+export function trovaIndiceRigaAttivita(rows: CellValue[][], attivitaId: string): number | null {
+  const i = rows.findIndex((r) => asText(r[0]) === attivitaId);
+  return i === -1 ? null : i + 2;
+}
+
+/**
+ * Aggiorna stato (ed eventualmente nota) di una singola attività. `notaTeam` scritta solo se
+ * esplicitamente passata: passare `undefined` lascia la nota esistente invariata (es. un normale
+ * avanzamento todo->wip->done non deve cancellare una nota già presente).
+ */
+export async function aggiornaStatoAttivita(
+  attivitaId: string,
+  nuovoStato: StatoAttivita,
+  notaTeam?: string
+): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!A2:N`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRigaAttivita(righe, attivitaId);
+  if (rowNumber === null) {
+    throw new Error(`Attività non trovata: ${attivitaId}`);
+  }
+
+  const data: { range: string; values: string[][] }[] = [
+    { range: `${TAB.attivitaCliente}!L${rowNumber}`, values: [[nuovoStato]] },
+  ];
+  if (notaTeam !== undefined) {
+    data.push({ range: `${TAB.attivitaCliente}!M${rowNumber}`, values: [[notaTeam]] });
+  }
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.attivitaCliente);
 }

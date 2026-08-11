@@ -68,3 +68,19 @@ export function formatStatoCampagna(stato: string): StatoCampagnaInfo | null {
     }
   );
 }
+
+export type StatoAttivitaInfo = { label: string; classe: string; puntino: string; barra: string };
+
+// "barra" è il colore esadecimale usato per il fill delle barre nel Gantt (SVG, non può leggere le
+// classi Tailwind) — scelto per coincidere visivamente con lo stesso colore delle classi/puntino.
+const STATI_ATTIVITA: Record<string, StatoAttivitaInfo> = {
+  todo: { label: "Da fare", classe: "bg-gray-100 text-gray-600 border-gray-200", puntino: "bg-gray-400", barra: "#9ca3af" },
+  wip: { label: "In corso", classe: "bg-yellow-50 text-yellow-700 border-yellow-100", puntino: "bg-yellow-500", barra: "#eab308" },
+  done: { label: "Fatto", classe: "bg-green-50 text-green-700 border-green-100", puntino: "bg-green-500", barra: "#22c55e" },
+  blocked: { label: "Bloccato", classe: "bg-red-50 text-red-600 border-red-100", puntino: "bg-red-400", barra: "#f87171" },
+};
+
+/** Traduce lo stato di un'attività (todo/wip/done/blocked) in etichetta + colori per badge e Gantt. */
+export function formatStatoAttivita(stato: string): StatoAttivitaInfo {
+  return STATI_ATTIVITA[stato] ?? STATI_ATTIVITA.todo;
+}

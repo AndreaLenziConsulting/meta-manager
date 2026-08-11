@@ -12,12 +12,12 @@ Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lea
 
 ### 1. Google Sheet centrale
 
-Crea uno spreadsheet Google con **6 tab**, ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione):
+Crea uno spreadsheet Google con **9 tab**, ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione). In pratica non serve crearle a mano: la prima volta bastano `Clienti`/`Consulenti` (vedi sotto), le altre le crea l'app scrivendoci — ma se parti da zero, la struttura è questa:
 
-**Clienti**
-| A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl | I mostra_tab_extra |
-|---|---|---|---|---|---|---|---|---|
-| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` | id del consulente assegnato (vedi tab Consulenti) | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) | `TRUE` per mostrare al cliente finale anche i tab Attività/Meeting (default `FALSE` = solo KPI) |
+**Clienti** — un cliente si può creare anche dalla UI (`+ Nuovo cliente` nella home admin), che genera `cliente_id`/`access_code` da sola; questa tabella resta comunque editabile a mano.
+| A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl | I mostra_tab_extra | J prodotto_id | K data_inizio_progetto |
+|---|---|---|---|---|---|---|---|---|---|---|
+| es. `alc-01` | Nome Cliente | ID ad account Meta (senza `act_`) | codice univoco per il link cliente | `TRUE`/`FALSE` | id del consulente assegnato (vedi tab Consulenti) | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) | `TRUE` per mostrare al cliente finale anche il tab Meeting (default `FALSE` = solo KPI) | prodotto acquistato (vedi tab Prodotti), vuoto se nessuno | `YYYY-MM-DD`, base per le scadenze della roadmap — obbligatoria se è impostato un prodotto |
 
 **Consulenti** — un consulente vede solo i clienti con il proprio `consulente_id` in colonna F della tab Clienti.
 | A consulente_id | B nome | C password | D attivo |
@@ -38,6 +38,20 @@ Crea uno spreadsheet Google con **6 tab**, ognuna con la riga 1 come intestazion
 **StoricoStatoCampagne** — scritta SOLO dal sync, non modificare a mano. Una riga per ogni transizione di stato rilevata (non una riga per sync): se lo stato non cambia da un sync all'altro non si scrive nulla. La prima volta che una campagna viene sincronizzata genera comunque una riga con `stato_precedente` vuoto (prima rilevazione, non un vero cambiamento). `data_ora` è il momento in cui il sync se n'è accorto, non necessariamente l'istante esatto del cambio su Meta Ads (dipende da finestra rolling e cadenza del cron). Usata per mostrare "dal 5 ago 2026" sotto il badge di stato nella tabella "per singola campagna".
 | A data_ora (ISO) | B campaign_id | C cliente_id | D nome_campagna | E stato_precedente | F stato_nuovo |
 |---|---|---|---|---|---|
+
+**Prodotti** — editabile a mano, un prodotto acquistabile per riga (oggi solo "gtm"/Go To Market).
+| A prodotto_id | B nome | C attivo | D durata_settimane | E note |
+|---|---|---|---|---|
+
+**TemplateAttivita** — editabile a mano, mai scritta dall'app: è la roadmap standard di un prodotto, da cui si genera quella di ogni singolo cliente. Aggiungere un nuovo prodotto significa solo aggiungere righe qui + una riga in `Prodotti`, senza toccare codice.
+| A prodotto_id | B task_id | C blocco | D fase | E descrizione | F responsabile | G tipo | H settimana_inizio | I settimana_fine | J giorni_testo | K nota | L ordine |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `gtm` | id univoco nel prodotto, es. `S01` | testo libero, es. `setup`/`gestione` | etichetta di fase, es. "Sett. 1 - Strategia & analisi" | descrizione attività | testo libero | sigla per colore/tooltip, es. `PM`/`CS`/`CL`/`MIL` (milestone) | settimana di inizio (1 = settimana di avvio progetto) | settimana di fine | solo display, es. "gg 1-3" | nota libera | ordine di visualizzazione, esplicito |
+
+**AttivitaCliente** — generata automaticamente alla creazione del cliente (o da "Genera roadmap" nel tab Attività); stato e nota_team sono poi editabili dal team dalla UI. Non modificare le altre colonne a mano: sono uno snapshot del template al momento della generazione, una correzione futura al template non si propaga qui.
+| A attivita_id | B cliente_id | C prodotto_id | D task_id | E blocco | F fase | G descrizione | H responsabile | I tipo | J data_inizio | K data_fine | L stato | M nota_team | N ordine |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `${cliente_id}::${task_id}` | | | | | | | | | `YYYY-MM-DD` | `YYYY-MM-DD` | `todo`/`wip`/`done`/`blocked` | | |
 
 Nessuna condivisione necessaria: l'app accede allo Sheet con il tuo stesso account Google (OAuth2), non con un service account.
 
@@ -90,13 +104,17 @@ npm run test:watch
 
 ## Accessi — tre livelli
 
-- **Amministratore**: `/login` con `TEAM_PASSWORD` → `/dashboard` con tutti i clienti + link "Salute clienti" (`/dashboard/salute`, panoramica con badge 🔴🟡🟢 basato su CPA/CPL vs target)
+- **Amministratore**: `/login` con `TEAM_PASSWORD` → `/dashboard` è la panoramica "Salute clienti" (badge 🔴🟡🟢 basato su CPA/CPL vs target) con tutti i clienti + bottone "+ Nuovo cliente"
 - **Consulente**: stesso `/login`, ma con la password individuale definita nella tab `Consulenti` → `/dashboard` mostra solo i clienti con quel `consulente_id` assegnato
 - **Cliente finale**: link diretto `/report/<access_code>` (colonna D della tab Clienti) — sola lettura, filtrato sul suo cliente, non passa da `/login`
 
 ## Scheda cliente — tab
 
-Team/consulente/admin vedono sempre 3 tab: **KPI** (quello di sempre), **Attività** e **Meeting** (placeholder, da sviluppare — il secondo integrerà Fast Report). Il cliente finale vede solo KPI a meno che `mostra_tab_extra` sia `TRUE` per quel cliente in `Clienti`.
+Team/consulente/admin vedono sempre 3 tab: **KPI** (quello di sempre), **Attività** (roadmap del prodotto, vedi sotto) e **Meeting** (placeholder, da sviluppare — integrerà Fast Report). Il cliente finale vede solo **KPI**, più **Meeting** se `mostra_tab_extra` è `TRUE` per quel cliente in `Clienti` — **Attività non è mai visibile al cliente finale**, indipendentemente da `mostra_tab_extra`: è uno strumento interno. Il cancello vero è lato API (`/api/attivita*` non ha alcun accesso via `code`, solo sessione team), il nascondimento del tab in UI è solo cosmetico.
+
+### Roadmap prodotto (tab Attività)
+
+Alla creazione di un cliente con un prodotto assegnato, la roadmap si genera automaticamente copiando `TemplateAttivita` del prodotto scelto, con le scadenze calcolate da `data_inizio_progetto` + `settimana_inizio`/`settimana_fine` di ogni riga template. Il tab mostra un Gantt raggruppato per fase (collassabili, solo la fase in corso è aperta di default); un click su un'attività cicla lo stato **Da fare → In corso → Fatto → Da fare**; "Bloccato" si imposta da un'azione dedicata e richiede sempre un motivo. Un cliente senza `prodotto_id`/`data_inizio_progetto` mostra un invito a assegnarli; un cliente con prodotto ma senza roadmap (es. generazione fallita) mostra un bottone "Genera roadmap" (equivalente a `POST /api/attivita/genera`, idempotente — richiamabile in sicurezza più volte).
 
 ## Deploy
 

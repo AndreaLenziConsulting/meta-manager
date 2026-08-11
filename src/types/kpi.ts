@@ -8,6 +8,8 @@ export type Cliente = {
   targetCpa: number | null;
   targetCpl: number | null;
   mostraTabExtra: boolean;
+  prodottoId: string; // vuoto se nessun prodotto assegnato (cliente pre-esistente o senza roadmap)
+  dataInizioProgetto: string | null; // YYYY-MM-DD, base per il calcolo delle scadenze della roadmap
 };
 
 export type Consulente = {
@@ -103,4 +105,48 @@ export type KpiResponse = {
   trendSettimanale: { settimana: string; investimento: number }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
+};
+
+export type Prodotto = {
+  prodottoId: string;
+  nome: string;
+  attivo: boolean;
+  durataSettimane: number;
+  note: string;
+};
+
+/** Riga del template di roadmap di un prodotto — mai scritta dall'app, solo letta ed editabile a mano sul foglio. */
+export type TemplateTask = {
+  prodottoId: string;
+  taskId: string;
+  blocco: string; // testo libero, es. "setup" / "gestione" — stesso spirito di tipo_campagna
+  fase: string; // etichetta leggibile della fase, es. "Sett. 1 - Strategia & analisi"
+  descrizione: string;
+  responsabile: string;
+  tipo: string; // sigla per il colore/tooltip, es. "PM" / "CS" / "CL" / "MIL" (milestone)
+  settimanaInizio: number;
+  settimanaFine: number;
+  giorniTesto: string; // solo display, es. "gg 1-3" — la matematica delle date usa sempre le settimane
+  nota: string;
+  ordine: number;
+};
+
+export type StatoAttivita = "todo" | "wip" | "done" | "blocked";
+
+/** Riga di roadmap istanziata per un cliente specifico — snapshot del template al momento della generazione. */
+export type AttivitaClienteRow = {
+  attivitaId: string; // `${clienteId}::${taskId}`, deterministico
+  clienteId: string;
+  prodottoId: string;
+  taskId: string;
+  blocco: string;
+  fase: string;
+  descrizione: string;
+  responsabile: string;
+  tipo: string;
+  dataInizio: string; // YYYY-MM-DD
+  dataFine: string; // YYYY-MM-DD
+  stato: StatoAttivita;
+  notaTeam: string;
+  ordine: number;
 };
