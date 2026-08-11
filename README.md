@@ -39,7 +39,7 @@ Crea uno spreadsheet Google con **9 tab**, ognuna con la riga 1 come intestazion
 | A data_ora (ISO) | B campaign_id | C cliente_id | D nome_campagna | E stato_precedente | F stato_nuovo |
 |---|---|---|---|---|---|
 
-**Prodotti** — editabile a mano, un prodotto acquistabile per riga (oggi solo "gtm"/Go To Market).
+**Prodotti** — editabile a mano, un prodotto acquistabile per riga. Oggi: `gtm` (Go To Market, 15 settimane) e `ac` (Acquisition Control, 14 settimane). Aggiunti entrambi senza scrivere codice, solo righe su questa tab + `TemplateAttivita` — è esattamente lo scopo per cui lo schema è fatto così.
 | A prodotto_id | B nome | C attivo | D durata_settimane | E note |
 |---|---|---|---|---|
 
