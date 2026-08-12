@@ -10,6 +10,7 @@ import type {
   StatoAttivita,
   TemplateTask,
 } from "@/types/kpi";
+import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
 const TAB = {
   clienti: "Clienti",
@@ -21,31 +22,62 @@ const TAB = {
   prodotti: "Prodotti",
   templateAttivita: "TemplateAttivita",
   attivitaCliente: "AttivitaCliente",
+  meetingCliente: "MeetingCliente",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
 // lo scambio refresh_token -> access_token ad ogni singola lettura/scrittura.
-let clientCache: { sheets: ReturnType<typeof google.sheets>; sheetId: string } | null = null;
+// Separato da SHEET_ID (a differenza di prima) perché lo stesso account OAuth2 serve anche per
+// scrivere sul foglio esterno "Report Operatività Clienti" (spreadsheet diverso, vedi
+// appendReportOperativita) — un solo client, riusabile su qualunque spreadsheetId.
+let sheetsCache: ReturnType<typeof google.sheets> | null = null;
 
-function getSheetsClient() {
-  if (clientCache) return clientCache;
+function getAuth() {
+  if (sheetsCache) return sheetsCache;
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
-  const sheetId = process.env.SHEET_ID;
 
-  if (!clientId || !clientSecret || !refreshToken || !sheetId) {
+  if (!clientId || !clientSecret || !refreshToken) {
     throw new Error(
-      "Google Sheets non configurato: mancano GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN / SHEET_ID"
+      "Google OAuth2 non configurato: mancano GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN"
     );
   }
 
   const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshToken });
 
-  clientCache = { sheets: google.sheets({ version: "v4", auth }), sheetId };
-  return clientCache;
+  sheetsCache = google.sheets({ version: "v4", auth });
+  return sheetsCache;
+}
+
+function getSheetsClient() {
+  const sheetId = process.env.SHEET_ID;
+  if (!sheetId) {
+    throw new Error("Google Sheets non configurato: manca SHEET_ID");
+  }
+  return { sheets: getAuth(), sheetId };
+}
+
+/**
+ * Scrive una riga sul foglio esterno "Report Operatività Clienti | CLIENTI ANDREA LENZI
+ * CONSULTING" — spreadsheet SEPARATO da SHEET_ID, usato dal team per altri scopi operativi.
+ * Stesso account OAuth2 sopra (accesso diretto già verificato), nessun webhook Apps Script.
+ * Sola scrittura: questo sheet non viene mai riletto dall'app, quindi nessuna cache da invalidare.
+ */
+export async function appendReportOperativita(row: (string | number)[]): Promise<void> {
+  const spreadsheetId = process.env.REPORT_OPERATIVITA_SHEET_ID;
+  if (!spreadsheetId) {
+    throw new Error("REPORT_OPERATIVITA_SHEET_ID non configurato");
+  }
+  const tab = process.env.REPORT_OPERATIVITA_TAB_NAME || "Risposte del modulo 1";
+  await getAuth().spreadsheets.values.append({
+    spreadsheetId,
+    range: `'${tab}'!A:Z`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [row] },
+  });
 }
 
 export type CellValue = string | number | boolean | undefined | null;
@@ -527,4 +559,68 @@ export async function aggiornaStatoAttivita(
     requestBody: { valueInputOption: "USER_ENTERED", data },
   });
   invalidateTabCache(TAB.attivitaCliente);
+}
+
+export async function getMeetingCliente(): Promise<MeetingClienteRow[]> {
+  const rows = await readTab(TAB.meetingCliente);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => {
+      let dati: MeetingDataLoose = {};
+      try {
+        dati = JSON.parse(asText(r[6]) || "{}");
+      } catch {
+        dati = {};
+      }
+      return {
+        meetingId: asText(r[0]),
+        clienteId: asText(r[1]),
+        data: normalizeData(r[2]),
+        titolo: asText(r[3]),
+        sentiment: asText(r[4]),
+        aggiornatoIl: asText(r[5]),
+        dati,
+      };
+    });
+}
+
+/**
+ * Upsert per meetingId: se esiste già una riga con lo stesso id (stesso link salvato di nuovo,
+ * eventualmente corretto in anteprima), la aggiorna sul posto invece di rifiutarla come duplicato —
+ * così una correzione di battitura resta salvabile. I task già generati da un salvataggio precedente
+ * NON si aggiornano retroattivamente (stesso spirito "snapshot" della roadmap prodotto).
+ */
+export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiornato: boolean }> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.meetingCliente}!A2:G`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rigaValues: (string | number)[] = [
+    record.meetingId,
+    record.clienteId,
+    record.data,
+    record.titolo,
+    record.sentiment,
+    record.aggiornatoIl,
+    JSON.stringify(record.dati),
+  ];
+
+  const indiceEsistente = righe.findIndex((r) => asText(r[0]) === record.meetingId);
+  if (indiceEsistente === -1) {
+    await appendRows(TAB.meetingCliente, [rigaValues]);
+    return { aggiornato: false };
+  }
+
+  const rowNumber = indiceEsistente + 2;
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${TAB.meetingCliente}!A${rowNumber}:G${rowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [rigaValues] },
+  });
+  invalidateTabCache(TAB.meetingCliente);
+  return { aggiornato: true };
 }

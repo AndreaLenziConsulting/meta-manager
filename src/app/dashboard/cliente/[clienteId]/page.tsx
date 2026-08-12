@@ -16,10 +16,11 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     redirect("/dashboard");
   }
+  const clienteNome = clienti.find((c) => c.clienteId === clienteId)?.nome;
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
-      <SchedaCliente clienteId={clienteId} tuttiITab />
+      <SchedaCliente clienteId={clienteId} clienteNome={clienteNome} tuttiITab />
     </div>
   );
 }

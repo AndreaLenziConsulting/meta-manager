@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { Tabs } from "@/components/Tabs";
-import { PlaceholderTab } from "@/components/PlaceholderTab";
 import { KpiDashboard } from "@/components/KpiDashboard";
 import { AttivitaTab } from "@/components/AttivitaTab";
+import { MeetingTab } from "@/components/MeetingTab";
 
-type Props = { code?: string; clienteId?: string; tuttiITab: boolean };
+type Props = { code?: string; clienteId?: string; clienteNome?: string; tuttiITab: boolean };
 
-export function SchedaCliente({ code, clienteId, tuttiITab }: Props) {
+export function SchedaCliente({ code, clienteId, clienteNome, tuttiITab }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
 
   // Attività è riservata al team: mai visibile sul link cliente pubblico (`code`), a prescindere da
@@ -32,12 +32,7 @@ export function SchedaCliente({ code, clienteId, tuttiITab }: Props) {
 
       {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} />}
 
-      {tabAttivo === "meeting" && (
-        <PlaceholderTab
-          titolo="Meeting in arrivo"
-          descrizione="I meeting di questo cliente, integrati da Fast Report, arriveranno qui."
-        />
-      )}
+      {tabAttivo === "meeting" && <MeetingTab code={code} clienteId={clienteId} clienteNome={clienteNome} />}
     </div>
   );
 }
