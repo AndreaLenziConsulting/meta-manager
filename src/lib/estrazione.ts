@@ -480,6 +480,19 @@ export function toActionItems(v: unknown): ActionItem[] {
     .filter((x) => x.text);
 }
 
+// ─── Rilevamento pagina con errore di caricamento transitorio (non un auth wall: la pagina esiste
+// ed è pubblica, ma il provider ha mostrato un proprio errore invece del contenuto — osservato su
+// Fathom in produzione, quasi sempre risolto da un secondo tentativo di navigazione).
+export function isPaginaConErroreCaricamento(text: string): boolean {
+  const t = text.trim().toLowerCase();
+  if (t.length < 400) return true;
+  const segnaliErrore = [
+    "errore di rete", "network error", "something went wrong", "an error occurred",
+    "please try again", "please refresh", "riprova più tardi", "impossibile caricare",
+  ];
+  return segnaliErrore.some((s) => t.includes(s));
+}
+
 // ─── Fallback anti-pattern Fathom: la pagina spesso non ha una sezione "Action Items" esplicita
 // e il modello (Groq, più debole di Claude su questo) a volte restituisce solo i nomi dei
 // partecipanti invece di ripescare i task da "Task della settimana"/"Task del mese" come
@@ -517,24 +530,44 @@ export async function estraiMeetingData(url: string): Promise<MeetingDataLoose> 
   const source = detectSource(url);
   const sourceName = sourceLabel(source);
 
-  let pageContent: { text: string; html: string };
-  try {
-    pageContent = await renderPage(url);
-  } catch (err) {
-    if (err instanceof EstrazioneError) throw err;
-    const msg = err instanceof Error ? err.message : String(err);
-    throw new EstrazioneError(`Impossibile aprire la pagina ${sourceName}: ${msg}`, 502);
+  // Scraping con retry: in produzione (serverless) è stato osservato Fathom mostrare
+  // occasionalmente un proprio errore di rete transitorio invece del contenuto reale (pagina
+  // caricata ma con un banner tipo "Errore di rete durante il caricamento del contenuto della
+  // riunione" al posto del meeting) — non riproducibile in locale, quindi non un problema del
+  // link. Un secondo tentativo di navigazione quasi sempre risolve. isPaginaConErroreCaricamento
+  // è pura/testabile; il retry vero e proprio (I/O) resta qui, non testato in Vitest.
+  let pageContent: { text: string; html: string } | null = null;
+  let ultimoErrore: unknown = null;
+  for (let tentativo = 1; tentativo <= 2; tentativo++) {
+    try {
+      const risultato = await renderPage(url);
+      if (!isPaginaConErroreCaricamento(risultato.text)) {
+        pageContent = risultato;
+        break;
+      }
+      ultimoErrore = null; // contenuto "vuoto/errore", non un'eccezione — riprova comunque
+    } catch (err) {
+      ultimoErrore = err;
+      if (err instanceof EstrazioneError) break; // errori espliciti (es. CHROME_EXECUTABLE_PATH mancante) non vanno ritentati
+    }
   }
 
-  const visible = pageContent.text.trim();
-
-  if (visible.length < 100) {
+  if (!pageContent) {
+    if (ultimoErrore instanceof EstrazioneError) throw ultimoErrore;
+    if (ultimoErrore) {
+      const msg = ultimoErrore instanceof Error ? ultimoErrore.message : String(ultimoErrore);
+      throw new EstrazioneError(`Impossibile aprire la pagina ${sourceName}: ${msg}`, 502);
+    }
     throw new EstrazioneError(
-      `La pagina ${sourceName} è vuota o protetta (probabilmente serve un link di condivisione pubblico)`,
+      `La pagina ${sourceName} ha restituito un errore di caricamento anche dopo un secondo tentativo — riprova tra qualche secondo.`,
       502
     );
   }
 
+  const visible = pageContent.text.trim();
+
+  // Nessun controllo di lunghezza minima qui: isPaginaConErroreCaricamento sopra già garantisce
+  // che pageContent, se accettato dal retry, abbia almeno 400 caratteri.
   if (isAuthWall(visible)) {
     throw new EstrazioneError(
       source === "circleback"

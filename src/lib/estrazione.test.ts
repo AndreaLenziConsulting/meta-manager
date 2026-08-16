@@ -4,6 +4,7 @@ import {
   detectSource,
   isActionItemsSuspicious,
   isAuthWall,
+  isPaginaConErroreCaricamento,
   toActionItems,
 } from "./estrazione";
 
@@ -73,6 +74,29 @@ describe("isActionItemsSuspicious", () => {
 
   it("nessun partecipante noto -> non si può giudicare sospetto solo dal confronto nomi", () => {
     expect(isActionItemsSuspicious([{ text: "Qualcosa" }], [])).toBe(false);
+  });
+});
+
+describe("isPaginaConErroreCaricamento", () => {
+  it("testo troppo corto -> considerato un errore di caricamento (vale la pena ritentare)", () => {
+    expect(isPaginaConErroreCaricamento("Fathom")).toBe(true);
+    expect(isPaginaConErroreCaricamento("x".repeat(399))).toBe(true);
+  });
+
+  it("testo lungo ma con un segnale di errore noto -> true, anche in italiano o inglese", () => {
+    const base = "y".repeat(500);
+    expect(isPaginaConErroreCaricamento(`${base} Errore di rete durante il caricamento ${base}`)).toBe(true);
+    expect(isPaginaConErroreCaricamento(`${base} Something went wrong ${base}`)).toBe(true);
+  });
+
+  it("case insensitive", () => {
+    expect(isPaginaConErroreCaricamento(`${"z".repeat(500)} ERRORE DI RETE`)).toBe(true);
+  });
+
+  it("contenuto reale sufficientemente lungo senza segnali di errore -> false", () => {
+    const reale = "Task della settimana\n" + "Marco: preparare il funnel ADV. ".repeat(30);
+    expect(reale.length).toBeGreaterThan(400);
+    expect(isPaginaConErroreCaricamento(reale)).toBe(false);
   });
 });
 
