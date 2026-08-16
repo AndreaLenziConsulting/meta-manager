@@ -6,6 +6,7 @@ import {
   isAuthWall,
   isPaginaConErroreCaricamento,
   toActionItems,
+  toStrArray,
 } from "./estrazione";
 
 describe("detectSource", () => {
@@ -48,10 +49,35 @@ describe("toActionItems", () => {
     expect(toActionItems([{ text: "Fare X", assignee: "Giulia" }])).toEqual([{ text: "Fare X", assignee: "Giulia" }]);
   });
 
-  it("filtra le voci senza testo e ignora input non-array", () => {
+  it("filtra le voci senza testo; input non array/stringa -> array vuoto", () => {
     expect(toActionItems(["", "  "])).toEqual([]);
     expect(toActionItems(null)).toEqual([]);
-    expect(toActionItems("non un array")).toEqual([]);
+    expect(toActionItems(42)).toEqual([]);
+  });
+
+  it("accetta anche una stringa (Groq a volte restituisce \"\" o una stringa multi-riga invece di un array — vedi EXTRACTION_TOOL)", () => {
+    expect(toActionItems("Marco: preparare il funnel\nRivedere landing")).toEqual([
+      { text: "preparare il funnel", assignee: "Marco" },
+      { text: "Rivedere landing" },
+    ]);
+    expect(toActionItems("")).toEqual([]);
+  });
+});
+
+describe("toStrArray", () => {
+  it("filtra le voci vuote di un array, tenendo solo stringhe", () => {
+    expect(toStrArray(["Marco", "", "  ", "Giulia"])).toEqual(["Marco", "Giulia"]);
+  });
+
+  it("spezza una stringa su virgole e a-capo (Groq a volte restituisce una stringa invece di un array)", () => {
+    expect(toStrArray("Marco, Giulia")).toEqual(["Marco", "Giulia"]);
+    expect(toStrArray("Marco\nGiulia")).toEqual(["Marco", "Giulia"]);
+  });
+
+  it("stringa vuota o input non riconosciuto -> array vuoto", () => {
+    expect(toStrArray("")).toEqual([]);
+    expect(toStrArray(null)).toEqual([]);
+    expect(toStrArray(42)).toEqual([]);
   });
 });
 

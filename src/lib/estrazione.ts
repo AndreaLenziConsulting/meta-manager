@@ -99,11 +99,18 @@ const EXTRACTION_TOOL = {
         title: { type: "string", description: "Titolo del meeting così come mostrato sulla piattaforma" },
         date: { type: "string", description: "Data del meeting in formato DD/MM/YYYY" },
         duration: { type: "string", description: "Durata del meeting, es. '45 min'. Stringa vuota se non disponibile." },
-        participants: { type: "array", items: { type: "string" }, description: "Elenco dei nomi dei partecipanti" },
+        // NOTA su tutti i campi "array" qui sotto: type è [array, string] (non solo array).
+        // Motivo, verificato empiricamente: Groq valida rigidamente lo schema PRIMA di restituire
+        // la risposta e la rifiuta con tool_use_failed se il modello mette "" invece di [] quando
+        // non c'è dato (es. "kpiReali": "" invece di "kpiReali": []) — riprodotto in modo
+        // deterministico (5/5), non un caso raro. Il codice a valle (toStr/toActionItems e i
+        // fallback Array.isArray(...) ? ... : []) gestisce già entrambe le forme, quindi
+        // allargare lo schema qui è sicuro e risolve il rifiuto alla fonte senza perdere dati.
+        participants: { type: ["array", "string"], items: { type: "string" }, description: "Elenco dei nomi dei partecipanti" },
         summary: { type: "string", description: "Riepilogo generale di 2-4 frasi del meeting, in italiano" },
-        highlights: { type: "array", items: { type: "string" }, description: "3-6 punti chiave concreti, in italiano, una frase ciascuno" },
+        highlights: { type: ["array", "string"], items: { type: "string" }, description: "3-6 punti chiave concreti, in italiano, una frase ciascuno" },
         actionItems: {
-          type: "array",
+          type: ["array", "string"],
           items: { type: "string" },
           description:
             "TUTTI gli action item concreti (tipicamente 5-25). Array di stringhe, ciascuna in formato '<Assegnatario>: <azione>' quando l'assegnatario è noto, es. 'Marco Rebuzzi: caricare materiali'. Se non c'è assegnatario, solo il testo dell'azione. Elenca OGNI task/todo/prossimo-passo da sezioni come 'Action Items', 'Task della settimana/mese', 'Next Steps'.",
@@ -115,14 +122,14 @@ const EXTRACTION_TOOL = {
             "Nome completo del consulente di Andrea Lenzi Consulting che ha condotto il meeting. Identificalo dal contesto: è chi assegna a sé stesso task di delivery, guida la riunione o è esplicitamente indicato come PM/responsabile. NON usare mai 'Andrea Lenzi' di default se non chiaramente indicato — potrebbe essere chiunque nel team ALC.",
         },
         dataConsulenza: { type: "string", description: "Data della consulenza in formato DD/MM/YYYY" },
-        taskSettimana: { type: "array", items: { type: "string" }, description: "Task della settimana. Una stringa per task, formato '<Nome>: <task>'. In italiano." },
-        taskMese: { type: "array", items: { type: "string" }, description: "Obiettivi del mese. Una stringa per obiettivo. In italiano. Array vuoto se non discusso." },
-        programmaTrimestre: { type: "array", items: { type: "string" }, description: "Programma del trimestre / direzione strategica. Una stringa per punto. In italiano. Array vuoto se non discusso." },
+        taskSettimana: { type: ["array", "string"], items: { type: "string" }, description: "Task della settimana. Una stringa per task, formato '<Nome>: <task>'. In italiano." },
+        taskMese: { type: ["array", "string"], items: { type: "string" }, description: "Obiettivi del mese. Una stringa per obiettivo. In italiano. Array vuoto se non discusso." },
+        programmaTrimestre: { type: ["array", "string"], items: { type: "string" }, description: "Programma del trimestre / direzione strategica. Una stringa per punto. In italiano. Array vuoto se non discusso." },
         sentiment: { type: "string", description: "Sentiment generale del cliente con una breve giustificazione. In italiano." },
-        kpiReali: { type: "array", items: { type: "string" }, description: "KPI reali / numeri di performance attuali. Array di stringhe. In italiano." },
-        kpiStorico: { type: "array", items: { type: "string" }, description: "KPI storici per confronto. Array di stringhe. In italiano." },
-        kpiTargetMarketing: { type: "array", items: { type: "string" }, description: "KPI target marketing. Array di stringhe. In italiano." },
-        kpiTargetCommerciali: { type: "array", items: { type: "string" }, description: "KPI target commerciali. Array di stringhe. In italiano." },
+        kpiReali: { type: ["array", "string"], items: { type: "string" }, description: "KPI reali / numeri di performance attuali. Array di stringhe. In italiano." },
+        kpiStorico: { type: ["array", "string"], items: { type: "string" }, description: "KPI storici per confronto. Array di stringhe. In italiano." },
+        kpiTargetMarketing: { type: ["array", "string"], items: { type: "string" }, description: "KPI target marketing. Array di stringhe. In italiano." },
+        kpiTargetCommerciali: { type: ["array", "string"], items: { type: "string" }, description: "KPI target commerciali. Array di stringhe. In italiano." },
       },
     },
   },
@@ -454,14 +461,27 @@ async function renderPage(url: string): Promise<{ text: string; html: string }> 
   }
 }
 
-// ─── Coercion (invariata da Fast Report) ─────────────────────────────────────
+// ─── Coercion (invariata da Fast Report, salvo toStrArray/toActionItems — vedi nota schema sopra) ──
 function toStr(v: unknown): string {
   return Array.isArray(v) ? v.filter(Boolean).join("\n") : typeof v === "string" ? v : "";
 }
 
+// Per participants/highlights: lo schema ora accetta anche una stringa al posto dell'array (vedi
+// EXTRACTION_TOOL). Se capita, la spezziamo su virgole/a-capo invece di scartarla silenziosamente.
+export function toStrArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v.filter((x): x is string => typeof x === "string" && x.trim() !== "");
+  if (typeof v === "string") {
+    return v
+      .split(/[\n,]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [];
+}
+
 export function toActionItems(v: unknown): ActionItem[] {
-  if (!Array.isArray(v)) return [];
-  return v
+  const items = Array.isArray(v) ? v : typeof v === "string" ? v.split("\n") : [];
+  return items
     .map((item) => {
       if (typeof item === "string") {
         const m = item.trim().match(/^([^:\-—]+)\s*[:\-—]\s*(.+)$/);
@@ -664,7 +684,7 @@ ${trimmed}
     }
   }
 
-  const participants = Array.isArray(raw.participants) ? (raw.participants as string[]) : [];
+  const participants = toStrArray(raw.participants);
   const taskSettimana = toStr(raw.taskSettimana);
   const taskMese = toStr(raw.taskMese);
   let actionItems = toActionItems(raw.actionItems);
@@ -683,7 +703,7 @@ ${trimmed}
     duration,
     participants,
     summary: typeof raw.summary === "string" ? raw.summary : "",
-    highlights: Array.isArray(raw.highlights) ? (raw.highlights as string[]) : [],
+    highlights: toStrArray(raw.highlights),
     actionItems,
     rawUrl: url,
     cliente: typeof raw.cliente === "string" ? raw.cliente : "",
