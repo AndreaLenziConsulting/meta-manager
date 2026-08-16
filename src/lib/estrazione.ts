@@ -592,28 +592,43 @@ ${trimmed}
 
   const client = new Groq({ apiKey });
 
-  let completion: Awaited<ReturnType<typeof client.chat.completions.create>>;
-  try {
-    completion = await client.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
-      max_tokens: 2048,
-      temperature: 0.1,
-      messages: [
-        { role: "system", content: getSystemPrompt(source) },
-        { role: "user", content: userContent },
-      ],
-      tools: [EXTRACTION_TOOL],
-      tool_choice: { type: "function", function: { name: "save_meeting_data" } },
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  // Retry anche qui: osservato empiricamente che Groq a volte risponde tool_use_failed anche
+  // su contenuto scrapato buono (verificato: la stessa identica chiamata, ripetuta subito dopo
+  // con lo stesso testo, può riuscire) — non è un problema del link/contenuto, è flakiness del
+  // provider sul function-calling forzato. Un secondo tentativo quasi sempre risolve.
+  let completion: Awaited<ReturnType<typeof client.chat.completions.create>> | null = null;
+  let ultimoErroreGroq: unknown = null;
+  for (let tentativo = 1; tentativo <= 2; tentativo++) {
+    try {
+      completion = await client.chat.completions.create({
+        model: "llama-3.3-70b-versatile",
+        max_tokens: 2048,
+        temperature: 0.1,
+        messages: [
+          { role: "system", content: getSystemPrompt(source) },
+          { role: "user", content: userContent },
+        ],
+        tools: [EXTRACTION_TOOL],
+        tool_choice: { type: "function", function: { name: "save_meeting_data" } },
+      });
+      break;
+    } catch (err) {
+      ultimoErroreGroq = err;
+      const msg = err instanceof Error ? err.message : String(err);
+      // Un errore diverso da tool_use_failed (es. rate limit, chiave non valida) non va ritentato
+      if (!/tool_use_failed/i.test(msg)) break;
+    }
+  }
+
+  if (!completion) {
+    const msg = ultimoErroreGroq instanceof Error ? ultimoErroreGroq.message : String(ultimoErroreGroq);
     // Groq risponde con tool_use_failed quando il modello rifiuta di chiamare il tool —
     // tipicamente perché non ha trovato contenuto utilizzabile (login wall, pagina vuota, ecc.)
     if (/tool_use_failed/i.test(msg)) {
       throw new EstrazioneError(
         source === "circleback"
           ? "Impossibile estrarre il contenuto dal link Circleback. La pagina potrebbe richiedere l'accesso o non contenere ancora il summary del meeting. Verifica che il link sia pubblico e che il meeting sia stato elaborato da Circleback."
-          : `Impossibile estrarre il contenuto dal link ${sourceName}. Verifica che il link sia un link di condivisione pubblico e che il meeting sia stato elaborato.`,
+          : `Impossibile estrarre il contenuto dal link ${sourceName} anche dopo un secondo tentativo. Verifica che il link sia un link di condivisione pubblico e che il meeting sia stato elaborato, oppure riprova tra qualche secondo.`,
         422
       );
     }

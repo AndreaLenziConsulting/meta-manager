@@ -277,8 +277,9 @@ export function MeetingTab({ code, clienteId, clienteNome }: Props) {
               </div>
               {estraendo && (
                 <p className="text-xs text-gray-500">
-                  Estrazione in corso — scraping della pagina più lettura del modello, può richiedere fino a due
-                  minuti…
+                  Estrazione in corso — scraping della pagina più lettura del modello, con eventuale nuovo
+                  tentativo automatico in caso di errore transitorio: può richiedere fino a due minuti e
+                  mezzo…
                 </p>
               )}
               {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}

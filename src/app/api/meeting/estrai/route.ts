@@ -5,9 +5,11 @@ import { puoVedereCliente } from "@/lib/authz";
 import { estraiMeetingData, EstrazioneError } from "@/lib/estrazione";
 
 export const runtime = "nodejs";
-// Scraping Playwright + chiamata Groq: stesso valore usato in Fast Report per la stessa
-// pipeline (90s), qui con un margine minimo aggiuntivo.
-export const maxDuration = 100;
+// Scraping Playwright + chiamata Groq, entrambi ora con un retry (vedi estrazione.ts — Fathom
+// mostra a volte un errore di rete transitorio, Groq a volte tool_use_failed anche su contenuto
+// buono). Nel caso peggiore: 2 caricamenti pagina + 2 chiamate Groq, quindi margine più ampio
+// dei 90s originali di Fast Report (che non aveva retry).
+export const maxDuration = 150;
 // Chromium serverless ha bisogno di ~500MB+; stesso valore già in uso per lo stesso scraping.
 export const memory = 3008;
 
