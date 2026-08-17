@@ -125,6 +125,33 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
     }
   }
 
+  // Stesso schema ottimistico degli altri due (rimuove subito dalla UI, ripristina dal server in
+  // caso di errore) — nessun soft-delete, la riga sparisce davvero dal foglio.
+  async function handleEliminaAttivita(attivitaId: string) {
+    setDati((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        gruppi: prev.gruppi.map((g) => ({ ...g, attivita: g.attivita.filter((a) => a.attivitaId !== attivitaId) })),
+      };
+    });
+
+    try {
+      const res = await fetch("/api/attivita/elimina", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, attivitaId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Eliminazione non riuscita");
+      }
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setRefreshTick((t) => t + 1);
+    }
+  }
+
   if (caricamento && !dati) return <p className="text-sm text-gray-500">Caricamento…</p>;
   if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
   if (!dati) return null;
@@ -193,6 +220,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
           attivita={dati.gruppi.flatMap((g) => g.attivita)}
           onCambiaStato={handleCambiaStato}
           onCambiaScadenza={handleCambiaScadenza}
+          onElimina={handleEliminaAttivita}
           onVaiAMeeting={onVaiAMeeting}
         />
       ) : (

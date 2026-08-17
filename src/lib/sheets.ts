@@ -584,6 +584,39 @@ export async function aggiornaScadenzaAttivita(attivitaId: string, nuovaDataFine
   invalidateTabCache(TAB.attivitaCliente);
 }
 
+/** Elimina definitivamente una riga di attività (cancella la riga dal foglio, non un soft-delete). */
+export async function eliminaAttivita(attivitaId: string): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!A2:N`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRigaAttivita(righe, attivitaId);
+  if (rowNumber === null) {
+    throw new Error(`Attività non trovata: ${attivitaId}`);
+  }
+
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const sheetGid = meta.data.sheets?.find((s) => s.properties?.title === TAB.attivitaCliente)?.properties?.sheetId;
+  if (sheetGid === undefined || sheetGid === null) {
+    throw new Error(`Tab non trovata: ${TAB.attivitaCliente}`);
+  }
+
+  // rowNumber è già 1-based (numero di riga reale nel foglio); deleteDimension vuole indici
+  // 0-based con endIndex esclusivo, quindi startIndex = rowNumber - 1.
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: {
+      requests: [
+        { deleteDimension: { range: { sheetId: sheetGid, dimension: "ROWS", startIndex: rowNumber - 1, endIndex: rowNumber } } },
+      ],
+    },
+  });
+  invalidateTabCache(TAB.attivitaCliente);
+}
+
 export async function getMeetingCliente(): Promise<MeetingClienteRow[]> {
   const rows = await readTab(TAB.meetingCliente);
   return rows

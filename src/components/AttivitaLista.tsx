@@ -10,6 +10,7 @@ const STATI_MENU: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
 const COL_RESPONSABILE = "w-[130px]";
 const COL_SCADENZA = "w-[112px]";
 const COL_STATO = "w-[92px]";
+const COL_AZIONI = "w-6";
 
 function iniziali(nome: string): string {
   const parti = nome.trim().split(/\s+/).filter(Boolean);
@@ -30,6 +31,7 @@ type Props = {
   attivita: AttivitaClienteRow[];
   onCambiaStato: (attivitaId: string, nuovoStato: StatoAttivita, notaTeam?: string) => void;
   onCambiaScadenza: (attivitaId: string, nuovaDataFine: string) => void;
+  onElimina: (attivitaId: string) => void;
   onVaiAMeeting?: (meetingId: string) => void;
 };
 
@@ -37,16 +39,22 @@ type Props = {
  * Vista alternativa al Gantt (`RoadmapGantt.tsx`, invariato): raggruppa per stato di avanzamento
  * invece che per fase, ispirata a una board ClickUp. Il cambio stato avviene da un piccolo menu
  * sulla riga (non drag-and-drop, nessuna nuova dipendenza) — "Bloccato" richiede sempre una nota,
- * stesso vincolo già imposto da POST /api/attivita/stato. Pattern del popover nota-blocco
- * duplicato deliberatamente da RoadmapGantt (non estratto in comune) per non toccare quel
- * componente, già in produzione e verificato.
+ * stesso vincolo già imposto da POST /api/attivita/stato. Pattern dei popover (nota-blocco,
+ * conferma-eliminazione) duplicato deliberatamente da RoadmapGantt (non estratto in comune) per
+ * non toccare quel componente, già in produzione e verificato.
+ *
+ * Nota sul contenitore dei gruppi: niente `overflow-hidden` sulla card (a differenza di una prima
+ * versione) — tagliava i menu a tendina delle ultime righe di ogni gruppo. Gli angoli arrotondati
+ * dell'header colorato si ottengono con `rounded-t-2xl` esplicito sull'header stesso, non più
+ * per ritaglio del genitore.
  */
-export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onVaiAMeeting }: Props) {
+export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onElimina, onVaiAMeeting }: Props) {
   const gruppi = raggruppaPerStato(attivita);
 
   const [menuApertoPer, setMenuApertoPer] = useState<string | null>(null);
   const [popoverBloccoPer, setPopoverBloccoPer] = useState<string | null>(null);
   const [notaBozza, setNotaBozza] = useState("");
+  const [confermaEliminaPer, setConfermaEliminaPer] = useState<string | null>(null);
 
   function handleScegliStato(a: AttivitaClienteRow, nuovoStato: StatoAttivita) {
     setMenuApertoPer(null);
@@ -64,6 +72,11 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onVai
     setPopoverBloccoPer(null);
   }
 
+  function confermaElimina(attivitaId: string) {
+    onElimina(attivitaId);
+    setConfermaEliminaPer(null);
+  }
+
   if (gruppi.length === 0) {
     return (
       <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 text-center">
@@ -79,13 +92,14 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onVai
         <span className={`flex-shrink-0 ${COL_RESPONSABILE}`}>Responsabile</span>
         <span className={`flex-shrink-0 ${COL_SCADENZA}`}>Scadenza</span>
         <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
+        <span className={`flex-shrink-0 ${COL_AZIONI}`} />
       </div>
 
       {gruppi.map((gruppo) => {
         const info = formatStatoAttivita(gruppo.stato);
         return (
-          <div key={gruppo.stato} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-            <div className={`flex items-center gap-2 px-5 py-2 ${info.puntino} text-white`}>
+          <div key={gruppo.stato} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
               <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
               <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
             </div>
@@ -97,6 +111,7 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onVai
                   attivita={a}
                   menuAperto={menuApertoPer === a.attivitaId}
                   popoverBloccoAperto={popoverBloccoPer === a.attivitaId}
+                  confermaEliminaAperto={confermaEliminaPer === a.attivitaId}
                   notaBozza={notaBozza}
                   onApriMenu={() => setMenuApertoPer(a.attivitaId)}
                   onChiudiMenu={() => setMenuApertoPer(null)}
@@ -105,6 +120,9 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onVai
                   onChiudiBlocco={() => setPopoverBloccoPer(null)}
                   onConfermaBlocco={() => confermaBlocco(a.attivitaId)}
                   onCambiaScadenza={(v) => onCambiaScadenza(a.attivitaId, v)}
+                  onApriElimina={() => setConfermaEliminaPer(a.attivitaId)}
+                  onChiudiElimina={() => setConfermaEliminaPer(null)}
+                  onConfermaElimina={() => confermaElimina(a.attivitaId)}
                   onVaiAMeeting={onVaiAMeeting}
                 />
               ))}
@@ -120,6 +138,7 @@ function RigaAttivita({
   attivita,
   menuAperto,
   popoverBloccoAperto,
+  confermaEliminaAperto,
   notaBozza,
   onApriMenu,
   onChiudiMenu,
@@ -128,11 +147,15 @@ function RigaAttivita({
   onChiudiBlocco,
   onConfermaBlocco,
   onCambiaScadenza,
+  onApriElimina,
+  onChiudiElimina,
+  onConfermaElimina,
   onVaiAMeeting,
 }: {
   attivita: AttivitaClienteRow;
   menuAperto: boolean;
   popoverBloccoAperto: boolean;
+  confermaEliminaAperto: boolean;
   notaBozza: string;
   onApriMenu: () => void;
   onChiudiMenu: () => void;
@@ -141,6 +164,9 @@ function RigaAttivita({
   onChiudiBlocco: () => void;
   onConfermaBlocco: () => void;
   onCambiaScadenza: (v: string) => void;
+  onApriElimina: () => void;
+  onChiudiElimina: () => void;
+  onConfermaElimina: () => void;
   onVaiAMeeting?: (meetingId: string) => void;
 }) {
   const info = formatStatoAttivita(attivita.stato);
@@ -250,6 +276,48 @@ function RigaAttivita({
           </div>
         )}
       </div>
+
+      <div className={`relative flex-shrink-0 ${COL_AZIONI} flex justify-end`}>
+        <button
+          type="button"
+          onClick={confermaEliminaAperto ? onChiudiElimina : onApriElimina}
+          title="Elimina attività"
+          className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
+        >
+          <EliminaIcon />
+        </button>
+
+        {confermaEliminaAperto && (
+          <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl border border-gray-200 bg-white shadow-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-900">Eliminare questa attività?</p>
+            <p className="text-[11px] text-gray-400">Non si può annullare.</p>
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={onChiudiElimina} className="text-[11px] font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer">
+                Annulla
+              </button>
+              <button
+                type="button"
+                onClick={onConfermaElimina}
+                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white cursor-pointer"
+              >
+                Elimina
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
+  );
+}
+
+function EliminaIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
+    </svg>
   );
 }
