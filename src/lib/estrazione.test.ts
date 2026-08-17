@@ -94,12 +94,20 @@ describe("isActionItemsSuspicious", () => {
     expect(isActionItemsSuspicious([{ text: "  marco  " }], ["Marco"])).toBe(true);
   });
 
-  it("almeno un action item reale -> non sospetto", () => {
+  it("almeno un action item reale (multi-parola) -> non sospetto", () => {
     expect(isActionItemsSuspicious([{ text: "Marco" }, { text: "Preparare il funnel ADV" }], ["Marco", "Giulia"])).toBe(false);
   });
 
-  it("nessun partecipante noto -> non si può giudicare sospetto solo dal confronto nomi", () => {
-    expect(isActionItemsSuspicious([{ text: "Qualcosa" }], [])).toBe(false);
+  it("nessun partecipante noto ma testo multi-parola -> non si può giudicare sospetto solo dal confronto nomi", () => {
+    expect(isActionItemsSuspicious([{ text: "Preparare il funnel ADV" }], [])).toBe(false);
+  });
+
+  it("testo di una sola parola -> sempre sospetto, anche senza partecipanti noti", () => {
+    expect(isActionItemsSuspicious([{ text: "Qualcosa" }], [])).toBe(true);
+  });
+
+  it("nome breve nel testo che NON combacia col nome completo in participants -> comunque sospetto (bug reale: 'Mirko' in actionItems vs 'Mirko Danelon' in participants — il vecchio confronto esatto non lo intercettava)", () => {
+    expect(isActionItemsSuspicious([{ text: "Mirko" }, { text: "Andrea" }], ["Mirko Danelon", "Andrea Lenzi"])).toBe(true);
   });
 });
 

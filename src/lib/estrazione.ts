@@ -532,6 +532,17 @@ export function isPaginaConErroreCaricamento(text: string): boolean {
 // dall'utente, corretto qui e nello stesso senso nei prompt/schema sopra).
 export function isActionItemsSuspicious(items: ActionItem[], participants: string[]): boolean {
   if (items.length === 0) return true;
+
+  // Un vero action item ha quasi sempre più di una parola (verbo + oggetto, es. "Ricontattare il
+  // lead"). Se OGNI voce è una sola parola, è quasi certamente solo un nome (es. "Mirko") — non
+  // conta se combacia esattamente con l'elenco participants: il modello a volte usa il nome
+  // corto in actionItems ma quello completo in participants ("Mirko" vs "Mirko Danelon"), caso
+  // che il solo confronto esatto sotto non intercetta (bug osservato: falso negativo, il
+  // fallback non scattava). Controllo indipendente dal confronto coi nomi, quindi robusto anche
+  // a questo scarto.
+  const soloUnaParola = (s: string) => !/\s/.test(s.trim());
+  if (items.every((item) => soloUnaParola(item.text))) return true;
+
   if (participants.length === 0) return false;
   const norm = (s: string) => s.trim().toLowerCase();
   const nomi = new Set(participants.map(norm));
