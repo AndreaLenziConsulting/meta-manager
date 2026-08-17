@@ -5,6 +5,7 @@ import {
   generaAttivitaPerCliente,
   prossimoStato,
   raggruppaPerFase,
+  raggruppaPerStato,
   rangeProgetto,
 } from "./roadmap";
 import type { AttivitaClienteRow, TemplateTask } from "@/types/kpi";
@@ -111,6 +112,40 @@ describe("raggruppaPerFase", () => {
     const gruppi = raggruppaPerFase(attivita);
     expect(gruppi.map((g) => g.fase)).toEqual(["Fase 1", "Fase 2"]);
     expect(gruppi[0].attivita.map((a) => a.taskId)).toEqual(["a", "c"]);
+  });
+});
+
+describe("raggruppaPerStato", () => {
+  it("ordina i gruppi wip -> blocked -> todo -> done (attivo/bloccato prima, fatto per ultimo)", () => {
+    const attivita = [
+      riga({ taskId: "a", stato: "done", ordine: 1 }),
+      riga({ taskId: "b", stato: "todo", ordine: 2 }),
+      riga({ taskId: "c", stato: "blocked", ordine: 3 }),
+      riga({ taskId: "d", stato: "wip", ordine: 4 }),
+    ];
+    const gruppi = raggruppaPerStato(attivita);
+    expect(gruppi.map((g) => g.stato)).toEqual(["wip", "blocked", "todo", "done"]);
+  });
+
+  it("omette i gruppi vuoti", () => {
+    const attivita = [riga({ taskId: "a", stato: "todo" })];
+    const gruppi = raggruppaPerStato(attivita);
+    expect(gruppi).toHaveLength(1);
+    expect(gruppi[0].stato).toBe("todo");
+  });
+
+  it("dentro ogni gruppo preserva l'ordinamento per ordine, non l'ordine di input", () => {
+    const attivita = [
+      riga({ taskId: "b", stato: "wip", ordine: 3 }),
+      riga({ taskId: "a", stato: "wip", ordine: 1 }),
+      riga({ taskId: "c", stato: "wip", ordine: 2 }),
+    ];
+    const gruppi = raggruppaPerStato(attivita);
+    expect(gruppi[0].attivita.map((a) => a.taskId)).toEqual(["a", "c", "b"]);
+  });
+
+  it("array vuoto -> nessun gruppo", () => {
+    expect(raggruppaPerStato([])).toEqual([]);
   });
 });
 

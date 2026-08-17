@@ -77,6 +77,22 @@ export function raggruppaPerFase(attivita: AttivitaClienteRow[]): GruppoFase[] {
   return Array.from(mappa.entries()).map(([fase, attivita]) => ({ fase, attivita }));
 }
 
+export type GruppoStato = { stato: StatoAttivita; attivita: AttivitaClienteRow[] };
+
+// Ordine deliberatamente diverso da STATI_LEGENDA (todo/wip/done/blocked) usato nel Gantt: qui
+// l'obiettivo è la vista operativa "cosa guardare per primo" — attivo e bloccato prima, fatto
+// per ultimo. Gruppi vuoti omessi (niente sezioni vuote in UI, coerente con lo screenshot ClickUp
+// preso a riferimento).
+const ORDINE_STATI_LISTA: StatoAttivita[] = ["wip", "blocked", "todo", "done"];
+
+/** Raggruppa le attività per stato di avanzamento (vista lista, alternativa al Gantt per fase). */
+export function raggruppaPerStato(attivita: AttivitaClienteRow[]): GruppoStato[] {
+  const ordinate = [...attivita].sort((a, b) => a.ordine - b.ordine);
+  return ORDINE_STATI_LISTA.map((stato) => ({ stato, attivita: ordinate.filter((a) => a.stato === stato) })).filter(
+    (g) => g.attivita.length > 0
+  );
+}
+
 /** Estremi (data minima/massima) di una roadmap, per dimensionare l'asse del Gantt. Null se vuota. */
 export function rangeProgetto(attivita: AttivitaClienteRow[]): { minData: string; maxData: string } | null {
   if (attivita.length === 0) return null;

@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { RoadmapGantt } from "@/components/RoadmapGantt";
+import { AttivitaLista } from "@/components/AttivitaLista";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
 
 type ClienteInfo = { clienteId: string; nome: string; prodottoId: string; dataInizioProgetto: string | null };
 type Risposta = { cliente: ClienteInfo; gruppi: GruppoFase[] };
+type Vista = "lista" | "gantt";
 
 export function AttivitaTab({ clienteId }: { clienteId: string }) {
   const [dati, setDati] = useState<Risposta | null>(null);
@@ -14,6 +16,7 @@ export function AttivitaTab({ clienteId }: { clienteId: string }) {
   const [errore, setErrore] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
+  const [vista, setVista] = useState<Vista>("lista");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -132,7 +135,33 @@ export function AttivitaTab({ clienteId }: { clienteId: string }) {
   return (
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
-      <RoadmapGantt gruppi={dati.gruppi} onCambiaStato={handleCambiaStato} />
+
+      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
+        <button
+          type="button"
+          onClick={() => setVista("lista")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            vista === "lista" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Lista
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista("gantt")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+            vista === "gantt" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Gantt
+        </button>
+      </div>
+
+      {vista === "lista" ? (
+        <AttivitaLista attivita={dati.gruppi.flatMap((g) => g.attivita)} onCambiaStato={handleCambiaStato} />
+      ) : (
+        <RoadmapGantt gruppi={dati.gruppi} onCambiaStato={handleCambiaStato} />
+      )}
     </div>
   );
 }
