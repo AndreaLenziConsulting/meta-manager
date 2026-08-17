@@ -10,7 +10,9 @@ type ClienteInfo = { clienteId: string; nome: string; prodottoId: string; dataIn
 type Risposta = { cliente: ClienteInfo; gruppi: GruppoFase[] };
 type Vista = "lista" | "gantt";
 
-export function AttivitaTab({ clienteId }: { clienteId: string }) {
+type Props = { clienteId: string; onVaiAMeeting?: (meetingId: string) => void };
+
+export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
   const [dati, setDati] = useState<Risposta | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -94,6 +96,35 @@ export function AttivitaTab({ clienteId }: { clienteId: string }) {
     }
   }
 
+  // Stesso schema ottimistico di handleCambiaStato, per la data di scadenza (solo vista Lista).
+  async function handleCambiaScadenza(attivitaId: string, nuovaDataFine: string) {
+    setDati((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        gruppi: prev.gruppi.map((g) => ({
+          ...g,
+          attivita: g.attivita.map((a) => (a.attivitaId === attivitaId ? { ...a, dataFine: nuovaDataFine } : a)),
+        })),
+      };
+    });
+
+    try {
+      const res = await fetch("/api/attivita/scadenza", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, attivitaId, dataFine: nuovaDataFine }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Aggiornamento scadenza non riuscito");
+      }
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setRefreshTick((t) => t + 1);
+    }
+  }
+
   if (caricamento && !dati) return <p className="text-sm text-gray-500">Caricamento…</p>;
   if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
   if (!dati) return null;
@@ -158,7 +189,12 @@ export function AttivitaTab({ clienteId }: { clienteId: string }) {
       </div>
 
       {vista === "lista" ? (
-        <AttivitaLista attivita={dati.gruppi.flatMap((g) => g.attivita)} onCambiaStato={handleCambiaStato} />
+        <AttivitaLista
+          attivita={dati.gruppi.flatMap((g) => g.attivita)}
+          onCambiaStato={handleCambiaStato}
+          onCambiaScadenza={handleCambiaScadenza}
+          onVaiAMeeting={onVaiAMeeting}
+        />
       ) : (
         <RoadmapGantt gruppi={dati.gruppi} onCambiaStato={handleCambiaStato} />
       )}

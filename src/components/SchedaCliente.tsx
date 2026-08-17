@@ -10,6 +10,13 @@ type Props = { code?: string; clienteId?: string; clienteNome?: string; tuttiITa
 
 export function SchedaCliente({ code, clienteId, clienteNome, tuttiITab }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
+  // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
+  const [meetingDaEvidenziare, setMeetingDaEvidenziare] = useState<string | null>(null);
+
+  function vaiAMeeting(meetingId: string) {
+    setMeetingDaEvidenziare(meetingId);
+    setTabAttivo("meeting");
+  }
 
   // Attività è riservata al team: mai visibile sul link cliente pubblico (`code`), a prescindere da
   // mostra_tab_extra — che resta a governare solo Meeting. Il vero cancello è lato API (nessun ramo
@@ -30,9 +37,11 @@ export function SchedaCliente({ code, clienteId, clienteNome, tuttiITab }: Props
 
       {tabAttivo === "kpi" && <KpiDashboard code={code} clienteId={clienteId} />}
 
-      {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} />}
+      {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} />}
 
-      {tabAttivo === "meeting" && <MeetingTab code={code} clienteId={clienteId} clienteNome={clienteNome} />}
+      {tabAttivo === "meeting" && (
+        <MeetingTab code={code} clienteId={clienteId} clienteNome={clienteNome} meetingIdEvidenziato={meetingDaEvidenziare} />
+      )}
     </div>
   );
 }

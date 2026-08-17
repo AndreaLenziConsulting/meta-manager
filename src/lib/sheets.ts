@@ -561,6 +561,29 @@ export async function aggiornaStatoAttivita(
   invalidateTabCache(TAB.attivitaCliente);
 }
 
+/** Aggiorna solo la data di scadenza (colonna K, dataFine) di una singola attività. */
+export async function aggiornaScadenzaAttivita(attivitaId: string, nuovaDataFine: string): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!A2:N`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRigaAttivita(righe, attivitaId);
+  if (rowNumber === null) {
+    throw new Error(`Attività non trovata: ${attivitaId}`);
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!K${rowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[nuovaDataFine]] },
+  });
+  invalidateTabCache(TAB.attivitaCliente);
+}
+
 export async function getMeetingCliente(): Promise<MeetingClienteRow[]> {
   const rows = await readTab(TAB.meetingCliente);
   return rows

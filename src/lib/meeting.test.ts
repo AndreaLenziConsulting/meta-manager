@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   campiVisibiliCliente,
   dataItalianaAIso,
+  estraiMeetingIdDaTaskId,
   generaAttivitaDaMeeting,
   hashMeetingId,
   scadenzaTask,
@@ -107,6 +108,31 @@ describe("generaAttivitaDaMeeting", () => {
 
   it("nessun action item -> nessuna riga, non un errore", () => {
     expect(generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", [])).toEqual([]);
+  });
+});
+
+describe("estraiMeetingIdDaTaskId", () => {
+  it("risale al meetingId da un taskId generato da generaAttivitaDaMeeting", () => {
+    const righe = generaAttivitaDaMeeting("alc-01", "alc-01::abc12345", "2026-08-11", "Call mensile", [
+      { text: "Fare X" },
+    ]);
+    expect(estraiMeetingIdDaTaskId(righe[0].taskId)).toBe("alc-01::abc12345");
+  });
+
+  it("robusto anche se clienteId contiene un trattino (usa l'ULTIMO trattino, non il primo)", () => {
+    expect(estraiMeetingIdDaTaskId("m-alc-01::abc12345-0")).toBe("alc-01::abc12345");
+  });
+
+  it("indice a più cifre -> comunque corretto", () => {
+    expect(estraiMeetingIdDaTaskId("m-alc-01::abc12345-12")).toBe("alc-01::abc12345");
+  });
+
+  it("taskId non da meeting (roadmap prodotto, es. 'S01') -> null", () => {
+    expect(estraiMeetingIdDaTaskId("S01")).toBeNull();
+  });
+
+  it("formato inatteso senza indice finale -> null", () => {
+    expect(estraiMeetingIdDaTaskId("m-soloprefisso")).toBeNull();
   });
 });
 

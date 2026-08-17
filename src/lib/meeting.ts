@@ -74,6 +74,21 @@ export function generaAttivitaDaMeeting(
   });
 }
 
+/**
+ * Inverso parziale di `generaAttivitaDaMeeting`: da un taskId `m-${meetingId}-${indice}` risale al
+ * meetingId originale (per il link "vai al meeting" nella vista Attività). `meetingId` stesso è
+ * `${clienteId}::${hash}` (mai un trattino finale seguito solo da cifre), quindi l'ultimo trattino
+ * nella stringa separa sempre l'indice, indipendentemente da quante cifre ha. Null se il taskId non
+ * è nel formato atteso (attività da roadmap prodotto, non da meeting).
+ */
+export function estraiMeetingIdDaTaskId(taskId: string): string | null {
+  if (!taskId.startsWith("m-")) return null;
+  const senzaPrefisso = taskId.slice(2);
+  const idx = senzaPrefisso.lastIndexOf("-");
+  if (idx === -1) return null;
+  return senzaPrefisso.slice(0, idx);
+}
+
 /** Whitelist POSITIVA per la vista cliente pubblico: elenca solo ciò che entra, mai ciò che esclude. */
 export function campiVisibiliCliente(meetingId: string, data: string, meeting: MeetingDataLoose): MeetingCampiPubblici {
   return {

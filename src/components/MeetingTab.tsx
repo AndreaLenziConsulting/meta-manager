@@ -5,7 +5,7 @@ import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
 import type { ActionItem, MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
-type Props = { code?: string; clienteId?: string; clienteNome?: string };
+type Props = { code?: string; clienteId?: string; clienteNome?: string; meetingIdEvidenziato?: string | null };
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
@@ -122,13 +122,22 @@ function MeetingAzioni({
   );
 }
 
-export function MeetingTab({ code, clienteId, clienteNome }: Props) {
+export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato }: Props) {
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [meetingTeam, setMeetingTeam] = useState<MeetingClienteRow[] | null>(null);
   const [meetingPubblico, setMeetingPubblico] = useState<MeetingCampiPubblici[] | null>(null);
   const [espanso, setEspanso] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+  // Tiene traccia dell'ultimo meetingIdEvidenziato "consumato", per aprire quel meeting solo
+  // quando la prop CAMBIA (non ad ogni render) — pattern React consigliato per "adeguare lo stato
+  // quando cambia una prop": aggiornamento diretto durante il render, non dentro un useEffect
+  // (evita il warning react-hooks/set-state-in-effect sul setState sincrono in un effetto).
+  const [ultimoEvidenziato, setUltimoEvidenziato] = useState<string | null | undefined>(undefined);
+  if (meetingIdEvidenziato && meetingIdEvidenziato !== ultimoEvidenziato) {
+    setUltimoEvidenziato(meetingIdEvidenziato);
+    setEspanso(meetingIdEvidenziato);
+  }
 
   const [mostraForm, setMostraForm] = useState(false);
   const [url, setUrl] = useState("");
@@ -169,6 +178,18 @@ export function MeetingTab({ code, clienteId, clienteNome }: Props) {
 
     return () => controller.abort();
   }, [code, clienteId, refreshTick]);
+
+  // Arrivo da "vai al meeting" nel tab Attività: scrolla al meeting giusto (l'apertura è gestita
+  // sopra, durante il render). Riprova ad ogni cambio di meetingTeam (non solo quando cambia la
+  // prop) — se lo storico non è ancora stato caricato la prima volta, getElementById non trova
+  // nulla; quando il fetch completa e la riga entra nel DOM, questo effetto rifira.
+  useEffect(() => {
+    if (!meetingIdEvidenziato) return;
+    const raf = requestAnimationFrame(() => {
+      document.getElementById(`meeting-${meetingIdEvidenziato}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [meetingIdEvidenziato, meetingTeam]);
 
   async function handleEstrai(e: React.FormEvent) {
     e.preventDefault();
@@ -416,7 +437,13 @@ export function MeetingTab({ code, clienteId, clienteNome }: Props) {
         const aperto = espanso === m.meetingId;
         const azioni = m.dati.actionItems ?? [];
         return (
-          <div key={m.meetingId} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div
+            key={m.meetingId}
+            id={`meeting-${m.meetingId}`}
+            className={`rounded-2xl border bg-white shadow-sm overflow-hidden transition-colors ${
+              m.meetingId === meetingIdEvidenziato ? "border-brand ring-2 ring-brand/20" : "border-gray-200"
+            }`}
+          >
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}
