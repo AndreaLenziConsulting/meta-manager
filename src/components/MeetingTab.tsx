@@ -9,6 +9,11 @@ type Props = { code?: string; clienteId?: string; clienteNome?: string };
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
+// Senza "w-full": per gli input dentro una riga flex (testo + assegnatario), dove la larghezza
+// deve venire da flex-1/w-32 e non da w-full — le due classi insieme sullo stesso elemento
+// vanno in conflitto sulla proprietà width (ordine di generazione Tailwind, non l'ordine nella
+// stringa className), causando il campo assegnatario a espandersi su tutta la riga in anteprima.
+const inputClassFlex = inputClass.replace("w-full ", "");
 const labelClass = "text-xs font-semibold text-gray-700 mb-1 block";
 
 /**
@@ -250,7 +255,7 @@ export function MeetingTab({ code, clienteId, clienteNome }: Props) {
               <label className={labelClass}>Link del meeting (Fathom, Circleback o Loom)</label>
               <div className="flex flex-wrap gap-2">
                 <input
-                  className={`${inputClass} flex-1 min-w-[220px]`}
+                  className={`${inputClassFlex} flex-1 min-w-[220px]`}
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
                   placeholder="https://…"
@@ -350,13 +355,13 @@ export function MeetingTab({ code, clienteId, clienteNome }: Props) {
               {(anteprima.actionItems ?? []).map((item, i) => (
                 <div key={i} className="flex gap-1.5">
                   <input
-                    className={`${inputClass} flex-1`}
+                    className={`${inputClassFlex} flex-1`}
                     placeholder="Cosa fare"
                     value={item.text}
                     onChange={(e) => aggiornaActionItem(i, { ...item, text: e.target.value })}
                   />
                   <input
-                    className={`${inputClass} w-32 flex-shrink-0`}
+                    className={`${inputClassFlex} w-32 flex-shrink-0`}
                     placeholder="Assegnatario"
                     value={item.assignee ?? ""}
                     onChange={(e) => aggiornaActionItem(i, { ...item, assignee: e.target.value || undefined })}
