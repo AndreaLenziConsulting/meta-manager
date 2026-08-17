@@ -173,6 +173,7 @@ export async function getClienti(): Promise<Cliente[]> {
       mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
       prodottoId: asText(r[9]),
       dataInizioProgetto: normalizeData(r[10]) || null,
+      tipoConversioneLead: asText(r[11]),
     }));
 }
 

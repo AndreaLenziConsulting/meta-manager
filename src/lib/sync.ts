@@ -17,7 +17,13 @@ export async function syncCliente(cliente: Cliente): Promise<{ righe: number }> 
   const since = formatData(inizio);
   const until = formatData(oggi);
 
-  const { rows, campagne } = await fetchCampaignInsights(cliente.adAccountId, cliente.clienteId, since, until);
+  const { rows, campagne } = await fetchCampaignInsights(
+    cliente.adAccountId,
+    cliente.clienteId,
+    since,
+    until,
+    cliente.tipoConversioneLead || undefined
+  );
   await ensureCampagneMappate(
     campagne.map((c) => ({ campaignId: c.campaignId, clienteId: cliente.clienteId, nomeCampagna: c.nomeCampagna }))
   );

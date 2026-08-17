@@ -10,6 +10,11 @@ export type Cliente = {
   mostraTabExtra: boolean;
   prodottoId: string; // vuoto se nessun prodotto assegnato (cliente pre-esistente o senza roadmap)
   dataInizioProgetto: string | null; // YYYY-MM-DD, base per il calcolo delle scadenze della roadmap
+  // action_type esatto di Meta Insights da contare come "lead" per questo cliente (es.
+  // "offsite_conversion.fb_pixel_complete_registration" per un cliente che traccia iscrizioni a
+  // webinar/eventi invece di Lead Ads classici). Vuoto = usa la lista di default (LEAD_ACTION_PRIORITY
+  // in src/lib/meta.ts) — comportamento invariato per tutti i clienti esistenti.
+  tipoConversioneLead: string;
 };
 
 export type Consulente = {

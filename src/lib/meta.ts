@@ -10,7 +10,7 @@ const LEAD_ACTION_PRIORITY = [
   "offsite_conversion.fb_pixel_lead",
 ];
 
-type MetaAction = { action_type: string; value: string };
+export type MetaAction = { action_type: string; value: string };
 
 type MetaInsightRow = {
   campaign_id: string;
@@ -25,9 +25,17 @@ type MetaInsightRow = {
   actions?: MetaAction[];
 };
 
-function extractLeads(actions: MetaAction[] | undefined): number {
+// `tipoConversioneLead` (colonna `tipo_conversione_lead` in Clienti) copre i clienti il cui
+// funnel non usa Lead Ads/Instant Form ma un altro evento di conversione (es. "Completamento
+// registrazione" per webinar/eventi dal vivo — action_type tipo
+// "offsite_conversion.fb_pixel_complete_registration", diverso da qualunque variante di "lead").
+// Se impostato, è l'UNICO criterio usato (non un ulteriore fallback): un cliente con un funnel a
+// registrazione non deve rischiare di sommare per errore anche eventuali "lead" incidentali da
+// altre campagne, con semantica ambigua giorno per giorno.
+export function extractLeads(actions: MetaAction[] | undefined, tipoConversioneLead?: string): number {
   if (!actions) return 0;
-  for (const type of LEAD_ACTION_PRIORITY) {
+  const tipi = tipoConversioneLead ? [tipoConversioneLead] : LEAD_ACTION_PRIORITY;
+  for (const type of tipi) {
     const match = actions.find((a) => a.action_type === type);
     if (match) return Number(match.value || 0);
   }
@@ -72,7 +80,8 @@ export async function fetchCampaignInsights(
   adAccountId: string,
   clienteId: string,
   since: string,
-  until: string
+  until: string,
+  tipoConversioneLead?: string
 ): Promise<{ rows: MetaDailyRow[]; campagne: { campaignId: string; nomeCampagna: string }[] }> {
   const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions";
   const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
@@ -99,7 +108,7 @@ export async function fetchCampaignInsights(
       ctr: Number(item.ctr || 0),
       cpc: Number(item.cpc || 0),
       cpm: Number(item.cpm || 0),
-      lead: extractLeads(item.actions),
+      lead: extractLeads(item.actions, tipoConversioneLead),
     });
   }
 

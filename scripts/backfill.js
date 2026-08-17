@@ -1,7 +1,9 @@
 /**
  * Backfill storico: recupera spesa/lead per campagna da Meta Ads su una finestra ampia
  * e li scrive in MetaDaily. Da lanciare in locale (non ha il limite di 60s del cron su Vercel).
- * Uso: node --env-file=.env.local scripts/backfill.js [YYYY-MM-DD since]
+ * Uso: node --env-file=.env.local scripts/backfill.js [YYYY-MM-DD since] [clienteId]
+ * clienteId opzionale: limita il backfill a un solo cliente (es. per ricalcolare i lead dopo
+ * aver impostato tipo_conversione_lead su un cliente con funnel non-standard).
  */
 const { google } = require("googleapis");
 
@@ -25,6 +27,7 @@ const twoYearsAgo = new Date();
 twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
 const since = process.argv[2] || twoYearsAgo.toISOString().slice(0, 10);
 const until = new Date().toISOString().slice(0, 10);
+const soloClienteId = process.argv[3] || null;
 
 const LEAD_ACTION_PRIORITY = ["onsite_conversion.lead_grouped", "lead", "offsite_conversion.fb_pixel_lead"];
 
@@ -47,16 +50,19 @@ function guessTipoCampagnaFromNome(nomeCampagna) {
   return testo.charAt(0).toUpperCase() + testo.slice(1).toLowerCase();
 }
 
-function extractLeads(actions) {
+// Vedi stesso commento/logica in src/lib/meta.ts: se tipoConversioneLead è impostato, è l'UNICO
+// criterio (non un fallback aggiuntivo alla lista di default).
+function extractLeads(actions, tipoConversioneLead) {
   if (!actions) return 0;
-  for (const type of LEAD_ACTION_PRIORITY) {
+  const tipi = tipoConversioneLead ? [tipoConversioneLead] : LEAD_ACTION_PRIORITY;
+  for (const type of tipi) {
     const match = actions.find((a) => a.action_type === type);
     if (match) return Number(match.value || 0);
   }
   return 0;
 }
 
-async function fetchCampaignInsights(adAccountId, clienteId) {
+async function fetchCampaignInsights(adAccountId, clienteId, tipoConversioneLead) {
   const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions";
   const url = new URL(`https://graph.facebook.com/${metaApiVersion}/act_${adAccountId}/insights`);
   url.searchParams.set("level", "campaign");
@@ -88,7 +94,7 @@ async function fetchCampaignInsights(adAccountId, clienteId) {
         Number(item.ctr || 0),
         Number(item.cpc || 0),
         Number(item.cpm || 0),
-        extractLeads(item.actions),
+        extractLeads(item.actions, tipoConversioneLead),
       ]);
     }
     nextUrl = json.paging?.next ?? null;
@@ -102,13 +108,24 @@ async function main() {
 
   const clientiRes = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: "Clienti!A2:E",
+    range: "Clienti!A2:L",
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const clienti = (clientiRes.data.values || [])
     .filter((r) => r[0])
-    .map((r) => ({ clienteId: String(r[0]), adAccountId: String(r[2]), attivo: String(r[4]).toUpperCase() === "TRUE" }))
-    .filter((c) => c.attivo);
+    .map((r) => ({
+      clienteId: String(r[0]),
+      adAccountId: String(r[2]),
+      attivo: String(r[4]).toUpperCase() === "TRUE",
+      tipoConversioneLead: r[11] ? String(r[11]) : null,
+    }))
+    .filter((c) => c.attivo)
+    .filter((c) => !soloClienteId || c.clienteId === soloClienteId);
+
+  if (soloClienteId && clienti.length === 0) {
+    console.log(`Nessun cliente attivo trovato con clienteId "${soloClienteId}".`);
+    return;
+  }
 
   const campagneRes = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
@@ -129,7 +146,7 @@ async function main() {
 
   for (const cliente of clienti) {
     console.log(`Cliente ${cliente.clienteId} (ad account ${cliente.adAccountId})...`);
-    const { rows, campagne } = await fetchCampaignInsights(cliente.adAccountId, cliente.clienteId);
+    const { rows, campagne } = await fetchCampaignInsights(cliente.adAccountId, cliente.clienteId, cliente.tipoConversioneLead);
     console.log(`  ${rows.length} righe trovate, ${campagne.length} campagne`);
 
     const nuoveCampagne = campagne.filter((c) => !campagneEsistenti.has(c.id));
