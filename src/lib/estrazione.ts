@@ -117,7 +117,7 @@ const EXTRACTION_TOOL = {
           type: ["array", "string"],
           items: { type: "string" },
           description:
-            "TUTTI gli action item concreti (tipicamente 5-25). Array di stringhe, ciascuna in formato '<Assegnatario>: <azione>' quando l'assegnatario è noto, es. 'Marco Rebuzzi: caricare materiali'. Se non c'è assegnatario, solo il testo dell'azione. Elenca OGNI task/todo/prossimo-passo da sezioni come 'Action Items', 'Task della settimana/mese', 'Next Steps'.",
+            "TUTTI gli action item concreti assegnati a una persona specifica (tipicamente 5-15). Array di stringhe, formato '<Assegnatario>: <azione>' — l'assegnatario è SEMPRE noto qui, es. 'Marco Rebuzzi: caricare materiali'. Fonte: sezione 'Action Items'/'Next Steps' se presente, altrimenti 'Task della settimana' (quasi sempre organizzata per persona, es. 'Marco: ...'). NON includere qui 'Task del mese' o 'Programma del trimestre': sono obiettivi generali/strategici, non task assegnati a una persona — vanno SOLO nei campi taskMese/programmaTrimestre, mai duplicati qui.",
         },
         cliente: { type: "string", description: "Nome dell'azienda cliente (il cliente della consulenza, MAI Andrea Lenzi Consulting)" },
         referente: {
@@ -162,18 +162,23 @@ Linee guida:
 - Chiama SEMPRE il tool "save_meeting_data" con i dati estratti.
 
 CRITICO — Esaustività (leggi TUTTO il testo prima di rispondere):
-- **actionItems**: estrai OGNI task menzionata. Cerca TUTTE le sezioni: "Task della settimana", "Task del mese", "Programma del trimestre", "Next Steps", "TODO", e righe con format "<Nome>: <azione>". Tipicamente 10-25 task in un meeting di consulenza. Includi anche i mini-task amministrativi (es. "inviare invito calendar", "caricare file su Drive", "creare cartella"). NON raggruppare task multiple in una sola voce.
+- **actionItems**: estrai OGNI task ASSEGNATA A UNA PERSONA. Cerca "Action Items", "Next Steps", "TODO", e righe con format "<Nome>: <azione>" — tipicamente questo vuol dire la sezione "Task della settimana" (quasi sempre organizzata per persona). NON includere qui "Task del mese" o "Programma del trimestre": sono obiettivi generali, non assegnati a una persona specifica — vanno SOLO in taskMese/programmaTrimestre. Includi anche i mini-task amministrativi (es. "inviare invito calendar", "caricare file su Drive", "creare cartella"). NON raggruppare task multiple in una sola voce.
 - **highlights**: 4-7 punti CONCRETI con numeri/date/decisioni specifiche (es. "Lancio campagne ADV il 4 maggio", "CPL target tra 2,50€ e 9,00€", "Obiettivo 5 vendite/mese entro 60 giorni"). MAI titoli di sezione generici tipo "Definizione delle attività".
 - **summary**: 3-5 frasi di sostanza con cosa è stato deciso, non descrizioni meta.
 
-CRITICO — Anti-pattern da evitare ASSOLUTAMENTE: NON restituire mai in actionItems il semplice
-elenco dei nomi dei partecipanti — non è mai un action item valido, è un errore grave. Fathom
-spesso NON ha una sezione "Action Items" esplicita: se non la trovi, DEVI costruire actionItems
-trasformando OGNI riga di "Task della settimana" e "Task del mese" in un action item nello stesso
-formato "<Nome>: <azione>". Esempio: se il testo contiene "Task della settimana: Marco: preparare
-il funnel ADV, Giulia: rivedere la landing page", allora actionItems deve contenere ESATTAMENTE
-["Marco: preparare il funnel ADV", "Giulia: rivedere la landing page"] — mai lasciarlo vuoto, mai
-limitarlo ai soli nomi.`;
+CRITICO — Anti-pattern da evitare ASSOLUTAMENTE:
+1. NON restituire mai in actionItems il semplice elenco dei nomi dei partecipanti — non è mai un
+   action item valido, è un errore grave. Fathom spesso NON ha una sezione "Action Items"
+   esplicita: se non la trovi, DEVI costruire actionItems trasformando OGNI riga di "Task della
+   settimana" in un action item nello stesso formato "<Nome>: <azione>". Esempio: se il testo
+   contiene "Task della settimana: Marco: preparare il funnel ADV, Giulia: rivedere la landing
+   page", allora actionItems deve contenere ESATTAMENTE ["Marco: preparare il funnel ADV",
+   "Giulia: rivedere la landing page"] — mai lasciarlo vuoto, mai limitarlo ai soli nomi.
+2. NON mettere in actionItems le voci di "Task del mese" o "Programma del trimestre" — sono
+   obiettivi generali senza una persona assegnata (es. "Mantenere attive le campagne ad agosto"),
+   diversi dalle task individuali di "Task della settimana". Metterle in actionItems produce righe
+   senza assegnatario che sembrano dati mancanti: vanno SOLO nei rispettivi campi taskMese/
+   programmaTrimestre, mai duplicate in actionItems.`;
 
 const SYSTEM_PROMPT_CIRCLEBACK = `Sei un assistente che estrae dati strutturati da meeting di consulenza marketing registrati su Circleback per "Andrea Lenzi Consulting".
 
@@ -202,7 +207,7 @@ Linee guida per Circleback:
 - Chiama SEMPRE il tool "save_meeting_data" con i dati estratti.
 
 CRITICO — Esaustività (leggi TUTTO il testo prima di rispondere):
-- **actionItems**: estrai OGNI task menzionata. Cerca TUTTE le sezioni: "Task della settimana", "Task del mese", "Programma del trimestre", "Next Steps", "TODO", e righe con format "<Nome>: <azione>". Tipicamente 10-25 task in un meeting di consulenza. Includi anche i mini-task amministrativi (es. "inviare invito calendar", "caricare file su Drive", "creare cartella"). NON raggruppare task multiple in una sola voce.
+- **actionItems**: estrai OGNI task ASSEGNATA A UNA PERSONA. Cerca "Action Items", "Next Steps", "TODO", e righe con format "<Nome>: <azione>" — tipicamente questo vuol dire la sezione "Task della settimana". NON includere qui "Task del mese" o "Programma del trimestre": sono obiettivi generali, non assegnati a una persona specifica — vanno SOLO in taskMese/programmaTrimestre. Includi anche i mini-task amministrativi (es. "inviare invito calendar", "caricare file su Drive", "creare cartella"). NON raggruppare task multiple in una sola voce.
 - **highlights**: 4-7 punti CONCRETI con numeri/date/decisioni specifiche (es. "Lancio campagne ADV il 4 maggio", "CPL target tra 2,50€ e 9,00€", "Obiettivo 5 vendite/mese entro 60 giorni"). MAI titoli di sezione generici tipo "Definizione delle attività".
 - **summary**: 3-5 frasi di sostanza con cosa è stato deciso, non descrizioni meta.`;
 
@@ -519,9 +524,12 @@ export function isPaginaConErroreCaricamento(text: string): boolean {
 
 // ─── Fallback anti-pattern Fathom: la pagina spesso non ha una sezione "Action Items" esplicita
 // e il modello (Groq, più debole di Claude su questo) a volte restituisce solo i nomi dei
-// partecipanti invece di ripescare i task da "Task della settimana"/"Task del mese" come
-// richiesto dal prompt. Queste due funzioni pure sono il fallback lato codice — vedi wiring in
-// estraiMeetingData, solo per source === "fathom".
+// partecipanti invece di ripescare i task da "Task della settimana" come richiesto dal prompt.
+// Queste due funzioni pure sono il fallback lato codice — vedi wiring in estraiMeetingData, solo
+// per source === "fathom". SOLO taskSettimana, MAI taskMese/programmaTrimestre: quelle sezioni
+// sono obiettivi generali senza una persona assegnata, non task individuali — mischiarle in
+// actionItems produce righe senza assegnatario che sembrano dati mancanti (bug segnalato
+// dall'utente, corretto qui e nello stesso senso nei prompt/schema sopra).
 export function isActionItemsSuspicious(items: ActionItem[], participants: string[]): boolean {
   if (items.length === 0) return true;
   if (participants.length === 0) return false;
@@ -530,8 +538,8 @@ export function isActionItemsSuspicious(items: ActionItem[], participants: strin
   return items.every((item) => nomi.has(norm(item.text)));
 }
 
-export function actionItemsFromTaskLines(taskSettimana: string, taskMese: string): ActionItem[] {
-  const righe = `${taskSettimana}\n${taskMese}`
+export function actionItemsFromTaskLines(taskSettimana: string): ActionItem[] {
+  const righe = taskSettimana
     .split("\n")
     .map((r) => r.trim())
     .filter(Boolean);
@@ -705,9 +713,10 @@ ${trimmed}
 
   // Fallback Fathom: la pagina spesso non ha una sezione "Action Items" esplicita e il modello
   // a volte restituisce solo i nomi dei partecipanti invece di ripescare i task da "Task della
-  // settimana"/"Task del mese" come richiesto dal prompt (vedi isActionItemsSuspicious sopra).
+  // settimana" come richiesto dal prompt (vedi isActionItemsSuspicious sopra). Solo taskSettimana:
+  // taskMese/programmaTrimestre sono obiettivi generali senza assegnatario, non vanno qui.
   if (source === "fathom" && isActionItemsSuspicious(actionItems, participants)) {
-    const fallback = actionItemsFromTaskLines(taskSettimana, taskMese);
+    const fallback = actionItemsFromTaskLines(taskSettimana);
     if (fallback.length > 0) actionItems = fallback;
   }
 

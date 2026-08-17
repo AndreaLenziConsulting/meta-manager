@@ -127,15 +127,14 @@ describe("isPaginaConErroreCaricamento", () => {
 });
 
 describe("actionItemsFromTaskLines", () => {
-  it("unisce taskSettimana e taskMese, una riga = un action item", () => {
-    expect(actionItemsFromTaskLines("Marco: preparare il funnel\nGiulia: rivedere landing", "Obiettivo 5 vendite")).toEqual([
+  it("una riga di taskSettimana = un action item — MAI taskMese/programmaTrimestre (obiettivi generali senza assegnatario)", () => {
+    expect(actionItemsFromTaskLines("Marco: preparare il funnel\nGiulia: rivedere landing")).toEqual([
       { text: "preparare il funnel", assignee: "Marco" },
       { text: "rivedere landing", assignee: "Giulia" },
-      { text: "Obiettivo 5 vendite" },
     ]);
   });
 
   it("righe vuote/assenti -> array vuoto, mai un crash", () => {
-    expect(actionItemsFromTaskLines("", "")).toEqual([]);
+    expect(actionItemsFromTaskLines("")).toEqual([]);
   });
 });
