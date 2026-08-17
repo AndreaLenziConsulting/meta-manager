@@ -83,7 +83,7 @@ Usa il system user token del Business Manager ALC (già configurato con accesso 
 
 Copia `.env.local.example` in `.env.local` e compila tutti i valori (vedi anche `TEAM_PASSWORD`, `SESSION_SECRET`, `CRON_SECRET` — stringhe casuali a scelta).
 
-Per il tab Meeting (estrazione da Fathom/Circleback/Loom) servono in più: `GROQ_API_KEY` (console.groq.com/keys, usata per l'estrazione strutturata via tool calling — modello `llama-3.3-70b-versatile`), `CHROME_EXECUTABLE_PATH` (obbligatorio in sviluppo locale — percorso dell'eseguibile Chrome installato, es. `C:/Program Files/Google/Chrome/Application/chrome.exe`) e opzionalmente `CHROMIUM_PACK_URL` (override del binario Chromium in produzione/serverless, di norma non serve).
+Per il tab Meeting (estrazione da Fathom/Circleback/Loom) servono in più: `GROQ_API_KEY` (console.groq.com/keys, usata per l'estrazione strutturata via tool calling — modello `openai/gpt-oss-120b`; piano free: 8K TPM / 30 RPM / 200K TPD, quest'ultimo un tetto reale di circa 25-40 estrazioni al giorno), `CHROME_EXECUTABLE_PATH` (obbligatorio in sviluppo locale — percorso dell'eseguibile Chrome installato, es. `C:/Program Files/Google/Chrome/Application/chrome.exe`) e opzionalmente `CHROMIUM_PACK_URL` (override del binario Chromium in produzione/serverless, di norma non serve).
 
 Per la scrittura in parallelo sul foglio esterno "Report Operatività Clienti" (vedi sezione Meeting sotto): `REPORT_OPERATIVITA_SHEET_ID` (spreadsheetId del foglio esterno, separato da `SHEET_ID`) e opzionalmente `REPORT_OPERATIVITA_TAB_NAME` (default `"Risposte del modulo 1"`). Se non configurate, quella scrittura viene semplicemente saltata — non blocca il salvataggio del meeting.
 
@@ -127,7 +127,7 @@ Alla creazione di un cliente con un prodotto assegnato, la roadmap si genera aut
 
 ### Meeting — storico + task automatici (tab Meeting)
 
-Sostituisce l'uso del vecchio tool separato "Fast Report": la logica di estrazione (scraping Playwright della pagina pubblica di condivisione + lettura strutturata via Groq) è replicata direttamente qui, non più un servizio esterno. Dal tab, il team incolla il link pubblico di un meeting registrato su **Fathom**, **Circleback** o **Loom**; `POST /api/meeting/estrai` fa scraping della pagina e passa il testo a Groq (`llama-3.3-70b-versatile`, tool calling forzato, schema fisso) per un'anteprima strutturata (titolo, data, durata, partecipanti, riassunto, action item, più alcuni campi ad uso interno). L'anteprima è editabile prima del salvataggio.
+Sostituisce l'uso del vecchio tool separato "Fast Report": la logica di estrazione (scraping Playwright della pagina pubblica di condivisione + lettura strutturata via Groq) è replicata direttamente qui, non più un servizio esterno. Dal tab, il team incolla il link pubblico di un meeting registrato su **Fathom**, **Circleback** o **Loom**; `POST /api/meeting/estrai` fa scraping della pagina e passa il testo a Groq (`openai/gpt-oss-120b`, tool calling forzato, schema fisso) per un'anteprima strutturata (titolo, data, durata, partecipanti, riassunto, action item, più alcuni campi ad uso interno). L'anteprima è editabile prima del salvataggio.
 
 Al salvataggio (`POST /api/meeting`):
 - il meeting viene scritto su `MeetingCliente` in **upsert per `meeting_id`** (hash deterministico di cliente+url — ri-salvare lo stesso link aggiorna la riga esistente, non la duplica);

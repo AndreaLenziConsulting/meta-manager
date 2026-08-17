@@ -6,10 +6,14 @@ import type { ActionItem, MeetingDataLoose } from "@/types/meeting";
  * Fathom/Circleback/Loom + strutturazione via Groq (tool calling forzato).
  *
  * Porting da Fast Report (repo separato, che diventerà desueto) — logica invariata, incluso
- * il provider LLM (Groq, `llama-3.3-70b-versatile`): stesso schema tool, stesso budget di
- * caratteri tarato sul rate limit 12K TPM del piano free (vedi commento sotto), stesso
- * `tool_choice` forzato e parsing di `tool_calls[0].function.arguments` (stringa JSON, va
- * fatto `JSON.parse` a mano — a differenza di Claude, dove l'input arriva già come oggetto).
+ * il provider LLM (Groq): stesso schema tool, stesso `tool_choice` forzato e parsing di
+ * `tool_calls[0].function.arguments` (stringa JSON, va fatto `JSON.parse` a mano — a differenza
+ * di Claude, dove l'input arriva già come oggetto).
+ *
+ * Modello `openai/gpt-oss-120b` (non più `llama-3.3-70b-versatile`, deprecato da Groq il
+ * 16/08/2026 — console.groq.com/docs/deprecations). Piano free più stretto di prima: 8K TPM
+ * (non più 12K), 30 RPM, 200K TPD — quest'ultimo è un tetto reale di circa 25-40 estrazioni al
+ * giorno con questo account, non solo un limite per singola chiamata.
  */
 
 export class EstrazioneError extends Error {
@@ -597,11 +601,13 @@ export async function estraiMeetingData(url: string): Promise<MeetingDataLoose> 
     );
   }
 
-  // Budget tarato sul rate limit reale di Groq (llama-3.3-70b-versatile, piano free: 12K TPM
-  // input+output). Non è una precauzione — è un vincolo hard, già causa di un incidente in
-  // produzione su Fast Report prima di essere ridotto a questi valori. Non alzare senza
-  // verificare il piano/rate limit attuale dell'account Groq.
-  const charLimit = source === "loom" ? 15_000 : 14_000;
+  // Budget tarato sul rate limit reale di Groq (openai/gpt-oss-120b, piano free: 8K TPM
+  // input+output — più stretto dei 12K del vecchio llama-3.3-70b-versatile). Non è una
+  // precauzione — è un vincolo hard: system prompt (~1000 token) + schema tool (~1000 token) +
+  // max_tokens completion (2048) lasciano ~4000 token per il contenuto utente, ~3.3
+  // caratteri/token in italiano → margine di sicurezza tenuto sotto questa soglia. Non alzare
+  // senza verificare il piano/rate limit attuale dell'account Groq.
+  const charLimit = source === "loom" ? 11_000 : 10_000;
   const trimmed = visible.slice(0, charLimit);
   const userContent = `URL: ${url}
 Fonte: ${source}
@@ -621,9 +627,17 @@ ${trimmed}
   for (let tentativo = 1; tentativo <= 2; tentativo++) {
     try {
       completion = await client.chat.completions.create({
-        model: "llama-3.3-70b-versatile",
-        max_tokens: 2048,
+        model: "openai/gpt-oss-120b",
+        max_tokens: 4096,
         temperature: 0.1,
+        // openai/gpt-oss-120b è un "reasoning model": senza questo, spende migliaia di
+        // completion_tokens in ragionamento interno invisibile prima di rispondere (misurato:
+        // 2422 reasoning_tokens su un totale di 4064 completion_tokens per una singola
+        // estrazione) — rischia da solo di sforare l'8K TPM del piano free. Il task è
+        // estrazione/riformattazione di testo già presente, non richiede ragionamento profondo:
+        // con "low" i reasoning_tokens scendono a ~13 senza perdita di qualità osservabile
+        // (stessa estrazione, stesso numero di action item, stessa qualità dei campi).
+        reasoning_effort: "low",
         messages: [
           { role: "system", content: getSystemPrompt(source) },
           { role: "user", content: userContent },
