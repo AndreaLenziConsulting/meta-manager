@@ -268,8 +268,16 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
-      if (inviaAutomatica) {
-        setEsitoInvio({ inviata: !!body.emailInviata, errore: body.erroreEmail ?? null });
+      // Il server tenta l'invio SOLO al primo salvataggio (mai su un upsert di un meeting già
+      // esistente, es. stesso link incollato di nuovo per errore in "+ Nuovo meeting" invece che
+      // "✎ Modifica report"): se `aggiornato` è true, il server non ha nemmeno provato, quindi
+      // qui non c'è nessun esito da mostrare — mostrarlo comunque avrebbe stampato un fuorviante
+      // "non riuscito: null" (emailInviata/erroreEmail restano ai valori di default, mai popolati).
+      if (inviaAutomatica && !body.aggiornato) {
+        setEsitoInvio({
+          inviata: !!body.emailInviata,
+          errore: body.erroreEmail ?? (body.emailInviata ? null : "errore sconosciuto"),
+        });
       }
       setAnteprima(null);
       setUrl("");
