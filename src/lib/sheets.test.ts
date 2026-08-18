@@ -6,6 +6,7 @@ import {
   serialToIsoDate,
   toNumber,
   toNumberOrNull,
+  trovaIndiceRigaCliente,
   ultimoCambioDaRighe,
   type CellValue,
 } from "./sheets";
@@ -142,5 +143,25 @@ describe("ultimoCambioDaRighe", () => {
 
   it("nessuna riga -> mappa vuota", () => {
     expect(ultimoCambioDaRighe([]).size).toBe(0);
+  });
+});
+
+describe("trovaIndiceRigaCliente", () => {
+  it("trova il numero di riga 1-based (riga 1 = header) del clienteId cercato", () => {
+    const righe: CellValue[][] = [
+      ["alc-01", "Cliente Uno"],
+      ["alc-02", "Cliente Due"],
+    ];
+    expect(trovaIndiceRigaCliente(righe, "alc-01")).toBe(2);
+    expect(trovaIndiceRigaCliente(righe, "alc-02")).toBe(3);
+  });
+
+  it("clienteId inesistente -> null", () => {
+    const righe: CellValue[][] = [["alc-01", "Cliente Uno"]];
+    expect(trovaIndiceRigaCliente(righe, "alc-99")).toBeNull();
+  });
+
+  it("nessuna riga -> null", () => {
+    expect(trovaIndiceRigaCliente([], "alc-01")).toBeNull();
   });
 });

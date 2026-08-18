@@ -213,6 +213,63 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
   ]);
 }
 
+export type AggiornaClienteInput = {
+  clienteId: string;
+  nome?: string;
+  adAccountId?: string;
+  consulenteId?: string;
+  targetCpa?: number | null;
+  targetCpl?: number | null;
+  mostraTabExtra?: boolean;
+  tipoConversioneLead?: string;
+  attivo?: boolean;
+};
+
+/** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
+export function trovaIndiceRigaCliente(rows: CellValue[][], clienteId: string): number | null {
+  const i = rows.findIndex((r) => asText(r[0]) === clienteId);
+  return i === -1 ? null : i + 2;
+}
+
+/**
+ * Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di un
+ * cliente esistente. Esclude deliberatamente prodottoId/dataInizioProgetto (colonne J/K, gestite
+ * dal flusso roadmap dedicato) e accessCode (colonna D, mai riassegnabile da qui).
+ */
+export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.clienti}!A2:L`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRigaCliente(righe, input.clienteId);
+  if (rowNumber === null) {
+    throw new Error(`Cliente non trovato: ${input.clienteId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.clienti}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.nome !== undefined) set("B", input.nome);
+  if (input.adAccountId !== undefined) set("C", input.adAccountId);
+  if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
+  if (input.consulenteId !== undefined) set("F", input.consulenteId);
+  if (input.targetCpa !== undefined) set("G", input.targetCpa ?? "");
+  if (input.targetCpl !== undefined) set("H", input.targetCpl ?? "");
+  if (input.mostraTabExtra !== undefined) set("I", input.mostraTabExtra ? "TRUE" : "FALSE");
+  if (input.tipoConversioneLead !== undefined) set("L", input.tipoConversioneLead);
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.clienti);
+}
+
 export async function getConsulenti(): Promise<Consulente[]> {
   const rows = await readTab(TAB.consulenti);
   return rows

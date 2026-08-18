@@ -3,25 +3,17 @@
 import { useMemo, useState } from "react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
-import { aggiungiGiorni, prossimoStato, rangeProgetto } from "@/lib/roadmap";
+import { aggiungiGiorni, giorniTra, oggiIso, prossimoStato, rangeProgetto } from "@/lib/roadmap";
 import { formatDataBreve, formatSettimana, formatStatoAttivita } from "@/lib/format";
 
 const LABEL_WIDTH = 260;
 const AZIONI_WIDTH = 28;
 const STATI_LEGENDA: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
 
-function giorniTra(a: string, b: string): number {
-  return Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000);
-}
-
 function pctFor(data: string, minData: string, maxData: string): number {
   const totale = giorniTra(minData, maxData);
   if (totale <= 0) return 0;
   return Math.min(100, Math.max(0, (giorniTra(minData, data) / totale) * 100));
-}
-
-function oggiIso(): string {
-  return new Date().toISOString().slice(0, 10);
 }
 
 function generaTick(minData: string, maxData: string): string[] {

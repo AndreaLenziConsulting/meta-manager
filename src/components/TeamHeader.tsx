@@ -18,7 +18,7 @@ export function TeamHeader({ clienti, ruolo }: { clienti: ClienteOption[]; ruolo
     <AppHeader>
       {ruolo === "admin" && (
         <a href="/dashboard" className="text-sm font-semibold text-brand hover:underline whitespace-nowrap">
-          Salute clienti
+          Dashboard Amministratore
         </a>
       )}
       {clienti.length > 0 && (

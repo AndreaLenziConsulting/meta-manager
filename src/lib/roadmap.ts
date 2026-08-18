@@ -6,6 +6,17 @@ export function aggiungiGiorni(dataIso: string, giorni: number): string {
   return d.toISOString().slice(0, 10);
 }
 
+/** Data odierna in formato ISO (YYYY-MM-DD). */
+export function oggiIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+/** Giorni tra due date ISO (b - a). Spostata qui da RoadmapGantt.tsx: serve anche fuori dal Gantt
+ * (dashboard admin) per calcolare i giorni di ritardo di un'attività. */
+export function giorniTra(a: string, b: string): number {
+  return Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000);
+}
+
 /** Lunedì (o comunque il primo giorno) della settimana N di un progetto che parte da `dataInizioProgetto`. */
 export function dataInizioSettimana(dataInizioProgetto: string, settimana: number): string {
   return aggiungiGiorni(dataInizioProgetto, (settimana - 1) * 7);
@@ -103,4 +114,27 @@ export function rangeProgetto(attivita: AttivitaClienteRow[]): { minData: string
     if (a.dataFine > maxData) maxData = a.dataFine;
   }
   return { minData, maxData };
+}
+
+/**
+ * Attività non "done" la cui scadenza è già passata — segnale "lavori in ritardo" per la dashboard
+ * admin. Include anche le "blocked" scadute: un blocco resta un problema da segnalare, non
+ * un'eccezione che sospende il giudizio. Confronto stretto (`<`): la scadenza di oggi stesso non è
+ * ancora in ritardo. Ordinate per scadenza crescente (più in ritardo prima).
+ */
+export function attivitaInRitardo(attivita: AttivitaClienteRow[], oggi: string = oggiIso()): AttivitaClienteRow[] {
+  return attivita
+    .filter((a) => a.stato !== "done" && a.dataFine < oggi)
+    .sort((a, b) => (a.dataFine < b.dataFine ? -1 : a.dataFine > b.dataFine ? 1 : 0));
+}
+
+/** Raggruppa le righe di roadmap multi-cliente (come le restituisce getAttivitaCliente()) per clienteId. */
+export function raggruppaAttivitaPerCliente(attivita: AttivitaClienteRow[]): Map<string, AttivitaClienteRow[]> {
+  const mappa = new Map<string, AttivitaClienteRow[]>();
+  for (const a of attivita) {
+    const lista = mappa.get(a.clienteId) ?? [];
+    lista.push(a);
+    mappa.set(a.clienteId, lista);
+  }
+  return mappa;
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  attivitaInRitardo,
   dataFineSettimana,
   dataInizioSettimana,
   generaAttivitaPerCliente,
   prossimoStato,
+  raggruppaAttivitaPerCliente,
   raggruppaPerFase,
   raggruppaPerStato,
   rangeProgetto,
@@ -161,5 +163,63 @@ describe("rangeProgetto", () => {
 
   it("lista vuota -> null", () => {
     expect(rangeProgetto([])).toBeNull();
+  });
+});
+
+describe("attivitaInRitardo", () => {
+  const oggi = "2026-08-18";
+
+  it("todo/wip con scadenza passata sono in ritardo", () => {
+    const attivita = [
+      riga({ taskId: "a", stato: "todo", dataFine: "2026-08-10" }),
+      riga({ taskId: "b", stato: "wip", dataFine: "2026-08-15" }),
+    ];
+    expect(attivitaInRitardo(attivita, oggi).map((a) => a.taskId)).toEqual(["a", "b"]);
+  });
+
+  it("done con scadenza passata NON è in ritardo (il lavoro è comunque concluso)", () => {
+    const attivita = [riga({ taskId: "a", stato: "done", dataFine: "2026-08-01" })];
+    expect(attivitaInRitardo(attivita, oggi)).toEqual([]);
+  });
+
+  it("blocked con scadenza passata è comunque in ritardo (un blocco resta un problema da segnalare)", () => {
+    const attivita = [riga({ taskId: "a", stato: "blocked", dataFine: "2026-08-01" })];
+    expect(attivitaInRitardo(attivita, oggi).map((a) => a.taskId)).toEqual(["a"]);
+  });
+
+  it("scadenza = oggi NON è ancora in ritardo (confronto stretto)", () => {
+    const attivita = [riga({ taskId: "a", stato: "todo", dataFine: oggi })];
+    expect(attivitaInRitardo(attivita, oggi)).toEqual([]);
+  });
+
+  it("scadenza futura non è in ritardo", () => {
+    const attivita = [riga({ taskId: "a", stato: "todo", dataFine: "2026-09-01" })];
+    expect(attivitaInRitardo(attivita, oggi)).toEqual([]);
+  });
+
+  it("ordina per scadenza crescente (più in ritardo prima)", () => {
+    const attivita = [
+      riga({ taskId: "recente", stato: "todo", dataFine: "2026-08-17" }),
+      riga({ taskId: "vecchia", stato: "todo", dataFine: "2026-08-01" }),
+      riga({ taskId: "media", stato: "todo", dataFine: "2026-08-10" }),
+    ];
+    expect(attivitaInRitardo(attivita, oggi).map((a) => a.taskId)).toEqual(["vecchia", "media", "recente"]);
+  });
+});
+
+describe("raggruppaAttivitaPerCliente", () => {
+  it("raggruppa righe di più clienti mescolate", () => {
+    const attivita = [
+      riga({ taskId: "a", clienteId: "cliente-1" }),
+      riga({ taskId: "b", clienteId: "cliente-2" }),
+      riga({ taskId: "c", clienteId: "cliente-1" }),
+    ];
+    const mappa = raggruppaAttivitaPerCliente(attivita);
+    expect(mappa.get("cliente-1")?.map((a) => a.taskId)).toEqual(["a", "c"]);
+    expect(mappa.get("cliente-2")?.map((a) => a.taskId)).toEqual(["b"]);
+  });
+
+  it("array vuoto -> mappa vuota", () => {
+    expect(raggruppaAttivitaPerCliente([]).size).toBe(0);
   });
 });

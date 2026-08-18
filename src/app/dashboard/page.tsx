@@ -1,18 +1,13 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getMetaDaily } from "@/lib/sheets";
+import { getAttivitaCliente, getClienti, getConsulenti, getMetaDaily } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
 import { calcolaSalute } from "@/lib/salute";
-import { SaluteClienti, LegendaSalute, type SaluteClienteItem } from "@/components/SaluteClienti";
-
-const ORDINE_STATO: Record<string, number> = {
-  interveni: 0,
-  mantieni: 1,
-  scala: 2,
-  "dati-insufficienti": 3,
-  "no-target": 4,
-};
+import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
+import { calcolaRiepilogo, ordinaPerPriorita, type SaluteClienteItem } from "@/lib/dashboardAdmin";
+import { SaluteClienti, LegendaSalute } from "@/components/SaluteClienti";
+import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
 
 const GIORNI_FINESTRA = 7;
 
@@ -47,7 +42,12 @@ export default async function DashboardHomePage() {
   const daData = formatData(inizio);
   const aData = formatData(oggi);
 
-  const metaDaily = await getMetaDaily();
+  const [metaDaily, attivitaTutte, consulenti] = await Promise.all([
+    getMetaDaily(),
+    getAttivitaCliente(),
+    getConsulenti(),
+  ]);
+  const attivitaPerCliente = raggruppaAttivitaPerCliente(attivitaTutte);
 
   const items: SaluteClienteItem[] = clienti
     .filter((c) => c.attivo)
@@ -63,19 +63,26 @@ export default async function DashboardHomePage() {
         cliente.targetCpa,
         cliente.targetCpl
       );
-      return { cliente, investimento, numeroLead, valutazione };
-    })
-    .sort((a, b) => ORDINE_STATO[a.valutazione.stato] - ORDINE_STATO[b.valutazione.stato]);
+      return {
+        cliente,
+        investimento,
+        numeroLead,
+        valutazione,
+        attivitaInRitardo: attivitaInRitardo(attivitaPerCliente.get(cliente.clienteId) ?? []),
+      };
+    });
+  const itemsOrdinati = ordinaPerPriorita(items);
+  const riepilogo = calcolaRiepilogo(itemsOrdinati);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Salute clienti</h2>
+          <h2 className="text-xl font-bold text-gray-900">Dashboard Amministratore</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Ultimi 7 giorni ({daData} → {aData}) — costo per lead vs target. Le vendite sono tracciate solo a
-            livello mensile, quindi su questa finestra il segnale è sempre il costo per lead, mai il CPA su
-            vendita.
+            Salute ads (ultimi 7 giorni, {daData} → {aData} — costo per lead vs target: le vendite sono
+            tracciate solo a livello mensile, quindi su questa finestra il segnale è sempre il costo per lead)
+            e stato dei lavori, cliente per cliente.
           </p>
         </div>
         <a
@@ -85,8 +92,9 @@ export default async function DashboardHomePage() {
           + Nuovo cliente
         </a>
       </div>
+      <RiepilogoAllarmiAdmin riepilogo={riepilogo} />
       <LegendaSalute />
-      <SaluteClienti items={items} />
+      <SaluteClienti items={itemsOrdinati} consulenti={consulenti} />
     </div>
   );
 }
