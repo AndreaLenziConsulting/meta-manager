@@ -73,14 +73,34 @@ describe("computeKpi", () => {
     const luglio = trend.find((t) => t.mese === "2026-07")!;
     expect(giugno.investimento).toBe(350);
     expect(giugno.fatturato).toBe(4000);
+    expect(giugno.numeroLead).toBe(15); // 5 (c1) + 2 (c2) + 8 (c3)
     expect(luglio.investimento).toBe(30);
     expect(luglio.fatturato).toBe(0); // nessuna riga Funnel per luglio nel fixture
+    expect(luglio.numeroLead).toBe(1);
   });
 
-  it("il trend settimanale usa il lunedì della settimana come chiave, coerente a cavallo di mese", () => {
+  it("il trend settimanale usa il lunedì della settimana come chiave, coerente a cavallo di mese, e riporta il fatturato del mese di appartenenza", () => {
     // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana.
     const { trendSettimanale } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
-    expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350 }]);
+    expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15 }]);
+  });
+
+  it("una settimana a cavallo di due mesi riporta il fatturato del mese con più spesa in quella settimana", () => {
+    // Settimana del lunedì 2026-06-29 (fino a domenica 2026-07-05): il lunedì stesso è di giugno, ma la
+    // spesa reale in quella settimana è quasi tutta di luglio -> il fatturato deve seguire la spesa, non il lunedì.
+    const metaDaily: MetaDailyRow[] = [
+      { data: "2026-06-29", clienteId: "alc-01", campaignId: "c1", spesa: 10, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1 },
+      { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9 },
+    ];
+    const funnel: FunnelRow[] = [
+      { mese: "2026-06", clienteId: "alc-01", tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
+      { mese: "2026-07", clienteId: "alc-01", tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
+    ];
+    const { trendSettimanale } = computeKpi("alc-01", "2026-06", "2026-07", metaDaily, CAMPAGNE, funnel);
+    const settimana = trendSettimanale.find((t) => t.settimana === "2026-06-29")!;
+    expect(settimana.investimento).toBe(100);
+    expect(settimana.numeroLead).toBe(10);
+    expect(settimana.fatturato).toBe(5000); // luglio (90 di spesa) batte giugno (10 di spesa)
   });
 
   describe("filtro campagneSelezionate", () => {

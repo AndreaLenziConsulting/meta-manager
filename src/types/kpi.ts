@@ -106,8 +106,8 @@ export type KpiResponse = {
   periodo: { da: string; a: string };
   gruppi: KpiGroup[];
   totale: KpiGroup;
-  trend: { mese: string; investimento: number; fatturato: number }[];
-  trendSettimanale: { settimana: string; investimento: number }[];
+  trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
+  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
 };

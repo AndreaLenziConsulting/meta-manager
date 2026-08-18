@@ -55,8 +55,12 @@ function chiudiFormule(g: KpiGroup): KpiGroup {
 export type KpiComputationResult = {
   gruppi: KpiGroup[];
   totale: KpiGroup;
-  trend: { mese: string; investimento: number; fatturato: number }[];
-  trendSettimanale: { settimana: string; investimento: number }[];
+  trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
+  // fatturato qui è SEMPRE quello del mese a cui la settimana appartiene (il Funnel è tracciato
+  // solo a livello mensile, non esiste un vero "fatturato della settimana") — null solo se quel
+  // mese non ha proprio un'entrata in trendMap (caso limite, non dovrebbe verificarsi dato che la
+  // settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso mese).
+  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number }[];
 };
 
 /**
@@ -87,8 +91,12 @@ export function computeKpi(
     : null;
 
   const gruppiMap = new Map<string, KpiGroup>();
-  const trendMap = new Map<string, { investimento: number; fatturato: number }>();
-  const trendSettimanaleMap = new Map<string, number>();
+  const trendMap = new Map<string, { investimento: number; fatturato: number; numeroLead: number }>();
+  // speesaPerMese: dentro ogni settimana, quanto investimento viene da ciascun mese — una settimana può
+  // ricadere a cavallo di due mesi (bastano poche righe MetaDaily negli ultimi/primi giorni del mese), quindi
+  // il solo lunedì della settimana non basta per decidere di quale mese mostrare il fatturato (tracciato solo
+  // a livello mensile): si usa il mese con più spesa in quella settimana.
+  const trendSettimanaleMap = new Map<string, { investimento: number; numeroLead: number; spesaPerMese: Map<string, number> }>();
 
   const nelPeriodo = (mese: string) => mese >= daMese && mese <= aMese;
 
@@ -104,12 +112,17 @@ export function computeKpi(
     gruppo.numeroLead += row.lead;
     gruppiMap.set(tipoCampagna, gruppo);
 
-    const trendEntry = trendMap.get(mese) ?? { investimento: 0, fatturato: 0 };
+    const trendEntry = trendMap.get(mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0 };
     trendEntry.investimento += row.spesa;
+    trendEntry.numeroLead += row.lead;
     trendMap.set(mese, trendEntry);
 
     const settimana = settimanaDiData(row.data);
-    trendSettimanaleMap.set(settimana, (trendSettimanaleMap.get(settimana) ?? 0) + row.spesa);
+    const settimanaEntry = trendSettimanaleMap.get(settimana) ?? { investimento: 0, numeroLead: 0, spesaPerMese: new Map<string, number>() };
+    settimanaEntry.investimento += row.spesa;
+    settimanaEntry.numeroLead += row.lead;
+    settimanaEntry.spesaPerMese.set(mese, (settimanaEntry.spesaPerMese.get(mese) ?? 0) + row.spesa);
+    trendSettimanaleMap.set(settimana, settimanaEntry);
   }
 
   for (const row of funnel) {
@@ -127,7 +140,7 @@ export function computeKpi(
     gruppo.fatturato += row.fatturato;
     gruppiMap.set(tipoCampagna, gruppo);
 
-    const trendEntry = trendMap.get(row.mese) ?? { investimento: 0, fatturato: 0 };
+    const trendEntry = trendMap.get(row.mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0 };
     trendEntry.fatturato += row.fatturato;
     trendMap.set(row.mese, trendEntry);
   }
@@ -153,7 +166,24 @@ export function computeKpi(
     .sort((a, b) => a.mese.localeCompare(b.mese));
 
   const trendSettimanale = Array.from(trendSettimanaleMap.entries())
-    .map(([settimana, investimento]) => ({ settimana, investimento }))
+    .map(([settimana, v]) => {
+      let meseProprietario = "";
+      let spesaMax = -1;
+      for (const [mese, spesa] of v.spesaPerMese) {
+        if (spesa > spesaMax) {
+          spesaMax = spesa;
+          meseProprietario = mese;
+        }
+      }
+      return {
+        settimana,
+        investimento: v.investimento,
+        numeroLead: v.numeroLead,
+        // il Funnel è tracciato solo a livello mensile: il fatturato mostrato per una settimana è
+        // quello del mese con più spesa in quella settimana (vedi nota sopra su spesaPerMese).
+        fatturato: trendMap.get(meseProprietario)?.fatturato ?? null,
+      };
+    })
     .sort((a, b) => a.settimana.localeCompare(b.settimana));
 
   return { gruppi, totale, trend, trendSettimanale };
