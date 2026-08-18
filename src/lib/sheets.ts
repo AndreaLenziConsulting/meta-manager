@@ -174,6 +174,7 @@ export async function getClienti(): Promise<Cliente[]> {
       prodottoId: asText(r[9]),
       dataInizioProgetto: normalizeData(r[10]) || null,
       tipoConversioneLead: asText(r[11]),
+      email: asText(r[12]),
     }));
 }
 
@@ -188,6 +189,7 @@ export type NuovoClienteInput = {
   mostraTabExtra: boolean;
   prodottoId: string;
   dataInizioProgetto: string | null;
+  email?: string;
 };
 
 /** Crea un nuovo cliente (sempre attivo). Rifiuta esplicitamente un clienteId già in uso. */
@@ -209,6 +211,8 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
       input.mostraTabExtra ? "TRUE" : "FALSE",
       input.prodottoId,
       input.dataInizioProgetto ?? "",
+      "", // colonna L, tipoConversioneLead — non impostabile in creazione, solo via modifica
+      input.email ?? "",
     ],
   ]);
 }
@@ -223,6 +227,7 @@ export type AggiornaClienteInput = {
   mostraTabExtra?: boolean;
   tipoConversioneLead?: string;
   attivo?: boolean;
+  email?: string;
 };
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
@@ -240,7 +245,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.clienti}!A2:L`,
+    range: `${TAB.clienti}!A2:M`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -261,6 +266,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   if (input.targetCpl !== undefined) set("H", input.targetCpl ?? "");
   if (input.mostraTabExtra !== undefined) set("I", input.mostraTabExtra ? "TRUE" : "FALSE");
   if (input.tipoConversioneLead !== undefined) set("L", input.tipoConversioneLead);
+  if (input.email !== undefined) set("M", input.email);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({
@@ -279,6 +285,7 @@ export async function getConsulenti(): Promise<Consulente[]> {
       nome: asText(r[1]),
       password: asText(r[2]),
       attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
+      email: asText(r[4]),
     }));
 }
 

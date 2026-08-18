@@ -6,9 +6,9 @@ import { KpiDashboard } from "@/components/KpiDashboard";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
 
-type Props = { code?: string; clienteId?: string; clienteNome?: string; tuttiITab: boolean };
+type Props = { code?: string; clienteId?: string; clienteNome?: string; clienteEmail?: string; tuttiITab: boolean };
 
-export function SchedaCliente({ code, clienteId, clienteNome, tuttiITab }: Props) {
+export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tuttiITab }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
   const [meetingDaEvidenziare, setMeetingDaEvidenziare] = useState<string | null>(null);
@@ -40,7 +40,13 @@ export function SchedaCliente({ code, clienteId, clienteNome, tuttiITab }: Props
       {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} />}
 
       {tabAttivo === "meeting" && (
-        <MeetingTab code={code} clienteId={clienteId} clienteNome={clienteNome} meetingIdEvidenziato={meetingDaEvidenziare} />
+        <MeetingTab
+          code={code}
+          clienteId={clienteId}
+          clienteNome={clienteNome}
+          clienteEmail={clienteEmail}
+          meetingIdEvidenziato={meetingDaEvidenziare}
+        />
       )}
     </div>
   );

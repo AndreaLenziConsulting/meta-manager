@@ -19,11 +19,13 @@ const BRAND_SOFT = "#eaf3fb";
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Helvetica", backgroundColor: "#ffffff", paddingBottom: 50 },
+  // Margine di pagina impostato QUI (non sulle singole sezioni): @react-pdf/renderer reapplica lo
+  // style di Page a ogni pagina generata dall'auto-paginazione. Prima paddingTop/paddingHorizontal
+  // stavano solo su header/infoRow/content, quindi la pagina 1 "sembrava" avere un margine (per il
+  // padding interno di quelle sezioni) ma la pagina 2+ ripartiva a ridosso del bordo — bug segnalato.
+  page: { fontFamily: "Helvetica", backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 50 },
 
   header: {
-    paddingHorizontal: 36,
-    paddingTop: 28,
     paddingBottom: 18,
     borderBottomWidth: 2,
     borderBottomColor: BRAND_COLOR,
@@ -38,14 +40,17 @@ const styles = StyleSheet.create({
   headerMetaItem: { fontSize: 9, color: "#6b7280" },
   headerLogo: { width: 110, height: 44, objectFit: "contain" },
 
-  infoRow: { flexDirection: "row", gap: 10, paddingHorizontal: 36, paddingTop: 16 },
+  infoRow: { flexDirection: "row", gap: 10, paddingTop: 16 },
   infoBox: { flex: 1, backgroundColor: BRAND_SOFT, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
   infoLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 1.5, fontFamily: "Helvetica-Bold" },
   infoValue: { fontSize: 11, color: "#111827", fontFamily: "Helvetica-Bold", marginTop: 3 },
 
-  content: { paddingHorizontal: 36, paddingTop: 16 },
+  content: { paddingTop: 16 },
+  // wrap: false su tutti i blocchi "atomici" sotto: senza, l'auto-paginazione può tagliare un
+  // singolo action item / bullet / KPI esattamente a metà tra due pagine (l'altro sintomo
+  // segnalato, "viene tagliato") — con wrap:false l'intero blocco si sposta in blocco a pagina nuova.
   section: { marginBottom: 14 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6, wrap: false },
   sectionBar: { width: 3, height: 13, backgroundColor: BRAND_COLOR, borderRadius: 2, marginRight: 7 },
   sectionTitle: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#111827" },
   bodyText: { fontSize: 9, color: "#374151", lineHeight: 1.6 },
@@ -58,10 +63,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginRight: 5,
     marginBottom: 5,
+    wrap: false,
   },
   participantText: { fontSize: 8, color: "#ffffff", fontFamily: "Helvetica-Bold" },
 
-  bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start" },
+  bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start", wrap: false },
   bullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: BRAND_COLOR, marginTop: 4, marginRight: 7, flexShrink: 0 },
   bulletText: { fontSize: 9, color: "#374151", lineHeight: 1.5, flex: 1 },
 
@@ -72,6 +78,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     minHeight: 24,
     overflow: "hidden",
+    wrap: false,
   },
   actionNumberBox: {
     width: 24,
@@ -87,7 +94,7 @@ const styles = StyleSheet.create({
   actionAssignee: { fontSize: 7.5, color: BRAND_COLOR, fontFamily: "Helvetica-Bold", marginTop: 2 },
 
   kpiGrid: { flexDirection: "row", flexWrap: "wrap" },
-  kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5 },
+  kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5, wrap: false },
   kpiInner: { borderWidth: 0.75, borderColor: "#e5e7eb", borderRadius: 4, padding: 8, minHeight: 70 },
   kpiLabel: { fontSize: 7, letterSpacing: 1.5, color: BRAND_COLOR, fontFamily: "Helvetica-Bold", marginBottom: 4 },
   kpiValue: { fontSize: 8.5, color: "#374151", lineHeight: 1.5 },

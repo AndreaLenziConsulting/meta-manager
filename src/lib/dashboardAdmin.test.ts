@@ -6,7 +6,7 @@ function cliente(over: Partial<Cliente>): Cliente {
   return {
     clienteId: "c", nome: "Cliente", adAccountId: "1", accessCode: "x", attivo: true,
     consulenteId: "cons-1", targetCpa: null, targetCpl: null, mostraTabExtra: false,
-    prodottoId: "", dataInizioProgetto: null, tipoConversioneLead: "", ...over,
+    prodottoId: "", dataInizioProgetto: null, tipoConversioneLead: "", email: "", ...over,
   };
 }
 

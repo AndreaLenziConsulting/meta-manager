@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildEmailText } from "./meetingEmail";
+import { buildEmailText, separaOggettoECorpo } from "./meetingEmail";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 describe("buildEmailText", () => {
@@ -50,5 +50,25 @@ describe("buildEmailText", () => {
   it("clienteNome vuoto -> oggetto senza trattino appeso", () => {
     const text = buildEmailText({}, "");
     expect(text.split("\n")[0]).toBe("Oggetto: Follow-up meeting");
+  });
+});
+
+describe("separaOggettoECorpo", () => {
+  it("estrae l'oggetto dalla prima riga e il resto come corpo, senza la riga vuota di separazione", () => {
+    const testo = buildEmailText({ referente: "Marco" }, "Moby");
+    const { oggetto, corpo } = separaOggettoECorpo(testo);
+    expect(oggetto).toBe("Follow-up meeting — Moby");
+    expect(corpo.startsWith("Ciao,")).toBe(true);
+    expect(corpo).not.toContain("Oggetto:");
+  });
+
+  it("testo senza prefisso 'Oggetto:' -> oggetto vuoto, corpo invariato", () => {
+    const { oggetto, corpo } = separaOggettoECorpo("Ciao,\ngrazie mille.");
+    expect(oggetto).toBe("");
+    expect(corpo).toBe("Ciao,\ngrazie mille.");
+  });
+
+  it("stringa vuota -> oggetto e corpo vuoti, nessun crash", () => {
+    expect(separaOggettoECorpo("")).toEqual({ oggetto: "", corpo: "" });
   });
 });

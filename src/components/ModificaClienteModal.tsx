@@ -19,6 +19,7 @@ type Props = {
 export function ModificaClienteModal({ cliente, consulenti, onClose, onSalvato }: Props) {
   const [nome, setNome] = useState(cliente.nome);
   const [adAccountId, setAdAccountId] = useState(cliente.adAccountId);
+  const [email, setEmail] = useState(cliente.email);
   const [consulenteId, setConsulenteId] = useState(cliente.consulenteId);
   const [targetCpa, setTargetCpa] = useState(cliente.targetCpa !== null ? String(cliente.targetCpa) : "");
   const [targetCpl, setTargetCpl] = useState(cliente.targetCpl !== null ? String(cliente.targetCpl) : "");
@@ -41,6 +42,7 @@ export function ModificaClienteModal({ cliente, consulenti, onClose, onSalvato }
           clienteId: cliente.clienteId,
           nome,
           adAccountId,
+          email,
           consulenteId,
           targetCpa: targetCpa ? Number(targetCpa) : null,
           targetCpl: targetCpl ? Number(targetCpl) : null,
@@ -95,6 +97,17 @@ export function ModificaClienteModal({ cliente, consulenti, onClose, onSalvato }
           <div>
             <label className={labelClass}>Ad account Meta</label>
             <input className={inputClass} value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" required />
+          </div>
+
+          <div>
+            <label className={labelClass}>Email cliente (opzionale)</label>
+            <input
+              className={inputClass}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Per l'invio automatico del follow-up meeting"
+            />
           </div>
 
           <div>

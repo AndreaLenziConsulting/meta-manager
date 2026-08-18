@@ -1,11 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import { renderToBuffer } from "@react-pdf/renderer";
-import React from "react";
 import { getSessione } from "@/lib/auth";
 import { getClienti } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { MeetingReportPdf } from "@/components/MeetingReportPdf";
+import { renderMeetingPdfBuffer } from "@/lib/meetingPdf";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 export const runtime = "nodejs";
@@ -13,18 +10,9 @@ export const maxDuration = 60;
 
 /**
  * Genera il PDF brandizzato del report meeting (porting di `generate-pdf/route.ts` di Fast
- * Report). Solo contesto team: non esposta al cliente pubblico (`code`).
+ * Report). Solo contesto team: non esposta al cliente pubblico (`code`). Il rendering vero e
+ * proprio vive in src/lib/meetingPdf.ts, riusato anche dall'invio email automatico.
  */
-async function getLogoBuffer(): Promise<Buffer | null> {
-  try {
-    const sharp = (await import("sharp")).default;
-    const logoPath = path.join(process.cwd(), "public", "lenzi.webp");
-    return await sharp(logoPath).png().toBuffer();
-  } catch {
-    return null;
-  }
-}
-
 export async function POST(req: NextRequest) {
   const sessione = await getSessione();
   if (!sessione) {
@@ -46,17 +34,15 @@ export async function POST(req: NextRequest) {
   const clienteNome = clienti.find((c) => c.clienteId === clienteId)?.nome ?? clienteId;
 
   try {
-    const logoBuf = await getLogoBuffer();
-    const doc = React.createElement(MeetingReportPdf, { meeting, clienteNome, logoBuf });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pdfBuffer = await renderToBuffer(doc as any);
-
+    const pdfBuffer = await renderMeetingPdfBuffer(clienteNome, meeting);
     const filename = `report-${(clienteNome || meeting.title || "meeting")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .slice(0, 60)}.pdf`;
 
-    return new NextResponse(Buffer.from(pdfBuffer), {
+    // Buffer implementa Uint8Array (compatibile a runtime con BodyInit) ma TS non lo riconosce
+    // qui — stesso attrito di tipizzazione di react-pdf già presente sopra (doc as any).
+    return new NextResponse(pdfBuffer as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
         "Content-Disposition": `attachment; filename="${filename}"`,

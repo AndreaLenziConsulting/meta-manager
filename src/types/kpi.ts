@@ -15,6 +15,9 @@ export type Cliente = {
   // webinar/eventi invece di Lead Ads classici). Vuoto = usa la lista di default (LEAD_ACTION_PRIORITY
   // in src/lib/meta.ts) — comportamento invariato per tutti i clienti esistenti.
   tipoConversioneLead: string;
+  // Destinatario dell'invio automatico dell'email di follow-up meeting. Vuota = invio automatico
+  // disattivato per questo cliente (resta solo il flusso manuale scarica PDF/copia email).
+  email: string;
 };
 
 export type Consulente = {
@@ -22,6 +25,9 @@ export type Consulente = {
   nome: string;
   password: string;
   attivo: boolean;
+  // Mittente reale dell'invio automatico (Gmail API, delega a livello di dominio — vedi
+  // src/lib/gmail.ts): l'email parte "da" questa casella, impersonata via service account.
+  email: string;
 };
 
 export type Ruolo = "admin" | "consulente";

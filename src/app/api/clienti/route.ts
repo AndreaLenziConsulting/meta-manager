@@ -17,6 +17,7 @@ export const runtime = "nodejs";
 type Body = {
   nome?: string;
   adAccountId?: string;
+  email?: string;
   consulenteId?: string;
   targetCpa?: number | null;
   targetCpl?: number | null;
@@ -81,6 +82,7 @@ export async function POST(req: NextRequest) {
       mostraTabExtra: !!body.mostraTabExtra,
       prodottoId,
       dataInizioProgetto,
+      email: body.email?.trim(),
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 409 });
@@ -107,6 +109,7 @@ type BodyPatch = {
   clienteId?: string;
   nome?: string;
   adAccountId?: string;
+  email?: string;
   consulenteId?: string;
   targetCpa?: number | null;
   targetCpl?: number | null;
@@ -162,6 +165,7 @@ export async function PATCH(req: NextRequest) {
       clienteId,
       nome,
       adAccountId,
+      email: body.email !== undefined ? body.email.trim() : undefined,
       consulenteId: body.consulenteId,
       targetCpa: body.targetCpa,
       targetCpl: body.targetCpl,

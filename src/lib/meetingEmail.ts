@@ -58,3 +58,23 @@ export function buildEmailText(meeting: MeetingDataLoose, clienteNome: string): 
 
   return out.join("\n");
 }
+
+/**
+ * Separa la prima riga "Oggetto: ..." dal resto del corpo — serve all'invio reale via Gmail
+ * (Subject/body separati, vedi src/lib/gmail.ts), senza toccare `buildEmailText` (usata anche dal
+ * flusso di copia manuale, dove il formato con "Oggetto:" in testa è voluto, per incollarlo a
+ * mano nel proprio client di posta).
+ */
+export function separaOggettoECorpo(testoEmail: string): { oggetto: string; corpo: string } {
+  const righe = testoEmail.split("\n");
+  const prima = righe[0] ?? "";
+  const match = prima.match(/^Oggetto:\s*(.*)$/);
+  if (!match) {
+    return { oggetto: "", corpo: testoEmail };
+  }
+  // La riga vuota subito dopo "Oggetto: ..." è solo separazione visiva nel testo da copiare —
+  // va tolta dal corpo effettivo, altrimenti l'email inviata inizierebbe con una riga vuota in più.
+  const resto = righe.slice(1);
+  if (resto[0] === "") resto.shift();
+  return { oggetto: match[1].trim(), corpo: resto.join("\n") };
+}

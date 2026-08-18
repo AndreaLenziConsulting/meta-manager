@@ -16,6 +16,7 @@ const labelClass = "text-xs font-semibold text-gray-700 mb-1 block";
 export function NuovoClienteForm({ consulenti, prodotti }: Props) {
   const [nome, setNome] = useState("");
   const [adAccountId, setAdAccountId] = useState("");
+  const [email, setEmail] = useState("");
   const [consulenteId, setConsulenteId] = useState("");
   const [targetCpa, setTargetCpa] = useState("");
   const [targetCpl, setTargetCpl] = useState("");
@@ -39,6 +40,7 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         body: JSON.stringify({
           nome,
           adAccountId,
+          email,
           consulenteId,
           targetCpa: targetCpa ? Number(targetCpa) : null,
           targetCpl: targetCpl ? Number(targetCpl) : null,
@@ -145,6 +147,17 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
           onChange={(e) => setAdAccountId(e.target.value)}
           placeholder="Solo cifre, senza act_"
           required
+        />
+      </div>
+
+      <div>
+        <label className={labelClass}>Email cliente (opzionale)</label>
+        <input
+          className={inputClass}
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Per l'invio automatico del follow-up meeting"
         />
       </div>
 

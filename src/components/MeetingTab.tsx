@@ -6,7 +6,13 @@ import { buildEmailText } from "@/lib/meetingEmail";
 import { MeetingReportView } from "@/components/MeetingReportView";
 import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
-type Props = { code?: string; clienteId?: string; clienteNome?: string; meetingIdEvidenziato?: string | null };
+type Props = {
+  code?: string;
+  clienteId?: string;
+  clienteNome?: string;
+  clienteEmail?: string;
+  meetingIdEvidenziato?: string | null;
+};
 
 const inputClass =
   "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
@@ -22,20 +28,32 @@ const labelClass = "text-xs font-semibold text-gray-700 mb-1 block";
  * (`handleDownloadPDF`/`EmailTemplate.tsx`), montato sia sull'anteprima pre-salvataggio sia su
  * ogni meeting già salvato nello storico (possibile solo perché qui c'è uno storico persistente,
  * che Fast Report non aveva). Solo contesto team: /api/meeting/pdf richiede sessione.
+ *
+ * `testoEmailControllato`/`onCambiaTestoEmail` (opzionali): se presenti, il testo dell'email vive
+ * nello stato del genitore invece che qui — serve solo all'istanza nell'anteprima, dove il testo
+ * (eventualmente corretto a mano) deve essere quello davvero usato dall'invio automatico al
+ * salvataggio, non uno rigenerato da zero. Le istanze nello storico restano non controllate,
+ * comportamento invariato: lì l'invio automatico non si applica.
  */
 function MeetingAzioni({
   clienteId,
   meeting,
   clienteNome,
+  testoEmailControllato,
+  onCambiaTestoEmail,
 }: {
   clienteId: string;
   meeting: MeetingDataLoose;
   clienteNome?: string;
+  testoEmailControllato?: string | null;
+  onCambiaTestoEmail?: (v: string | null) => void;
 }) {
   const [scaricando, setScaricando] = useState(false);
   const [errorePdf, setErrorePdf] = useState<string | null>(null);
   const [mostraEmail, setMostraEmail] = useState(false);
-  const [testoEmail, setTestoEmail] = useState<string | null>(null);
+  const [testoEmailInterno, setTestoEmailInterno] = useState<string | null>(null);
+  const testoEmail = onCambiaTestoEmail ? (testoEmailControllato ?? null) : testoEmailInterno;
+  const setTestoEmail = onCambiaTestoEmail ?? setTestoEmailInterno;
   const [copiato, setCopiato] = useState(false);
 
   async function handleScaricaPdf() {
@@ -83,22 +101,22 @@ function MeetingAzioni({
   }
 
   return (
-    <div className="pt-2 mt-2 border-t border-gray-100 space-y-2">
-      <div className="flex flex-wrap gap-2">
+    <div className="pt-3 mt-3 border-t border-gray-100 space-y-2.5">
+      <div className="flex flex-wrap gap-2.5">
         <button
           type="button"
           onClick={handleScaricaPdf}
           disabled={scaricando}
-          className="rounded-lg border border-gray-200 text-xs font-semibold px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition"
+          className="rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[.98]"
         >
-          {scaricando ? "Generazione PDF…" : "Scarica PDF"}
+          {scaricando ? "Generazione PDF…" : "📄 Scarica PDF"}
         </button>
         <button
           type="button"
           onClick={handleGeneraEmail}
-          className="rounded-lg border border-gray-200 text-xs font-semibold px-3 py-1.5 text-gray-700 hover:bg-gray-50 transition"
+          className="rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light transition cursor-pointer active:scale-[.98]"
         >
-          {mostraEmail ? "Nascondi email" : "Genera email di follow-up"}
+          {mostraEmail ? "✉️ Nascondi email" : "✉️ Genera email di follow-up"}
         </button>
       </div>
       {errorePdf && <p className="text-xs text-red-600">{errorePdf}</p>}
@@ -113,7 +131,7 @@ function MeetingAzioni({
           <button
             type="button"
             onClick={handleCopiaEmail}
-            className="rounded-lg bg-cta hover:bg-cta-dark text-white text-xs font-semibold px-3 py-1.5 transition"
+            className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2 transition cursor-pointer active:scale-[.98]"
           >
             {copiato ? "Copiato ✓" : "Copia email"}
           </button>
@@ -123,7 +141,7 @@ function MeetingAzioni({
   );
 }
 
-export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato }: Props) {
+export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meetingIdEvidenziato }: Props) {
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [meetingTeam, setMeetingTeam] = useState<MeetingClienteRow[] | null>(null);
@@ -146,6 +164,15 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
   const [anteprima, setAnteprima] = useState<MeetingDataLoose | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erroreForm, setErroreForm] = useState<string | null>(null);
+
+  // Invio automatico dell'email di follow-up al primo salvataggio — checkbox selezionata di
+  // default solo se il cliente ha un'email impostata (altrimenti non c'è nulla da inviare).
+  // `emailBozza` è il testo dell'email "lifted" da MeetingAzioni: se l'utente lo apre e lo
+  // corregge a mano prima di salvare, è quella versione a dover essere davvero inviata, non una
+  // rigenerata da zero al momento del salvataggio.
+  const [inviaAutomatica, setInviaAutomatica] = useState(!!clienteEmail);
+  const [emailBozza, setEmailBozza] = useState<string | null>(null);
+  const [esitoInvio, setEsitoInvio] = useState<{ inviata: boolean; errore: string | null } | null>(null);
 
   // Modifica di un meeting già salvato nello storico: bozza separata da m.dati finché non si
   // conferma, stesso endpoint POST /api/meeting di handleSalva (upsert per meetingId = hash di
@@ -205,6 +232,7 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
     if (!clienteId) return;
     setEstraendo(true);
     setErroreForm(null);
+    setEsitoInvio(null);
     try {
       const res = await fetch("/api/meeting/estrai", {
         method: "POST",
@@ -214,6 +242,8 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Estrazione non riuscita");
       setAnteprima(body as MeetingDataLoose);
+      setInviaAutomatica(!!clienteEmail);
+      setEmailBozza(null);
     } catch (err) {
       setErroreForm(err instanceof Error ? err.message : "Errore sconosciuto");
     } finally {
@@ -229,10 +259,18 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
       const res = await fetch("/api/meeting", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, meeting: anteprima }),
+        body: JSON.stringify({
+          clienteId,
+          meeting: anteprima,
+          inviaEmailAutomatica: inviaAutomatica,
+          testoEmailBozza: emailBozza ?? undefined,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      if (inviaAutomatica) {
+        setEsitoInvio({ inviata: !!body.emailInviata, errore: body.erroreEmail ?? null });
+      }
       setAnteprima(null);
       setUrl("");
       setMostraForm(false);
@@ -286,6 +324,23 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
   return (
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
+
+      {esitoInvio && (
+        <div
+          className={`rounded-xl border p-3 flex items-start justify-between gap-3 text-xs ${
+            esitoInvio.inviata ? "bg-green-50 border-green-100 text-green-700" : "bg-yellow-50 border-yellow-100 text-yellow-800"
+          }`}
+        >
+          <p>
+            {esitoInvio.inviata
+              ? `✅ Meeting salvato ed email inviata a ${clienteEmail}.`
+              : `⚠️ Meeting salvato, ma l'invio email non è riuscito: ${esitoInvio.errore}. Usa "Genera email di follow-up" sul meeting salvato per copiarla a mano.`}
+          </p>
+          <button type="button" onClick={() => setEsitoInvio(null)} className="text-current opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Chiudi">
+            ×
+          </button>
+        </div>
+      )}
 
       {clienteId && !anteprima && (
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
@@ -346,7 +401,30 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
 
           <MeetingReportView meeting={anteprima} clienteNome={clienteNome} onChange={(u) => setAnteprima({ ...anteprima, ...u })} />
 
-          {clienteId && <MeetingAzioni clienteId={clienteId} meeting={anteprima} clienteNome={clienteNome} />}
+          {clienteId && (
+            <MeetingAzioni
+              clienteId={clienteId}
+              meeting={anteprima}
+              clienteNome={clienteNome}
+              testoEmailControllato={emailBozza}
+              onCambiaTestoEmail={setEmailBozza}
+            />
+          )}
+
+          <label
+            className={`flex items-center gap-2 text-xs pt-1 ${clienteEmail ? "text-gray-600 cursor-pointer" : "text-gray-400"}`}
+          >
+            <input
+              type="checkbox"
+              checked={inviaAutomatica}
+              disabled={!clienteEmail}
+              onChange={(e) => setInviaAutomatica(e.target.checked)}
+              className="accent-current text-brand"
+            />
+            {clienteEmail
+              ? `Invia email al cliente in automatico (a ${clienteEmail}, con PDF allegato)`
+              : "Invia email al cliente in automatico — aggiungi l'email del cliente nella scheda cliente per abilitarlo"}
+          </label>
 
           {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
 
@@ -357,7 +435,7 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
               disabled={salvando}
               className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
             >
-              {salvando ? "Salvataggio…" : "Salva"}
+              {salvando ? (inviaAutomatica ? "Salvataggio e invio…" : "Salvataggio…") : "Salva"}
             </button>
             <button
               type="button"
