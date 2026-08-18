@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
-import type { ActionItem, MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
+import { MeetingReportView } from "@/components/MeetingReportView";
+import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
 type Props = { code?: string; clienteId?: string; clienteNome?: string; meetingIdEvidenziato?: string | null };
 
@@ -146,6 +147,14 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
   const [salvando, setSalvando] = useState(false);
   const [erroreForm, setErroreForm] = useState<string | null>(null);
 
+  // Modifica di un meeting già salvato nello storico: bozza separata da m.dati finché non si
+  // conferma, stesso endpoint POST /api/meeting di handleSalva (upsert per meetingId = hash di
+  // clienteId+rawUrl, invariato qui, quindi è un vero aggiornamento in-place e non una nuova riga).
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [bozza, setBozza] = useState<MeetingDataLoose | null>(null);
+  const [salvandoEdit, setSalvandoEdit] = useState(false);
+  const [erroreEdit, setErroreEdit] = useState<string | null>(null);
+
   useEffect(() => {
     if (!code && !clienteId) return;
     const controller = new AbortController();
@@ -235,21 +244,38 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
     }
   }
 
-  function aggiornaActionItem(indice: number, nuovo: ActionItem) {
-    if (!anteprima) return;
-    const items = [...(anteprima.actionItems ?? [])];
-    items[indice] = nuovo;
-    setAnteprima({ ...anteprima, actionItems: items });
+  function iniziaModifica(m: MeetingClienteRow) {
+    setEditingId(m.meetingId);
+    setBozza({ ...m.dati });
+    setErroreEdit(null);
   }
 
-  function rimuoviActionItem(indice: number) {
-    if (!anteprima) return;
-    setAnteprima({ ...anteprima, actionItems: (anteprima.actionItems ?? []).filter((_, i) => i !== indice) });
+  function annullaModifica() {
+    setEditingId(null);
+    setBozza(null);
+    setErroreEdit(null);
   }
 
-  function aggiungiActionItem() {
-    if (!anteprima) return;
-    setAnteprima({ ...anteprima, actionItems: [...(anteprima.actionItems ?? []), { text: "" }] });
+  async function salvaModifica() {
+    if (!clienteId || !bozza) return;
+    setSalvandoEdit(true);
+    setErroreEdit(null);
+    try {
+      const res = await fetch("/api/meeting", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, meeting: bozza }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      setEditingId(null);
+      setBozza(null);
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setErroreEdit(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvandoEdit(false);
+    }
   }
 
   if (caricamento && !meetingTeam && !meetingPubblico) return <p className="text-sm text-gray-500">Caricamento…</p>;
@@ -315,93 +341,10 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
       )}
 
       {anteprima && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5 space-y-3">
-          <h4 className="text-sm font-semibold text-gray-900">Anteprima — verifica prima di salvare</h4>
+        <div className="space-y-3">
+          <h4 className="text-sm font-semibold text-gray-900">Anteprima — verifica e modifica prima di salvare</h4>
 
-          <div>
-            <label className={labelClass}>Titolo</label>
-            <input
-              className={inputClass}
-              value={anteprima.title ?? ""}
-              onChange={(e) => setAnteprima({ ...anteprima, title: e.target.value })}
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelClass}>Data (GG/MM/AAAA)</label>
-              <input
-                className={inputClass}
-                value={anteprima.date ?? ""}
-                onChange={(e) => setAnteprima({ ...anteprima, date: e.target.value })}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Durata</label>
-              <input
-                className={inputClass}
-                value={anteprima.duration ?? ""}
-                onChange={(e) => setAnteprima({ ...anteprima, duration: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className={labelClass}>Partecipanti (separati da virgola)</label>
-            <input
-              className={inputClass}
-              value={(anteprima.participants ?? []).join(", ")}
-              onChange={(e) =>
-                setAnteprima({
-                  ...anteprima,
-                  participants: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
-                })
-              }
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Riassunto</label>
-            <textarea
-              className={`${inputClass} resize-none`}
-              rows={3}
-              value={anteprima.summary ?? ""}
-              onChange={(e) => setAnteprima({ ...anteprima, summary: e.target.value })}
-            />
-          </div>
-
-          <div>
-            <label className={labelClass}>Action item ({(anteprima.actionItems ?? []).length}) — diventano attività nel tab Attività</label>
-            <div className="space-y-1.5">
-              {(anteprima.actionItems ?? []).map((item, i) => (
-                <div key={i} className="flex gap-1.5">
-                  <input
-                    className={`${inputClassFlex} flex-1`}
-                    placeholder="Cosa fare"
-                    value={item.text}
-                    onChange={(e) => aggiornaActionItem(i, { ...item, text: e.target.value })}
-                  />
-                  <input
-                    className={`${inputClassFlex} w-32 flex-shrink-0`}
-                    placeholder="Assegnatario"
-                    value={item.assignee ?? ""}
-                    onChange={(e) => aggiornaActionItem(i, { ...item, assignee: e.target.value || undefined })}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => rimuoviActionItem(i)}
-                    className="text-gray-300 hover:text-red-500 px-1 flex-shrink-0"
-                    title="Rimuovi"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-            <button type="button" onClick={aggiungiActionItem} className="text-xs font-semibold text-brand hover:underline mt-1.5">
-              + Aggiungi action item
-            </button>
-          </div>
+          <MeetingReportView meeting={anteprima} clienteNome={clienteNome} onChange={(u) => setAnteprima({ ...anteprima, ...u })} />
 
           {clienteId && <MeetingAzioni clienteId={clienteId} meeting={anteprima} clienteNome={clienteNome} />}
 
@@ -435,19 +378,15 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
 
       {meetingTeam?.map((m) => {
         const aperto = espanso === m.meetingId;
-        const azioni = m.dati.actionItems ?? [];
+        const inModifica = editingId === m.meetingId && bozza;
         return (
-          <div
-            key={m.meetingId}
-            id={`meeting-${m.meetingId}`}
-            className={`rounded-2xl border bg-white shadow-sm overflow-hidden transition-colors ${
-              m.meetingId === meetingIdEvidenziato ? "border-brand ring-2 ring-brand/20" : "border-gray-200"
-            }`}
-          >
+          <div key={m.meetingId} id={`meeting-${m.meetingId}`} className="space-y-2">
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}
-              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3"
+              className={`w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-2xl border bg-white shadow-sm transition-colors ${
+                m.meetingId === meetingIdEvidenziato ? "border-brand ring-2 ring-brand/20" : "border-gray-200"
+              }`}
             >
               <div className="min-w-0">
                 <p className="font-semibold text-gray-900 truncate">{m.titolo || "(senza titolo)"}</p>
@@ -456,32 +395,44 @@ export function MeetingTab({ code, clienteId, clienteNome, meetingIdEvidenziato 
                   {m.dati.referente ? ` · ${m.dati.referente}` : ""}
                 </p>
               </div>
-              {m.sentiment && <span className="flex-shrink-0 text-[11px] text-gray-500 max-w-[40%] truncate">{m.sentiment}</span>}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {m.sentiment && <span className="text-[11px] text-gray-500 max-w-[160px] truncate hidden sm:inline">{m.sentiment}</span>}
+                <span className="text-gray-300 text-xs">{aperto ? "▲" : "▼"}</span>
+              </div>
             </button>
-            {aperto && (
-              <div className="px-5 pb-4 space-y-2 border-t border-gray-100 pt-3 text-sm">
-                {m.dati.summary && <p className="text-gray-700">{m.dati.summary}</p>}
-                {(m.dati.participants ?? []).length > 0 && (
-                  <p className="text-xs text-gray-500">Partecipanti: {(m.dati.participants ?? []).join(", ")}</p>
-                )}
-                {azioni.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-gray-700 mt-2">Action item ({azioni.length})</p>
-                    <ul className="text-xs text-gray-600 list-disc list-inside space-y-0.5 mt-1">
-                      {azioni.map((a, i) => (
-                        <li key={i}>
-                          {a.assignee ? `${a.assignee}: ` : ""}
-                          {a.text}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {m.dati.rawUrl && (
-                  <a href={m.dati.rawUrl} target="_blank" rel="noreferrer" className="text-xs text-brand hover:underline inline-block mt-1">
-                    Apri il meeting originale ↗
-                  </a>
-                )}
+
+            {aperto && inModifica && bozza && (
+              <div className="space-y-3">
+                <MeetingReportView meeting={bozza} clienteNome={clienteNome} onChange={(u) => setBozza({ ...bozza, ...u })} />
+                {erroreEdit && <p className="text-xs text-red-600">{erroreEdit}</p>}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={salvaModifica}
+                    disabled={salvandoEdit}
+                    className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+                  >
+                    {salvandoEdit ? "Salvataggio…" : "Salva modifiche"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={annullaModifica}
+                    className="rounded-xl border border-gray-200 text-sm font-semibold px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+                  >
+                    Annulla
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {aperto && !inModifica && (
+              <div className="space-y-3">
+                <MeetingReportView meeting={m.dati} clienteNome={clienteNome} />
+                <div className="flex justify-end">
+                  <button type="button" onClick={() => iniziaModifica(m)} className="text-xs font-semibold text-brand hover:underline">
+                    ✎ Modifica report
+                  </button>
+                </div>
                 {clienteId && <MeetingAzioni clienteId={clienteId} meeting={m.dati} clienteNome={clienteNome} />}
               </div>
             )}
