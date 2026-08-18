@@ -29,6 +29,10 @@ Crea uno spreadsheet Google con **10 tab**, ognuna con la riga 1 come intestazio
 | A campaign_id | B cliente_id | C nome_campagna | D tipo_campagna | E stato |
 |---|---|---|---|---|
 
+**Convenzione di naming su Meta Ads Manager, per farsi classificare `tipo_campagna` da sole**: dai alla campagna un nome che inizia con `[Tipo]` tra parentesi quadre — es. `[Mobilieri] Lead Ads - Dal 20 Luglio`. Al primo sync, `guessTipoCampagnaFromNome` (`src/lib/sheets.ts`) legge il prefisso tra `[` e `]` e lo scrive in `tipo_campagna` (Title Case) automaticamente — zero lavoro manuale, sempre che il nome segua la convenzione. **Importante**: la deduzione avviene **solo la prima volta** che la campagna viene scoperta (mai più dopo, `tipo_campagna` resta editabile a mano senza essere sovrascritto ai sync successivi) — rinominare una campagna già presente in questa tab non la riclassifica da sola, va corretto a mano il valore in colonna D.
+
+Per clienti con **più edizioni dello stesso tipo di funnel** (es. webinar/eventi ricorrenti, un cliente diverso ogni poche settimane) — il Funnel (sotto) è tracciato per mese + `tipo_campagna`, quindi se più edizioni cadono nello stesso mese finirebbero sommate insieme sotto un unico tipo generico. Includi anche la data nel prefisso per tenerle distinte: `[Presentazione 20.08] Studente Felice - LAL`, `[Presentazione 27.08] Studente Felice - BROAD`, `[Challenge 3-7.08] Studente Felice - LAL` — così ogni edizione ha il proprio `tipo_campagna` e resta tracciabile separatamente nel Funnel, anche a distanza di pochi giorni nello stesso mese.
+
 **MetaDaily** — scritta SOLO dal cron, non modificare a mano.
 | A data | B cliente_id | C campaign_id | D spesa | E impressions | F clicks | G ctr | H cpc | I cpm | J lead |
 |---|---|---|---|---|---|---|---|---|---|
