@@ -108,7 +108,9 @@ export type CampagnaDisponibile = {
 };
 
 export type KpiResponse = {
-  cliente: { clienteId: string; nome: string };
+  // targetCpa/targetCpl presenti solo nella richiesta interna (clienteId, sessione autenticata) —
+  // mai nel ramo pubblico (code), per non esporre i target al cliente. Vedi src/app/api/kpi/route.ts.
+  cliente: { clienteId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null };
   periodo: { da: string; a: string };
   gruppi: KpiGroup[];
   totale: KpiGroup;

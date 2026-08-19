@@ -6,7 +6,7 @@ import { computeSpesaLeadPeriodo } from "@/lib/kpi";
 import { calcolaSalute } from "@/lib/salute";
 import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
 import { calcolaRiepilogo, ordinaPerPriorita, type SaluteClienteItem } from "@/lib/dashboardAdmin";
-import { SaluteClienti, LegendaSalute } from "@/components/SaluteClienti";
+import { SaluteClienti } from "@/components/SaluteClienti";
 import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
 
 const GIORNI_FINESTRA = 7;
@@ -93,7 +93,6 @@ export default async function DashboardHomePage() {
         </a>
       </div>
       <RiepilogoAllarmiAdmin riepilogo={riepilogo} />
-      <LegendaSalute />
       <SaluteClienti items={itemsOrdinati} consulenti={consulenti} />
     </div>
   );

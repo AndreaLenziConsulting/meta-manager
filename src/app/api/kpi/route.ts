@@ -29,6 +29,10 @@ export async function GET(req: NextRequest) {
 
   let clienteId: string;
   let nomeCliente: string;
+  // Solo la richiesta interna (clienteId, sessione autenticata) valorizza i target — mai il ramo
+  // `code`: il cliente sul suo link pubblico non deve mai vedere i propri target CPA/CPL.
+  let targetCpa: number | null = null;
+  let targetCpl: number | null = null;
 
   if (code) {
     const cliente = await getClienteByAccessCode(code);
@@ -52,6 +56,8 @@ export async function GET(req: NextRequest) {
     const cliente = clienti.find((c) => c.clienteId === clienteIdParam)!;
     clienteId = cliente.clienteId;
     nomeCliente = cliente.nome;
+    targetCpa = cliente.targetCpa;
+    targetCpl = cliente.targetCpl;
   }
 
   const [metaDaily, campagne, funnel, ultimoCambioPerCampagna] = await Promise.all([
@@ -100,7 +106,7 @@ export async function GET(req: NextRequest) {
   );
 
   const response: KpiResponse = {
-    cliente: { clienteId, nome: nomeCliente },
+    cliente: code ? { clienteId, nome: nomeCliente } : { clienteId, nome: nomeCliente, targetCpa, targetCpl },
     periodo: { da, a },
     gruppi,
     totale,
