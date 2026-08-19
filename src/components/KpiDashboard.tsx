@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { KpiCard } from "@/components/KpiCard";
 import { TrendChart } from "@/components/TrendChart";
 import { KpiTable } from "@/components/KpiTable";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
+import { Button } from "@/components/ui/Button";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import type { KpiResponse } from "@/types/kpi";
 
@@ -118,23 +120,18 @@ export function KpiDashboard({ code, clienteId }: Props) {
         )}
 
         {clienteId && (
-          <button
-            type="button"
-            onClick={handleAggiornaKpi}
-            disabled={sincronizzando}
-            className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold text-gray-700 shadow-sm hover:border-brand/40 disabled:opacity-50 transition"
-          >
-            <RefreshIcon spinning={sincronizzando} />
+          <Button variant="ghost" size="sm" onClick={handleAggiornaKpi} disabled={sincronizzando} className="flex items-center gap-2 bg-surface-card shadow-sm">
+            <RefreshCw size={14} className={sincronizzando ? "animate-spin" : ""} />
             {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
-          </button>
+          </Button>
         )}
 
-        {esitoSync && <span className="text-xs text-gray-500">{esitoSync}</span>}
+        {esitoSync && <span className="text-xs text-ink-500">{esitoSync}</span>}
       </div>
 
       {errore && <p className="text-sm text-red-600">{errore}</p>}
 
-      {caricamento && !dati && <p className="text-sm text-gray-500">Caricamento…</p>}
+      {caricamento && !dati && <p className="text-sm text-ink-500">Caricamento…</p>}
 
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
@@ -157,25 +154,5 @@ export function KpiDashboard({ code, clienteId }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-function RefreshIcon({ spinning }: { spinning: boolean }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={spinning ? "animate-spin" : ""}
-    >
-      <polyline points="23 4 23 10 17 10" />
-      <polyline points="1 20 1 14 7 14" />
-      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
-    </svg>
   );
 }

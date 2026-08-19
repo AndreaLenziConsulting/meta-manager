@@ -2,45 +2,55 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Pencil, Clock } from "lucide-react";
 import type { Consulente, Salute } from "@/types/kpi";
 import type { SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
-import { STILE_LIVELLO } from "@/lib/statusStyles";
+import { STILE_LIVELLO, type LivelloStato } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
-const STILE_STATO: Record<Salute, { label: string; classe: string; icona: string; soglia: string }> = {
-  interveni: { label: "Da intervenire", classe: STILE_LIVELLO.critico.classe, icona: "🔴", soglia: "> 120% del target" },
-  mantieni: { label: "Mantieni", classe: STILE_LIVELLO.attenzione.classe, icona: "🟡", soglia: "80–120% del target" },
-  scala: { label: "Scala", classe: STILE_LIVELLO.successo.classe, icona: "🟢", soglia: "≤ 80% del target" },
-  "dati-insufficienti": { label: "Dati insufficienti", classe: STILE_LIVELLO.neutro.classe, icona: "⚪", soglia: "spesa sotto 2,5× il target" },
-  "no-target": { label: "Nessun target", classe: STILE_LIVELLO.neutro.classe, icona: "⚪", soglia: "target non impostato in Clienti" },
+const STILE_STATO: Record<Salute, { label: string; tono: LivelloStato; soglia: string }> = {
+  interveni: { label: "Da intervenire", tono: "critico", soglia: "> 120% del target" },
+  mantieni: { label: "Mantieni", tono: "attenzione", soglia: "80–120% del target" },
+  scala: { label: "Scala", tono: "successo", soglia: "≤ 80% del target" },
+  "dati-insufficienti": { label: "Dati insufficienti", tono: "neutro", soglia: "spesa sotto 2,5× il target" },
+  "no-target": { label: "Nessun target", tono: "neutro", soglia: "target non impostato in Clienti" },
 };
+
+/** Puntino colorato davanti all'etichetta di stato — sostituisce le emoji 🔴🟡🟢⚪. */
+function Puntino({ tono }: { tono: LivelloStato }) {
+  return <span className={`inline-block w-1.5 h-1.5 rounded-full ${STILE_LIVELLO[tono].puntino}`} />;
+}
 
 export function LegendaSalute() {
   const ordine: Salute[] = ["scala", "mantieni", "interveni", "dati-insufficienti", "no-target"];
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">Legenda</p>
+    <Card padding="sm">
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-500 mb-2">Legenda</p>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
         {ordine.map((stato) => {
           const stile = STILE_STATO[stato];
           return (
             <div key={stato} className="flex items-center gap-2 text-xs">
-              <span className={`font-semibold uppercase tracking-widest px-2 py-1 rounded-full border whitespace-nowrap ${stile.classe}`}>
-                {stile.icona} {stile.label}
-              </span>
-              <span className="text-gray-500">{stile.soglia}</span>
+              <Badge tono={stile.tono}>
+                <Puntino tono={stile.tono} />
+                {stile.label}
+              </Badge>
+              <span className="text-ink-500">{stile.soglia}</span>
             </div>
           );
         })}
         <div className="flex items-center gap-2 text-xs">
-          <span className="font-semibold uppercase tracking-widest px-2 py-1 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-100">
-            ⏰ In ritardo
-          </span>
-          <span className="text-gray-500">almeno un&apos;attività aperta con scadenza passata</span>
+          <Badge tono="critico">
+            <Clock size={11} />
+            In ritardo
+          </Badge>
+          <span className="text-ink-500">almeno un&apos;attività aperta con scadenza passata</span>
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
@@ -50,9 +60,9 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6 text-sm text-gray-500">
+      <Card padding="lg" className="text-sm text-ink-500">
         Nessun cliente attivo.
-      </div>
+      </Card>
     );
   }
 
@@ -65,7 +75,7 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
           const stile = STILE_STATO[valutazione.stato];
           const href = `/dashboard/cliente/${encodeURIComponent(cliente.clienteId)}`;
           return (
-            <div
+            <Card
               key={cliente.clienteId}
               role="link"
               tabIndex={0}
@@ -76,7 +86,7 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
                   router.push(href);
                 }
               }}
-              className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-4 hover:border-brand/40 transition cursor-pointer"
+              className="relative hover:border-brand/40 transition cursor-pointer"
             >
               <button
                 type="button"
@@ -84,41 +94,43 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
                   e.stopPropagation();
                   setClienteInModifica(cliente.clienteId);
                 }}
-                className="absolute top-3 right-3 text-[11px] font-semibold text-gray-400 hover:text-brand transition"
+                className="absolute top-3 right-3 flex items-center gap-1 text-[11px] font-semibold text-ink-500 hover:text-brand transition"
                 aria-label={`Modifica ${cliente.nome}`}
               >
-                ✎ Modifica
+                <Pencil size={12} /> Modifica
               </button>
 
               <div className="pr-16">
-                <p className="font-semibold text-gray-900">{cliente.nome}</p>
+                <p className="font-semibold text-ink-900">{cliente.nome}</p>
               </div>
               <div className="flex flex-wrap gap-1.5 mt-2">
-                <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border whitespace-nowrap ${stile.classe}`}>
-                  {stile.icona} {stile.label}
-                </span>
+                <Badge tono={stile.tono}>
+                  <Puntino tono={stile.tono} />
+                  {stile.label}
+                </Badge>
                 {attivitaInRitardo.length > 0 && (
-                  <span className="text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border whitespace-nowrap bg-red-50 text-red-700 border-red-100">
-                    ⏰ {attivitaInRitardo.length} in ritardo
-                  </span>
+                  <Badge tono="critico">
+                    <Clock size={11} />
+                    {attivitaInRitardo.length} in ritardo
+                  </Badge>
                 )}
               </div>
-              <p className="mt-2 text-xs text-gray-500">
+              <p className="mt-2 text-xs text-ink-500">
                 {valutazione.metricaUsata === "vendita" && "CPA su vendita"}
                 {valutazione.metricaUsata === "lead" && "Costo per lead"}
                 {!valutazione.metricaUsata && "Nessun target impostato"}
               </p>
               {valutazione.metricaUsata && (
-                <p className="mt-1 text-sm text-gray-700">
-                  <span className="font-semibold text-gray-900">{formatEuro(valutazione.valoreAttuale)}</span>
+                <p className="mt-1 text-sm text-ink-700">
+                  <span className="font-semibold text-ink-900">{formatEuro(valutazione.valoreAttuale)}</span>
                   {" "}vs target{" "}
-                  <span className="font-semibold text-gray-900">{formatEuro(valutazione.targetUsato)}</span>
+                  <span className="font-semibold text-ink-900">{formatEuro(valutazione.targetUsato)}</span>
                 </p>
               )}
-              <p className="mt-2 text-[11px] text-gray-400">
+              <p className="mt-2 text-[11px] text-ink-500">
                 {formatEuro(investimento)} spesi · {formatNumero(numeroLead)} lead
               </p>
-            </div>
+            </Card>
           );
         })}
       </div>

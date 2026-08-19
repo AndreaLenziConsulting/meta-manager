@@ -28,8 +28,8 @@ export default async function DashboardHomePage() {
     const assegnati = clientiVisibili(sessione, clienti);
     if (assegnati.length === 0) {
       return (
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-          <p className="text-sm text-gray-500">Nessun cliente assegnato.</p>
+        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
+          <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
         </div>
       );
     }
@@ -75,11 +75,11 @@ export default async function DashboardHomePage() {
   const riepilogo = calcolaRiepilogo(itemsOrdinati);
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">Dashboard Amministratore</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="font-heading font-bold text-xl text-ink-900">Dashboard Amministratore</h2>
+          <p className="text-sm text-ink-500 mt-1">
             Salute ads (ultimi 7 giorni, {daData} → {aData} — costo per lead vs target: le vendite sono
             tracciate solo a livello mensile, quindi su questa finestra il segnale è sempre il costo per lead)
             e stato dei lavori, cliente per cliente.

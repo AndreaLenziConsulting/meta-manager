@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
 import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
+import { Card } from "@/components/ui/Card";
+import { Badge } from "@/components/ui/Badge";
 
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string }[] = [
   { key: "investimento", label: "Investimento", format: formatEuro },
@@ -37,11 +39,11 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
   }, [campagne]);
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-5 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full bg-brand" />
-          <h3 className="font-semibold text-gray-900 text-[15px]">Dettaglio</h3>
+          <h3 className="font-heading font-bold text-ink-900 text-[15px]">Dettaglio</h3>
         </div>
         <Tabs tabs={VISTA_TABS} attivo={vista} onChange={(id) => setVista(id === "campagna" ? "campagna" : "tipo")} />
       </div>
@@ -50,12 +52,12 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm border-collapse min-w-[900px]">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left font-medium px-5 py-3 sticky left-0 bg-white text-gray-500">
+              <tr className="border-b border-ink-300/60">
+                <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">
                   Tipo campagna
                 </th>
                 {COLONNE_TIPO.map((c) => (
-                  <th key={c.key} className="text-right font-medium px-4 py-3 whitespace-nowrap text-gray-500">
+                  <th key={c.key} className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">
                     {c.label}
                   </th>
                 ))}
@@ -63,19 +65,19 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
             </thead>
             <tbody>
               {gruppi.map((g) => (
-                <tr key={g.tipoCampagna} className="border-b border-gray-100">
-                  <td className="px-5 py-3 sticky left-0 bg-white text-gray-900 font-medium">{g.tipoCampagna}</td>
+                <tr key={g.tipoCampagna} className="border-b border-ink-300/60">
+                  <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">{g.tipoCampagna}</td>
                   {COLONNE_TIPO.map((c) => (
-                    <td key={c.key} className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">
+                    <td key={c.key} className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">
                       {c.format(g[c.key] as number | null)}
                     </td>
                   ))}
                 </tr>
               ))}
               <tr>
-                <td className="px-5 py-3 font-semibold sticky left-0 bg-white text-gray-900">Totale</td>
+                <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
                 {COLONNE_TIPO.map((c) => (
-                  <td key={c.key} className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-gray-900">
+                  <td key={c.key} className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {c.format(totale[c.key] as number | null)}
                   </td>
                 ))}
@@ -85,66 +87,64 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">
-          <p className="px-5 pb-2 text-xs text-gray-400">
+          <p className="px-5 pb-2 text-xs text-ink-500">
             Solo le metriche da Meta Ads — vendite/fatturato sono tracciati solo per tipo campagna, non per singola campagna.
           </p>
           <table className="w-full text-sm border-collapse min-w-[600px]">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="text-left font-medium px-5 py-3 sticky left-0 bg-white text-gray-500">Campagna</th>
-                <th className="text-left font-medium px-4 py-3 text-gray-500">Stato</th>
-                <th className="text-right font-medium px-4 py-3 text-gray-500">Investimento</th>
-                <th className="text-right font-medium px-4 py-3 text-gray-500">Lead</th>
-                <th className="text-right font-medium px-4 py-3 text-gray-500">Costo/Lead</th>
+              <tr className="border-b border-ink-300/60">
+                <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Campagna</th>
+                <th className="text-left font-medium px-4 py-3 text-ink-500">Stato</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Investimento</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Lead</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/Lead</th>
               </tr>
             </thead>
             <tbody>
               {campagne.map((c) => {
                 const stato = formatStatoCampagna(c.stato);
                 return (
-                  <tr key={c.campaignId} className="border-b border-gray-100">
-                    <td className="px-5 py-3 sticky left-0 bg-white text-gray-900 font-medium">
+                  <tr key={c.campaignId} className="border-b border-ink-300/60">
+                    <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">
                       {c.nomeCampagna}
-                      <span className="block text-[11px] text-gray-400 font-normal">{c.tipoCampagna}</span>
+                      <span className="block text-[11px] text-ink-500 font-normal">{c.tipoCampagna}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {stato ? (
                         <>
-                          <span className={`text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border ${stato.classe}`}>
-                            {stato.label}
-                          </span>
+                          <Badge classe={stato.classe}>{stato.label}</Badge>
                           {c.statoDal && (
-                            <span className="block text-[11px] text-gray-400 mt-1">dal {formatDataBreve(c.statoDal)}</span>
+                            <span className="block text-[11px] text-ink-500 mt-1">dal {formatDataBreve(c.statoDal)}</span>
                           )}
                         </>
                       ) : (
-                        <span className="text-xs text-gray-300">—</span>
+                        <span className="text-xs text-ink-300">—</span>
                       )}
                     </td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.investimento)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatNumero(c.numeroLead)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-gray-700">{formatEuro(c.costoPerLead)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.investimento)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.numeroLead)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerLead)}</td>
                   </tr>
                 );
               })}
               {campagne.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-6 text-center text-gray-400">
+                  <td colSpan={5} className="px-5 py-6 text-center text-ink-500">
                     Nessuna campagna nel periodo selezionato.
                   </td>
                 </tr>
               )}
               {campagne.length > 0 && (
                 <tr>
-                  <td className="px-5 py-3 font-semibold sticky left-0 bg-white text-gray-900">Totale</td>
+                  <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
                   <td className="px-4 py-3" />
-                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-gray-900">
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {formatEuro(totaleCampagne.investimento)}
                   </td>
-                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-gray-900">
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {formatNumero(totaleCampagne.numeroLead)}
                   </td>
-                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-gray-900">
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {formatEuro(totaleCampagne.costoPerLead)}
                   </td>
                 </tr>
@@ -153,6 +153,6 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
           </table>
         </div>
       )}
-    </div>
+    </Card>
   );
 }
