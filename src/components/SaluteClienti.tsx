@@ -49,8 +49,8 @@ function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="font-heading font-bold text-ink-900 text-base truncate">{item.cliente.nome}</p>
-          <p className={`text-[11px] font-bold mt-0.5 ${stile.testoClasse}`}>{stile.label}</p>
+          <p className="font-heading font-bold text-ink-900 text-lg truncate">{item.cliente.nome}</p>
+          <p className={`text-xs font-bold mt-0.5 ${stile.testoClasse}`}>{stile.label}</p>
         </div>
         <button
           type="button"
@@ -66,14 +66,14 @@ function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica
       </div>
 
       {item.valutazione.metricaUsata && (
-        <p className="text-[13px] text-ink-700 mt-3">
+        <p className="text-sm text-ink-700 mt-3">
           {item.valutazione.metricaUsata === "vendita" ? "CPA su vendita" : "Costo per lead"}{" "}
           <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.valoreAttuale)}</span> vs target{" "}
           <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.targetUsato)}</span>
         </p>
       )}
 
-      <p className="text-[11px] text-ink-500 mt-3 pt-3 border-t border-ink-300/60">
+      <p className="text-xs text-ink-500 mt-3 pt-3 border-t border-ink-300/60">
         {formatEuro(item.investimento)} spesi · {formatNumero(item.numeroLead)} lead
         {item.attivitaInRitardo.length > 0 && (
           <span className="text-red-600 font-semibold"> · {item.attivitaInRitardo.length} in ritardo</span>

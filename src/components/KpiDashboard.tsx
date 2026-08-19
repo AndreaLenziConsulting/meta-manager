@@ -157,7 +157,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
           {motivo && (
             <div className="mt-3 flex flex-wrap items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
               <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-[13px] text-red-700 leading-relaxed flex-1 min-w-[220px]">
+              <p className="text-sm text-red-700 leading-relaxed flex-1 min-w-[220px]">
                 <span className="font-semibold">Solo per te: </span>
                 {motivo}
               </p>
@@ -169,32 +169,39 @@ export function KpiDashboard({ code, clienteId }: Props) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <MonthRangePicker
-          da={da}
-          a={a}
-          onChange={(nDa, nA) => {
-            setDa(nDa);
-            setA(nA);
-          }}
-        />
-
-        {dati && (
-          <CampagneFilter
-            campagneDisponibili={dati.campagneDisponibili}
-            selezionate={campagneSelezionate}
-            onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, selezionate })}
+      {/* Due gruppi distinti, non N toggle appiattiti sulla stessa riga: filtri (cosa sto guardando)
+          a sinistra, azione + suo esito (cosa sto facendo) a destra — justify-between li separa
+          visivamente anche quando vanno a capo su viewport stretti. */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <MonthRangePicker
+            da={da}
+            a={a}
+            onChange={(nDa, nA) => {
+              setDa(nDa);
+              setA(nA);
+            }}
           />
-        )}
 
-        {clienteId && (
-          <Button variant="ghost" size="sm" onClick={handleAggiornaKpi} disabled={sincronizzando} className="flex items-center gap-2 bg-surface-card shadow-sm">
-            <RefreshCw size={14} className={sincronizzando ? "animate-spin" : ""} />
-            {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
-          </Button>
-        )}
+          {dati && (
+            <CampagneFilter
+              campagneDisponibili={dati.campagneDisponibili}
+              selezionate={campagneSelezionate}
+              onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, selezionate })}
+            />
+          )}
+        </div>
 
-        {esitoSync && <span className="text-xs text-ink-500">{esitoSync}</span>}
+        <div className="flex flex-wrap items-center gap-3">
+          {clienteId && (
+            <Button variant="ghost" size="sm" onClick={handleAggiornaKpi} disabled={sincronizzando} className="flex items-center gap-2 bg-surface-card shadow-sm">
+              <RefreshCw size={14} className={sincronizzando ? "animate-spin" : ""} />
+              {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
+            </Button>
+          )}
+
+          {esitoSync && <span className="text-xs text-ink-500">{esitoSync}</span>}
+        </div>
       </div>
 
       {errore && <p className="text-sm text-red-600">{errore}</p>}
@@ -213,8 +220,8 @@ export function KpiDashboard({ code, clienteId }: Props) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
               {metricheSecondarie.map((m) => (
                 <div key={m.label}>
-                  <p className="text-[11px] font-semibold uppercase tracking-widest text-ink-500">{m.label}</p>
-                  <p className="font-heading font-bold text-lg text-ink-900 mt-1 tabular-nums">{m.value}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{m.label}</p>
+                  <p className="font-heading font-bold text-xl text-ink-900 mt-1 tabular-nums">{m.value}</p>
                 </div>
               ))}
             </div>
