@@ -1,3 +1,5 @@
+import { STILE_LIVELLO } from "@/lib/statusStyles";
+
 export function formatEuro(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("it-IT", {
@@ -49,12 +51,12 @@ export function formatDataBreve(dataIso: string): string {
 export type StatoCampagnaInfo = { label: string; classe: string; puntino: string };
 
 const STATI_CAMPAGNA: Record<string, StatoCampagnaInfo> = {
-  ACTIVE: { label: "Attiva", classe: "bg-green-50 text-green-700 border-green-100", puntino: "bg-green-500" },
-  PAUSED: { label: "In pausa", classe: "bg-gray-100 text-gray-600 border-gray-200", puntino: "bg-gray-400" },
-  ARCHIVED: { label: "Archiviata", classe: "bg-gray-100 text-gray-500 border-gray-200", puntino: "bg-gray-400" },
-  DELETED: { label: "Eliminata", classe: "bg-red-50 text-red-600 border-red-100", puntino: "bg-red-400" },
-  PENDING_REVIEW: { label: "In revisione", classe: "bg-yellow-50 text-yellow-700 border-yellow-100", puntino: "bg-yellow-500" },
-  DISAPPROVED: { label: "Rifiutata", classe: "bg-red-50 text-red-600 border-red-100", puntino: "bg-red-400" },
+  ACTIVE: { label: "Attiva", ...STILE_LIVELLO.successo },
+  PAUSED: { label: "In pausa", ...STILE_LIVELLO.neutro },
+  ARCHIVED: { label: "Archiviata", ...STILE_LIVELLO.neutro },
+  DELETED: { label: "Eliminata", ...STILE_LIVELLO.critico },
+  PENDING_REVIEW: { label: "In revisione", ...STILE_LIVELLO.attenzione },
+  DISAPPROVED: { label: "Rifiutata", ...STILE_LIVELLO.critico },
 };
 
 /** Traduce lo stato grezzo Meta (ACTIVE/PAUSED/...) in etichetta + colore per i badge. Stringa vuota = non ancora sincronizzato. */
@@ -63,21 +65,18 @@ export function formatStatoCampagna(stato: string): StatoCampagnaInfo | null {
   return (
     STATI_CAMPAGNA[stato] ?? {
       label: stato.charAt(0) + stato.slice(1).toLowerCase().replace(/_/g, " "),
-      classe: "bg-gray-100 text-gray-500 border-gray-200",
-      puntino: "bg-gray-400",
+      ...STILE_LIVELLO.neutro,
     }
   );
 }
 
 export type StatoAttivitaInfo = { label: string; classe: string; puntino: string; barra: string };
 
-// "barra" è il colore esadecimale usato per il fill delle barre nel Gantt (SVG, non può leggere le
-// classi Tailwind) — scelto per coincidere visivamente con lo stesso colore delle classi/puntino.
 const STATI_ATTIVITA: Record<string, StatoAttivitaInfo> = {
-  todo: { label: "Da fare", classe: "bg-gray-100 text-gray-600 border-gray-200", puntino: "bg-gray-400", barra: "#9ca3af" },
-  wip: { label: "In corso", classe: "bg-yellow-50 text-yellow-700 border-yellow-100", puntino: "bg-yellow-500", barra: "#eab308" },
-  done: { label: "Fatto", classe: "bg-green-50 text-green-700 border-green-100", puntino: "bg-green-500", barra: "#22c55e" },
-  blocked: { label: "Bloccato", classe: "bg-red-50 text-red-600 border-red-100", puntino: "bg-red-400", barra: "#f87171" },
+  todo: { label: "Da fare", ...STILE_LIVELLO.neutro },
+  wip: { label: "In corso", ...STILE_LIVELLO.attenzione },
+  done: { label: "Fatto", ...STILE_LIVELLO.successo },
+  blocked: { label: "Bloccato", ...STILE_LIVELLO.critico },
 };
 
 /** Traduce lo stato di un'attività (todo/wip/done/blocked) in etichetta + colori per badge e Gantt. */

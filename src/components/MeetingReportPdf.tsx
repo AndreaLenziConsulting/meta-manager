@@ -13,9 +13,11 @@ import type { MeetingDataLoose } from "@/types/meeting";
  *   (testo libero dedotto dall'LLM, sempre ignorato, vedi types/meeting.ts).
  */
 
-const BRAND_COLOR = "#1b75bb";
-const BRAND_LIGHT = "#dbeafe";
-const BRAND_SOFT = "#eaf3fb";
+// react-pdf non può leggere le CSS custom property di globals.css (fonte di verità per il resto
+// dell'app) — questi hex vanno tenuti allineati a mano a --brand-primary/--brand-primary-light lì.
+const BRAND_COLOR = "#1a74bc";
+const BRAND_LIGHT = "#d6e8f5"; // tinta media, per il risalto degli action item
+const BRAND_SOFT = "#e8f1f9"; // = --brand-primary-light in globals.css, per i box informativi
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
 const styles = StyleSheet.create({

@@ -5,39 +5,15 @@ import { useRouter } from "next/navigation";
 import type { Consulente, Salute } from "@/types/kpi";
 import type { SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
+import { STILE_LIVELLO } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
 
 const STILE_STATO: Record<Salute, { label: string; classe: string; icona: string; soglia: string }> = {
-  interveni: {
-    label: "Da intervenire",
-    classe: "bg-red-50 text-red-700 border-red-100",
-    icona: "🔴",
-    soglia: "> 120% del target",
-  },
-  mantieni: {
-    label: "Mantieni",
-    classe: "bg-yellow-50 text-yellow-700 border-yellow-100",
-    icona: "🟡",
-    soglia: "80–120% del target",
-  },
-  scala: {
-    label: "Scala",
-    classe: "bg-green-50 text-green-700 border-green-100",
-    icona: "🟢",
-    soglia: "≤ 80% del target",
-  },
-  "dati-insufficienti": {
-    label: "Dati insufficienti",
-    classe: "bg-gray-50 text-gray-500 border-gray-200",
-    icona: "⚪",
-    soglia: "spesa sotto 2,5× il target",
-  },
-  "no-target": {
-    label: "Nessun target",
-    classe: "bg-gray-50 text-gray-400 border-gray-200",
-    icona: "⚪",
-    soglia: "target non impostato in Clienti",
-  },
+  interveni: { label: "Da intervenire", classe: STILE_LIVELLO.critico.classe, icona: "🔴", soglia: "> 120% del target" },
+  mantieni: { label: "Mantieni", classe: STILE_LIVELLO.attenzione.classe, icona: "🟡", soglia: "80–120% del target" },
+  scala: { label: "Scala", classe: STILE_LIVELLO.successo.classe, icona: "🟢", soglia: "≤ 80% del target" },
+  "dati-insufficienti": { label: "Dati insufficienti", classe: STILE_LIVELLO.neutro.classe, icona: "⚪", soglia: "spesa sotto 2,5× il target" },
+  "no-target": { label: "Nessun target", classe: STILE_LIVELLO.neutro.classe, icona: "⚪", soglia: "target non impostato in Clienti" },
 };
 
 export function LegendaSalute() {

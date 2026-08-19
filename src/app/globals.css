@@ -1,29 +1,46 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f9fafb;
-  --foreground: #171717;
-  --brand-primary: #1b75bb;
-  --brand-primary-dark: #155e96;
-  --brand-primary-light: #eaf3fb;
+  /* Brand ufficiale Andrea Lenzi Consulting */
+  --brand-primary: #1a74bc;
+  --brand-primary-dark: #002f54;
+  --brand-primary-light: #e8f1f9;
+
+  /* Scala "ink" derivata dal quasi-nero ufficiale #000321 */
+  --ink-900: #000321; /* testo principale, titoli */
+  --ink-700: #2b2d42; /* testo secondario forte */
+  --ink-500: #8893a8; /* testo terziario/placeholder — colore ufficiale */
+  --ink-300: #c4cad6; /* bordi/hairline */
+  --surface: #f8f8f8; /* sfondo pagina — colore ufficiale */
+  --surface-card: #ffffff;
+
+  /* Colore di STATO/azione (successo), non di brand — resta distinto, vedi src/lib/statusStyles.ts */
   --cta-green: #16a34a;
   --cta-green-dark: #15803d;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
   --color-brand: var(--brand-primary);
   --color-brand-dark: var(--brand-primary-dark);
   --color-brand-light: var(--brand-primary-light);
+  --color-ink-900: var(--ink-900);
+  --color-ink-700: var(--ink-700);
+  --color-ink-500: var(--ink-500);
+  --color-ink-300: var(--ink-300);
+  --color-surface: var(--surface);
+  --color-surface-card: var(--surface-card);
   --color-cta: var(--cta-green);
   --color-cta-dark: var(--cta-green-dark);
+  --font-sans: var(--font-roboto);
+  --font-heading: var(--font-league-spartan);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--surface);
+  color: var(--ink-900);
+  /* Esplicito invece di fare affidamento sul default Preflight di Tailwind: è proprio
+     l'assenza di un riferimento esplicito ad aver reso invisibile Geist in precedenza. */
+  font-family: var(--font-sans), -apple-system, "Segoe UI", sans-serif;
 }
 
 /* Dataviz tokens — see dataviz skill palette.md (reference instance, unmodified) */

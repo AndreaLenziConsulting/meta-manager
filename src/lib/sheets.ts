@@ -122,6 +122,16 @@ function asText(value: CellValue): string {
   return String(value);
 }
 
+/**
+ * Numero di riga (1-based, riga 1 = header) della prima riga la cui colonna A combacia con `id`,
+ * o null. Pattern comune a Clienti/AttivitaCliente/MeetingCliente — prima triplicato quasi alla
+ * lettera in tre punti diversi, ora un'unica implementazione.
+ */
+function trovaIndiceRiga(rows: CellValue[][], id: string): number | null {
+  const i = rows.findIndex((r) => asText(r[0]) === id);
+  return i === -1 ? null : i + 2;
+}
+
 /** Normalizza una cella "data" (YYYY-MM-DD) che Sheets potrebbe aver convertito in numero seriale. */
 export function normalizeData(value: CellValue): string {
   if (typeof value === "number") return serialToIsoDate(value);
@@ -232,8 +242,7 @@ export type AggiornaClienteInput = {
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
 export function trovaIndiceRigaCliente(rows: CellValue[][], clienteId: string): number | null {
-  const i = rows.findIndex((r) => asText(r[0]) === clienteId);
-  return i === -1 ? null : i + 2;
+  return trovaIndiceRiga(rows, clienteId);
 }
 
 /**
@@ -586,8 +595,7 @@ export async function creaAttivitaPerCliente(righe: AttivitaClienteRow[]): Promi
 
 /** Numero di riga (1-based come nel foglio, riga 1 = header) della prima riga con quell'attivitaId, o null. */
 export function trovaIndiceRigaAttivita(rows: CellValue[][], attivitaId: string): number | null {
-  const i = rows.findIndex((r) => asText(r[0]) === attivitaId);
-  return i === -1 ? null : i + 2;
+  return trovaIndiceRiga(rows, attivitaId);
 }
 
 /**
@@ -729,13 +737,12 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
     JSON.stringify(record.dati),
   ];
 
-  const indiceEsistente = righe.findIndex((r) => asText(r[0]) === record.meetingId);
-  if (indiceEsistente === -1) {
+  const rowNumber = trovaIndiceRiga(righe, record.meetingId);
+  if (rowNumber === null) {
     await appendRows(TAB.meetingCliente, [rigaValues]);
     return { aggiornato: false };
   }
 
-  const rowNumber = indiceEsistente + 2;
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId,
     range: `${TAB.meetingCliente}!A${rowNumber}:G${rowNumber}`,
