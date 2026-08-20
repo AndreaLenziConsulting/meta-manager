@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { generaAccessCode, generaClienteId } from "@/lib/accessCode";
+import { generaAccessCode, generaClienteId, generaSedeId } from "@/lib/accessCode";
 import { generaAttivitaPerCliente } from "@/lib/roadmap";
 import {
   aggiornaCliente,
   creaAttivitaPerCliente,
   creaCliente,
+  creaSede,
   getClienti,
   getConsulenti,
   getProdotti,
+  getSedi,
   getTemplateAttivita,
 } from "@/lib/sheets";
 
@@ -26,7 +28,11 @@ type Body = {
   dataInizioProgetto?: string;
 };
 
-/** Crea un nuovo cliente e, se è stato scelto un prodotto, genera subito la roadmap. Solo admin. */
+/**
+ * Crea un nuovo cliente con una prima sede "Principale" (stessi campi ad account/target che il
+ * form raccoglie oggi, ora scritti su Sede) e, se è stato scelto un prodotto, genera subito la
+ * roadmap. Sedi aggiuntive si aggiungono in un secondo momento da ModificaClienteModal. Solo admin.
+ */
 export async function POST(req: NextRequest) {
   const sessione = await getSessione();
   if (!sessione) {
@@ -56,7 +62,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Data inizio progetto obbligatoria se scegli un prodotto" }, { status: 400 });
   }
 
-  const [clienti, consulenti, prodotti] = await Promise.all([getClienti(), getConsulenti(), getProdotti()]);
+  const [clienti, consulenti, prodotti, sedi] = await Promise.all([
+    getClienti(),
+    getConsulenti(),
+    getProdotti(),
+    getSedi(),
+  ]);
 
   if (!consulenti.some((c) => c.consulenteId === consulenteId && c.attivo)) {
     return NextResponse.json({ error: "Consulente non valido" }, { status: 400 });
@@ -74,11 +85,8 @@ export async function POST(req: NextRequest) {
     await creaCliente({
       clienteId,
       nome,
-      adAccountId,
       accessCode,
       consulenteId,
-      targetCpa: body.targetCpa ?? null,
-      targetCpl: body.targetCpl ?? null,
       mostraTabExtra: !!body.mostraTabExtra,
       prodottoId,
       dataInizioProgetto,
@@ -86,6 +94,26 @@ export async function POST(req: NextRequest) {
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 409 });
+  }
+
+  // Il cliente ormai esiste: un fallimento nella creazione della sede non deve sembrare un
+  // fallimento totale della richiesta — il cliente resta comunque creato, la sede si può aggiungere
+  // a mano da ModificaClienteModal se questo passo fallisse (scenario raro).
+  try {
+    const sedeId = generaSedeId(clienteId, "Principale", new Set(sedi.map((s) => s.sedeId)));
+    await creaSede({
+      sedeId,
+      clienteId,
+      nome: "Principale",
+      adAccountId,
+      targetCpa: body.targetCpa ?? null,
+      targetCpl: body.targetCpl ?? null,
+    });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Cliente creato ma la sede non è stata salvata" },
+      { status: 502 }
+    );
   }
 
   // Il cliente ormai esiste: un fallimento qui non deve sembrare un fallimento totale, la roadmap
@@ -108,21 +136,17 @@ export async function POST(req: NextRequest) {
 type BodyPatch = {
   clienteId?: string;
   nome?: string;
-  adAccountId?: string;
   email?: string;
   consulenteId?: string;
-  targetCpa?: number | null;
-  targetCpl?: number | null;
   mostraTabExtra?: boolean;
-  tipoConversioneLead?: string;
   attivo?: boolean;
 };
 
 /**
- * Modifica "impostazioni estese" di un cliente esistente (dalla Dashboard Amministratore).
- * Aggiornamento parziale: solo i campi presenti nel body vengono validati/scritti. Esclude
- * deliberatamente prodottoId/dataInizioProgetto (flusso roadmap dedicato) e accessCode
- * (mai riassegnabile). Solo admin.
+ * Modifica l'anagrafica di un cliente esistente (dalla Dashboard Amministratore). Aggiornamento
+ * parziale: solo i campi presenti nel body vengono validati/scritti. Esclude deliberatamente
+ * prodottoId/dataInizioProgetto (flusso roadmap dedicato) e accessCode (mai riassegnabile). Ad
+ * account/target/tipo-conversione-lead si modificano da /api/sedi, non più da qui. Solo admin.
  */
 export async function PATCH(req: NextRequest) {
   const sessione = await getSessione();
@@ -143,10 +167,6 @@ export async function PATCH(req: NextRequest) {
   if (nome !== undefined && !nome) {
     return NextResponse.json({ error: "Nome obbligatorio" }, { status: 400 });
   }
-  const adAccountId = body.adAccountId !== undefined ? body.adAccountId.trim() : undefined;
-  if (adAccountId !== undefined && !/^\d+$/.test(adAccountId)) {
-    return NextResponse.json({ error: 'Ad account id non valido: solo cifre, senza il prefisso "act_"' }, { status: 400 });
-  }
 
   const [clienti, consulenti] = await Promise.all([getClienti(), getConsulenti()]);
   if (!clienti.some((c) => c.clienteId === clienteId)) {
@@ -154,8 +174,8 @@ export async function PATCH(req: NextRequest) {
   }
   // A differenza della creazione (POST), qui il consulente non deve per forza essere attivo: un
   // cliente può già avere assegnato un consulente nel frattempo disattivato, e l'admin deve poter
-  // salvare gli altri campi (es. target CPL) senza esserne bloccato. Se invece ne assegna uno
-  // nuovo esplicitamente, la UI lo marca "(disattivato)" per guidare la scelta, ma non lo impedisce.
+  // salvare gli altri campi senza esserne bloccato. Se invece ne assegna uno nuovo esplicitamente,
+  // la UI lo marca "(disattivato)" per guidare la scelta, ma non lo impedisce.
   if (body.consulenteId !== undefined && !consulenti.some((c) => c.consulenteId === body.consulenteId)) {
     return NextResponse.json({ error: "Consulente non valido" }, { status: 400 });
   }
@@ -164,13 +184,9 @@ export async function PATCH(req: NextRequest) {
     await aggiornaCliente({
       clienteId,
       nome,
-      adAccountId,
       email: body.email !== undefined ? body.email.trim() : undefined,
       consulenteId: body.consulenteId,
-      targetCpa: body.targetCpa,
-      targetCpl: body.targetCpl,
       mostraTabExtra: body.mostraTabExtra,
-      tipoConversioneLead: body.tipoConversioneLead,
       attivo: body.attivo,
     });
     return NextResponse.json({ ok: true });

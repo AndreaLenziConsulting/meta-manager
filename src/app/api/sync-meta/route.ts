@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienti } from "@/lib/sheets";
+import { getClienti, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { syncCliente } from "@/lib/sync";
 
@@ -22,10 +22,10 @@ export async function POST(req: NextRequest) {
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
   }
-  const cliente = clienti.find((c) => c.clienteId === clienteId)!;
 
   try {
-    const { righe } = await syncCliente(cliente);
+    const sedi = await getSedi();
+    const { righe } = await syncCliente(clienteId, sedi);
     return NextResponse.json({ ok: true, righe });
   } catch (err) {
     return NextResponse.json(

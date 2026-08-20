@@ -65,12 +65,30 @@ function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica
         </button>
       </div>
 
-      {item.valutazione.metricaUsata && (
-        <p className="text-sm text-ink-700 mt-3">
-          {item.valutazione.metricaUsata === "vendita" ? "CPA su vendita" : "Costo per lead"}{" "}
-          <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.valoreAttuale)}</span> vs target{" "}
-          <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.targetUsato)}</span>
-        </p>
+      {item.sedi.length > 1 ? (
+        // Più sedi: la valutazione aggregata in alto ("il peggio vince") non basta da sola a
+        // capire dove intervenire — qui sotto ogni sede col proprio stato, non un unico CPA/target
+        // che apparterrebbe solo a una di esse.
+        <div className="mt-3 space-y-1.5">
+          {item.sedi.map((s) => {
+            const stileSede = STILE_STATO[s.valutazione.stato];
+            return (
+              <div key={s.sede.sedeId} className="flex items-center gap-2 text-sm">
+                <Puntino tono={stileSede.tono} />
+                <span className="text-ink-700 font-medium">{s.sede.nome}</span>
+                <span className={`text-xs font-semibold ${stileSede.testoClasse}`}>{stileSede.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        item.valutazione.metricaUsata && (
+          <p className="text-sm text-ink-700 mt-3">
+            {item.valutazione.metricaUsata === "vendita" ? "CPA su vendita" : "Costo per lead"}{" "}
+            <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.valoreAttuale)}</span> vs target{" "}
+            <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.targetUsato)}</span>
+          </p>
+        )
       )}
 
       <p className="text-xs text-ink-500 mt-3 pt-3 border-t border-ink-300/60">
@@ -205,6 +223,7 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
       {itemInModifica && (
         <ModificaClienteModal
           cliente={itemInModifica.cliente}
+          sedi={itemInModifica.sedi.map((s) => s.sede)}
           consulenti={consulenti}
           onClose={() => setClienteInModifica(null)}
           onSalvato={() => {

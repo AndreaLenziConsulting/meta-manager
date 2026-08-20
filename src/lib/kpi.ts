@@ -65,7 +65,7 @@ export type KpiComputationResult = {
 
 /**
  * Aggrega MetaDaily (spesa/lead, via mapping campagna -> tipo_campagna) e Funnel (richieste/appuntamenti/vendite/fatturato)
- * per cliente, nella finestra [daMese, aMese] inclusiva, raggruppando per tipo_campagna.
+ * per una singola sede di un cliente, nella finestra [daMese, aMese] inclusiva, raggruppando per tipo_campagna.
  *
  * Se `campagneSelezionate` è passato, filtra le righe MetaDaily a quelle campagne; un tipo_campagna lato Funnel
  * resta incluso per intero finché almeno una delle sue campagne è nel set (il Funnel non è tracciato per
@@ -73,6 +73,7 @@ export type KpiComputationResult = {
  */
 export function computeKpi(
   clienteId: string,
+  sedeId: string,
   daMese: string,
   aMese: string,
   metaDaily: MetaDailyRow[],
@@ -80,8 +81,12 @@ export function computeKpi(
   funnel: FunnelRow[],
   campagneSelezionate?: Set<string>
 ): KpiComputationResult {
-  const campagneCliente = campagne.filter((c) => c.clienteId === clienteId);
+  const campagneCliente = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
   const tipoPerCampagna = new Map(campagneCliente.map((c) => [c.campaignId, c.tipoCampagna || NON_CLASSIFICATA]));
+  // Una campagna che non appartiene a questa sede (o non ancora mappata) va sempre esclusa qui —
+  // a differenza di prima (un cliente = una sola sede implicita), non basta più "sconosciuta ->
+  // Non classificata ma inclusa": finirebbe nei numeri della sede sbagliata.
+  const campaignIdsSede = new Set(campagneCliente.map((c) => c.campaignId));
   const tipiConCampagnaSelezionata = campagneSelezionate
     ? new Set(
         campagneCliente
@@ -102,6 +107,7 @@ export function computeKpi(
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
+    if (!campaignIdsSede.has(row.campaignId)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
     const mese = meseDiData(row.data);
     if (!nelPeriodo(mese)) continue;
@@ -127,6 +133,7 @@ export function computeKpi(
 
   for (const row of funnel) {
     if (row.clienteId !== clienteId) continue;
+    if (row.sedeId !== sedeId) continue;
     if (!nelPeriodo(row.mese)) continue;
 
     const tipoCampagna = row.tipoCampagna || NON_CLASSIFICATA;
@@ -195,6 +202,7 @@ export function computeKpi(
  */
 export function computeKpiPerCampagna(
   clienteId: string,
+  sedeId: string,
   daMese: string,
   aMese: string,
   metaDaily: MetaDailyRow[],
@@ -202,15 +210,16 @@ export function computeKpiPerCampagna(
   campagneSelezionate?: Set<string>,
   ultimoCambioPerCampagna?: Map<string, string>
 ): RigaCampagna[] {
-  const infoCampagna = new Map(
-    campagne.filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c])
-  );
+  const campagneSede = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
+  const infoCampagna = new Map(campagneSede.map((c) => [c.campaignId, c]));
+  const campaignIdsSede = new Set(campagneSede.map((c) => c.campaignId));
 
   const nelPeriodo = (mese: string) => mese >= daMese && mese <= aMese;
   const righeMap = new Map<string, { investimento: number; numeroLead: number }>();
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
+    if (!campaignIdsSede.has(row.campaignId)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
     if (!nelPeriodo(meseDiData(row.data))) continue;
 
@@ -238,20 +247,27 @@ export function computeKpiPerCampagna(
 }
 
 /**
- * Spesa e lead di un cliente su una finestra di date reali (non mesi interi) — usata per la vista
+ * Spesa e lead di una sede su una finestra di date reali (non mesi interi) — usata per la vista
  * "salute clienti" a 7 giorni. Le vendite del Funnel sono tracciate solo a livello mensile, quindi
  * su una finestra sub-mensile non sono attendibili: qui il segnale è sempre il costo per lead.
+ * MetaDaily non porta sedeId: si passa da campagne (campaignId -> sede) come nelle altre funzioni.
  */
 export function computeSpesaLeadPeriodo(
   clienteId: string,
+  sedeId: string,
   daData: string, // YYYY-MM-DD
   aData: string, // YYYY-MM-DD
-  metaDaily: MetaDailyRow[]
+  metaDaily: MetaDailyRow[],
+  campagne: Campagna[]
 ): { investimento: number; numeroLead: number; costoPerLead: number | null } {
+  const campaignIdsSede = new Set(
+    campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId).map((c) => c.campaignId)
+  );
   let investimento = 0;
   let numeroLead = 0;
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
+    if (!campaignIdsSede.has(row.campaignId)) continue;
     if (row.data < daData || row.data > aData) continue;
     investimento += row.spesa;
     numeroLead += row.lead;

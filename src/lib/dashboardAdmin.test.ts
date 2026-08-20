@@ -4,9 +4,9 @@ import type { AttivitaClienteRow, Cliente } from "@/types/kpi";
 
 function cliente(over: Partial<Cliente>): Cliente {
   return {
-    clienteId: "c", nome: "Cliente", adAccountId: "1", accessCode: "x", attivo: true,
-    consulenteId: "cons-1", targetCpa: null, targetCpl: null, mostraTabExtra: false,
-    prodottoId: "", dataInizioProgetto: null, tipoConversioneLead: "", email: "", ...over,
+    clienteId: "c", nome: "Cliente", accessCode: "x", attivo: true,
+    consulenteId: "cons-1", mostraTabExtra: false,
+    prodottoId: "", dataInizioProgetto: null, email: "", ...over,
   };
 }
 
@@ -21,6 +21,7 @@ function attivitaFittizia(n: number): AttivitaClienteRow[] {
 function item(over: Partial<SaluteClienteItem>): SaluteClienteItem {
   return {
     cliente: cliente({ clienteId: over.cliente?.clienteId ?? "c" }),
+    sedi: [],
     investimento: 0,
     numeroLead: 0,
     valutazione: { stato: "no-target", metricaUsata: null, valoreAttuale: null, targetUsato: null },

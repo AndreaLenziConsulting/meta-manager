@@ -6,6 +6,7 @@ import { TrendChart } from "@/components/TrendChart";
 import { KpiTable } from "@/components/KpiTable";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
+import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import { calcolaSalute } from "@/lib/salute";
@@ -38,10 +39,22 @@ export function KpiDashboard({ code, clienteId }: Props) {
   // il richiamo "solo per il team" più sotto e src/app/api/attivita/route.ts (già riservata al team).
   const [attivitaInRitardoCount, setAttivitaInRitardoCount] = useState(0);
 
-  // Il filtro campagne è legato al contesto (cliente/codice + periodo) in cui è stato scelto: se quel
-  // contesto cambia, le campagne disponibili non sono più le stesse e si torna a "tutte" — senza bisogno
-  // di un effect dedicato, è solo un valore derivato da confrontare col contesto corrente.
-  const contestoAttuale = `${code ?? ""}|${clienteId ?? ""}|${da}|${a}`;
+  // Contesto = quale cliente/codice sto guardando, indipendente dalla sede: cambia solo quando si
+  // naviga verso un cliente diverso, non quando si cambia sede all'interno dello stesso cliente.
+  const contestoCliente = `${code ?? ""}|${clienteId ?? ""}`;
+  // Sede scelta esplicitamente dall'utente in questo contesto — null finché non la sceglie, così
+  // il fetch usa il default deciso dal server (prima sede attiva). Si azzera da sé passando a un
+  // altro cliente (stesso pattern di filtroCampagne sotto).
+  const [sedeScelta, setSedeScelta] = useState<{ contesto: string; sedeId: string | null }>({
+    contesto: contestoCliente,
+    sedeId: null,
+  });
+  const sedeId = sedeScelta.contesto === contestoCliente ? sedeScelta.sedeId : null;
+
+  // Il filtro campagne è legato al contesto (cliente/codice + sede + periodo) in cui è stato scelto:
+  // se quel contesto cambia, le campagne disponibili non sono più le stesse e si torna a "tutte" —
+  // senza bisogno di un effect dedicato, è solo un valore derivato da confrontare col contesto corrente.
+  const contestoAttuale = `${contestoCliente}|${sedeId ?? ""}|${da}|${a}`;
   const [filtroCampagne, setFiltroCampagne] = useState<{ contesto: string; selezionate: Set<string> | null }>({
     contesto: contestoAttuale,
     selezionate: null,
@@ -54,6 +67,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
     const params = new URLSearchParams({ da, a });
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
+    if (sedeId) params.set("sedeId", sedeId);
     if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
 
     Promise.resolve()
@@ -81,7 +95,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
       });
 
     return () => controller.abort();
-  }, [code, clienteId, da, a, campagneSelezionate, refreshTick]);
+  }, [code, clienteId, sedeId, da, a, campagneSelezionate, refreshTick]);
 
   // Conteggio attività in ritardo per il richiamo "solo per il team" — indipendente dal periodo
   // scelto per i KPI (le attività non hanno stagionalità), quindi un effect separato legato solo a
@@ -130,7 +144,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
   const motivo =
     clienteId && dati
       ? formatMotivoIntervento(
-          calcolaSalute(dati.totale, dati.cliente.targetCpa ?? null, dati.cliente.targetCpl ?? null),
+          calcolaSalute(dati.totale, dati.sede.targetCpa ?? null, dati.sede.targetCpl ?? null),
           attivitaInRitardoCount
         )
       : null;
@@ -153,7 +167,17 @@ export function KpiDashboard({ code, clienteId }: Props) {
     <div className="viz-root space-y-6">
       {dati && (
         <div>
-          <h2 className="font-heading font-bold text-2xl text-ink-900">{dati.cliente.nome}</h2>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="font-heading font-bold text-2xl text-ink-900">{dati.cliente.nome}</h2>
+            {/* Solo se il cliente ha più di una sede — con una sola (il caso comune) resta identico a oggi. */}
+            {dati.sediDisponibili.length > 1 && (
+              <Tabs
+                tabs={dati.sediDisponibili.map((s) => ({ id: s.sedeId, label: s.nome }))}
+                attivo={dati.sede.sedeId}
+                onChange={(id) => setSedeScelta({ contesto: contestoCliente, sedeId: id })}
+              />
+            )}
+          </div>
           {motivo && (
             <div className="mt-3 flex flex-wrap items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
               <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />

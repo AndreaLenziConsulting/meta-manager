@@ -6,11 +6,12 @@ import {
   getClienti,
   getFunnel,
   getMetaDaily,
+  getSedi,
   getUltimoCambioPerCampagna,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
-import type { CampagnaDisponibile, KpiResponse } from "@/types/kpi";
+import type { CampagnaDisponibile, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,7 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const code = searchParams.get("code");
   const clienteIdParam = searchParams.get("clienteId");
+  const sedeIdParam = searchParams.get("sedeId");
   const da = searchParams.get("da") || meseCorrente();
   const a = searchParams.get("a") || meseCorrente();
   const campagneParam = searchParams.get("campagne");
@@ -31,8 +33,7 @@ export async function GET(req: NextRequest) {
   let nomeCliente: string;
   // Solo la richiesta interna (clienteId, sessione autenticata) valorizza i target — mai il ramo
   // `code`: il cliente sul suo link pubblico non deve mai vedere i propri target CPA/CPL.
-  let targetCpa: number | null = null;
-  let targetCpl: number | null = null;
+  let internal = false;
 
   if (code) {
     const cliente = await getClienteByAccessCode(code);
@@ -56,9 +57,17 @@ export async function GET(req: NextRequest) {
     const cliente = clienti.find((c) => c.clienteId === clienteIdParam)!;
     clienteId = cliente.clienteId;
     nomeCliente = cliente.nome;
-    targetCpa = cliente.targetCpa;
-    targetCpl = cliente.targetCpl;
+    internal = true;
   }
+
+  const tutteLeSedi = await getSedi();
+  const sediCliente = tutteLeSedi
+    .filter((s) => s.clienteId === clienteId && s.attivo)
+    .sort((x: Sede, y: Sede) => x.nome.localeCompare(y.nome));
+  if (sediCliente.length === 0) {
+    return NextResponse.json({ error: "Nessuna sede attiva per questo cliente" }, { status: 404 });
+  }
+  const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
   const [metaDaily, campagne, funnel, ultimoCambioPerCampagna] = await Promise.all([
     getMetaDaily(),
@@ -69,6 +78,7 @@ export async function GET(req: NextRequest) {
 
   const { gruppi, totale, trend, trendSettimanale } = computeKpi(
     clienteId,
+    sede.sedeId,
     da,
     a,
     metaDaily,
@@ -78,6 +88,7 @@ export async function GET(req: NextRequest) {
   );
   const righeCampagne = computeKpiPerCampagna(
     clienteId,
+    sede.sedeId,
     da,
     a,
     metaDaily,
@@ -86,10 +97,13 @@ export async function GET(req: NextRequest) {
     ultimoCambioPerCampagna
   );
 
-  const infoCampagna = new Map(campagne.filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c]));
+  const campagneSede = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId);
+  const infoCampagna = new Map(campagneSede.map((c) => [c.campaignId, c]));
+  const campaignIdsSede = new Set(campagneSede.map((c) => c.campaignId));
   const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
+    if (!campaignIdsSede.has(row.campaignId)) continue;
     const mese = row.data.slice(0, 7);
     if (mese < da || mese > a) continue;
     if (campagneDisponibiliMap.has(row.campaignId)) continue;
@@ -106,7 +120,11 @@ export async function GET(req: NextRequest) {
   );
 
   const response: KpiResponse = {
-    cliente: code ? { clienteId, nome: nomeCliente } : { clienteId, nome: nomeCliente, targetCpa, targetCpl },
+    cliente: { clienteId, nome: nomeCliente },
+    sede: internal
+      ? { sedeId: sede.sedeId, nome: sede.nome, targetCpa: sede.targetCpa, targetCpl: sede.targetCpl }
+      : { sedeId: sede.sedeId, nome: sede.nome },
+    sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),
     periodo: { da, a },
     gruppi,
     totale,

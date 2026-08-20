@@ -26,3 +26,16 @@ export function generaClienteId(nome: string, esistenti: Set<string>): string {
 export function generaAccessCode(): string {
   return randomBytes(5).toString("hex");
 }
+
+/**
+ * Genera un sedeId leggibile ("mobilieri-bianchi--milano"), unico sull'intera tab Sedi (non solo
+ * dentro lo stesso cliente) — stesso schema slug+suffisso di generaClienteId, con clienteId come
+ * prefisso così l'id resta leggibile a colpo d'occhio anche fuori contesto.
+ */
+export function generaSedeId(clienteId: string, nomeSede: string, esistenti: Set<string>): string {
+  const base = `${clienteId}--${slugify(nomeSede) || "sede"}`;
+  if (!esistenti.has(base)) return base;
+  let n = 2;
+  while (esistenti.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}

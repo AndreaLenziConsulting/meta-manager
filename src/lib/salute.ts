@@ -59,3 +59,21 @@ export function calcolaSalute(
 
   return { stato: "no-target", metricaUsata: null, valoreAttuale: null, targetUsato: null };
 }
+
+const ORDINE_SEVERITA: Record<Salute, number> = {
+  interveni: 0,
+  mantieni: 1,
+  scala: 2,
+  "dati-insufficienti": 3,
+  "no-target": 4,
+};
+
+/**
+ * Riduce le valutazioni delle sedi di un cliente a una sola, "il peggio vince": la sede messa
+ * peggio decide lo stato aggregato — usata dalla Dashboard Amministratore, che mostra una card per
+ * cliente anche quando ne ha più di una (vedi src/lib/dashboardAdmin.ts). L'array non è mai vuoto
+ * nei chiamanti reali: un cliente attivo ha sempre almeno una sede attiva dopo la migrazione.
+ */
+export function aggregaValutazioniSedi(valutazioni: ValutazioneSalute[]): ValutazioneSalute {
+  return valutazioni.reduce((peggiore, v) => (ORDINE_SEVERITA[v.stato] < ORDINE_SEVERITA[peggiore.stato] ? v : peggiore));
+}

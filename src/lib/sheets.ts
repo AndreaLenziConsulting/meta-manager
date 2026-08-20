@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { generaSedeId } from "@/lib/accessCode";
 import type {
   AttivitaClienteRow,
   Campagna,
@@ -7,6 +8,7 @@ import type {
   FunnelRow,
   MetaDailyRow,
   Prodotto,
+  Sede,
   StatoAttivita,
   TemplateTask,
 } from "@/types/kpi";
@@ -14,6 +16,7 @@ import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
 const TAB = {
   clienti: "Clienti",
+  sedi: "Sedi",
   campagne: "Campagne",
   metaDaily: "MetaDaily",
   funnel: "Funnel",
@@ -167,6 +170,9 @@ export function toNumberOrNull(value: CellValue): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Le colonne C (adAccountId), G/H (targetCpa/targetCpl) ed L (tipoConversioneLead) restano
+// fisicamente sulla tab Clienti (niente shift su un foglio che il team guarda/modifica a mano) ma
+// sono vestigiali: da quando esiste Sede, questi valori vivono lì (uno per sede, non per cliente).
 export async function getClienti(): Promise<Cliente[]> {
   const rows = await readTab(TAB.clienti);
   return rows
@@ -174,16 +180,12 @@ export async function getClienti(): Promise<Cliente[]> {
     .map((r) => ({
       clienteId: asText(r[0]),
       nome: asText(r[1]),
-      adAccountId: asText(r[2]),
       accessCode: asText(r[3]),
       attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
       consulenteId: asText(r[5]),
-      targetCpa: toNumberOrNull(r[6]),
-      targetCpl: toNumberOrNull(r[7]),
       mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
       prodottoId: asText(r[9]),
       dataInizioProgetto: normalizeData(r[10]) || null,
-      tipoConversioneLead: asText(r[11]),
       email: asText(r[12]),
     }));
 }
@@ -191,11 +193,8 @@ export async function getClienti(): Promise<Cliente[]> {
 export type NuovoClienteInput = {
   clienteId: string;
   nome: string;
-  adAccountId: string;
   accessCode: string;
   consulenteId: string;
-  targetCpa: number | null;
-  targetCpl: number | null;
   mostraTabExtra: boolean;
   prodottoId: string;
   dataInizioProgetto: string | null;
@@ -212,16 +211,16 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
     [
       input.clienteId,
       input.nome,
-      input.adAccountId,
+      "", // colonna C, adAccountId — vestigiale, vedi Sede
       input.accessCode,
       "TRUE",
       input.consulenteId,
-      input.targetCpa ?? "",
-      input.targetCpl ?? "",
+      "", // colonna G, targetCpa — vestigiale, vedi Sede
+      "", // colonna H, targetCpl — vestigiale, vedi Sede
       input.mostraTabExtra ? "TRUE" : "FALSE",
       input.prodottoId,
       input.dataInizioProgetto ?? "",
-      "", // colonna L, tipoConversioneLead — non impostabile in creazione, solo via modifica
+      "", // colonna L, tipoConversioneLead — vestigiale, vedi Sede
       input.email ?? "",
     ],
   ]);
@@ -230,12 +229,8 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
 export type AggiornaClienteInput = {
   clienteId: string;
   nome?: string;
-  adAccountId?: string;
   consulenteId?: string;
-  targetCpa?: number | null;
-  targetCpl?: number | null;
   mostraTabExtra?: boolean;
-  tipoConversioneLead?: string;
   attivo?: boolean;
   email?: string;
 };
@@ -268,13 +263,9 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
     data.push({ range: `${TAB.clienti}!${colonna}${rowNumber}`, values: [[valore]] });
 
   if (input.nome !== undefined) set("B", input.nome);
-  if (input.adAccountId !== undefined) set("C", input.adAccountId);
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
   if (input.consulenteId !== undefined) set("F", input.consulenteId);
-  if (input.targetCpa !== undefined) set("G", input.targetCpa ?? "");
-  if (input.targetCpl !== undefined) set("H", input.targetCpl ?? "");
   if (input.mostraTabExtra !== undefined) set("I", input.mostraTabExtra ? "TRUE" : "FALSE");
-  if (input.tipoConversioneLead !== undefined) set("L", input.tipoConversioneLead);
   if (input.email !== undefined) set("M", input.email);
 
   if (data.length === 0) return;
@@ -283,6 +274,181 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
     requestBody: { valueInputOption: "USER_ENTERED", data },
   });
   invalidateTabCache(TAB.clienti);
+}
+
+// Tab Sedi, colonne A→H: sedeId, clienteId, nome, adAccountId, targetCpa, targetCpl,
+// tipoConversioneLead, attivo. Un cliente ha sempre almeno una sede (vedi migraSediEsistenti).
+export async function getSedi(): Promise<Sede[]> {
+  const rows = await readTab(TAB.sedi);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      sedeId: asText(r[0]),
+      clienteId: asText(r[1]),
+      nome: asText(r[2]),
+      adAccountId: asText(r[3]),
+      targetCpa: toNumberOrNull(r[4]),
+      targetCpl: toNumberOrNull(r[5]),
+      tipoConversioneLead: asText(r[6]),
+      attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
+    }));
+}
+
+export type NuovaSedeInput = {
+  sedeId: string;
+  clienteId: string;
+  nome: string;
+  adAccountId: string;
+  targetCpa: number | null;
+  targetCpl: number | null;
+  tipoConversioneLead?: string;
+};
+
+/** Crea una nuova sede (sempre attiva). Rifiuta esplicitamente un sedeId già in uso. */
+export async function creaSede(input: NuovaSedeInput): Promise<void> {
+  const esistenti = await getSedi();
+  if (esistenti.some((s) => s.sedeId === input.sedeId)) {
+    throw new Error(`Esiste già una sede con id "${input.sedeId}"`);
+  }
+  await appendRows(TAB.sedi, [
+    [
+      input.sedeId,
+      input.clienteId,
+      input.nome,
+      input.adAccountId,
+      input.targetCpa ?? "",
+      input.targetCpl ?? "",
+      input.tipoConversioneLead ?? "",
+      "TRUE",
+    ],
+  ]);
+}
+
+export type AggiornaSedeInput = {
+  sedeId: string;
+  nome?: string;
+  adAccountId?: string;
+  targetCpa?: number | null;
+  targetCpl?: number | null;
+  tipoConversioneLead?: string;
+  attivo?: boolean;
+};
+
+/** Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di una sede esistente. */
+export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.sedi}!A2:H`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRiga(righe, input.sedeId);
+  if (rowNumber === null) {
+    throw new Error(`Sede non trovata: ${input.sedeId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.sedi}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.nome !== undefined) set("C", input.nome);
+  if (input.adAccountId !== undefined) set("D", input.adAccountId);
+  if (input.targetCpa !== undefined) set("E", input.targetCpa ?? "");
+  if (input.targetCpl !== undefined) set("F", input.targetCpl ?? "");
+  if (input.tipoConversioneLead !== undefined) set("G", input.tipoConversioneLead);
+  if (input.attivo !== undefined) set("H", input.attivo ? "TRUE" : "FALSE");
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.sedi);
+}
+
+export type RisultatoMigrazioneSedi = {
+  sedeCreatePerCliente: string[]; // clienteId per cui è stata creata una sede "Principale"
+  campagneBackfillate: number;
+  funnelBackfillate: number;
+};
+
+/**
+ * Migrazione una tantum, idempotente: per ogni cliente che non ha ancora nessuna sede, crea una
+ * sede "Principale" con i valori ancora presenti (vestigiali) sulle colonne C/G/H/L di Clienti,
+ * poi backfilla sedeId sulle righe di Campagne/Funnel di quel cliente che ne sono ancora prive.
+ * Sicura da rilanciare: salta i clienti che hanno già almeno una sede e le righe già backfillate.
+ */
+export async function migraSediEsistenti(): Promise<RisultatoMigrazioneSedi> {
+  const { sheets, sheetId } = getSheetsClient();
+
+  const [clientiRighe, sediEsistenti] = await Promise.all([readTab(TAB.clienti), getSedi()]);
+  const clientiConSede = new Set(sediEsistenti.map((s) => s.clienteId));
+  const sedeIdEsistenti = new Set(sediEsistenti.map((s) => s.sedeId));
+  const sedePerCliente = new Map<string, string>();
+  for (const s of sediEsistenti) {
+    if (!sedePerCliente.has(s.clienteId)) sedePerCliente.set(s.clienteId, s.sedeId);
+  }
+
+  const nuoveSedi: (string | number)[][] = [];
+  const sedeCreatePerCliente: string[] = [];
+  for (const r of clientiRighe) {
+    const clienteId = asText(r[0]);
+    if (!clienteId || clientiConSede.has(clienteId)) continue;
+    const nome = "Principale";
+    const sedeId = generaSedeId(clienteId, nome, sedeIdEsistenti);
+    sedeIdEsistenti.add(sedeId);
+    sedePerCliente.set(clienteId, sedeId);
+    nuoveSedi.push([sedeId, clienteId, nome, asText(r[2]), toNumberOrNull(r[6]) ?? "", toNumberOrNull(r[7]) ?? "", asText(r[11]), "TRUE"]);
+    sedeCreatePerCliente.push(clienteId);
+  }
+  await appendRows(TAB.sedi, nuoveSedi);
+
+  const campagneRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.campagne}!A2:F`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const campagneRighe = (campagneRes.data.values as CellValue[][]) ?? [];
+  const campagneUpdate: { range: string; values: string[][] }[] = [];
+  campagneRighe.forEach((r, i) => {
+    if (!r[0] || asText(r[5])) return; // riga vuota o già backfillata
+    const sedeId = sedePerCliente.get(asText(r[1]));
+    if (!sedeId) return;
+    campagneUpdate.push({ range: `${TAB.campagne}!F${i + 2}`, values: [[sedeId]] });
+  });
+  if (campagneUpdate.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { valueInputOption: "USER_ENTERED", data: campagneUpdate },
+    });
+  }
+
+  const funnelRes = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.funnel}!A2:I`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const funnelRighe = (funnelRes.data.values as CellValue[][]) ?? [];
+  const funnelUpdate: { range: string; values: string[][] }[] = [];
+  funnelRighe.forEach((r, i) => {
+    if (!r[0] || asText(r[8])) return;
+    const sedeId = sedePerCliente.get(asText(r[1]));
+    if (!sedeId) return;
+    funnelUpdate.push({ range: `${TAB.funnel}!I${i + 2}`, values: [[sedeId]] });
+  });
+  if (funnelUpdate.length > 0) {
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: sheetId,
+      requestBody: { valueInputOption: "USER_ENTERED", data: funnelUpdate },
+    });
+  }
+
+  invalidateTabCache(TAB.sedi);
+  invalidateTabCache(TAB.campagne);
+  invalidateTabCache(TAB.funnel);
+
+  return { sedeCreatePerCliente, campagneBackfillate: campagneUpdate.length, funnelBackfillate: funnelUpdate.length };
 }
 
 export async function getConsulenti(): Promise<Consulente[]> {
@@ -313,6 +479,8 @@ export async function getCampagne(): Promise<Campagna[]> {
       nomeCampagna: asText(r[2]),
       tipoCampagna: asText(r[3]),
       stato: asText(r[4]),
+      // Colonna F, aggiunta dopo le prime cinque per non spostare nulla di già scritto — vedi Sede.
+      sedeId: asText(r[5]),
     }));
 }
 
@@ -334,7 +502,7 @@ export function guessTipoCampagnaFromNome(nomeCampagna: string): string {
  * (vuoto se il prefisso non è riconosciuto, resta "da classificare" a mano).
  */
 export async function ensureCampagneMappate(
-  candidate: { campaignId: string; clienteId: string; nomeCampagna: string }[]
+  candidate: { campaignId: string; clienteId: string; sedeId: string; nomeCampagna: string }[]
 ): Promise<void> {
   if (candidate.length === 0) return;
   const esistenti = await getCampagne();
@@ -345,7 +513,7 @@ export async function ensureCampagneMappate(
   for (const c of candidate) {
     if (idEsistenti.has(c.campaignId) || viste.has(c.campaignId)) continue;
     viste.add(c.campaignId);
-    righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), ""]);
+    righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), "", c.sedeId]);
   }
   await appendRows(TAB.campagne, righe);
 }
@@ -501,6 +669,9 @@ export async function getFunnel(): Promise<FunnelRow[]> {
       appuntamentiEffettuati: toNumber(r[5]),
       vendite: toNumber(r[6]),
       fatturato: toNumber(r[7]),
+      // Colonna I, aggiunta dopo le prime otto per non spostare nulla di già scritto — vedi Sede.
+      // Inserita a mano insieme al resto della riga, non derivabile da nient'altro.
+      sedeId: asText(r[8]),
     }));
 }
 

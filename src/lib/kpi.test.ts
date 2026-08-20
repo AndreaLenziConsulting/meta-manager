@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo } from "./kpi";
 import type { Campagna, FunnelRow, MetaDailyRow } from "@/types/kpi";
 
+const SEDE = "s1";
+
 const CAMPAGNE: Campagna[] = [
-  { campaignId: "c1", clienteId: "alc-01", nomeCampagna: "[Prospecting] A", tipoCampagna: "Prospecting", stato: "ACTIVE" },
-  { campaignId: "c2", clienteId: "alc-01", nomeCampagna: "[Prospecting] B", tipoCampagna: "Prospecting", stato: "PAUSED" },
-  { campaignId: "c3", clienteId: "alc-01", nomeCampagna: "[Retargeting] C", tipoCampagna: "Retargeting", stato: "ACTIVE" },
-  { campaignId: "c9", clienteId: "altro-cliente", nomeCampagna: "[Prospecting] X", tipoCampagna: "Prospecting", stato: "ACTIVE" },
+  { campaignId: "c1", clienteId: "alc-01", sedeId: SEDE, nomeCampagna: "[Prospecting] A", tipoCampagna: "Prospecting", stato: "ACTIVE" },
+  { campaignId: "c2", clienteId: "alc-01", sedeId: SEDE, nomeCampagna: "[Prospecting] B", tipoCampagna: "Prospecting", stato: "PAUSED" },
+  { campaignId: "c3", clienteId: "alc-01", sedeId: SEDE, nomeCampagna: "[Retargeting] C", tipoCampagna: "Retargeting", stato: "ACTIVE" },
+  { campaignId: "c9", clienteId: "altro-cliente", sedeId: "altra-sede", nomeCampagna: "[Prospecting] X", tipoCampagna: "Prospecting", stato: "ACTIVE" },
 ];
 
 const META_DAILY: MetaDailyRow[] = [
@@ -21,13 +23,13 @@ const META_DAILY: MetaDailyRow[] = [
 ];
 
 const FUNNEL: FunnelRow[] = [
-  { mese: "2026-06", clienteId: "alc-01", tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
-  { mese: "2026-06", clienteId: "alc-01", tipoCampagna: "Retargeting", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
+  { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
+  { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Retargeting", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
 ];
 
 describe("computeKpi", () => {
   it("aggrega investimento/lead per tipo_campagna nel periodo richiesto", () => {
-    const { gruppi } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
     const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
     const retargeting = gruppi.find((g) => g.tipoCampagna === "Retargeting")!;
 
@@ -38,13 +40,13 @@ describe("computeKpi", () => {
   });
 
   it("esclude righe fuori dal range di mesi e di altri clienti", () => {
-    const { totale } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
     // 999 (maggio) e 500 (altro cliente) non devono contribuire.
     expect(totale.investimento).toBe(350);
   });
 
   it("unisce i dati Funnel (richieste/appuntamenti/vendite/fatturato) allo stesso tipo_campagna", () => {
-    const { gruppi } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
     const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
     expect(prospecting.numeroRichieste).toBe(10);
     expect(prospecting.numeroVendite).toBe(2);
@@ -52,23 +54,23 @@ describe("computeKpi", () => {
   });
 
   it("calcola le formule derivate correttamente, incluso il caso divisione per zero -> null", () => {
-    const { totale } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
     expect(totale.costoPerLead).toBeCloseTo(350 / 15, 5);
     expect(totale.cpa).toBeCloseTo(350 / 2, 5); // 2 vendite in totale
 
-    const vuoto = computeKpi("alc-01", "2099-01", "2099-01", META_DAILY, CAMPAGNE, FUNNEL);
+    const vuoto = computeKpi("alc-01", SEDE, "2099-01", "2099-01", META_DAILY, CAMPAGNE, FUNNEL);
     expect(vuoto.totale.costoPerLead).toBeNull();
     expect(vuoto.totale.roas).toBeNull();
     expect(vuoto.totale.cpa).toBeNull();
   });
 
   it("un periodo di più mesi copre correttamente l'intervallo inclusivo", () => {
-    const { totale } = computeKpi("alc-01", "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
     expect(totale.investimento).toBe(380); // 350 di giugno + 30 di luglio
   });
 
   it("il trend mensile somma investimento (da MetaDaily) e fatturato (da Funnel) per mese", () => {
-    const { trend } = computeKpi("alc-01", "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
+    const { trend } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
     const giugno = trend.find((t) => t.mese === "2026-06")!;
     const luglio = trend.find((t) => t.mese === "2026-07")!;
     expect(giugno.investimento).toBe(350);
@@ -81,7 +83,7 @@ describe("computeKpi", () => {
 
   it("il trend settimanale usa il lunedì della settimana come chiave, coerente a cavallo di mese, e riporta il fatturato del mese di appartenenza", () => {
     // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana.
-    const { trendSettimanale } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
     expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15 }]);
   });
 
@@ -93,10 +95,10 @@ describe("computeKpi", () => {
       { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9 },
     ];
     const funnel: FunnelRow[] = [
-      { mese: "2026-06", clienteId: "alc-01", tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
-      { mese: "2026-07", clienteId: "alc-01", tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
+      { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
+      { mese: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
     ];
-    const { trendSettimanale } = computeKpi("alc-01", "2026-06", "2026-07", metaDaily, CAMPAGNE, funnel);
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", metaDaily, CAMPAGNE, funnel);
     const settimana = trendSettimanale.find((t) => t.settimana === "2026-06-29")!;
     expect(settimana.investimento).toBe(100);
     expect(settimana.numeroLead).toBe(10);
@@ -105,30 +107,60 @@ describe("computeKpi", () => {
 
   describe("filtro campagneSelezionate", () => {
     it("limita MetaDaily alle sole campagne selezionate", () => {
-      const { totale } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c1"]));
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c1"]));
       expect(totale.investimento).toBe(100); // solo c1 di giugno
     });
 
     it("un tipo_campagna con ALMENO una campagna selezionata mantiene INTERO il suo Funnel (non è divisibile per campagna)", () => {
       // Seleziono solo c2 (Prospecting): Funnel di Prospecting deve restare intero (10 richieste),
       // anche se c1 (anch'essa Prospecting) è esclusa dal filtro.
-      const { gruppi } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c2"]));
+      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c2"]));
       const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
       expect(prospecting.investimento).toBe(50); // solo c2
       expect(prospecting.numeroRichieste).toBe(10); // Funnel intero comunque
     });
 
     it("un tipo_campagna con NESSUNA campagna selezionata non porta il suo Funnel", () => {
-      const { gruppi } = computeKpi("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c3"]));
+      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c3"]));
       const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting");
       expect(prospecting).toBeUndefined();
+    });
+  });
+
+  describe("isolamento tra sedi dello stesso cliente", () => {
+    // Stesso clienteId, due sedi con account (quindi campagne) diversi: spesa/lead/funnel di una
+    // sede non devono mai comparire nei numeri dell'altra — il caso critico introdotto con Sede.
+    const campagneDueSedi: Campagna[] = [
+      { campaignId: "s1-c1", clienteId: "multi", sedeId: "sede-1", nomeCampagna: "Sede 1", tipoCampagna: "Prospecting", stato: "ACTIVE" },
+      { campaignId: "s2-c1", clienteId: "multi", sedeId: "sede-2", nomeCampagna: "Sede 2", tipoCampagna: "Prospecting", stato: "ACTIVE" },
+    ];
+    const metaDailyDueSedi: MetaDailyRow[] = [
+      { data: "2026-06-10", clienteId: "multi", campaignId: "s1-c1", spesa: 100, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 10 },
+      { data: "2026-06-10", clienteId: "multi", campaignId: "s2-c1", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50 },
+    ];
+    const funnelDueSedi: FunnelRow[] = [
+      { mese: "2026-06", clienteId: "multi", sedeId: "sede-1", tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
+      { mese: "2026-06", clienteId: "multi", sedeId: "sede-2", tipoCampagna: "Prospecting", richieste: 9, appuntamentiFissati: 9, appuntamentiEffettuati: 9, vendite: 9, fatturato: 9000 },
+    ];
+
+    it("computeKpi vede solo la spesa/lead/funnel della sede richiesta", () => {
+      const sede1 = computeKpi("multi", "sede-1", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, funnelDueSedi);
+      const sede2 = computeKpi("multi", "sede-2", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, funnelDueSedi);
+
+      expect(sede1.totale.investimento).toBe(100);
+      expect(sede1.totale.numeroLead).toBe(10);
+      expect(sede1.totale.fatturato).toBe(1000);
+
+      expect(sede2.totale.investimento).toBe(500);
+      expect(sede2.totale.numeroLead).toBe(50);
+      expect(sede2.totale.fatturato).toBe(9000);
     });
   });
 });
 
 describe("computeKpiPerCampagna", () => {
   it("produce una riga per campagna con le sole metriche Meta (non Funnel)", () => {
-    const righe = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE);
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE);
     const c1 = righe.find((r) => r.campaignId === "c1")!;
     expect(c1.investimento).toBe(100);
     expect(c1.numeroLead).toBe(5);
@@ -138,24 +170,27 @@ describe("computeKpiPerCampagna", () => {
   });
 
   it("ordina per investimento decrescente", () => {
-    const righe = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE);
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE);
     const investimenti = righe.map((r) => r.investimento);
     expect(investimenti).toEqual([...investimenti].sort((a, b) => b - a));
   });
 
   it("include statoDal quando è disponibile una mappa di ultimo cambio, null se assente", () => {
     const ultimoCambio = new Map([["c1", "2026-06-10T05:00:00.000Z"]]);
-    const righe = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE, undefined, ultimoCambio);
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, undefined, ultimoCambio);
     const c1 = righe.find((r) => r.campaignId === "c1")!;
     const c2 = righe.find((r) => r.campaignId === "c2")!;
     expect(c1.statoDal).toBe("2026-06-10T05:00:00.000Z");
     expect(c2.statoDal).toBeNull();
 
-    const senzaMappa = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", META_DAILY, CAMPAGNE);
+    const senzaMappa = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE);
     expect(senzaMappa.every((r) => r.statoDal === null)).toBe(true);
   });
 
-  it("una campagna con spesa ma non mappata in Campagne usa fallback ragionevoli", () => {
+  it("una campagna con spesa ma non mappata in Campagne (o mappata su un'altra sede) viene esclusa, non mostrata con fallback", () => {
+    // Scelta deliberata dopo l'introduzione di Sede: senza una mappatura non c'è modo di sapere a
+    // quale sede attribuire la spesa, quindi resta fuori dalla vista sede-scoped finché il sync non
+    // la mappa (stato transitorio, non il regime normale) — non più "Non classificata ma inclusa".
     const rigaNonMappata: MetaDailyRow = {
       data: "2026-06-01",
       clienteId: "alc-01",
@@ -168,25 +203,21 @@ describe("computeKpiPerCampagna", () => {
       cpm: 0,
       lead: 0,
     };
-    const righe = computeKpiPerCampagna("alc-01", "2026-06", "2026-06", [...META_DAILY, rigaNonMappata], CAMPAGNE);
-    const riga = righe.find((r) => r.campaignId === "sconosciuta")!;
-    expect(riga.nomeCampagna).toBe("sconosciuta");
-    expect(riga.tipoCampagna).toBe("Non classificata");
-    expect(riga.stato).toBe("");
-    expect(riga.costoPerLead).toBeNull(); // 0 lead -> divisione per zero -> null, non 0 o Infinity
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", [...META_DAILY, rigaNonMappata], CAMPAGNE);
+    expect(righe.find((r) => r.campaignId === "sconosciuta")).toBeUndefined();
   });
 });
 
 describe("computeSpesaLeadPeriodo", () => {
   it("somma su un range di date reali (non mesi interi)", () => {
-    const r = computeSpesaLeadPeriodo("alc-01", "2026-06-14", "2026-06-16", META_DAILY);
+    const r = computeSpesaLeadPeriodo("alc-01", SEDE, "2026-06-14", "2026-06-16", META_DAILY, CAMPAGNE);
     expect(r.investimento).toBe(150); // c1 (15/06) + c2 (16/06)
     expect(r.numeroLead).toBe(7);
     expect(r.costoPerLead).toBeCloseTo(150 / 7, 5);
   });
 
   it("nessun dato nel range -> costoPerLead null, non NaN", () => {
-    const r = computeSpesaLeadPeriodo("alc-01", "2099-01-01", "2099-01-31", META_DAILY);
+    const r = computeSpesaLeadPeriodo("alc-01", SEDE, "2099-01-01", "2099-01-31", META_DAILY, CAMPAGNE);
     expect(r.investimento).toBe(0);
     expect(r.numeroLead).toBe(0);
     expect(r.costoPerLead).toBeNull();

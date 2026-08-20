@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getAttivitaCliente, getClienti, getConsulenti, getMetaDaily } from "@/lib/sheets";
+import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMetaDaily, getSedi } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
-import { calcolaSalute } from "@/lib/salute";
+import { aggregaValutazioniSedi, calcolaSalute } from "@/lib/salute";
 import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
-import { calcolaRiepilogo, ordinaPerPriorita, type SaluteClienteItem } from "@/lib/dashboardAdmin";
+import {
+  calcolaRiepilogo,
+  ordinaPerPriorita,
+  type SaluteClienteItem,
+  type SaluteSedeValutazione,
+} from "@/lib/dashboardAdmin";
 import { SaluteClienti } from "@/components/SaluteClienti";
 import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
 
@@ -42,32 +47,49 @@ export default async function DashboardHomePage() {
   const daData = formatData(inizio);
   const aData = formatData(oggi);
 
-  const [metaDaily, attivitaTutte, consulenti] = await Promise.all([
+  const [metaDaily, campagne, attivitaTutte, consulenti, sedi] = await Promise.all([
     getMetaDaily(),
+    getCampagne(),
     getAttivitaCliente(),
     getConsulenti(),
+    getSedi(),
   ]);
   const attivitaPerCliente = raggruppaAttivitaPerCliente(attivitaTutte);
 
   const items: SaluteClienteItem[] = clienti
     .filter((c) => c.attivo)
     .map((cliente) => {
-      const { investimento, numeroLead, costoPerLead } = computeSpesaLeadPeriodo(
-        cliente.clienteId,
-        daData,
-        aData,
-        metaDaily
-      );
-      const valutazione = calcolaSalute(
-        { investimento, numeroVendite: 0, cpa: null, costoPerLead },
-        cliente.targetCpa,
-        cliente.targetCpl
-      );
+      const sediValutate: SaluteSedeValutazione[] = sedi
+        .filter((s) => s.clienteId === cliente.clienteId && s.attivo)
+        .map((sede) => {
+          const { investimento, numeroLead, costoPerLead } = computeSpesaLeadPeriodo(
+            cliente.clienteId,
+            sede.sedeId,
+            daData,
+            aData,
+            metaDaily,
+            campagne
+          );
+          const valutazione = calcolaSalute(
+            { investimento, numeroVendite: 0, cpa: null, costoPerLead },
+            sede.targetCpa,
+            sede.targetCpl
+          );
+          return { sede, investimento, numeroLead, valutazione };
+        });
+      // "Il peggio vince" tra le sedi decide lo stato della card — vedi aggregaValutazioniSedi.
+      // Un cliente senza nessuna sede attiva (caso limite, es. subito dopo la creazione) non ha
+      // nulla da aggregare: resta "no-target" come farebbe calcolaSalute senza target impostato.
+      const valutazione =
+        sediValutate.length > 0
+          ? aggregaValutazioniSedi(sediValutate.map((s) => s.valutazione))
+          : { stato: "no-target" as const, metricaUsata: null, valoreAttuale: null, targetUsato: null };
       return {
         cliente,
-        investimento,
-        numeroLead,
+        sedi: sediValutate,
         valutazione,
+        investimento: sediValutate.reduce((somma, s) => somma + s.investimento, 0),
+        numeroLead: sediValutate.reduce((somma, s) => somma + s.numeroLead, 0),
         attivitaInRitardo: attivitaInRitardo(attivitaPerCliente.get(cliente.clienteId) ?? []),
       };
     });

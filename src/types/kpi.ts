@@ -1,23 +1,36 @@
 export type Cliente = {
   clienteId: string;
   nome: string;
-  adAccountId: string;
   accessCode: string;
   attivo: boolean;
   consulenteId: string;
-  targetCpa: number | null;
-  targetCpl: number | null;
   mostraTabExtra: boolean;
   prodottoId: string; // vuoto se nessun prodotto assegnato (cliente pre-esistente o senza roadmap)
   dataInizioProgetto: string | null; // YYYY-MM-DD, base per il calcolo delle scadenze della roadmap
-  // action_type esatto di Meta Insights da contare come "lead" per questo cliente (es.
-  // "offsite_conversion.fb_pixel_complete_registration" per un cliente che traccia iscrizioni a
-  // webinar/eventi invece di Lead Ads classici). Vuoto = usa la lista di default (LEAD_ACTION_PRIORITY
-  // in src/lib/meta.ts) — comportamento invariato per tutti i clienti esistenti.
-  tipoConversioneLead: string;
   // Destinatario dell'invio automatico dell'email di follow-up meeting. Vuota = invio automatico
   // disattivato per questo cliente (resta solo il flusso manuale scarica PDF/copia email).
   email: string;
+};
+
+/**
+ * Un cliente ha sempre almeno una sede (dopo la migrazione — vedi memoria di progetto): "sede" è
+ * l'unità reale di business (es. un punto vendita), ognuna col proprio account pubblicitario e la
+ * propria pipeline di appuntamenti/vendite. adAccountId/target/tipoConversioneLead vivevano su
+ * Cliente prima di questa evoluzione — sono specifici della sede, non del cliente in astratto.
+ */
+export type Sede = {
+  sedeId: string;
+  clienteId: string;
+  nome: string; // es. "Milano" — mostrato nel selettore quando il cliente ne ha più di una
+  adAccountId: string;
+  targetCpa: number | null;
+  targetCpl: number | null;
+  // action_type esatto di Meta Insights da contare come "lead" per questa sede (es.
+  // "offsite_conversion.fb_pixel_complete_registration" per una sede che traccia iscrizioni a
+  // webinar/eventi invece di Lead Ads classici). Vuoto = usa la lista di default (LEAD_ACTION_PRIORITY
+  // in src/lib/meta.ts) — comportamento invariato per tutte le sedi esistenti.
+  tipoConversioneLead: string;
+  attivo: boolean;
 };
 
 export type Consulente = {
@@ -42,6 +55,7 @@ export type Salute = "scala" | "mantieni" | "interveni" | "dati-insufficienti" |
 export type Campagna = {
   campaignId: string;
   clienteId: string;
+  sedeId: string; // quale sede del cliente possiede l'account pubblicitario da cui arriva questa campagna
   nomeCampagna: string;
   tipoCampagna: string;
   stato: string; // valore grezzo Meta: ACTIVE, PAUSED, DELETED, ARCHIVED, ...
@@ -63,6 +77,7 @@ export type MetaDailyRow = {
 export type FunnelRow = {
   mese: string; // YYYY-MM
   clienteId: string;
+  sedeId: string; // inserito a mano insieme al resto della riga — non derivabile da nient'altro
   tipoCampagna: string;
   richieste: number;
   appuntamentiFissati: number;
@@ -108,9 +123,12 @@ export type CampagnaDisponibile = {
 };
 
 export type KpiResponse = {
+  cliente: { clienteId: string; nome: string };
   // targetCpa/targetCpl presenti solo nella richiesta interna (clienteId, sessione autenticata) —
   // mai nel ramo pubblico (code), per non esporre i target al cliente. Vedi src/app/api/kpi/route.ts.
-  cliente: { clienteId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null };
+  sede: { sedeId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null };
+  // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
+  sediDisponibili: { sedeId: string; nome: string }[];
   periodo: { da: string; a: string };
   gruppi: KpiGroup[];
   totale: KpiGroup;

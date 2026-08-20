@@ -1,17 +1,27 @@
-import type { AttivitaClienteRow, Cliente } from "@/types/kpi";
+import type { AttivitaClienteRow, Cliente, Sede } from "@/types/kpi";
 import type { ValutazioneSalute } from "@/lib/salute";
 
-/**
- * Riga della Dashboard Amministratore: incrocia i due segnali che l'admin deve monitorare per
- * cliente — salute ads (già esisteva, vedi salute.ts) e avanzamento lavori (nuovo, vedi
- * roadmap.ts#attivitaInRitardo). Tenuto in un modulo pure (nessun import JSX) così resta
- * testabile con Vitest puro, coerente con lo standard del progetto.
- */
-export type SaluteClienteItem = {
-  cliente: Cliente;
+/** Salute ads di una singola sede — un cliente ne aggrega una o più, vedi SaluteClienteItem sotto. */
+export type SaluteSedeValutazione = {
+  sede: Sede;
   investimento: number;
   numeroLead: number;
   valutazione: ValutazioneSalute;
+};
+
+/**
+ * Riga della Dashboard Amministratore: incrocia i due segnali che l'admin deve monitorare per
+ * cliente — salute ads (una per sede, aggregata "il peggio vince" da aggregaValutazioniSedi in
+ * salute.ts) e avanzamento lavori (vedi roadmap.ts#attivitaInRitardo, resta a livello cliente).
+ * Tenuto in un modulo pure (nessun import JSX) così resta testabile con Vitest puro, coerente con
+ * lo standard del progetto.
+ */
+export type SaluteClienteItem = {
+  cliente: Cliente;
+  sedi: SaluteSedeValutazione[];
+  valutazione: ValutazioneSalute; // aggregata — calcolaRiepilogo/ordinaPerPriorita leggono solo questa, invariati
+  investimento: number; // somma delle sedi
+  numeroLead: number; // somma delle sedi
   attivitaInRitardo: AttivitaClienteRow[];
 };
 

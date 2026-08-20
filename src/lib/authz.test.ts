@@ -4,9 +4,9 @@ import type { Cliente, Sessione } from "@/types/kpi";
 
 function cliente(over: Partial<Cliente>): Cliente {
   return {
-    clienteId: "c", nome: "Cliente", adAccountId: "1", accessCode: "x", attivo: true,
-    consulenteId: "cons-1", targetCpa: null, targetCpl: null, mostraTabExtra: false,
-    prodottoId: "", dataInizioProgetto: null, tipoConversioneLead: "", email: "", ...over,
+    clienteId: "c", nome: "Cliente", accessCode: "x", attivo: true,
+    consulenteId: "cons-1", mostraTabExtra: false,
+    prodottoId: "", dataInizioProgetto: null, email: "", ...over,
   };
 }
 
