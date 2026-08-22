@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import { RoadmapGantt } from "@/components/RoadmapGantt";
 import { AttivitaLista } from "@/components/AttivitaLista";
+import { Tabs } from "@/components/Tabs";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
 
 type ClienteInfo = { clienteId: string; nome: string; prodottoId: string; dataInizioProgetto: string | null };
 type Risposta = { cliente: ClienteInfo; gruppi: GruppoFase[] };
 type Vista = "lista" | "gantt";
+
+// Sentinella per "nessun filtro" — non può collidere con un vero valore di responsabile perché
+// nessun campo testuale libero comincia per "__".
+const RESPONSABILE_TUTTI = "__tutti__";
 
 type Props = { clienteId: string; onVaiAMeeting?: (meetingId: string) => void };
 
@@ -19,6 +24,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
   const [generando, setGenerando] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [vista, setVista] = useState<Vista>("lista");
+  const [responsabileFiltro, setResponsabileFiltro] = useState(RESPONSABILE_TUTTI);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -158,6 +164,17 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
 
   const haRoadmap = dati.gruppi.some((g) => g.attivita.length > 0);
 
+  // Valori distinti già presenti nella roadmap del cliente (non un elenco fisso: "responsabile" è
+  // testo libero — ruoli tipo "PM"/"CS" per i task da template, nomi veri per i task da meeting).
+  const responsabiliDisponibili = Array.from(
+    new Set(dati.gruppi.flatMap((g) => g.attivita.map((a) => a.responsabile)).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+  const passaFiltro = (a: { responsabile: string }) =>
+    responsabileFiltro === RESPONSABILE_TUTTI || a.responsabile === responsabileFiltro;
+  const gruppiFiltrati = dati.gruppi
+    .map((g) => ({ ...g, attivita: g.attivita.filter(passaFiltro) }))
+    .filter((g) => g.attivita.length > 0);
+
   if (!haRoadmap) {
     const puoGenerare = !!(dati.cliente.prodottoId && dati.cliente.dataInizioProgetto);
     return (
@@ -194,37 +211,48 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
 
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-xl w-fit">
-        <button
-          type="button"
-          onClick={() => setVista("lista")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            vista === "lista" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Lista
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista("gantt")}
-          className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            vista === "gantt" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Gantt
-        </button>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1 bg-surface p-1 rounded-xl w-fit">
+          <button
+            type="button"
+            onClick={() => setVista("lista")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              vista === "lista" ? "bg-surface-card text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-700"
+            }`}
+          >
+            Lista
+          </button>
+          <button
+            type="button"
+            onClick={() => setVista("gantt")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+              vista === "gantt" ? "bg-surface-card text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-700"
+            }`}
+          >
+            Gantt
+          </button>
+        </div>
+
+        {/* Solo se ha senso scegliere: con 0-1 responsabili distinti un filtro non filtrerebbe nulla. */}
+        {responsabiliDisponibili.length > 1 && (
+          <Tabs
+            tabs={[{ id: RESPONSABILE_TUTTI, label: "Tutti" }, ...responsabiliDisponibili.map((r) => ({ id: r, label: r }))]}
+            attivo={responsabileFiltro}
+            onChange={setResponsabileFiltro}
+          />
+        )}
       </div>
 
       {vista === "lista" ? (
         <AttivitaLista
-          attivita={dati.gruppi.flatMap((g) => g.attivita)}
+          attivita={gruppiFiltrati.flatMap((g) => g.attivita)}
           onCambiaStato={handleCambiaStato}
           onCambiaScadenza={handleCambiaScadenza}
           onElimina={handleEliminaAttivita}
           onVaiAMeeting={onVaiAMeeting}
         />
       ) : (
-        <RoadmapGantt gruppi={dati.gruppi} onCambiaStato={handleCambiaStato} />
+        <RoadmapGantt gruppi={gruppiFiltrati} onCambiaStato={handleCambiaStato} />
       )}
     </div>
   );
