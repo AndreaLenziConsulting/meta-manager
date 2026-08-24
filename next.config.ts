@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["playwright-core", "@sparticuz/chromium-min"],
   outputFileTracingIncludes: {
     "/api/meeting/estrai": ["./node_modules/playwright-core/**/*"],
+    "/api/report-commerciale/estrai": ["./node_modules/playwright-core/**/*"],
   },
 };
 
