@@ -6,14 +6,17 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 
-/** Crea un nuovo prospect — form minimo (solo ragione sociale obbligatoria) e naviga subito al suo dettaglio. */
+/**
+ * Crea un nuovo prospect — form ridotto al minimo: solo ragione sociale (serve per identificarlo
+ * prima ancora di avere un report) ed email (mai estratta dalla chiamata, quindi l'unica in più
+ * che vale la pena chiedere qui). Tipo business/fatturato/sedi NON si chiedono più a questo punto:
+ * sono tra i campi che l'estrazione AI popola dal primo report, chiederli anche qui sarebbe lavoro
+ * doppio (feedback diretto dell'utente).
+ */
 export function NuovoProspectForm() {
   const router = useRouter();
   const [attivo, setAttivo] = useState(false);
   const [ragioneSociale, setRagioneSociale] = useState("");
-  const [tipoBusiness, setTipoBusiness] = useState("");
-  const [fatturato, setFatturato] = useState("");
-  const [sedi, setSedi] = useState("");
   const [email, setEmail] = useState("");
   const [creando, setCreando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export function NuovoProspectForm() {
       const res = await fetch("/api/prospect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ragioneSociale, tipoBusiness, fatturato, sedi, email }),
+        body: JSON.stringify({ ragioneSociale, email }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
@@ -50,20 +53,9 @@ export function NuovoProspectForm() {
       <Field label="Ragione sociale">
         <Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} placeholder="Es. Rossi Impianti Srl" required autoFocus />
       </Field>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Field label="Tipo business (opzionale)">
-          <Input value={tipoBusiness} onChange={(e) => setTipoBusiness(e.target.value)} placeholder="Es. impiantistica industriale" />
-        </Field>
-        <Field label="Fatturato (opzionale)">
-          <Input value={fatturato} onChange={(e) => setFatturato(e.target.value)} placeholder="Es. ~500k€/anno" />
-        </Field>
-        <Field label="Sedi (opzionale)">
-          <Input value={sedi} onChange={(e) => setSedi(e.target.value)} placeholder="Es. 2 sedi, Milano e Bergamo" />
-        </Field>
-        <Field label="Email prospect (opzionale)" hint="Per l'invio automatico dei report">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </Field>
-      </div>
+      <Field label="Email prospect (opzionale)" hint="Per l'invio automatico dei report — il resto (tipo business, fatturato, sedi) lo popola l'estrazione dal primo report">
+        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
       {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
       <div className="flex gap-2">
         <Button type="submit" disabled={creando || !ragioneSociale}>

@@ -6,8 +6,9 @@ import { EstrazioneError } from "@/lib/estrazione";
 import { estraiReportCommerciale } from "@/lib/estrazioneCommerciale";
 
 export const runtime = "nodejs";
-// Stessi vincoli di /api/meeting/estrai: scraping Playwright + Groq, entrambi con un retry.
-export const maxDuration = 150;
+// Scraping Playwright fino a 3 tentativi (uno in più di /api/meeting/estrai, vedi
+// estrazioneCommerciale.ts) + Groq con un retry — budget alzato di conseguenza.
+export const maxDuration = 200;
 export const memory = 3008;
 
 /**

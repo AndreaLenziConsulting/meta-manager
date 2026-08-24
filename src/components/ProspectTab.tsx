@@ -312,8 +312,8 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
               </Field>
               {estraendo && (
                 <p className="text-xs text-ink-500">
-                  Estrazione in corso — scraping della pagina più lettura del modello, con eventuale nuovo
-                  tentativo automatico in caso di errore transitorio: può richiedere fino a due minuti e mezzo…
+                  Estrazione in corso — scraping della pagina più lettura del modello, con eventuali nuovi
+                  tentativi automatici in caso di errore transitorio: può richiedere fino a tre minuti…
                 </p>
               )}
               {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}

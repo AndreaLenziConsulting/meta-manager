@@ -100,9 +100,17 @@ function invalidateTabCache(tabName: string) {
   readCache.delete(tabName);
 }
 
-async function readTab(tabName: string): Promise<CellValue[][]> {
-  const cached = readCache.get(tabName);
-  if (cached && cached.scadenza > Date.now()) return cached.data;
+// `noCache`: per le tabelle dove un flusso crea-poi-rileggi-subito è normale (Prospect,
+// ReportCommerciale, Commerciali — crei un prospect e vieni portato dritto sulla sua pagina) i 30s
+// di cache best-effort sopra diventano un bug visibile invece di un'ottimizzazione invisibile: se
+// la richiesta di creazione e quella di rilettura finiscono su istanze serverless diverse,
+// l'invalidazione della prima non raggiunge la cache della seconda, che mostra dati vecchi di prima
+// della creazione — bug osservato: prospect appena creato "non trovato", rimando alla lista.
+async function readTab(tabName: string, opts?: { noCache?: boolean }): Promise<CellValue[][]> {
+  if (!opts?.noCache) {
+    const cached = readCache.get(tabName);
+    if (cached && cached.scadenza > Date.now()) return cached.data;
+  }
 
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
@@ -111,7 +119,11 @@ async function readTab(tabName: string): Promise<CellValue[][]> {
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const data = (res.data.values as CellValue[][]) ?? [];
-  readCache.set(tabName, { data, scadenza: Date.now() + READ_CACHE_TTL_MS });
+  if (opts?.noCache) {
+    readCache.delete(tabName); // non lasciare in giro una voce di cache stantia per letture future altrove
+  } else {
+    readCache.set(tabName, { data, scadenza: Date.now() + READ_CACHE_TTL_MS });
+  }
   return data;
 }
 
@@ -470,7 +482,7 @@ export async function getConsulenti(): Promise<Consulente[]> {
 
 /** Stesso schema di Consulenti (consulenteId, nome, password, attivo, email) — ruolo "commerciale". */
 export async function getCommerciali(): Promise<Commerciale[]> {
-  const rows = await readTab(TAB.commerciali);
+  const rows = await readTab(TAB.commerciali, { noCache: true });
   return rows
     .filter((r) => r[0])
     .map((r) => ({
@@ -945,7 +957,7 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
 // Tab Prospect, colonne A→I: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
 // commercialeId, attivo, creatoIl — anagrafica persistente del prospect, vedi types/prospect.ts.
 export async function getProspect(): Promise<Prospect[]> {
-  const rows = await readTab(TAB.prospect);
+  const rows = await readTab(TAB.prospect, { noCache: true });
   return rows
     .filter((r) => r[0])
     .map((r) => ({
@@ -1044,7 +1056,7 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
 // Tab ReportCommerciale, colonne A→F: reportId, prospectId, commercialeId, data, aggiornatoIl,
 // dati (l'intero ReportCommercialeDataLoose JSON-stringificato) — stesso pattern di MeetingCliente.
 export async function getReportCommerciale(): Promise<ReportCommercialeRow[]> {
-  const rows = await readTab(TAB.reportCommerciale);
+  const rows = await readTab(TAB.reportCommerciale, { noCache: true });
   return rows
     .filter((r) => r[0])
     .map((r) => {

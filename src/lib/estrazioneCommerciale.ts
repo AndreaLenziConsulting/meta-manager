@@ -132,9 +132,11 @@ export async function estraiReportCommerciale(url: string): Promise<ReportCommer
 
   // Scraping con retry — stesso motivo/stessa logica di estrazione.ts (errore transitorio del
   // provider, non del link): isPaginaConErroreCaricamento è pura/importata, il retry I/O resta qui.
+  // 3 tentativi (non 2 come in estrazione.ts, file separato quindi a rischio zero per i meeting):
+  // osservato in pratica che anche un secondo tentativo può cadere sullo stesso errore transitorio.
   let pageContent: { text: string; html: string } | null = null;
   let ultimoErrore: unknown = null;
-  for (let tentativo = 1; tentativo <= 2; tentativo++) {
+  for (let tentativo = 1; tentativo <= 3; tentativo++) {
     try {
       const risultato = await renderPage(url);
       if (!isPaginaConErroreCaricamento(risultato.text)) {
@@ -155,7 +157,7 @@ export async function estraiReportCommerciale(url: string): Promise<ReportCommer
       throw new EstrazioneError(`Impossibile aprire la pagina ${sourceName}: ${msg}`, 502);
     }
     throw new EstrazioneError(
-      `La pagina ${sourceName} ha restituito un errore di caricamento anche dopo un secondo tentativo — riprova tra qualche secondo.`,
+      `La pagina ${sourceName} ha restituito un errore di caricamento anche dopo più tentativi — riprova tra qualche secondo.`,
       502
     );
   }
