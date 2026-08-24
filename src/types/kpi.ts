@@ -43,11 +43,12 @@ export type Consulente = {
   email: string;
 };
 
-export type Ruolo = "admin" | "consulente";
+export type Ruolo = "admin" | "consulente" | "commerciale";
 
 export type Sessione = {
   ruolo: Ruolo;
   consulenteId?: string;
+  commercialeId?: string;
 };
 
 export type Salute = "scala" | "mantieni" | "interveni" | "dati-insufficienti" | "no-target";

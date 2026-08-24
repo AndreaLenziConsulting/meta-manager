@@ -27,6 +27,15 @@ export function generaAccessCode(): string {
   return randomBytes(5).toString("hex");
 }
 
+/** Genera un prospectId leggibile dallo slug della ragione sociale — stesso schema di generaClienteId. */
+export function generaProspectId(ragioneSociale: string, esistenti: Set<string>): string {
+  const base = slugify(ragioneSociale) || "prospect";
+  if (!esistenti.has(base)) return base;
+  let n = 2;
+  while (esistenti.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
 /**
  * Genera un sedeId leggibile ("mobilieri-bianchi--milano"), unico sull'intera tab Sedi (non solo
  * dentro lo stesso cliente) — stesso schema slug+suffisso di generaClienteId, con clienteId come

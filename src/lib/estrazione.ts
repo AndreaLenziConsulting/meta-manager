@@ -265,7 +265,10 @@ function getSystemPrompt(source: MeetingSource): string {
 }
 
 // ─── Scraping della pagina (Playwright, invariato da Fast Report — provider-agnostico) ──
-async function renderPage(url: string): Promise<{ text: string; html: string }> {
+// Esportata (oltre che usata qui sotto) perché src/lib/estrazioneCommerciale.ts la riusa as-is:
+// stessa meccanica di scraping, dominio di estrazione diverso — nessun'altra riga di questo file
+// tocca il dominio commerciale.
+export async function renderPage(url: string): Promise<{ text: string; html: string }> {
   const isServerless = !!process.env.VERCEL || !!process.env.AWS_LAMBDA_FUNCTION_NAME;
 
   const playwright = (await import("playwright-core")).default;

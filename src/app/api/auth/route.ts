@@ -5,7 +5,7 @@ import {
   verifyTeamPassword,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
-import { getConsulenti } from "@/lib/sheets";
+import { getCommerciali, getConsulenti } from "@/lib/sheets";
 import type { Sessione } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
     const match = consulenti.find((c) => c.attivo && verifyConsulentePassword(password, c.password));
     if (match) {
       sessione = { ruolo: "consulente", consulenteId: match.consulenteId };
+    } else {
+      // verifyConsulentePassword è generica (solo confronto timing-safe) — riusata as-is anche qui.
+      const commerciali = await getCommerciali();
+      const matchCommerciale = commerciali.find((c) => c.attivo && verifyConsulentePassword(password, c.password));
+      if (matchCommerciale) {
+        sessione = { ruolo: "commerciale", commercialeId: matchCommerciale.commercialeId };
+      }
     }
   }
 

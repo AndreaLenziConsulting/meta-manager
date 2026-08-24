@@ -33,8 +33,11 @@ export function verifyCronSecret(authHeader: string | null): boolean {
   return timingSafeStringEqual(authHeader ?? "", `Bearer ${expected}`);
 }
 
+// Il secondo campo del payload è l'id del ruolo (consulenteId o commercialeId, mai entrambi) — un
+// solo slot generico, coerente con Sessione che non è una union discriminata.
 export function createSessionCookieValue(sessione: Sessione): string {
-  const payload = `${sessione.ruolo}:${sessione.consulenteId ?? ""}`;
+  const id = sessione.consulenteId ?? sessione.commercialeId ?? "";
+  const payload = `${sessione.ruolo}:${id}`;
   return `${payload}.${sign(payload)}`;
 }
 
@@ -46,9 +49,10 @@ export function parseSessionCookieValue(cookieValue: string | undefined): Sessio
   const signature = cookieValue.slice(idx + 1);
   if (!timingSafeStringEqual(signature, sign(payload))) return null;
 
-  const [ruolo, consulenteId] = payload.split(":");
+  const [ruolo, id] = payload.split(":");
   if (ruolo === "admin") return { ruolo: "admin" };
-  if (ruolo === "consulente" && consulenteId) return { ruolo: "consulente", consulenteId };
+  if (ruolo === "consulente" && id) return { ruolo: "consulente", consulenteId: id };
+  if (ruolo === "commerciale" && id) return { ruolo: "commerciale", commercialeId: id };
   return null;
 }
 

@@ -13,6 +13,7 @@ import type {
   TemplateTask,
 } from "@/types/kpi";
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
+import type { Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
 
 const TAB = {
   clienti: "Clienti",
@@ -26,6 +27,9 @@ const TAB = {
   templateAttivita: "TemplateAttivita",
   attivitaCliente: "AttivitaCliente",
   meetingCliente: "MeetingCliente",
+  commerciali: "Commerciali",
+  prospect: "Prospect",
+  reportCommerciale: "ReportCommerciale",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -457,6 +461,20 @@ export async function getConsulenti(): Promise<Consulente[]> {
     .filter((r) => r[0])
     .map((r) => ({
       consulenteId: asText(r[0]),
+      nome: asText(r[1]),
+      password: asText(r[2]),
+      attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
+      email: asText(r[4]),
+    }));
+}
+
+/** Stesso schema di Consulenti (consulenteId, nome, password, attivo, email) — ruolo "commerciale". */
+export async function getCommerciali(): Promise<Commerciale[]> {
+  const rows = await readTab(TAB.commerciali);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      commercialeId: asText(r[0]),
       nome: asText(r[1]),
       password: asText(r[2]),
       attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
@@ -921,5 +939,165 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
     requestBody: { values: [rigaValues] },
   });
   invalidateTabCache(TAB.meetingCliente);
+  return { aggiornato: true };
+}
+
+// Tab Prospect, colonne A→I: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
+// commercialeId, attivo, creatoIl — anagrafica persistente del prospect, vedi types/prospect.ts.
+export async function getProspect(): Promise<Prospect[]> {
+  const rows = await readTab(TAB.prospect);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      prospectId: asText(r[0]),
+      ragioneSociale: asText(r[1]),
+      tipoBusiness: asText(r[2]),
+      fatturato: asText(r[3]),
+      sedi: asText(r[4]),
+      email: asText(r[5]),
+      commercialeId: asText(r[6]),
+      attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
+      creatoIl: asText(r[8]),
+    }));
+}
+
+export type NuovoProspectInput = {
+  prospectId: string;
+  ragioneSociale: string;
+  tipoBusiness?: string;
+  fatturato?: string;
+  sedi?: string;
+  email?: string;
+  commercialeId: string;
+  creatoIl: string;
+};
+
+/** Crea un nuovo prospect (sempre attivo). Rifiuta esplicitamente un prospectId già in uso. */
+export async function creaProspect(input: NuovoProspectInput): Promise<void> {
+  const esistenti = await getProspect();
+  if (esistenti.some((p) => p.prospectId === input.prospectId)) {
+    throw new Error(`Esiste già un prospect con id "${input.prospectId}"`);
+  }
+  await appendRows(TAB.prospect, [
+    [
+      input.prospectId,
+      input.ragioneSociale,
+      input.tipoBusiness ?? "",
+      input.fatturato ?? "",
+      input.sedi ?? "",
+      input.email ?? "",
+      input.commercialeId,
+      "TRUE",
+      input.creatoIl,
+    ],
+  ]);
+}
+
+export type AggiornaProspectInput = {
+  prospectId: string;
+  ragioneSociale?: string;
+  tipoBusiness?: string;
+  fatturato?: string;
+  sedi?: string;
+  email?: string;
+  attivo?: boolean;
+};
+
+/**
+ * Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato). Usata
+ * sia dal modulo di gestione prospect sia — per i 4 campi anagrafici — a ogni salvataggio di un
+ * report (vedi POST /api/report-commerciale): tenerli allineati all'ultimo report evita di doverli
+ * re-inserire al report successivo.
+ */
+export async function aggiornaProspect(input: AggiornaProspectInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.prospect}!A2:I`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRiga(righe, input.prospectId);
+  if (rowNumber === null) {
+    throw new Error(`Prospect non trovato: ${input.prospectId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.prospect}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.ragioneSociale !== undefined) set("B", input.ragioneSociale);
+  if (input.tipoBusiness !== undefined) set("C", input.tipoBusiness);
+  if (input.fatturato !== undefined) set("D", input.fatturato);
+  if (input.sedi !== undefined) set("E", input.sedi);
+  if (input.email !== undefined) set("F", input.email);
+  if (input.attivo !== undefined) set("H", input.attivo ? "TRUE" : "FALSE");
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.prospect);
+}
+
+// Tab ReportCommerciale, colonne A→F: reportId, prospectId, commercialeId, data, aggiornatoIl,
+// dati (l'intero ReportCommercialeDataLoose JSON-stringificato) — stesso pattern di MeetingCliente.
+export async function getReportCommerciale(): Promise<ReportCommercialeRow[]> {
+  const rows = await readTab(TAB.reportCommerciale);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => {
+      let dati: ReportCommercialeDataLoose = {};
+      try {
+        dati = JSON.parse(asText(r[5]) || "{}");
+      } catch {
+        dati = {};
+      }
+      return {
+        reportId: asText(r[0]),
+        prospectId: asText(r[1]),
+        commercialeId: asText(r[2]),
+        data: normalizeData(r[3]),
+        aggiornatoIl: asText(r[4]),
+        dati,
+      };
+    });
+}
+
+/**
+ * Upsert per reportId — stesso pattern di salvaMeeting: un salvataggio con lo stesso id (stesso
+ * link, eventualmente ricorretto in anteprima) aggiorna sul posto invece di duplicare.
+ */
+export async function salvaReportCommerciale(record: ReportCommercialeRow): Promise<{ aggiornato: boolean }> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.reportCommerciale}!A2:F`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rigaValues: (string | number)[] = [
+    record.reportId,
+    record.prospectId,
+    record.commercialeId,
+    record.data,
+    record.aggiornatoIl,
+    JSON.stringify(record.dati),
+  ];
+
+  const rowNumber = trovaIndiceRiga(righe, record.reportId);
+  if (rowNumber === null) {
+    await appendRows(TAB.reportCommerciale, [rigaValues]);
+    return { aggiornato: false };
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${TAB.reportCommerciale}!A${rowNumber}:F${rowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [rigaValues] },
+  });
+  invalidateTabCache(TAB.reportCommerciale);
   return { aggiornato: true };
 }

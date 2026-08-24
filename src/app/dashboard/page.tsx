@@ -27,6 +27,10 @@ export default async function DashboardHomePage() {
     redirect("/login");
   }
 
+  if (sessione.ruolo === "commerciale") {
+    redirect("/dashboard/commerciale");
+  }
+
   const clienti = await getClienti();
 
   if (sessione.ruolo !== "admin") {

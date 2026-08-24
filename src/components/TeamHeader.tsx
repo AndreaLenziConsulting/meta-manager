@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import { AppHeader } from "@/components/AppHeader";
 import { ClientSwitcher } from "@/components/ClientSwitcher";
 import type { Ruolo } from "@/types/kpi";
@@ -17,9 +18,14 @@ export function TeamHeader({ clienti, ruolo }: { clienti: ClienteOption[]; ruolo
   return (
     <AppHeader>
       {ruolo === "admin" && (
-        <a href="/dashboard" className="text-sm font-semibold text-brand hover:underline whitespace-nowrap">
+        <Link href="/dashboard" className="text-sm font-semibold text-brand hover:underline whitespace-nowrap">
           Dashboard Amministratore
-        </a>
+        </Link>
+      )}
+      {(ruolo === "admin" || ruolo === "commerciale") && (
+        <Link href="/dashboard/commerciale" className="text-sm font-semibold text-brand hover:underline whitespace-nowrap">
+          Prospect
+        </Link>
       )}
       {clienti.length > 0 && (
         <ClientSwitcher
