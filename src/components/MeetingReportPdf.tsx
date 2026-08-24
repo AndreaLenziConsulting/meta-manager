@@ -1,6 +1,9 @@
 import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage } from "@react-pdf/renderer";
 import React from "react";
+import { FONT_BODY, FONT_HEADING, FONT_LABEL, registraFontPdf } from "@/lib/pdfFonts";
 import type { MeetingDataLoose } from "@/types/meeting";
+
+registraFontPdf();
 
 /**
  * Componente PDF del report meeting — porting fedele di `ReportPDF` in Fast Report
@@ -11,6 +14,11 @@ import type { MeetingDataLoose } from "@/types/meeting";
  * - accesso sempre difensivo (`?? ""` / `?? []`) — Fast Report assumeva i campi sempre presenti;
  * - `clienteNome` è una prop separata, risolta server-side da `clienteId` — mai `meeting.cliente`
  *   (testo libero dedotto dall'LLM, sempre ignorato, vedi types/meeting.ts).
+ *
+ * Font dell'immagine coordinata ALC (src/lib/pdfFonts.ts, stesso criterio di ReportCommercialePdf.tsx)
+ * invece di Helvetica: League Spartan Bold per il titolo del meeting, Oswald per eyebrow/intestazioni
+ * di sezione e i numeri degli action item (condensato, si presta meglio a corpo piccolo), Roboto per
+ * tutto il resto — valori ed enfasi in grassetto inclusi, perché sono contenuto e non titolazione.
  */
 
 // react-pdf non può leggere le CSS custom property di globals.css (fonte di verità per il resto
@@ -25,7 +33,7 @@ const styles = StyleSheet.create({
   // style di Page a ogni pagina generata dall'auto-paginazione. Prima paddingTop/paddingHorizontal
   // stavano solo su header/infoRow/content, quindi la pagina 1 "sembrava" avere un margine (per il
   // padding interno di quelle sezioni) ma la pagina 2+ ripartiva a ridosso del bordo — bug segnalato.
-  page: { fontFamily: "Helvetica", backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 50 },
+  page: { fontFamily: FONT_BODY, fontWeight: 400, backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 50 },
 
   header: {
     paddingBottom: 18,
@@ -36,16 +44,16 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   headerLeft: { flex: 1, marginRight: 16 },
-  headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 2, marginBottom: 6 },
-  headerTitle: { fontSize: 18, fontFamily: "Helvetica-Bold", color: "#111827", lineHeight: 1.25 },
+  headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
+  headerTitle: { fontSize: 18, fontFamily: FONT_HEADING, fontWeight: 700, color: "#111827", lineHeight: 1.25 },
   headerMeta: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
   headerMetaItem: { fontSize: 9, color: "#6b7280" },
   headerLogo: { width: 110, height: 44, objectFit: "contain" },
 
   infoRow: { flexDirection: "row", gap: 10, paddingTop: 16 },
   infoBox: { flex: 1, backgroundColor: BRAND_SOFT, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
-  infoLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 1.5, fontFamily: "Helvetica-Bold" },
-  infoValue: { fontSize: 11, color: "#111827", fontFamily: "Helvetica-Bold", marginTop: 3 },
+  infoLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.5, fontFamily: FONT_LABEL, fontWeight: 500 },
+  infoValue: { fontSize: 11, color: "#111827", fontFamily: FONT_BODY, fontWeight: 700, marginTop: 3 },
 
   content: { paddingTop: 16 },
   // wrap: false su tutti i blocchi "atomici" sotto: senza, l'auto-paginazione può tagliare un
@@ -54,7 +62,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: 14 },
   sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6, wrap: false },
   sectionBar: { width: 3, height: 13, backgroundColor: BRAND_COLOR, borderRadius: 2, marginRight: 7 },
-  sectionTitle: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#111827" },
+  sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: "#111827" },
   bodyText: { fontSize: 9, color: "#374151", lineHeight: 1.6 },
 
   participantRow: { flexDirection: "row", flexWrap: "wrap" },
@@ -67,7 +75,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
     wrap: false,
   },
-  participantText: { fontSize: 8, color: "#ffffff", fontFamily: "Helvetica-Bold" },
+  participantText: { fontSize: 8, color: "#ffffff", fontFamily: FONT_BODY, fontWeight: 700 },
 
   bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start", wrap: false },
   bullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: BRAND_COLOR, marginTop: 4, marginRight: 7, flexShrink: 0 },
@@ -90,15 +98,15 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     paddingVertical: 6,
   },
-  actionNumberText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#ffffff" },
+  actionNumberText: { fontSize: 7, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
   actionBody: { flex: 1, paddingHorizontal: 8, paddingVertical: 5 },
   actionText: { fontSize: 8.5, color: "#1e3a5f", lineHeight: 1.4 },
-  actionAssignee: { fontSize: 7.5, color: BRAND_COLOR, fontFamily: "Helvetica-Bold", marginTop: 2 },
+  actionAssignee: { fontSize: 7.5, color: BRAND_COLOR, fontFamily: FONT_BODY, fontWeight: 700, marginTop: 2 },
 
   kpiGrid: { flexDirection: "row", flexWrap: "wrap" },
   kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5, wrap: false },
   kpiInner: { borderWidth: 0.75, borderColor: "#e5e7eb", borderRadius: 4, padding: 8, minHeight: 70 },
-  kpiLabel: { fontSize: 7, letterSpacing: 1.5, color: BRAND_COLOR, fontFamily: "Helvetica-Bold", marginBottom: 4 },
+  kpiLabel: { fontSize: 7, letterSpacing: 0.5, color: BRAND_COLOR, fontFamily: FONT_LABEL, fontWeight: 500, marginBottom: 4 },
   kpiValue: { fontSize: 8.5, color: "#374151", lineHeight: 1.5 },
 
   footer: {
@@ -114,7 +122,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   footerLeft: { fontSize: 7, color: "#9ca3af" },
-  footerLink: { fontSize: 7, color: BRAND_COLOR },
+  footerLink: { fontSize: 7, color: BRAND_COLOR, fontFamily: FONT_BODY, fontWeight: 500 },
 });
 
 function splitLines(text: string): string[] {
@@ -193,7 +201,7 @@ export function MeetingReportPdf({
         ),
         logoBuf
           ? h(PDFImage, { src: logoBuf, style: styles.headerLogo })
-          : h(Text, { style: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRAND_COLOR } }, COMPANY_NAME)
+          : h(Text, { style: { fontSize: 9, fontFamily: FONT_HEADING, fontWeight: 700, color: BRAND_COLOR } }, COMPANY_NAME)
       ),
 
       // Cliente / Referente

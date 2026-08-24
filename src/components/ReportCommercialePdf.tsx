@@ -2,7 +2,10 @@ import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage, Svg, P
 import React from "react";
 import { calcolaScenarioRoi } from "@/lib/roiSimulatore";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
+import { FONT_BODY, FONT_HEADING, FONT_LABEL, registraFontPdf } from "@/lib/pdfFonts";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
+
+registraFontPdf();
 
 /**
  * Componente PDF del Report Commerciale — v2, riscritta su richiesta dell'utente dopo il primo
@@ -17,6 +20,12 @@ import type { ReportCommercialeDataLoose } from "@/types/prospect";
  * Le icone sono forme vettoriali (Svg/Path/Rect/Circle) invece di emoji: i font PDF core
  * (Helvetica, senza font embedding) non hanno glifi emoji — renderebbero caselle vuote — mentre
  * le forme vettoriali funzionano in ogni lettore PDF senza dover incorporare un font a colori.
+ *
+ * Font dell'immagine coordinata ALC (vedi src/lib/pdfFonts.ts) invece di Helvetica: League Spartan
+ * Bold per il titolo principale, Oswald per l'eyebrow/le intestazioni di sezione numerate (più
+ * condensato, si presta meglio del largo League Spartan a corpo piccolo o accanto al badge
+ * numerico), Roboto per tutto il resto — anche i valori/etichette in grassetto, che sono contenuto
+ * del report e non titolazione.
  */
 
 const BRAND_COLOR = "#1a74bc";
@@ -43,12 +52,12 @@ const TONES: Record<Tone, { text: string; accent: string; bg: string; border: st
 };
 
 const styles = StyleSheet.create({
-  page: { fontFamily: "Helvetica", backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 46 },
+  page: { fontFamily: FONT_BODY, fontWeight: 400, backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 46 },
 
   header: { paddingBottom: 14, borderBottomWidth: 2, borderBottomColor: BRAND_COLOR, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerLeft: { flex: 1, marginRight: 16 },
-  headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.6, marginBottom: 6, fontFamily: "Helvetica-Bold" },
-  headerTitle: { fontSize: 19, fontFamily: "Helvetica-Bold", color: INK_900, lineHeight: 1.2 },
+  headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
+  headerTitle: { fontSize: 19, fontFamily: FONT_HEADING, fontWeight: 700, color: INK_900, lineHeight: 1.2 },
   headerSubtitle: { fontSize: 10, color: INK_500, marginTop: 3 },
   headerLogo: { width: 120, height: 48, objectFit: "contain" },
 
@@ -56,24 +65,24 @@ const styles = StyleSheet.create({
   metaChip: { flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: BRAND_SOFT, borderRadius: 5, paddingVertical: 7, paddingHorizontal: 9 },
   metaIconCircle: { width: 18, height: 18, borderRadius: 9, backgroundColor: BRAND_MED, alignItems: "center", justifyContent: "center", marginRight: 7, flexShrink: 0 },
   metaTextWrap: { flex: 1 },
-  metaLabel: { fontSize: 6.5, color: BRAND_COLOR, letterSpacing: 0.4, fontFamily: "Helvetica-Bold" },
-  metaValue: { fontSize: 8.5, color: INK_900, fontFamily: "Helvetica-Bold", marginTop: 1 },
+  metaLabel: { fontSize: 6.5, color: BRAND_COLOR, letterSpacing: 0.4, fontFamily: FONT_LABEL, fontWeight: 500 },
+  metaValue: { fontSize: 8.5, color: INK_900, fontFamily: FONT_BODY, fontWeight: 700, marginTop: 1 },
 
   content: { paddingTop: 18 },
   section: { marginBottom: 15 },
 
   sectionHeading: { flexDirection: "row", alignItems: "center", marginBottom: 7, wrap: false },
   sectionBadge: { width: 17, height: 17, borderRadius: 9, alignItems: "center", justifyContent: "center", marginRight: 8, flexShrink: 0 },
-  sectionBadgeText: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff" },
-  sectionTitle: { fontSize: 11, fontFamily: "Helvetica-Bold", color: INK_900 },
+  sectionBadgeText: { fontSize: 8, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
+  sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: INK_900 },
 
   // Tabella "Dati del cliente" — righe etichetta/valore con icona, non più box affiancati: più
   // vicina alla tabella definizioni degli esempi allegati (label a sinistra, valore in grassetto).
   defTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
   defRow: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 10, wrap: false },
   defIconCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: BRAND_MED, alignItems: "center", justifyContent: "center", marginRight: 8, flexShrink: 0 },
-  defLabel: { width: 92, fontSize: 8, color: INK_500, fontFamily: "Helvetica-Bold" },
-  defValue: { flex: 1, fontSize: 9, color: INK_900, fontFamily: "Helvetica-Bold" },
+  defLabel: { width: 92, fontSize: 8, color: INK_500, fontFamily: FONT_BODY, fontWeight: 700 },
+  defValue: { flex: 1, fontSize: 9, color: INK_900, fontFamily: FONT_BODY, fontWeight: 700 },
 
   callout: { borderWidth: 0.75, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
   bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start", wrap: false },
@@ -86,7 +95,7 @@ const styles = StyleSheet.create({
   compareCol: { flex: 1, borderWidth: 0.75, borderRadius: 5, overflow: "hidden" },
   compareHead: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 9 },
   compareHeadIcon: { marginRight: 6 },
-  compareHeadText: { fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  compareHeadText: { fontSize: 8.5, fontFamily: FONT_BODY, fontWeight: 700 },
   compareBody: { paddingVertical: 8, paddingHorizontal: 9 },
   compareBodyText: { fontSize: 8.5, color: INK_700, lineHeight: 1.5 },
 
@@ -98,13 +107,13 @@ const styles = StyleSheet.create({
   roiRow: { flexDirection: "row", wrap: false },
   roiCellLabel: { flex: 1.3, fontSize: 8, color: INK_700, padding: 6 },
   roiCellHeaderLabel: { flex: 1.3, fontSize: 7, padding: 6 },
-  roiCellHeader: { flex: 1, fontSize: 8, fontFamily: "Helvetica-Bold", color: "#ffffff", padding: 6, textAlign: "right" },
+  roiCellHeader: { flex: 1, fontSize: 8, fontFamily: FONT_BODY, fontWeight: 700, color: "#ffffff", padding: 6, textAlign: "right" },
   roiCellValue: { flex: 1, fontSize: 8.5, color: INK_900, padding: 6, textAlign: "right" },
-  roiCellValueStrong: { flex: 1, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRAND_TEXT, padding: 6, textAlign: "right" },
+  roiCellValueStrong: { flex: 1, fontSize: 8.5, fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT, padding: 6, textAlign: "right" },
 
   footer: { position: "absolute", bottom: 18, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: INK_300, paddingTop: 8 },
   footerLeft: { fontSize: 7, color: INK_400 },
-  footerLink: { fontSize: 7, color: BRAND_COLOR },
+  footerLink: { fontSize: 7, color: BRAND_COLOR, fontFamily: FONT_BODY, fontWeight: 500 },
 });
 
 function splitLines(text: string): string[] {
@@ -289,7 +298,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
         ),
         logoBuf
           ? h(PDFImage, { src: logoBuf, style: styles.headerLogo })
-          : h(Text, { style: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRAND_COLOR } }, COMPANY_NAME)
+          : h(Text, { style: { fontSize: 9, fontFamily: FONT_HEADING, fontWeight: 700, color: BRAND_COLOR } }, COMPANY_NAME)
       ),
 
       h(
@@ -381,7 +390,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
                   h(
                     View,
                     { key: label, style: [styles.roiRow, { backgroundColor: BRAND_SOFT, borderTopWidth: 1, borderTopColor: BRAND_MED }] },
-                    h(Text, { style: [styles.roiCellLabel, { fontFamily: "Helvetica-Bold", color: BRAND_TEXT }] }, label),
+                    h(Text, { style: [styles.roiCellLabel, { fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT }] }, label),
                     h(Text, { style: styles.roiCellValueStrong }, va),
                     h(Text, { style: styles.roiCellValueStrong }, vb)
                   )
