@@ -118,22 +118,52 @@ export function KpiDashboard({ code, clienteId }: Props) {
     return () => controller.abort();
   }, [clienteId]);
 
+  // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
+  // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta ad ogni apertura del
+  // suo tab (vedi GhlPanel.tsx): qui non c'è nulla da scrivere, solo da verificare che il
+  // collegamento risponda e mostrarne un riepilogo insieme all'esito di Meta, in un solo messaggio.
+  // Promise.allSettled (non un semplice Promise.all): un errore GHL non deve nascondere l'esito
+  // reale della sincronizzazione Meta, e viceversa.
   async function handleAggiornaKpi() {
     if (!clienteId) return;
     setSincronizzando(true);
     setEsitoSync(null);
+    const sedeId = dati?.sede?.sedeId;
     try {
-      const res = await fetch("/api/sync-meta", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Aggiornamento non riuscito");
-      setEsitoSync(`Aggiornate ${body.righe} righe da Meta Ads`);
+      const [metaEsito, ghlEsito] = await Promise.allSettled([
+        fetch("/api/sync-meta", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clienteId }),
+        }).then(async (res) => {
+          const body = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(body.error || "Aggiornamento non riuscito");
+          return body as { righe: number };
+        }),
+        sedeId
+          ? fetch(`/api/ghl?clienteId=${encodeURIComponent(clienteId)}&sedeId=${encodeURIComponent(sedeId)}`).then(async (res) => {
+              const body = await res.json().catch(() => ({}));
+              if (!res.ok) throw new Error(body.error || "Errore dal collegamento GHL");
+              return body;
+            })
+          : Promise.resolve(null),
+      ]);
+
+      const parti: string[] = [];
+      parti.push(
+        metaEsito.status === "fulfilled"
+          ? `Aggiornate ${metaEsito.value.righe} righe da Meta Ads`
+          : `Meta Ads: ${metaEsito.reason instanceof Error ? metaEsito.reason.message : "errore sconosciuto"}`
+      );
+      if (ghlEsito.status === "rejected") {
+        parti.push(`GHL: ${ghlEsito.reason instanceof Error ? ghlEsito.reason.message : "errore sconosciuto"}`);
+      } else if (ghlEsito.value && !ghlEsito.value.connesso) {
+        parti.push("GHL non collegato per questa sede");
+      } else if (ghlEsito.value?.connesso) {
+        parti.push(`GHL: ${ghlEsito.value.appuntamenti.totali} appuntamenti, ${ghlEsito.value.opportunita.vendite} vendite`);
+      }
+      setEsitoSync(parti.join(" · "));
       setRefreshTick((t) => t + 1);
-    } catch (err) {
-      setEsitoSync(err instanceof Error ? err.message : "Errore sconosciuto");
     } finally {
       setSincronizzando(false);
     }
@@ -251,7 +281,7 @@ export function KpiDashboard({ code, clienteId }: Props) {
             </div>
           </div>
 
-          <TrendChart trend={dati.trend} trendSettimanale={dati.trendSettimanale} />
+          <TrendChart trendSettimanale={dati.trendSettimanale} />
 
           <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} />
         </div>

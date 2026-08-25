@@ -4,7 +4,6 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatEuro, formatMese, formatNumero, formatSettimana } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 
-type TrendMensile = { mese: string; investimento: number; fatturato: number; numeroLead: number };
 type TrendSettimanale = { settimana: string; investimento: number; fatturato: number | null; numeroLead: number };
 type Punto = { chiave: string; etichetta: string; investimento: number; fatturato: number | null; numeroLead: number };
 
@@ -22,11 +21,6 @@ const HEIGHT = HEIGHT_PRINCIPALE + GAP_STRISCIA + HEIGHT_STRISCIA + HEIGHT_ETICH
 const PAD_LEFT = 56; // ospita le etichette delle ordinate (prima assenti — vedi feedback)
 const PAD_RIGHT = 12;
 const MAX_ETICHETTE = 9;
-
-const GRANULARITA_TABS = [
-  { id: "mese", label: "Mese" },
-  { id: "settimana", label: "Settimana" },
-];
 
 const MODALITA_TABS = [
   { id: "valori", label: "Investimento / Fatturato" },
@@ -70,36 +64,35 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
   return [ref, larghezza];
 }
 
-export function TrendChart({
-  trend,
-  trendSettimanale,
-}: {
-  trend: TrendMensile[];
-  trendSettimanale: TrendSettimanale[];
-}) {
-  const [granularita, setGranularita] = useState<"mese" | "settimana">("mese");
+export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettimanale[] }) {
   const [modalita, setModalita] = useState<"valori" | "lead">("valori");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
 
-  const punti: Punto[] = useMemo(() => {
-    if (granularita === "settimana") {
-      return trendSettimanale.map((t) => ({
+  const punti: Punto[] = useMemo(
+    () =>
+      trendSettimanale.map((t) => ({
         chiave: t.settimana,
         etichetta: formatSettimana(t.settimana),
         investimento: t.investimento,
         fatturato: t.fatturato,
         numeroLead: t.numeroLead,
-      }));
-    }
-    return trend.map((t) => ({
-      chiave: t.mese,
-      etichetta: formatMese(t.mese),
-      investimento: t.investimento,
-      fatturato: t.fatturato,
-      numeroLead: t.numeroLead,
-    }));
-  }, [granularita, trend, trendSettimanale]);
+      })),
+    [trendSettimanale]
+  );
+
+  // Righe verticali che segnano l'inizio di ogni mese — la vista è sempre a settimana, ma i mesi
+  // restano un riferimento utile: senza il selettore Mese/Settimana di prima, sono l'unico modo di
+  // orientarsi su "che mese è" scorrendo le etichette di settimana (es. "24 Lug").
+  const confiniMese = useMemo(() => {
+    const confini: { indice: number; etichetta: string }[] = [];
+    punti.forEach((p, i) => {
+      const mese = p.chiave.slice(0, 7);
+      const mesePrecedente = i > 0 ? punti[i - 1].chiave.slice(0, 7) : null;
+      if (mese !== mesePrecedente) confini.push({ indice: i, etichetta: formatMese(mese).split(" ")[0] });
+    });
+    return confini;
+  }, [punti]);
 
   const indiceInvestimento = useMemo(() => indicizza(punti.map((p) => p.investimento)), [punti]);
   const indiceLead = useMemo(() => indicizza(punti.map((p) => p.numeroLead)), [punti]);
@@ -118,14 +111,6 @@ export function TrendChart({
           attivo={modalita}
           onChange={(id) => {
             setModalita(id === "lead" ? "lead" : "valori");
-            setHoverIndex(null);
-          }}
-        />
-        <Tabs
-          tabs={GRANULARITA_TABS}
-          attivo={granularita}
-          onChange={(id) => {
-            setGranularita(id === "settimana" ? "settimana" : "mese");
             setHoverIndex(null);
           }}
         />
@@ -227,11 +212,9 @@ export function TrendChart({
               : "Entrambe le serie = 100 al primo periodo, per confrontare l'andamento"}
           </span>
         ) : (
-          granularita === "settimana" && (
-            <span className="text-[11px] text-ink-500">
-              Fatturato tracciato a livello mensile: il valore si ripete per l&apos;intero mese
-            </span>
-          )
+          <span className="text-[11px] text-ink-500">
+            Fatturato tracciato a livello mensile: il valore si ripete per l&apos;intero mese
+          </span>
         )}
       </div>
 
@@ -240,7 +223,7 @@ export function TrendChart({
           viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
           className="w-full h-auto"
           role="img"
-          aria-label={`Andamento ${investimentoLabel.toLowerCase()}, ${secondarioLabel.toLowerCase()} e lead acquisiti per ${granularita}`}
+          aria-label={`Andamento ${investimentoLabel.toLowerCase()}, ${secondarioLabel.toLowerCase()} e lead acquisiti per settimana`}
         >
           {yTicks.map((tick) => (
             <g key={tick}>
@@ -258,6 +241,25 @@ export function TrendChart({
               </text>
             </>
           )}
+
+          {/* Confini mese: tratteggiate e recessive, sotto ai dati (vedi skill dataviz — grid/assi
+              recessivi) — segnano la struttura, non devono competere con le due serie. */}
+          {confiniMese.map((c) => (
+            <g key={c.indice}>
+              <line
+                x1={xFor(c.indice)}
+                x2={xFor(c.indice)}
+                y1={0}
+                y2={stripTop + HEIGHT_STRISCIA}
+                stroke="var(--gridline)"
+                strokeWidth={1}
+                strokeDasharray="3,3"
+              />
+              <text x={xFor(c.indice) + 4} y={10} fontSize={9} fill="var(--text-muted)">
+                {c.etichetta}
+              </text>
+            </g>
+          ))}
 
           {/* Linee principali leggermente meno satura/opache: i punti (sotto) restano a piena opacità
               e portano il valore esatto — la linea deve suggerire l'andamento, non "gridare". */}
