@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Cliente, Consulente, Sede } from "@/types/kpi";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+
+/** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
+type GhlConnessioneVista = { connessioneId: string; locationId: string; attivo: boolean; tokenMascherato: string };
 
 type Props = {
   cliente: Cliente;
@@ -24,6 +27,26 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+
+  // Fase 1 integrazione GHL/Squadd: connessioni indicizzate per sedeId, caricate a parte (Sede
+  // non le porta con sé — vedi src/types/ghl.ts) e ricaricate dopo ogni creazione/modifica.
+  const [ghlPerSede, setGhlPerSede] = useState<Record<string, GhlConnessioneVista>>({});
+  const [ghlTick, setGhlTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/ghl-connessioni?clienteId=${encodeURIComponent(cliente.clienteId)}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((body: { connessioni?: (GhlConnessioneVista & { sedeId: string })[] }) => {
+        const mappa: Record<string, GhlConnessioneVista> = {};
+        for (const c of body.connessioni ?? []) mappa[c.sedeId] = c;
+        setGhlPerSede(mappa);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, [cliente.clienteId, ghlTick]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -106,7 +129,13 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
         </div>
         <div className="space-y-3">
           {sedi.map((sede) => (
-            <SedeRow key={sede.sedeId} sede={sede} onSalvato={onSalvato} />
+            <SedeRow
+              key={sede.sedeId}
+              sede={sede}
+              onSalvato={onSalvato}
+              ghlConnessione={ghlPerSede[sede.sedeId]}
+              onGhlSalvato={() => setGhlTick((t) => t + 1)}
+            />
           ))}
         </div>
         <NuovaSedeForm clienteId={cliente.clienteId} onCreata={onSalvato} />
@@ -115,7 +144,17 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
   );
 }
 
-function SedeRow({ sede, onSalvato }: { sede: Sede; onSalvato: () => void }) {
+function SedeRow({
+  sede,
+  onSalvato,
+  ghlConnessione,
+  onGhlSalvato,
+}: {
+  sede: Sede;
+  onSalvato: () => void;
+  ghlConnessione?: GhlConnessioneVista;
+  onGhlSalvato: () => void;
+}) {
   const [nome, setNome] = useState(sede.nome);
   const [adAccountId, setAdAccountId] = useState(sede.adAccountId);
   const [targetCpa, setTargetCpa] = useState(sede.targetCpa !== null ? String(sede.targetCpa) : "");
@@ -195,6 +234,99 @@ function SedeRow({ sede, onSalvato }: { sede: Sede; onSalvato: () => void }) {
         </Button>
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
+
+      <div className="pt-2 mt-1 border-t border-ink-300/60">
+        <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Collegamento GHL/Squadd di una sede (Fase 1, sola lettura — vedi GhlPanel.tsx). Il token non
+ * viene mai ri-mostrato per intero dopo la creazione, solo mascherato ("••••3f9a"): il campo di
+ * modifica parte vuoto e sovrascrive solo se l'admin ci digita davvero un nuovo valore.
+ */
+function GhlConnessioneBlock({
+  sedeId,
+  connessione,
+  onSalvato,
+}: {
+  sedeId: string;
+  connessione?: GhlConnessioneVista;
+  onSalvato: () => void;
+}) {
+  const [attiva, setAttiva] = useState(false);
+  const [locationId, setLocationId] = useState(connessione?.locationId ?? "");
+  const [privateToken, setPrivateToken] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  if (!connessione && !attiva) {
+    return (
+      <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(true)}>
+        + Collega GHL
+      </Button>
+    );
+  }
+
+  async function salva() {
+    setErrore(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/ghl-connessioni", {
+        method: connessione ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          connessione
+            ? { connessioneId: connessione.connessioneId, locationId, privateToken: privateToken || undefined }
+            : { sedeId, locationId, privateToken }
+        ),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      setPrivateToken("");
+      onSalvato();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const locationIdValido = locationId.trim().length > 0;
+  const puoSalvare = connessione ? locationIdValido : locationIdValido && privateToken.trim().length > 0;
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Connessione GHL/Squadd</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <Field label="Location ID">
+          <Input value={locationId} onChange={(e) => setLocationId(e.target.value)} placeholder="Location ID GHL" />
+        </Field>
+        <Field
+          label="Private Integration Token"
+          hint={connessione ? `Attuale: ${connessione.tokenMascherato} — lascia vuoto per non cambiarlo` : undefined}
+        >
+          <Input
+            type="password"
+            value={privateToken}
+            onChange={(e) => setPrivateToken(e.target.value)}
+            placeholder={connessione ? "Lascia vuoto per non cambiarlo" : "Incolla il token"}
+          />
+        </Field>
+      </div>
+      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      <div className="flex gap-2">
+        <Button type="button" size="sm" onClick={salva} disabled={salvando || !puoSalvare}>
+          {salvando ? "Salvataggio…" : connessione ? "Aggiorna connessione" : "Collega"}
+        </Button>
+        {!connessione && (
+          <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(false)}>
+            Annulla
+          </Button>
+        )}
+      </div>
     </div>
   );
 }

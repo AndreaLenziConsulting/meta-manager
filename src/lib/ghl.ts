@@ -1,0 +1,164 @@
+import type { GhlAppuntamento, GhlCalendario, GhlOpportunita } from "@/types/ghl";
+
+/**
+ * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
+ * pure fetch* a livello di modulo, stesso stile di errore) ma senza forzare un helper di
+ * paginazione condiviso: /calendars/events non risulta paginato (verificato con una chiamata
+ * reale su ~2 anni di dati, mai comparsa una chiave oltre "events"/"traceId" anche con 49 eventi
+ * in una risposta), /opportunities/search usa un cursore diverso (meta.startAfter/startAfterId)
+ * da quello di Meta (paging.next) — due loop piccoli ed espliciti, non un'astrazione prematura.
+ *
+ * A differenza di META_ACCESS_TOKEN (un solo token di agenzia in env, valido per tutti i clienti
+ * via Business Manager), qui token e locationId sono per-sede e arrivano sempre come parametri
+ * (da GhlConnessione, src/types/ghl.ts) — mai da process.env.
+ */
+
+const GHL_API_BASE = "https://services.leadconnectorhq.com";
+// Verificato con una chiamata reale contro un account vero — i valori suggeriti dalla
+// documentazione pubblica di GoHighLevel sono in parte sbagliati, non fidarsi di quelli.
+const GHL_API_VERSION = "2021-07-28";
+
+function ghlHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    Version: GHL_API_VERSION,
+    Accept: "application/json",
+  };
+}
+
+async function ghlGet<T>(path: string, token: string, params: Record<string, string>): Promise<T> {
+  const url = new URL(GHL_API_BASE + path);
+  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  const res = await fetch(url, { headers: ghlHeaders(token) });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`GHL API error (${res.status}) su ${path}: ${body.slice(0, 300)}`);
+  }
+  return (await res.json()) as T;
+}
+
+/** GET /calendars/ — elenco calendari di una location. */
+export async function fetchCalendari(locationId: string, token: string): Promise<GhlCalendario[]> {
+  const body = await ghlGet<{ calendars?: GhlCalendario[] }>("/calendars/", token, { locationId });
+  return body.calendars ?? [];
+}
+
+/**
+ * GET /calendars/events per un singolo calendario — locationId + calendarId + startTime/endTime
+ * (epoch ms) sono tutti richiesti. Nessun endpoint "tutti gli appuntamenti della location": va
+ * chiamato una volta per calendario.
+ */
+async function fetchAppuntamentiPerCalendario(
+  locationId: string,
+  token: string,
+  calendarId: string,
+  startTimeMs: number,
+  endTimeMs: number
+): Promise<GhlAppuntamento[]> {
+  const body = await ghlGet<{ events?: GhlAppuntamento[] }>("/calendars/events", token, {
+    locationId,
+    calendarId,
+    startTime: String(startTimeMs),
+    endTime: String(endTimeMs),
+  });
+  return body.events ?? [];
+}
+
+/** Enumera i calendari della location poi accorpa gli appuntamenti di ciascuno (dedup per id). */
+export async function fetchTuttiGliAppuntamenti(
+  locationId: string,
+  token: string,
+  startTimeMs: number,
+  endTimeMs: number
+): Promise<GhlAppuntamento[]> {
+  const calendari = await fetchCalendari(locationId, token);
+  const perCalendario = await Promise.all(
+    calendari.map((c) => fetchAppuntamentiPerCalendario(locationId, token, c.id, startTimeMs, endTimeMs))
+  );
+  const visti = new Set<string>();
+  const risultato: GhlAppuntamento[] = [];
+  for (const lista of perCalendario) {
+    for (const a of lista) {
+      if (visti.has(a.id)) continue;
+      visti.add(a.id);
+      risultato.push(a);
+    }
+  }
+  return risultato;
+}
+
+/**
+ * GET /opportunities/search — due dettagli verificati con chiamate reali, non dai doc pubblici
+ * (sbagliati su entrambi): il parametro è location_id in snake_case (non locationId), e
+ * date/endDate vogliono epoch millisecondi come startTime/endTime di /calendars/events — una data
+ * YYYY-MM-DD o un ISO datetime tornano entrambi 400 SEARCH_INVALID_START_DATE.
+ *
+ * Non espone qui un filtro data: verificato con una chiamata reale che date/endDate filtrano per
+ * createdAt (data di CREAZIONE dell'opportunità), non per quando è stata vinta/persa — sbagliato
+ * per "vendite del periodo" (una trattativa aperta mesi fa e chiusa questo mese andrebbe persa).
+ * Il filtro per periodo si fa lato client su lastStatusChangeAt, vedi riepilogoOpportunita. `status`
+ * resta un parametro server-side legittimo (non è un filtro data): passare "won" qui riduce
+ * comunque il volume scaricato molto prima del filtro client-side.
+ */
+export async function fetchOpportunita(locationId: string, token: string, opts: { status?: string } = {}): Promise<GhlOpportunita[]> {
+  const risultato: GhlOpportunita[] = [];
+  let startAfter: string | undefined;
+  let startAfterId: string | undefined;
+
+  for (let pagina = 1; pagina <= 50; pagina++) {
+    const params: Record<string, string> = { location_id: locationId, limit: "100" };
+    if (opts.status) params.status = opts.status;
+    if (startAfter) params.startAfter = startAfter;
+    if (startAfterId) params.startAfterId = startAfterId;
+
+    const body = await ghlGet<{
+      opportunities?: GhlOpportunita[];
+      meta?: { nextPage?: number; startAfter?: number; startAfterId?: string };
+    }>("/opportunities/search", token, params);
+
+    const opportunita = body.opportunities ?? [];
+    risultato.push(...opportunita);
+
+    const meta = body.meta;
+    if (!meta?.nextPage || opportunita.length === 0) break;
+    startAfter = meta.startAfter !== undefined ? String(meta.startAfter) : undefined;
+    startAfterId = meta.startAfterId;
+    if (!startAfter || !startAfterId) break;
+  }
+
+  return risultato;
+}
+
+/**
+ * Riepilogo appuntamenti — deliberatamente "confermati"/"annullati", non "fissati"/"effettuati"
+ * come nel Funnel esistente: appointmentStatus nell'account di test porta solo "confirmed" e
+ * "cancelled" (mai "showed"/"noshow"), quindi non è possibile derivare in modo affidabile una vera
+ * presenza confermata. Riflettere questo onestamente invece di forzare la stessa etichettatura del
+ * Funnel è il motivo per cui GhlRiepilogoResponse resta un tipo a parte da KpiGroup.
+ */
+export function riepilogoAppuntamenti(appuntamenti: GhlAppuntamento[]): { totali: number; confermati: number; annullati: number } {
+  const vivi = appuntamenti.filter((a) => !a.deleted);
+  return {
+    totali: vivi.length,
+    confermati: vivi.filter((a) => a.appointmentStatus === "confirmed").length,
+    annullati: vivi.filter((a) => a.appointmentStatus === "cancelled").length,
+  };
+}
+
+/**
+ * Filtra le opportunità vinte il cui ultimo cambio di stato cade nel periodo [startMs, endMs] —
+ * non per data di creazione, vedi il commento su fetchOpportunita. `opportunita` in ingresso è
+ * già atteso pre-filtrato per status="won" (fetchOpportunita({ status: "won" })), ma il filtro
+ * status resta anche qui per sicurezza in caso di riuso con un elenco non filtrato.
+ */
+export function riepilogoOpportunita(opportunita: GhlOpportunita[], startMs: number, endMs: number): { vendite: number; fatturato: number } {
+  const vinte = opportunita.filter((o) => {
+    if (o.status !== "won") return false;
+    const t = new Date(o.lastStatusChangeAt).getTime();
+    return Number.isFinite(t) && t >= startMs && t <= endMs;
+  });
+  return {
+    vendite: vinte.length,
+    fatturato: vinte.reduce((somma, o) => somma + (o.monetaryValue || 0), 0),
+  };
+}

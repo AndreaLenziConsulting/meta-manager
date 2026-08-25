@@ -14,6 +14,7 @@ import type {
 } from "@/types/kpi";
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 import type { Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
+import type { GhlConnessione } from "@/types/ghl";
 
 const TAB = {
   clienti: "Clienti",
@@ -30,6 +31,7 @@ const TAB = {
   commerciali: "Commerciali",
   prospect: "Prospect",
   reportCommerciale: "ReportCommerciale",
+  ghlConnessioni: "GhlConnessioni",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -381,6 +383,96 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
     requestBody: { valueInputOption: "USER_ENTERED", data },
   });
   invalidateTabCache(TAB.sedi);
+}
+
+// Tab GhlConnessioni, colonne A→G: connessioneId, sedeId, locationId, privateToken, attivo, note,
+// creataIl. Una per sede (non per cliente, stesso motivo di adAccountId su Sede — vedi
+// src/types/ghl.ts). noCache: true come Prospect/ReportCommerciale/Commerciali — un flusso
+// crea-poi-rileggi-subito (l'admin collega una sede da ModificaClienteModal e la lista si
+// aggiorna subito) è normale qui, la cache di 30s diventerebbe un bug visibile tra istanze
+// serverless diverse invece di un'ottimizzazione invisibile — vedi lo stesso bug già risolto per
+// Prospect.
+export async function getGhlConnessioni(): Promise<GhlConnessione[]> {
+  const rows = await readTab(TAB.ghlConnessioni, { noCache: true });
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      connessioneId: asText(r[0]),
+      sedeId: asText(r[1]),
+      locationId: asText(r[2]),
+      privateToken: asText(r[3]),
+      attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
+      note: asText(r[5]),
+      creataIl: asText(r[6]),
+    }));
+}
+
+export type NuovaGhlConnessioneInput = {
+  connessioneId: string;
+  sedeId: string;
+  locationId: string;
+  privateToken: string;
+  note?: string;
+};
+
+/** Crea una nuova connessione GHL (sempre attiva). Rifiuta esplicitamente un connessioneId già in uso. */
+export async function creaGhlConnessione(input: NuovaGhlConnessioneInput): Promise<void> {
+  const esistenti = await getGhlConnessioni();
+  if (esistenti.some((c) => c.connessioneId === input.connessioneId)) {
+    throw new Error(`Esiste già una connessione GHL con id "${input.connessioneId}"`);
+  }
+  await appendRows(TAB.ghlConnessioni, [
+    [
+      input.connessioneId,
+      input.sedeId,
+      input.locationId,
+      input.privateToken,
+      "TRUE",
+      input.note ?? "",
+      new Date().toISOString(),
+    ],
+  ]);
+}
+
+export type AggiornaGhlConnessioneInput = {
+  connessioneId: string;
+  locationId?: string;
+  // undefined = lascia invariato il token esistente — il form non lo ri-mostra mai per intero,
+  // quindi "campo vuoto" nel form NON deve tradursi in "sovrascrivi con stringa vuota" qui.
+  privateToken?: string;
+  attivo?: boolean;
+  note?: string;
+};
+
+/** Aggiorna solo i campi esplicitamente presenti in `input` di una connessione GHL esistente. */
+export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.ghlConnessioni}!A2:G`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRiga(righe, input.connessioneId);
+  if (rowNumber === null) {
+    throw new Error(`Connessione GHL non trovata: ${input.connessioneId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.ghlConnessioni}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.locationId !== undefined) set("C", input.locationId);
+  if (input.privateToken !== undefined) set("D", input.privateToken);
+  if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
+  if (input.note !== undefined) set("F", input.note);
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.ghlConnessioni);
 }
 
 export type RisultatoMigrazioneSedi = {
