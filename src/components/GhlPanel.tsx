@@ -68,7 +68,7 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
 
   if (!dati || !dati.connesso) return null;
 
-  const { appuntamenti, opportunita } = dati;
+  const { appuntamenti, opportunita, calendariConfigurati } = dati;
   const tessere = [
     { label: "Appuntamenti totali", value: formatNumero(appuntamenti.totali) },
     { label: "Confermati", value: formatNumero(appuntamenti.confermati) },
@@ -87,6 +87,12 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
           </p>
         </div>
       </div>
+      {!calendariConfigurati && (
+        <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mb-4">
+          Nessun calendario selezionato per questa connessione — gli appuntamenti restano a zero finché non scegli
+          quali calendari includere (Dashboard Amministratore → modifica cliente → sezione Sedi).
+        </p>
+      )}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
         {tessere.map((t) => (
           <div key={t.label}>

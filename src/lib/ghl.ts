@@ -64,16 +64,33 @@ async function fetchAppuntamentiPerCalendario(
   return body.events ?? [];
 }
 
-/** Enumera i calendari della location poi accorpa gli appuntamenti di ciascuno (dedup per id). */
-export async function fetchTuttiGliAppuntamenti(
+// startTime/endTime dell'API filtrano per QUANDO SI TIENE l'incontro, ma il periodo che interessa
+// a riepilogoAppuntamenti è quando la prenotazione è stata FATTA (dateAdded) — le due date possono
+// distare parecchio (prenotazione con largo anticipo, riprogrammazioni). Il margine sotto è una
+// scelta pragmatica per evitare una query illimitata: cattura le prenotazioni fatte nel periodo
+// richiesto anche se l'incontro si tiene fino a un anno prima/dopo, senza scaricare anni di dati.
+const MARGINE_RICERCA_MS = 365 * 24 * 60 * 60 * 1000;
+
+/**
+ * Recupera gli appuntamenti dei calendari indicati (scelta esplicita dell'admin — vedi
+ * GhlConnessione.calendarIds — mai "tutti i calendari della location" in automatico: una location
+ * porta spesso anche calendari "personal" di singoli consulenti che potrebbero non essere pagine
+ * di prenotazione client-facing). Interroga l'API su una finestra più ampia di [startMs, endMs]
+ * (vedi MARGINE_RICERCA_MS) perché il filtro vero per periodo lo fa riepilogoAppuntamenti su
+ * dateAdded, non questa funzione.
+ */
+export async function fetchAppuntamenti(
   locationId: string,
   token: string,
-  startTimeMs: number,
-  endTimeMs: number
+  calendarIds: string[],
+  startMs: number,
+  endMs: number
 ): Promise<GhlAppuntamento[]> {
-  const calendari = await fetchCalendari(locationId, token);
+  if (calendarIds.length === 0) return [];
   const perCalendario = await Promise.all(
-    calendari.map((c) => fetchAppuntamentiPerCalendario(locationId, token, c.id, startTimeMs, endTimeMs))
+    calendarIds.map((id) =>
+      fetchAppuntamentiPerCalendario(locationId, token, id, startMs - MARGINE_RICERCA_MS, endMs + MARGINE_RICERCA_MS)
+    )
   );
   const visti = new Set<string>();
   const risultato: GhlAppuntamento[] = [];
@@ -130,18 +147,31 @@ export async function fetchOpportunita(locationId: string, token: string, opts: 
 }
 
 /**
- * Riepilogo appuntamenti — deliberatamente "confermati"/"annullati", non "fissati"/"effettuati"
- * come nel Funnel esistente: appointmentStatus nell'account di test porta solo "confirmed" e
- * "cancelled" (mai "showed"/"noshow"), quindi non è possibile derivare in modo affidabile una vera
- * presenza confermata. Riflettere questo onestamente invece di forzare la stessa etichettatura del
- * Funnel è il motivo per cui GhlRiepilogoResponse resta un tipo a parte da KpiGroup.
+ * Riepilogo appuntamenti nel periodo [startMs, endMs] — filtrato su dateAdded (quando la
+ * prenotazione è stata fatta), non su startTime (quando si tiene l'incontro): coerente con
+ * appuntamentiFissati del Funnel esistente, un conteggio di attività del mese, non un'agenda
+ * futura — vedi il commento su GhlAppuntamento.dateAdded.
+ *
+ * Deliberatamente "confermati"/"annullati", non "fissati"/"effettuati" come nel Funnel:
+ * appointmentStatus nell'account di test porta solo "confirmed" e "cancelled" (mai "showed"/
+ * "noshow"), quindi non è possibile derivare in modo affidabile una vera presenza confermata.
+ * Riflettere questo onestamente invece di forzare la stessa etichettatura del Funnel è il motivo
+ * per cui GhlRiepilogoResponse resta un tipo a parte da KpiGroup.
  */
-export function riepilogoAppuntamenti(appuntamenti: GhlAppuntamento[]): { totali: number; confermati: number; annullati: number } {
-  const vivi = appuntamenti.filter((a) => !a.deleted);
+export function riepilogoAppuntamenti(
+  appuntamenti: GhlAppuntamento[],
+  startMs: number,
+  endMs: number
+): { totali: number; confermati: number; annullati: number } {
+  const nelPeriodo = appuntamenti.filter((a) => {
+    if (a.deleted) return false;
+    const t = new Date(a.dateAdded).getTime();
+    return Number.isFinite(t) && t >= startMs && t <= endMs;
+  });
   return {
-    totali: vivi.length,
-    confermati: vivi.filter((a) => a.appointmentStatus === "confirmed").length,
-    annullati: vivi.filter((a) => a.appointmentStatus === "cancelled").length,
+    totali: nelPeriodo.length,
+    confermati: nelPeriodo.filter((a) => a.appointmentStatus === "confirmed").length,
+    annullati: nelPeriodo.filter((a) => a.appointmentStatus === "cancelled").length,
   };
 }
 

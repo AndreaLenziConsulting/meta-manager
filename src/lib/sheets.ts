@@ -385,11 +385,12 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
   invalidateTabCache(TAB.sedi);
 }
 
-// Tab GhlConnessioni, colonne A→G: connessioneId, sedeId, locationId, privateToken, attivo, note,
-// creataIl. Una per sede (non per cliente, stesso motivo di adAccountId su Sede — vedi
-// src/types/ghl.ts). noCache: true come Prospect/ReportCommerciale/Commerciali — un flusso
-// crea-poi-rileggi-subito (l'admin collega una sede da ModificaClienteModal e la lista si
-// aggiorna subito) è normale qui, la cache di 30s diventerebbe un bug visibile tra istanze
+// Tab GhlConnessioni, colonne A→H: connessioneId, sedeId, locationId, privateToken, attivo, note,
+// creataIl, calendarIds (elenco separato da virgole — scelta esplicita dell'admin di quali
+// calendari contare, vedi GhlConnessione in src/types/ghl.ts). Una per sede (non per cliente,
+// stesso motivo di adAccountId su Sede). noCache: true come Prospect/ReportCommerciale/Commerciali
+// — un flusso crea-poi-rileggi-subito (l'admin collega una sede da ModificaClienteModal e la lista
+// si aggiorna subito) è normale qui, la cache di 30s diventerebbe un bug visibile tra istanze
 // serverless diverse invece di un'ottimizzazione invisibile — vedi lo stesso bug già risolto per
 // Prospect.
 export async function getGhlConnessioni(): Promise<GhlConnessione[]> {
@@ -404,6 +405,10 @@ export async function getGhlConnessioni(): Promise<GhlConnessione[]> {
       attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
       note: asText(r[5]),
       creataIl: asText(r[6]),
+      calendarIds: asText(r[7])
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
     }));
 }
 
@@ -442,6 +447,8 @@ export type AggiornaGhlConnessioneInput = {
   privateToken?: string;
   attivo?: boolean;
   note?: string;
+  // undefined = non toccare; [] è un valore esplicito valido (nessun calendario selezionato).
+  calendarIds?: string[];
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` di una connessione GHL esistente. */
@@ -449,7 +456,7 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.ghlConnessioni}!A2:G`,
+    range: `${TAB.ghlConnessioni}!A2:H`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -466,6 +473,7 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
   if (input.privateToken !== undefined) set("D", input.privateToken);
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
   if (input.note !== undefined) set("F", input.note);
+  if (input.calendarIds !== undefined) set("H", input.calendarIds.join(","));
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

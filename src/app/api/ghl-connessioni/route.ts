@@ -40,6 +40,7 @@ export async function GET(req: NextRequest) {
       attivo: c.attivo,
       note: c.note,
       tokenMascherato: maschera(c.privateToken),
+      calendarIds: c.calendarIds,
     }));
   return NextResponse.json({ connessioni: risultato });
 }
@@ -87,7 +88,14 @@ export async function POST(req: NextRequest) {
   }
 }
 
-type BodyPatch = { connessioneId?: string; locationId?: string; privateToken?: string; attivo?: boolean; note?: string };
+type BodyPatch = {
+  connessioneId?: string;
+  locationId?: string;
+  privateToken?: string;
+  attivo?: boolean;
+  note?: string;
+  calendarIds?: string[];
+};
 
 export async function PATCH(req: NextRequest) {
   const sessione = await getSessione();
@@ -121,6 +129,7 @@ export async function PATCH(req: NextRequest) {
       privateToken: privateToken ? privateToken : undefined,
       attivo: body.attivo,
       note: body.note,
+      calendarIds: body.calendarIds,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

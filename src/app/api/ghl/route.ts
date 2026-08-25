@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { fetchOpportunita, fetchTuttiGliAppuntamenti, riepilogoAppuntamenti, riepilogoOpportunita } from "@/lib/ghl";
+import { fetchAppuntamenti, fetchOpportunita, riepilogoAppuntamenti, riepilogoOpportunita } from "@/lib/ghl";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
@@ -57,12 +57,13 @@ export async function GET(req: NextRequest) {
 
   try {
     const [appuntamenti, opportunitaVinte] = await Promise.all([
-      fetchTuttiGliAppuntamenti(connessione.locationId, connessione.privateToken, startMs, endMs),
+      fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       fetchOpportunita(connessione.locationId, connessione.privateToken, { status: "won" }),
     ]);
     const risposta: GhlRiepilogoResponse = {
       connesso: true,
-      appuntamenti: riepilogoAppuntamenti(appuntamenti),
+      calendariConfigurati: connessione.calendarIds.length > 0,
+      appuntamenti: riepilogoAppuntamenti(appuntamenti, startMs, endMs),
       opportunita: riepilogoOpportunita(opportunitaVinte, startMs, endMs),
     };
     return NextResponse.json(risposta);

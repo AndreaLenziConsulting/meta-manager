@@ -16,9 +16,21 @@ export type GhlConnessione = {
   attivo: boolean;
   note: string;
   creataIl: string; // ISO datetime
+  // Calendari della location da includere nel conteggio appuntamenti — scelta esplicita
+  // dell'admin, non un'euristica automatica: una location porta spesso anche calendari "personal"
+  // di singoli consulenti che possono essere sia pagine di prenotazione legittime sia, in alcuni
+  // casi, impegni non pertinenti — calendarType da solo non basta a distinguerli in modo
+  // affidabile (vedi commento su GhlCalendario). [] = non ancora configurato.
+  calendarIds: string[];
 };
 
-export type GhlCalendario = { id: string; name: string };
+/**
+ * `calendarType` verificato con una chiamata reale: "round_robin" | "personal" | "collective".
+ * Usato solo come suggerimento di preselezione nel picker (round_robin/collective preselezionati,
+ * personal no) — mai come filtro automatico: un calendario "personal" è spesso la pagina di
+ * prenotazione dedicata di un singolo consulente, non necessariamente un impegno da escludere.
+ */
+export type GhlCalendario = { id: string; name: string; calendarType: string };
 
 /**
  * Appuntamento GHL così com'è restituito da /calendars/events. `appointmentStatus` resta stringa
@@ -32,8 +44,13 @@ export type GhlAppuntamento = {
   contactId: string;
   title: string;
   appointmentStatus: string;
-  startTime: string; // ISO 8601 con offset
+  startTime: string; // ISO 8601 con offset — quando si TIENE l'incontro
   endTime: string;
+  // Quando la prenotazione è stata FATTA — usata per il periodo invece di startTime: un
+  // appuntamento fissato ad agosto per un incontro a ottobre resta "fissato ad agosto" anche se
+  // poi riprogrammato, coerente con appuntamentiFissati del Funnel esistente (attività del mese,
+  // non agenda futura) — vedi riepilogoAppuntamenti in src/lib/ghl.ts.
+  dateAdded: string;
   deleted: boolean;
 };
 
@@ -58,6 +75,10 @@ export type GhlRiepilogoResponse =
   | { connesso: false }
   | {
       connesso: true;
+      // false se la connessione esiste ma nessun calendario è ancora stato selezionato — gli
+      // appuntamenti restano a zero finché l'admin non sceglie quali calendari includere, invece
+      // di includerli tutti in automatico (vedi GhlConnessione.calendarIds).
+      calendariConfigurati: boolean;
       appuntamenti: { totali: number; confermati: number; annullati: number };
       opportunita: { vendite: number; fatturato: number };
     };

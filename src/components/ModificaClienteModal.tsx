@@ -8,7 +8,16 @@ import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
-type GhlConnessioneVista = { connessioneId: string; locationId: string; attivo: boolean; tokenMascherato: string };
+type GhlConnessioneVista = {
+  connessioneId: string;
+  locationId: string;
+  attivo: boolean;
+  tokenMascherato: string;
+  calendarIds: string[];
+};
+
+/** Come torna GET /api/ghl-connessioni/calendari. */
+type GhlCalendarioVista = { id: string; name: string; calendarType: string };
 
 type Props = {
   cliente: Cliente;
@@ -327,6 +336,118 @@ function GhlConnessioneBlock({
           </Button>
         )}
       </div>
+      {connessione && <GhlCalendariPicker connessione={connessione} onSalvato={onSalvato} />}
+    </div>
+  );
+}
+
+/**
+ * Sceglie quali calendari della location contano per gli appuntamenti — mai automatico (vedi
+ * ghl.ts): una location porta spesso anche calendari "personal" di singoli consulenti che
+ * potrebbero essere pagine di prenotazione legittime o impegni non pertinenti, indistinguibili
+ * in modo affidabile solo da calendarType. Preseleziona round_robin/collective la prima volta
+ * (calendarIds ancora vuoto), poi rispecchia sempre l'ultima scelta salvata.
+ */
+function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnessioneVista; onSalvato: () => void }) {
+  const [stato, setStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
+  const [calendari, setCalendari] = useState<GhlCalendarioVista[]>([]);
+  const [selezionati, setSelezionati] = useState<Set<string>>(new Set());
+  const [erroreCaricamento, setErroreCaricamento] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erroreSalvataggio, setErroreSalvataggio] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        setStato("caricamento");
+        return fetch(`/api/ghl-connessioni/calendari?connessioneId=${encodeURIComponent(connessione.connessioneId)}`, {
+          signal: controller.signal,
+        });
+      })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Errore nel caricamento dei calendari");
+        const lista = (body.calendari ?? []) as GhlCalendarioVista[];
+        setCalendari(lista);
+        // Prima configurazione (calendarIds ancora vuoto): preseleziona i calendari che più
+        // probabilmente sono pagine di prenotazione client-facing, sempre modificabile subito.
+        const base =
+          connessione.calendarIds.length > 0
+            ? connessione.calendarIds
+            : lista.filter((c) => c.calendarType !== "personal").map((c) => c.id);
+        setSelezionati(new Set(base));
+        setStato("ok");
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setErroreCaricamento(err.message);
+        setStato("errore");
+      });
+    return () => controller.abort();
+  }, [connessione.connessioneId, connessione.calendarIds]);
+
+  function toggle(id: string) {
+    setSelezionati((prec) => {
+      const nuovo = new Set(prec);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
+
+  async function salvaSelezione() {
+    setErroreSalvataggio(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/ghl-connessioni", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connessioneId: connessione.connessioneId, calendarIds: Array.from(selezionati) }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      onSalvato();
+    } catch (err) {
+      setErroreSalvataggio(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (stato === "caricamento") {
+    return <p className="text-xs text-ink-500 pt-2">Caricamento calendari…</p>;
+  }
+  if (stato === "errore") {
+    return <p className="text-xs text-red-600 pt-2">{erroreCaricamento}</p>;
+  }
+  if (calendari.length === 0) {
+    return <p className="text-xs text-ink-500 pt-2">Nessun calendario trovato su questa location.</p>;
+  }
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-ink-300/60 mt-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+        Calendari da includere negli appuntamenti
+      </p>
+      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+        {calendari.map((c) => (
+          <label key={c.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selezionati.has(c.id)}
+              onChange={() => toggle(c.id)}
+              className="accent-current text-brand"
+            />
+            <span className="truncate">{c.name}</span>
+            <span className="text-ink-400 flex-shrink-0">({c.calendarType})</span>
+          </label>
+        ))}
+      </div>
+      {erroreSalvataggio && <p className="text-xs text-red-600">{erroreSalvataggio}</p>}
+      <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
+        {salvando ? "Salvataggio…" : "Salva calendari"}
+      </Button>
     </div>
   );
 }
