@@ -563,11 +563,21 @@ export function actionItemsFromTaskLines(taskSettimana: string): ActionItem[] {
 // ─── Orchestrazione ───────────────────────────────────────────────────────────
 
 /**
+ * Info sul troncamento del testo scrapato prima di passarlo al modello — vedi `charLimit` più
+ * sotto. `null` quando il testo intero rientrava nel limite (caso comune: le pagine Fathom/
+ * Circleback mostrano di solito un riassunto condensato, non il verbatim minuto per minuto).
+ * Deliberatamente NON persistita nei dati del report (`MeetingDataLoose`/`ReportCommercialeDataLoose`
+ * restano invariati) — è un segnale momentaneo per chi sta creando il report in quel momento,
+ * non un campo permanente del dato salvato.
+ */
+export type TroncamentoInfo = { caratteriTotali: number; caratteriElaborati: number };
+
+/**
  * Estrae i dati strutturati di un meeting da un link di condivisione pubblico
  * (Fathom/Circleback/Loom). Lancia `EstrazioneError` con lo status HTTP appropriato
  * su ogni fallimento gestito (pagina protetta, contenuto vuoto, modello che rifiuta).
  */
-export async function estraiMeetingData(url: string): Promise<MeetingDataLoose> {
+export async function estraiMeetingData(url: string): Promise<{ dati: MeetingDataLoose; troncamento: TroncamentoInfo | null }> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new EstrazioneError("GROQ_API_KEY non configurata", 500);
@@ -631,6 +641,13 @@ export async function estraiMeetingData(url: string): Promise<MeetingDataLoose> 
   // senza verificare il piano/rate limit attuale dell'account Groq.
   const charLimit = source === "loom" ? 11_000 : 10_000;
   const trimmed = visible.slice(0, charLimit);
+  const troncamento: TroncamentoInfo | null =
+    visible.length > charLimit ? { caratteriTotali: visible.length, caratteriElaborati: charLimit } : null;
+  if (troncamento) {
+    console.warn(
+      `[estrazione] Testo troncato per ${sourceName} (${url}): elaborati ${troncamento.caratteriElaborati} di ${troncamento.caratteriTotali} caratteri.`
+    );
+  }
   const userContent = `URL: ${url}
 Fonte: ${source}
 
@@ -735,24 +752,27 @@ ${trimmed}
   }
 
   return {
-    title: typeof raw.title === "string" ? raw.title : "",
-    date: typeof raw.date === "string" ? raw.date : "",
-    duration,
-    participants,
-    summary: typeof raw.summary === "string" ? raw.summary : "",
-    highlights: toStrArray(raw.highlights),
-    actionItems,
-    rawUrl: url,
-    cliente: typeof raw.cliente === "string" ? raw.cliente : "",
-    referente: typeof raw.referente === "string" ? raw.referente : "",
-    dataConsulenza: typeof raw.dataConsulenza === "string" ? raw.dataConsulenza : "",
-    taskSettimana,
-    taskMese,
-    programmaTrimestre: toStr(raw.programmaTrimestre),
-    sentiment: typeof raw.sentiment === "string" ? raw.sentiment : "",
-    kpiReali: toStr(raw.kpiReali),
-    kpiStorico: toStr(raw.kpiStorico),
-    kpiTargetMarketing: toStr(raw.kpiTargetMarketing),
-    kpiTargetCommerciali: toStr(raw.kpiTargetCommerciali),
+    dati: {
+      title: typeof raw.title === "string" ? raw.title : "",
+      date: typeof raw.date === "string" ? raw.date : "",
+      duration,
+      participants,
+      summary: typeof raw.summary === "string" ? raw.summary : "",
+      highlights: toStrArray(raw.highlights),
+      actionItems,
+      rawUrl: url,
+      cliente: typeof raw.cliente === "string" ? raw.cliente : "",
+      referente: typeof raw.referente === "string" ? raw.referente : "",
+      dataConsulenza: typeof raw.dataConsulenza === "string" ? raw.dataConsulenza : "",
+      taskSettimana,
+      taskMese,
+      programmaTrimestre: toStr(raw.programmaTrimestre),
+      sentiment: typeof raw.sentiment === "string" ? raw.sentiment : "",
+      kpiReali: toStr(raw.kpiReali),
+      kpiStorico: toStr(raw.kpiStorico),
+      kpiTargetMarketing: toStr(raw.kpiTargetMarketing),
+      kpiTargetCommerciali: toStr(raw.kpiTargetCommerciali),
+    },
+    troncamento,
   };
 }

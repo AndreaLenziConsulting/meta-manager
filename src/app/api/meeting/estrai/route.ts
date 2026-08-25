@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const meeting = await estraiMeetingData(url);
-    return NextResponse.json(meeting);
+    const { dati, troncamento } = await estraiMeetingData(url);
+    return NextResponse.json({ dati, troncamento });
   } catch (err) {
     if (err instanceof EstrazioneError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

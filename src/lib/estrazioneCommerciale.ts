@@ -7,6 +7,7 @@ import {
   renderPage,
   toStrArray,
   type MeetingSource,
+  type TroncamentoInfo,
 } from "@/lib/estrazione";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
 
@@ -121,7 +122,9 @@ Linee guida:
  * fallimento gestito (pagina protetta, contenuto vuoto, modello che rifiuta) — stessa semantica di
  * estraiMeetingData in estrazione.ts.
  */
-export async function estraiReportCommerciale(url: string): Promise<ReportCommercialeDataLoose> {
+export async function estraiReportCommerciale(
+  url: string
+): Promise<{ dati: ReportCommercialeDataLoose; troncamento: TroncamentoInfo | null }> {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     throw new EstrazioneError("GROQ_API_KEY non configurata", 500);
@@ -177,6 +180,13 @@ export async function estraiReportCommerciale(url: string): Promise<ReportCommer
   // non una precauzione. Vedi commento lì per la matematica completa.
   const charLimit = source === "loom" ? 11_000 : 10_000;
   const trimmed = visible.slice(0, charLimit);
+  const troncamento: TroncamentoInfo | null =
+    visible.length > charLimit ? { caratteriTotali: visible.length, caratteriElaborati: charLimit } : null;
+  if (troncamento) {
+    console.warn(
+      `[estrazioneCommerciale] Testo troncato per ${sourceName} (${url}): elaborati ${troncamento.caratteriElaborati} di ${troncamento.caratteriTotali} caratteri.`
+    );
+  }
   const userContent = `URL: ${url}
 Fonte: ${source}
 
@@ -239,21 +249,24 @@ ${trimmed}
   const toStr = (v: unknown): string => (Array.isArray(v) ? v.filter(Boolean).join("\n") : typeof v === "string" ? v : "");
 
   return {
-    titolo: typeof raw.title === "string" ? raw.title : "",
-    data: typeof raw.date === "string" ? raw.date : "",
-    partecipanti: toStrArray(raw.participants),
-    rawUrl: url,
-    ragioneSociale: typeof raw.ragioneSociale === "string" ? raw.ragioneSociale : "",
-    tipoBusiness: typeof raw.tipoBusiness === "string" ? raw.tipoBusiness : "",
-    fatturato: typeof raw.fatturato === "string" ? raw.fatturato : "",
-    sedi: typeof raw.sedi === "string" ? raw.sedi : "",
-    criticita: toStr(raw.criticita),
-    tentateSoluzioni: toStr(raw.tentateSoluzioni),
-    pain: toStr(raw.pain),
-    obiettivi: toStr(raw.obiettivi),
-    soluzioneProposta: toStr(raw.soluzioneProposta),
-    livelloProblema: typeof raw.livelloProblema === "string" ? raw.livelloProblema : "",
-    livelloProdotto: typeof raw.livelloProdotto === "string" ? raw.livelloProdotto : "",
-    prossimiPassi: toStr(raw.prossimiPassi),
+    dati: {
+      titolo: typeof raw.title === "string" ? raw.title : "",
+      data: typeof raw.date === "string" ? raw.date : "",
+      partecipanti: toStrArray(raw.participants),
+      rawUrl: url,
+      ragioneSociale: typeof raw.ragioneSociale === "string" ? raw.ragioneSociale : "",
+      tipoBusiness: typeof raw.tipoBusiness === "string" ? raw.tipoBusiness : "",
+      fatturato: typeof raw.fatturato === "string" ? raw.fatturato : "",
+      sedi: typeof raw.sedi === "string" ? raw.sedi : "",
+      criticita: toStr(raw.criticita),
+      tentateSoluzioni: toStr(raw.tentateSoluzioni),
+      pain: toStr(raw.pain),
+      obiettivi: toStr(raw.obiettivi),
+      soluzioneProposta: toStr(raw.soluzioneProposta),
+      livelloProblema: typeof raw.livelloProblema === "string" ? raw.livelloProblema : "",
+      livelloProdotto: typeof raw.livelloProdotto === "string" ? raw.livelloProdotto : "",
+      prossimiPassi: toStr(raw.prossimiPassi),
+    },
+    troncamento,
   };
 }

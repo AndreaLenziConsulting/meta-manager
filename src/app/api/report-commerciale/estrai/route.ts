@@ -36,8 +36,8 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const report = await estraiReportCommerciale(url);
-    return NextResponse.json(report);
+    const { dati, troncamento } = await estraiReportCommerciale(url);
+    return NextResponse.json({ dati, troncamento });
   } catch (err) {
     if (err instanceof EstrazioneError) {
       return NextResponse.json({ error: err.message }, { status: err.status });

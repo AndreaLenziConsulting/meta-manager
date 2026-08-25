@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
 import { MeetingReportView } from "@/components/MeetingReportView";
+import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
 type Props = {
@@ -164,6 +165,10 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
   const [anteprima, setAnteprima] = useState<MeetingDataLoose | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erroreForm, setErroreForm] = useState<string | null>(null);
+  // Segnale momentaneo (non salvato) di quanto testo scrapato non è stato passato al modello
+  // perché oltre il limite caratteri/token del piano Groq — vedi estrazione.ts. Solo per chi sta
+  // creando il report in quel momento, non un campo del dato persistito.
+  const [troncamento, setTroncamento] = useState<TroncamentoInfo | null>(null);
 
   // Invio automatico dell'email di follow-up al primo salvataggio — checkbox selezionata di
   // default solo se il cliente ha un'email impostata (altrimenti non c'è nulla da inviare).
@@ -233,6 +238,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
     setEstraendo(true);
     setErroreForm(null);
     setEsitoInvio(null);
+    setTroncamento(null);
     try {
       const res = await fetch("/api/meeting/estrai", {
         method: "POST",
@@ -241,7 +247,9 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Estrazione non riuscita");
-      setAnteprima(body as MeetingDataLoose);
+      const { dati, troncamento: info } = body as { dati: MeetingDataLoose; troncamento: TroncamentoInfo | null };
+      setAnteprima(dati);
+      setTroncamento(info);
       setInviaAutomatica(!!clienteEmail);
       setEmailBozza(null);
     } catch (err) {
@@ -280,6 +288,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
         });
       }
       setAnteprima(null);
+      setTroncamento(null);
       setUrl("");
       setMostraForm(false);
       setRefreshTick((t) => t + 1);
@@ -407,6 +416,16 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-gray-900">Anteprima — verifica e modifica prima di salvare</h4>
 
+          {troncamento && (
+            <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
+              La chiamata era più lunga di quanto il modello riesca ad analizzare in un colpo solo: elaborati{" "}
+              {troncamento.caratteriElaborati.toLocaleString("it-IT")} di{" "}
+              {troncamento.caratteriTotali.toLocaleString("it-IT")} caratteri (
+              {Math.round((troncamento.caratteriElaborati / troncamento.caratteriTotali) * 100)}%). Le parti finali
+              della chiamata potrebbero non essere riflesse nel report — controlla con attenzione prima di salvare.
+            </p>
+          )}
+
           <MeetingReportView meeting={anteprima} clienteNome={clienteNome} onChange={(u) => setAnteprima({ ...anteprima, ...u })} />
 
           {clienteId && (
@@ -447,7 +466,10 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
             </button>
             <button
               type="button"
-              onClick={() => setAnteprima(null)}
+              onClick={() => {
+                setAnteprima(null);
+                setTroncamento(null);
+              }}
               className="rounded-xl border border-gray-200 text-sm font-semibold px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
             >
               Annulla

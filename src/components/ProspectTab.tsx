@@ -7,6 +7,7 @@ import { ReportCommercialeView } from "@/components/ReportCommercialeView";
 import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
+import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
 
 type Props = {
@@ -123,6 +124,10 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
   const [anteprima, setAnteprima] = useState<ReportCommercialeDataLoose | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [erroreForm, setErroreForm] = useState<string | null>(null);
+  // Segnale momentaneo (non salvato) di quanto testo scrapato non è stato passato al modello
+  // perché oltre il limite caratteri/token del piano Groq — vedi estrazione.ts. Solo per chi sta
+  // creando il report in quel momento, non un campo del dato persistito.
+  const [troncamento, setTroncamento] = useState<TroncamentoInfo | null>(null);
 
   const [inviaAutomatica, setInviaAutomatica] = useState(!!prospectEmail);
   const [emailBozza, setEmailBozza] = useState<string | null>(null);
@@ -163,6 +168,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
     setEstraendo(true);
     setErroreForm(null);
     setEsitoInvio(null);
+    setTroncamento(null);
     try {
       const res = await fetch("/api/report-commerciale/estrai", {
         method: "POST",
@@ -171,14 +177,15 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Estrazione non riuscita");
+      const { dati, troncamento: info } = body as { dati: ReportCommercialeDataLoose; troncamento: TroncamentoInfo | null };
       // Ragione sociale/tipo business/fatturato/sedi: quanto già salvato sul prospect resta come
       // base, l'estrazione lo sovrascrive solo se ha trovato qualcosa di non vuoto — vedi memoria
       // di progetto ("salvato come impostazione del cliente").
-      const estratto = body as ReportCommercialeDataLoose;
       setAnteprima({
-        ...estratto,
-        ragioneSociale: estratto.ragioneSociale || ragioneSociale,
+        ...dati,
+        ragioneSociale: dati.ragioneSociale || ragioneSociale,
       });
+      setTroncamento(info);
       setInviaAutomatica(!!prospectEmail);
       setEmailBozza(null);
     } catch (err) {
@@ -209,6 +216,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
         setEsitoInvio({ inviata: !!body.emailInviata, errore: body.erroreEmail ?? (body.emailInviata ? null : "errore sconosciuto") });
       }
       setAnteprima(null);
+      setTroncamento(null);
       setUrl("");
       setMostraForm(false);
       setRefreshTick((t) => t + 1);
@@ -326,6 +334,16 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
         <div className="space-y-3">
           <h4 className="text-sm font-semibold text-ink-900">Anteprima — verifica e modifica prima di salvare</h4>
 
+          {troncamento && (
+            <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
+              La chiamata era più lunga di quanto il modello riesca ad analizzare in un colpo solo: elaborati{" "}
+              {troncamento.caratteriElaborati.toLocaleString("it-IT")} di{" "}
+              {troncamento.caratteriTotali.toLocaleString("it-IT")} caratteri (
+              {Math.round((troncamento.caratteriElaborati / troncamento.caratteriTotali) * 100)}%). Le parti finali
+              della chiamata potrebbero non essere riflesse nel report — controlla con attenzione prima di salvare.
+            </p>
+          )}
+
           <ReportCommercialeView report={anteprima} onChange={(u) => setAnteprima({ ...anteprima, ...u })} />
 
           <ReportAzioni
@@ -355,7 +373,14 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
             <Button type="button" onClick={handleSalva} disabled={salvando}>
               {salvando ? (inviaAutomatica ? "Salvataggio e invio…" : "Salvataggio…") : "Salva"}
             </Button>
-            <Button type="button" variant="ghost" onClick={() => setAnteprima(null)}>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => {
+                setAnteprima(null);
+                setTroncamento(null);
+              }}
+            >
               Annulla
             </Button>
           </div>
