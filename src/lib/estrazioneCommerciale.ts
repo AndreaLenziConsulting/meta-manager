@@ -176,9 +176,13 @@ export async function estraiReportCommerciale(
     );
   }
 
-  // Stesso budget caratteri/token di estrazione.ts — vincolo reale del piano Groq free (8K TPM),
-  // non una precauzione. Vedi commento lì per la matematica completa.
-  const charLimit = source === "loom" ? 11_000 : 10_000;
+  // Stesso vincolo di estrazione.ts (piano Groq free, 8K TPM) ma con margine più ampio: il
+  // budget precedente (10-11K caratteri) è arrivato a sforare in produzione su una chiamata
+  // reale ("Request too large ... Limit 8000, Requested 8062" — sforato di appena 62 token,
+  // segno che il margine non era sufficiente). Il conteggio esatto caratteri→token varia con la
+  // lingua/punteggiatura del testo reso dal browser, quindi qui il margine è tenuto largo invece
+  // di ritoccare il numero al minimo che avrebbe fatto passare solo quel caso specifico.
+  const charLimit = source === "loom" ? 9_000 : 8_000;
   const trimmed = visible.slice(0, charLimit);
   const troncamento: TroncamentoInfo | null =
     visible.length > charLimit ? { caratteriTotali: visible.length, caratteriElaborati: charLimit } : null;
@@ -187,18 +191,24 @@ export async function estraiReportCommerciale(
       `[estrazioneCommerciale] Testo troncato per ${sourceName} (${url}): elaborati ${troncamento.caratteriElaborati} di ${troncamento.caratteriTotali} caratteri.`
     );
   }
-  const userContent = `URL: ${url}
+  const buildUserContent = (testo: string) => `URL: ${url}
 Fonte: ${source}
 
 --- TESTO RESO DAL BROWSER ---
-${trimmed}
+${testo}
 `;
 
   const client = new Groq({ apiKey });
 
+  // Anche con il margine sopra, un testo insolitamente denso di token (poca punteggiatura, molti
+  // termini tecnici) può ancora sforare il limite — invece di arrenderci subito, un tentativo in
+  // più riducendo drasticamente il contenuto: un'estrazione da un estratto più corto è comunque
+  // meglio di un errore secco per chi sta usando l'app in una chiamata di vendita vera.
+  let contenutoAttuale = trimmed;
   let completion: Awaited<ReturnType<typeof client.chat.completions.create>> | null = null;
   let ultimoErroreGroq: unknown = null;
-  for (let tentativo = 1; tentativo <= 2; tentativo++) {
+  const TENTATIVI_GROQ = 3;
+  for (let tentativo = 1; tentativo <= TENTATIVI_GROQ; tentativo++) {
     try {
       completion = await client.chat.completions.create({
         model: "openai/gpt-oss-120b",
@@ -207,7 +217,7 @@ ${trimmed}
         reasoning_effort: "low",
         messages: [
           { role: "system", content: SYSTEM_PROMPT_COMMERCIALE },
-          { role: "user", content: userContent },
+          { role: "user", content: buildUserContent(contenutoAttuale) },
         ],
         tools: [EXTRACTION_TOOL_COMMERCIALE],
         tool_choice: { type: "function", function: { name: "save_report_commerciale" } },
@@ -216,6 +226,11 @@ ${trimmed}
     } catch (err) {
       ultimoErroreGroq = err;
       const msg = err instanceof Error ? err.message : String(err);
+      const troppoGrande = /rate_limit_exceeded|request too large|too large for model/i.test(msg);
+      if (troppoGrande && tentativo < TENTATIVI_GROQ) {
+        contenutoAttuale = contenutoAttuale.slice(0, Math.floor(contenutoAttuale.length * 0.6));
+        continue;
+      }
       if (!/tool_use_failed/i.test(msg)) break;
     }
   }
@@ -226,6 +241,12 @@ ${trimmed}
       throw new EstrazioneError(
         `Impossibile estrarre il contenuto dal link ${sourceName} anche dopo un secondo tentativo. Verifica che il link sia un link di condivisione pubblico e che la chiamata sia stata elaborata, oppure riprova tra qualche secondo.`,
         422
+      );
+    }
+    if (/rate_limit_exceeded|request too large|too large for model/i.test(msg)) {
+      throw new EstrazioneError(
+        `La trascrizione di questa chiamata è troppo densa per essere elaborata in un colpo solo, anche dopo aver ridotto il contenuto. Riprova tra qualche minuto (il limite si libera nel tempo), oppure segnalalo per alzare il limite dell'account Groq.`,
+        502
       );
     }
     throw new EstrazioneError(`Errore dal modello: ${msg}`, 502);
