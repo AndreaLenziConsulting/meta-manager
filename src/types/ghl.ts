@@ -83,6 +83,10 @@ export type GhlRiepilogoResponse =
       calendariConfigurati: boolean;
       appuntamenti: { totali: number; confermati: number; annullati: number; effettuati: number };
       opportunita: { vendite: number; fatturato: number };
+      // Stesso fatturato di `opportunita.fatturato`, ma spezzato per mese (lastStatusChangeAt) —
+      // alimenta il grafico del tab KPI, tracciato a livello mensile. Vedi fatturatoGhlPerMese in
+      // lib/ghl.ts.
+      fatturatoPerMese: { mese: string; fatturato: number }[];
       // >0 se uno o più calendari erano irraggiungibili al momento della richiesta (dopo un
       // retry) — il conteggio appuntamenti è quindi parziale, non un vero zero. Vedi fetchAppuntamenti.
       calendariFalliti: number;

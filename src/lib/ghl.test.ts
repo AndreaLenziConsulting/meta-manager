@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
+import { fatturatoGhlPerMese, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
 import type { GhlAppuntamento, GhlOpportunita } from "@/types/ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
@@ -131,5 +131,27 @@ describe("riepilogoOpportunita", () => {
   it("esclude un'opportunità vinta fuori dal periodo anche se creata dentro", () => {
     const lista = [opportunita({ status: "won", monetaryValue: 1000, createdAt: "2026-08-01T00:00:00Z", lastStatusChangeAt: "2026-09-15T00:00:00Z" })];
     expect(riepilogoOpportunita(lista, AGOSTO_INIZIO, AGOSTO_FINE)).toEqual({ vendite: 0, fatturato: 0 });
+  });
+});
+
+describe("fatturatoGhlPerMese", () => {
+  const GIU_INIZIO = new Date("2026-06-01T00:00:00Z").getTime();
+
+  it("nessuna opportunità -> array vuoto", () => {
+    expect(fatturatoGhlPerMese([], GIU_INIZIO, AGOSTO_FINE)).toEqual([]);
+  });
+
+  it("raggruppa per mese di lastStatusChangeAt, ordinato, sole vinte nel periodo", () => {
+    const lista = [
+      opportunita({ id: "1", status: "won", monetaryValue: 1000, lastStatusChangeAt: "2026-08-05T00:00:00Z" }),
+      opportunita({ id: "2", status: "won", monetaryValue: 2500, lastStatusChangeAt: "2026-08-20T00:00:00Z" }),
+      opportunita({ id: "3", status: "won", monetaryValue: 400, lastStatusChangeAt: "2026-06-10T00:00:00Z" }),
+      opportunita({ id: "4", status: "open", monetaryValue: 9999, lastStatusChangeAt: "2026-07-10T00:00:00Z" }),
+      opportunita({ id: "5", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-05-10T00:00:00Z" }), // fuori periodo
+    ];
+    expect(fatturatoGhlPerMese(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([
+      { mese: "2026-06", fatturato: 400 },
+      { mese: "2026-08", fatturato: 3500 },
+    ]);
   });
 });

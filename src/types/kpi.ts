@@ -134,7 +134,10 @@ export type KpiResponse = {
   gruppi: KpiGroup[];
   totale: KpiGroup;
   trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
-  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number }[];
+  // `mese` = mese di appartenenza già risolto da computeKpi (vedi kpi.ts) — esposto perché
+  // KpiDashboard.tsx lo usa per sapere quale fatturato mensile GHL sovrapporre a questa settimana
+  // quando la sede è connessa, vedi kpiGhlOverlay.ts.
+  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number; mese: string }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
 };

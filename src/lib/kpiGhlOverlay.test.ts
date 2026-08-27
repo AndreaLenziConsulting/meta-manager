@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { applicaOverlayGhl } from "./kpiGhlOverlay";
+import { applicaOverlayGhl, applicaOverlayGhlTrend } from "./kpiGhlOverlay";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 const TOTALE_FUNNEL = {
@@ -20,6 +20,10 @@ function ghlConnesso(overrides: Partial<Extract<GhlRiepilogoResponse, { connesso
     calendariConfigurati: true,
     appuntamenti: { totali: 7, confermati: 4, annullati: 3, effettuati: 5 },
     opportunita: { vendite: 6, fatturato: 19991 },
+    fatturatoPerMese: [
+      { mese: "2026-06", fatturato: 5000 },
+      { mese: "2026-08", fatturato: 14991 },
+    ],
     calendariFalliti: 0,
     ...overrides,
   };
@@ -99,5 +103,39 @@ describe("applicaOverlayGhl", () => {
       ghlConnesso({ appuntamenti: { totali: 7, confermati: 0, annullati: 7, effettuati: 0 } })
     );
     expect(rEffettuatiZero.tassoDiChiusura).toEqual({ valore: null, fonte: "ghl" });
+  });
+});
+
+describe("applicaOverlayGhlTrend", () => {
+  const TREND = [
+    { settimana: "2026-06-01", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-06" },
+    { settimana: "2026-07-06", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-07" },
+    { settimana: "2026-08-03", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-08" },
+  ];
+
+  it("non connesso -> il trend resta quello del Funnel, invariato", () => {
+    expect(applicaOverlayGhlTrend(TREND, null)).toEqual(TREND);
+  });
+
+  it("filtro campagne attivo -> il trend resta quello del Funnel, invariato", () => {
+    expect(applicaOverlayGhlTrend(TREND, ghlConnesso(), { filtroCampagneAttivo: true })).toEqual(TREND);
+  });
+
+  it("connesso -> ogni settimana prende il fatturato GHL del proprio mese", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
+    expect(r.find((s) => s.settimana === "2026-06-01")?.fatturato).toBe(5000);
+    expect(r.find((s) => s.settimana === "2026-08-03")?.fatturato).toBe(14991);
+  });
+
+  it("un mese senza nessuna opportunità vinta in GHL diventa 0, non il valore del Funnel — mai un patchwork di due fonti sulla stessa linea", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
+    const luglio = r.find((s) => s.settimana === "2026-07-06");
+    expect(luglio?.fatturato).toBe(0); // luglio non è in fatturatoPerMese del fixture ghlConnesso()
+  });
+
+  it("altri campi della settimana (investimento, numeroLead) restano invariati", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
+    expect(r[0].investimento).toBe(100);
+    expect(r[0].numeroLead).toBe(5);
   });
 });

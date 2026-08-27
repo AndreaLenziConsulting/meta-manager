@@ -1,5 +1,5 @@
 import { divideOrNull } from "@/lib/kpi";
-import type { KpiGroup } from "@/types/kpi";
+import type { KpiGroup, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 export type CampoConFonte<T> = { valore: T; fonte: "ghl" | "funnel" };
@@ -103,4 +103,28 @@ export function applicaOverlayGhl(
   }
 
   return risultato;
+}
+
+/**
+ * Sovrappone il fatturato mensile GHL al trend settimanale del grafico "Investimento vs Fatturato"
+ * (TrendChart.tsx) — senza questo il grafico continuerebbe a mostrare il fatturato del Funnel
+ * (spesso 0 per un cliente GHL, dato inserito a mano) anche quando le tessere sopra mostrano già i
+ * numeri reali letti da GHL, un'incoerenza altrimenti visibile tra tessere e grafico sulla stessa
+ * pagina. Ogni settimana usa il fatturato del SUO mese di appartenenza già risolto da computeKpi
+ * (campo `mese`, vedi kpi.ts) — se GHL non ha nessuna opportunità vinta in quel mese il valore
+ * diventa 0, non il Funnel: una volta connesso, l'intera linea segue una sola fonte, mai un
+ * patchwork mese per mese. Stesse condizioni di sospensione di applicaOverlayGhl (filtro campagne
+ * attivo, non connesso) — il fatturato non dipende dai calendari, quindi nessun controllo su
+ * calendariConfigurati qui.
+ */
+export function applicaOverlayGhlTrend(
+  trendSettimanale: KpiResponse["trendSettimanale"],
+  ghl: GhlRiepilogoResponse | null,
+  opzioni: { filtroCampagneAttivo: boolean } = { filtroCampagneAttivo: false }
+): KpiResponse["trendSettimanale"] {
+  if (opzioni.filtroCampagneAttivo || !ghl || !ghl.connesso) {
+    return trendSettimanale;
+  }
+  const fatturatoPerMese = new Map(ghl.fatturatoPerMese.map((m) => [m.mese, m.fatturato]));
+  return trendSettimanale.map((s) => ({ ...s, fatturato: fatturatoPerMese.get(s.mese) ?? 0 }));
 }

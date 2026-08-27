@@ -232,3 +232,28 @@ export function riepilogoOpportunita(opportunita: GhlOpportunita[], startMs: num
     fatturato: vinte.reduce((somma, o) => somma + (o.monetaryValue || 0), 0),
   };
 }
+
+/**
+ * Come riepilogoOpportunita, ma il fatturato è raggruppato per mese di lastStatusChangeAt invece
+ * che sommato in un unico totale — alimenta il grafico "Investimento vs Fatturato" del tab KPI
+ * (vedi kpiGhlOverlay.ts/TrendChart.tsx), che è tracciato a livello mensile. Nessuna chiamata API
+ * in più: usa la stessa lista `opportunita` (l'intera location, già scaricata da fetchOpportunita)
+ * già passata a riepilogoOpportunita.
+ */
+export function fatturatoGhlPerMese(
+  opportunita: GhlOpportunita[],
+  startMs: number,
+  endMs: number
+): { mese: string; fatturato: number }[] {
+  const perMese = new Map<string, number>();
+  for (const o of opportunita) {
+    if (o.status !== "won") continue;
+    const t = new Date(o.lastStatusChangeAt).getTime();
+    if (!Number.isFinite(t) || t < startMs || t > endMs) continue;
+    const mese = o.lastStatusChangeAt.slice(0, 7);
+    perMese.set(mese, (perMese.get(mese) ?? 0) + (o.monetaryValue || 0));
+  }
+  return Array.from(perMese.entries())
+    .map(([mese, fatturato]) => ({ mese, fatturato }))
+    .sort((a, b) => a.mese.localeCompare(b.mese));
+}

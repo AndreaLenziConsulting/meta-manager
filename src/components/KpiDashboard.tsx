@@ -8,12 +8,11 @@ import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import { calcolaSalute } from "@/lib/salute";
 import { formatMotivoIntervento } from "@/lib/saluteMessaggio";
 import { attivitaInRitardo } from "@/lib/roadmap";
-import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
+import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
@@ -165,6 +164,14 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
         filtroCampagneAttivo: campagneSelezionate !== null,
       })
     : null;
+  // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello del
+  // Funnel (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
+  // sulla stessa pagina. Vedi applicaOverlayGhlTrend in kpiGhlOverlay.ts.
+  const trendSettimanaleConOverlay = dati
+    ? applicaOverlayGhlTrend(dati.trendSettimanale, campagneSelezionate ? null : ghlDati, {
+        filtroCampagneAttivo: campagneSelezionate !== null,
+      })
+    : [];
 
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
   // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
@@ -231,35 +238,21 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
   // passato e mai annullato — vedi il commento in cima a kpiGhlOverlay.ts), quindi ora PUÒ venire da
   // GHL insieme a fissati/%/tasso di chiusura, quando i calendari sono configurati: numeratore e
   // denominatore del tasso di chiusura sono in quel caso entrambi GHL, mai un mix con il Funnel.
+  // Nessuna etichetta "GHL" in vista (tolta su richiesta esplicita) — il dato sostituisce quello del
+  // Funnel senza distinguerlo visivamente in UI, resta distinguibile solo leggendo `fonte` in overlayGhl.
   const metricheSecondarie =
     dati && overlayGhl
       ? [
           { label: "Investimento", value: formatEuro(dati.totale.investimento) },
           { label: "Lead", value: formatNumero(dati.totale.numeroLead) },
           { label: "Costo per Lead", value: formatEuro(dati.totale.costoPerLead) },
-          {
-            label: "Appuntamenti fissati",
-            value: formatNumero(overlayGhl.appuntamentiFissati.valore),
-            ghl: overlayGhl.appuntamentiFissati.fonte === "ghl",
-          },
-          {
-            label: "Appuntamenti effettuati",
-            value: formatNumero(overlayGhl.appuntamentiEffettuati.valore),
-            ghl: overlayGhl.appuntamentiEffettuati.fonte === "ghl",
-          },
-          {
-            label: "% effettuati su fissati",
-            value: formatPercentuale(overlayGhl.percentualeEffettuatiSuFissati.valore),
-            ghl: overlayGhl.percentualeEffettuatiSuFissati.fonte === "ghl",
-          },
-          { label: "Vendite", value: formatNumero(overlayGhl.numeroVendite.valore), ghl: overlayGhl.numeroVendite.fonte === "ghl" },
-          {
-            label: "Tasso di chiusura",
-            value: formatPercentuale(overlayGhl.tassoDiChiusura.valore),
-            ghl: overlayGhl.tassoDiChiusura.fonte === "ghl",
-          },
-          { label: "ROAS", value: formatRoas(overlayGhl.roas.valore), ghl: overlayGhl.roas.fonte === "ghl" },
-          { label: "CPA", value: formatEuro(overlayGhl.cpa.valore), ghl: overlayGhl.cpa.fonte === "ghl" },
+          { label: "Appuntamenti fissati", value: formatNumero(overlayGhl.appuntamentiFissati.valore) },
+          { label: "Appuntamenti effettuati", value: formatNumero(overlayGhl.appuntamentiEffettuati.valore) },
+          { label: "% effettuati su fissati", value: formatPercentuale(overlayGhl.percentualeEffettuatiSuFissati.valore) },
+          { label: "Vendite", value: formatNumero(overlayGhl.numeroVendite.valore) },
+          { label: "Tasso di chiusura", value: formatPercentuale(overlayGhl.tassoDiChiusura.valore) },
+          { label: "ROAS", value: formatRoas(overlayGhl.roas.valore) },
+          { label: "CPA", value: formatEuro(overlayGhl.cpa.valore) },
         ]
       : [];
 
@@ -336,10 +329,7 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
           <div>
             <div className="pb-5 mb-5 border-b border-ink-300/60">
-              <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Fatturato</p>
-                {overlayGhl?.fatturato.fonte === "ghl" && <Badge tono="neutro">GHL</Badge>}
-              </div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Fatturato</p>
               <p className="font-heading font-bold text-4xl sm:text-5xl text-ink-900 mt-1.5 tabular-nums">
                 {formatEuro(overlayGhl?.fatturato.valore ?? dati.totale.fatturato)}
               </p>
@@ -347,10 +337,7 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
               {metricheSecondarie.map((m) => (
                 <div key={m.label}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500 flex items-center gap-1.5">
-                    {m.label}
-                    {"ghl" in m && m.ghl && <Badge tono="neutro">GHL</Badge>}
-                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{m.label}</p>
                   <p className="font-heading font-bold text-xl text-ink-900 mt-1 tabular-nums">{m.value}</p>
                 </div>
               ))}
@@ -364,7 +351,7 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
             )}
           </div>
 
-          <TrendChart trendSettimanale={dati.trendSettimanale} />
+          <TrendChart trendSettimanale={trendSettimanaleConOverlay} />
 
           <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} />
         </div>

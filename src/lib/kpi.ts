@@ -62,7 +62,9 @@ export type KpiComputationResult = {
   // solo a livello mensile, non esiste un vero "fatturato della settimana") — null solo se quel
   // mese non ha proprio un'entrata in trendMap (caso limite, non dovrebbe verificarsi dato che la
   // settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso mese).
-  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number }[];
+  // `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante può avere un
+  // fatturato mensile alternativo da sovrapporre a questa settimana (vedi kpiGhlOverlay.ts).
+  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number; mese: string }[];
 };
 
 /**
@@ -191,6 +193,10 @@ export function computeKpi(
         // il Funnel è tracciato solo a livello mensile: il fatturato mostrato per una settimana è
         // quello del mese con più spesa in quella settimana (vedi nota sopra su spesaPerMese).
         fatturato: trendMap.get(meseProprietario)?.fatturato ?? null,
+        // Esposto (non solo usato internamente per il lookup sopra) perché il chiamante può avere
+        // un fatturato mensile alternativo da sovrapporre a questa settimana (vedi
+        // kpiGhlOverlay.ts) — senza saperne il mese di appartenenza non saprebbe quale usare.
+        mese: meseProprietario,
       };
     })
     .sort((a, b) => a.settimana.localeCompare(b.settimana));

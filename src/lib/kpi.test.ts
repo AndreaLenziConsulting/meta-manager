@@ -84,7 +84,7 @@ describe("computeKpi", () => {
   it("il trend settimanale usa il lunedì della settimana come chiave, coerente a cavallo di mese, e riporta il fatturato del mese di appartenenza", () => {
     // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana.
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
-    expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15 }]);
+    expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15, mese: "2026-06" }]);
   });
 
   it("una settimana a cavallo di due mesi riporta il fatturato del mese con più spesa in quella settimana", () => {

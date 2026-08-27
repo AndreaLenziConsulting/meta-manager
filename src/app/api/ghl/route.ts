@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { fetchAppuntamenti, fetchOpportunita, riepilogoAppuntamenti, riepilogoOpportunita } from "@/lib/ghl";
+import { fatturatoGhlPerMese, fetchAppuntamenti, fetchOpportunita, riepilogoAppuntamenti, riepilogoOpportunita } from "@/lib/ghl";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
@@ -71,6 +71,7 @@ export async function GET(req: NextRequest) {
       calendariConfigurati: connessione.calendarIds.length > 0,
       appuntamenti: riepilogoAppuntamenti(appuntamenti, startMs, endMs),
       opportunita: riepilogoOpportunita(opportunitaVinte, startMs, endMs),
+      fatturatoPerMese: fatturatoGhlPerMese(opportunitaVinte, startMs, endMs),
       calendariFalliti,
     };
     return NextResponse.json(risposta);
