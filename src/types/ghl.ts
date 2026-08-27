@@ -34,9 +34,11 @@ export type GhlCalendario = { id: string; name: string; calendarType: string };
 
 /**
  * Appuntamento GHL così com'è restituito da /calendars/events. `appointmentStatus` resta stringa
- * libera (non un'unione stretta): nell'account di test osservati solo "confirmed"/"cancelled" —
- * GHL supporta anche "showed"/"noshow" per chi segna le presenze, ma non va assunto per account
- * che non lo fanno. Vedi riepilogoAppuntamenti in src/lib/ghl.ts.
+ * libera (non un'unione stretta): nell'account osservati solo "confirmed"/"cancelled" — GHL
+ * supporta anche "showed"/"noshow" per chi segna le presenze, ma non va assunto per account che
+ * non lo fanno. Per questo "effettuato" (vedi riepilogoAppuntamenti in src/lib/ghl.ts) è uno
+ * standard operativo deciso dall'utente (appuntamento passato e mai annullato), non un vero
+ * segnale di presenza letto da GHL.
  */
 export type GhlAppuntamento = {
   id: string;
@@ -79,7 +81,7 @@ export type GhlRiepilogoResponse =
       // appuntamenti restano a zero finché l'admin non sceglie quali calendari includere, invece
       // di includerli tutti in automatico (vedi GhlConnessione.calendarIds).
       calendariConfigurati: boolean;
-      appuntamenti: { totali: number; confermati: number; annullati: number };
+      appuntamenti: { totali: number; confermati: number; annullati: number; effettuati: number };
       opportunita: { vendite: number; fatturato: number };
       // >0 se uno o più calendari erano irraggiungibili al momento della richiesta (dopo un
       // retry) — il conteggio appuntamenti è quindi parziale, non un vero zero. Vedi fetchAppuntamenti.

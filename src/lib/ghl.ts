@@ -186,17 +186,20 @@ export async function fetchOpportunita(locationId: string, token: string, opts: 
  * appuntamentiFissati del Funnel esistente, un conteggio di attività del mese, non un'agenda
  * futura — vedi il commento su GhlAppuntamento.dateAdded.
  *
- * Deliberatamente "confermati"/"annullati", non "fissati"/"effettuati" come nel Funnel:
- * appointmentStatus nell'account di test porta solo "confirmed" e "cancelled" (mai "showed"/
- * "noshow"), quindi non è possibile derivare in modo affidabile una vera presenza confermata.
- * Riflettere questo onestamente invece di forzare la stessa etichettatura del Funnel è il motivo
- * per cui GhlRiepilogoResponse resta un tipo a parte da KpiGroup.
+ * `effettuati` — standard operativo deciso dall'utente (27/08/2026), non un vero segnale di
+ * presenza da GHL: appointmentStatus nell'account porta solo "confirmed"/"cancelled" (mai
+ * "showed"/"noshow"), quindi GHL da solo non sa se il cliente si è presentato davvero. La regola
+ * concordata per i commerciali è: un appuntamento con data dell'incontro (startTime, non
+ * dateAdded) già passata e MAI annullato attivamente conta come effettuato — chi non si presenta
+ * va annullato a mano, altrimenti resta conteggiato come avvenuto. `oraAttualeMs` è un parametro
+ * (default Date.now()) solo per rendere la funzione testabile senza dipendere dall'orologio reale.
  */
 export function riepilogoAppuntamenti(
   appuntamenti: GhlAppuntamento[],
   startMs: number,
-  endMs: number
-): { totali: number; confermati: number; annullati: number } {
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): { totali: number; confermati: number; annullati: number; effettuati: number } {
   const nelPeriodo = appuntamenti.filter((a) => {
     if (a.deleted) return false;
     const t = new Date(a.dateAdded).getTime();
@@ -206,6 +209,9 @@ export function riepilogoAppuntamenti(
     totali: nelPeriodo.length,
     confermati: nelPeriodo.filter((a) => a.appointmentStatus === "confirmed").length,
     annullati: nelPeriodo.filter((a) => a.appointmentStatus === "cancelled").length,
+    effettuati: nelPeriodo.filter(
+      (a) => a.appointmentStatus !== "cancelled" && new Date(a.startTime).getTime() < oraAttualeMs
+    ).length,
   };
 }
 

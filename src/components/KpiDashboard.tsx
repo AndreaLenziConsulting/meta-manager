@@ -227,11 +227,10 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
         )
       : null;
 
-  // "Appuntamenti effettuati" / "% effettuati su fissati" / "Tasso di chiusura" restano SEMPRE dal
-  // Funnel, mai da overlayGhl — scelta deliberata, non dimenticanza: vedi il commento in cima a
-  // kpiGhlOverlay.ts sul perché (GHL in questo dominio non sa se il cliente si è presentato
-  // davvero, e mescolare un numeratore GHL con un denominatore Funnel nel tasso di chiusura
-  // sarebbe più fuorviante che lasciare entrambi su una sola fonte).
+  // "Appuntamenti effettuati" segue lo standard operativo deciso dall'utente il 27/08/2026 (incontro
+  // passato e mai annullato — vedi il commento in cima a kpiGhlOverlay.ts), quindi ora PUÒ venire da
+  // GHL insieme a fissati/%/tasso di chiusura, quando i calendari sono configurati: numeratore e
+  // denominatore del tasso di chiusura sono in quel caso entrambi GHL, mai un mix con il Funnel.
   const metricheSecondarie =
     dati && overlayGhl
       ? [
@@ -243,10 +242,22 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
             value: formatNumero(overlayGhl.appuntamentiFissati.valore),
             ghl: overlayGhl.appuntamentiFissati.fonte === "ghl",
           },
-          { label: "Appuntamenti effettuati", value: formatNumero(dati.totale.appuntamentiEffettuati) },
-          { label: "% effettuati su fissati", value: formatPercentuale(dati.totale.percentualeEffettuatiSuFissati) },
+          {
+            label: "Appuntamenti effettuati",
+            value: formatNumero(overlayGhl.appuntamentiEffettuati.valore),
+            ghl: overlayGhl.appuntamentiEffettuati.fonte === "ghl",
+          },
+          {
+            label: "% effettuati su fissati",
+            value: formatPercentuale(overlayGhl.percentualeEffettuatiSuFissati.valore),
+            ghl: overlayGhl.percentualeEffettuatiSuFissati.fonte === "ghl",
+          },
           { label: "Vendite", value: formatNumero(overlayGhl.numeroVendite.valore), ghl: overlayGhl.numeroVendite.fonte === "ghl" },
-          { label: "Tasso di chiusura", value: formatPercentuale(dati.totale.tassoDiChiusura) },
+          {
+            label: "Tasso di chiusura",
+            value: formatPercentuale(overlayGhl.tassoDiChiusura.valore),
+            ghl: overlayGhl.tassoDiChiusura.fonte === "ghl",
+          },
           { label: "ROAS", value: formatRoas(overlayGhl.roas.valore), ghl: overlayGhl.roas.fonte === "ghl" },
           { label: "CPA", value: formatEuro(overlayGhl.cpa.valore), ghl: overlayGhl.cpa.fonte === "ghl" },
         ]
@@ -346,8 +357,9 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
             </div>
             {overlayGhl?.parziale && (
               <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mt-5">
-                Uno o più calendari GHL non erano raggiungibili al momento del caricamento — il numero di
-                &quot;Appuntamenti fissati&quot; potrebbe essere incompleto (vendite e fatturato non sono interessati).
+                Uno o più calendari GHL non erano raggiungibili al momento del caricamento — i numeri di
+                &quot;Appuntamenti fissati/effettuati&quot;, &quot;% effettuati su fissati&quot; e &quot;Tasso di chiusura&quot;
+                potrebbero essere incompleti (vendite e fatturato non sono interessati).
               </p>
             )}
           </div>
