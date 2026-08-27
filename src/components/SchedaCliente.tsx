@@ -18,9 +18,13 @@ type Props = {
   // mostra questi numeri direttamente — vedi kpiGhlOverlay.ts) ma dice a KpiDashboard se tentare
   // il fetch GHL per sostituire le sue tessere.
   haConnessioneGhl?: boolean;
+  // Solo l'admin può collegare un ad account dal tab KPI (stesso gate di /api/sedi PATCH) — mai
+  // sul link pubblico cliente (code), mai per un consulente che vede il cliente ma non può
+  // modificarlo. Calcolato lato server in dashboard/cliente/[clienteId]/page.tsx.
+  ruoloAdmin?: boolean;
 };
 
-export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tuttiITab, haConnessioneGhl }: Props) {
+export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tuttiITab, haConnessioneGhl, ruoloAdmin }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
   const [meetingDaEvidenziare, setMeetingDaEvidenziare] = useState<string | null>(null);
@@ -40,14 +44,16 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
   ];
 
   if (tabs.length === 1) {
-    return <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} />;
+    return <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />;
   }
 
   return (
     <div className="space-y-6">
       <Tabs tabs={tabs} attivo={tabAttivo} onChange={setTabAttivo} />
 
-      {tabAttivo === "kpi" && <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} />}
+      {tabAttivo === "kpi" && (
+        <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />
+      )}
 
       {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} />}
 

@@ -205,7 +205,7 @@ function SedeRow({
         <Field label="Nome sede">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} />
         </Field>
-        <Field label="Ad account Meta">
+        <Field label="Ad account Meta (opzionale)">
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
@@ -237,7 +237,7 @@ function SedeRow({
           size="sm"
           variant="ghost"
           onClick={salva}
-          disabled={salvando || !nome || !/^\d+$/.test(adAccountId)}
+          disabled={salvando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}
         >
           {salvando ? "Salvataggio…" : "Salva sede"}
         </Button>
@@ -500,7 +500,7 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
         <Field label="Nome sede">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Es. Milano" autoFocus />
         </Field>
-        <Field label="Ad account Meta">
+        <Field label="Ad account Meta (opzionale)">
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
@@ -514,7 +514,7 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome || !/^\d+$/.test(adAccountId)}>
+        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}>
           {creando ? "Creazione…" : "Crea sede"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(false)}>

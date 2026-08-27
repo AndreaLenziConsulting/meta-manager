@@ -26,9 +26,9 @@ function meseIndietro(n: number): string {
   return d.toISOString().slice(0, 7);
 }
 
-type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean };
+type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
 
-export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
+export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
   const [da, setDa] = useState(meseIndietro(2));
   const [a, setA] = useState(meseCorrente());
   const [dati, setDati] = useState<KpiResponse | null>(null);
@@ -37,6 +37,11 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [sincronizzando, setSincronizzando] = useState(false);
   const [esitoSync, setEsitoSync] = useState<string | null>(null);
+  // Form inline "+ Aggiungi ad account" nell'avviso sotto — mai aperto di default, solo admin.
+  const [adAccountAperto, setAdAccountAperto] = useState(false);
+  const [adAccountBozza, setAdAccountBozza] = useState("");
+  const [salvandoAdAccount, setSalvandoAdAccount] = useState(false);
+  const [erroreAdAccount, setErroreAdAccount] = useState<string | null>(null);
   // Solo per la vista interna (clienteId) — mai richiesto/mostrato sul link pubblico (code), vedi
   // il richiamo "solo per il team" più sotto e src/app/api/attivita/route.ts (già riservata al team).
   const [attivitaInRitardoCount, setAttivitaInRitardoCount] = useState(0);
@@ -224,6 +229,38 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
     }
   }
 
+  // Collega un ad account a una sede che ne è priva (opzionale alla creazione, vedi
+  // /api/clienti) — stessa route PATCH usata da ModificaClienteModal, solo admin (già garantito
+  // server-side, qui solo per non mostrare un pulsante che darebbe comunque 403). Dopo il
+  // salvataggio, refreshTick fa ripartire il fetch KPI: l'avviso sparisce da sé quando
+  // dati.sede.adAccountId torna valorizzato.
+  async function handleSalvaAdAccount() {
+    if (!dati) return;
+    const valore = adAccountBozza.trim();
+    if (!/^\d+$/.test(valore)) {
+      setErroreAdAccount('Ad account id non valido: solo cifre, senza il prefisso "act_"');
+      return;
+    }
+    setSalvandoAdAccount(true);
+    setErroreAdAccount(null);
+    try {
+      const res = await fetch("/api/sedi", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sedeId: dati.sede.sedeId, adAccountId: valore }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      setAdAccountAperto(false);
+      setAdAccountBozza("");
+      setRefreshTick((t) => t + 1);
+    } catch (err) {
+      setErroreAdAccount(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvandoAdAccount(false);
+    }
+  }
+
   // Motivo del richiamo: null quando non c'è nulla da segnalare, sempre e solo per la vista
   // interna — vedi formatMotivoIntervento per l'unico punto di verità su quando comparire.
   const motivo =
@@ -281,6 +318,58 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
               <span className="text-[10px] font-semibold uppercase tracking-widest text-red-700/60 whitespace-nowrap">
                 Visibile solo al team
               </span>
+            </div>
+          )}
+          {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
+              nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
+              clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
+              senso mostrato al cliente finale, è un'azione di configurazione del team. */}
+          {clienteId && !dati.sede.adAccountId && (
+            <div className="mt-3 rounded-lg bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
+              <p>
+                Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero
+                finché non lo colleghi.
+              </p>
+              {ruoloAdmin &&
+                (adAccountAperto ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={adAccountBozza}
+                      onChange={(e) => setAdAccountBozza(e.target.value)}
+                      placeholder="Solo cifre, senza act_"
+                      autoFocus
+                      className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSalvaAdAccount}
+                      disabled={salvandoAdAccount}
+                      className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+                    >
+                      {salvandoAdAccount ? "Salvataggio…" : "Salva"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdAccountAperto(false);
+                        setErroreAdAccount(null);
+                      }}
+                      className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAdAccountAperto(true)}
+                    className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+                  >
+                    + Aggiungi ad account
+                  </button>
+                ))}
+              {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
             </div>
           )}
         </div>

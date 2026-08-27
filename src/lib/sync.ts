@@ -9,8 +9,18 @@ function formatData(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Sincronizza spesa/lead e stato campagne da Meta Ads per una singola sede sulla finestra rolling di default. */
+/**
+ * Sincronizza spesa/lead e stato campagne da Meta Ads per una singola sede sulla finestra rolling
+ * di default. Una sede senza ad account collegato (opzionale alla creazione, vedi /api/clienti e
+ * /api/sedi) non ha nulla da sincronizzare — niente da chiamare su Meta, non un errore: senza
+ * questo controllo fetchCampaignInsights("", ...) costruirebbe un URL malformato e fallirebbe,
+ * interrompendo anche il sync delle altre sedi del cliente nel ciclo di syncCliente sotto.
+ */
 export async function syncSede(sede: Sede): Promise<{ righe: number }> {
+  if (!sede.adAccountId) {
+    return { righe: 0 };
+  }
+
   const oggi = new Date();
   const inizio = new Date(oggi);
   inizio.setDate(inizio.getDate() - GIORNI_ROLLING);

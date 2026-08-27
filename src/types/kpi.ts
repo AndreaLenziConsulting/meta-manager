@@ -127,7 +127,10 @@ export type KpiResponse = {
   cliente: { clienteId: string; nome: string };
   // targetCpa/targetCpl presenti solo nella richiesta interna (clienteId, sessione autenticata) —
   // mai nel ramo pubblico (code), per non esporre i target al cliente. Vedi src/app/api/kpi/route.ts.
-  sede: { sedeId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null };
+  // adAccountId, come targetCpa/targetCpl, presente solo nella richiesta interna — su `code` un
+  // avviso "ad account non collegato" non avrebbe senso mostrato al cliente finale, è un'azione da
+  // team. "" = non ancora collegato (opzionale alla creazione, vedi /api/clienti e /api/sedi).
+  sede: { sedeId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null; adAccountId?: string };
   // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
   sediDisponibili: { sedeId: string; nome: string }[];
   periodo: { da: string; a: string };

@@ -52,7 +52,11 @@ export async function POST(req: NextRequest) {
   if (!nome) {
     return NextResponse.json({ error: "Nome obbligatorio" }, { status: 400 });
   }
-  if (!adAccountId || !/^\d+$/.test(adAccountId)) {
+  // Opzionale: un cliente può nascere senza ad account collegato (es. non ancora ricevuto dal
+  // cliente) — se però viene fornito, deve avere il formato giusto. La sede "Principale" nasce
+  // comunque con adAccountId vuoto, sincronizzabile in un secondo momento dal tab KPI — vedi
+  // syncSede in lib/sync.ts, che salta senza errore una sede senza ad account.
+  if (adAccountId && !/^\d+$/.test(adAccountId)) {
     return NextResponse.json({ error: 'Ad account id non valido: solo cifre, senza il prefisso "act_"' }, { status: 400 });
   }
   if (!consulenteId) {
@@ -105,7 +109,7 @@ export async function POST(req: NextRequest) {
       sedeId,
       clienteId,
       nome: "Principale",
-      adAccountId,
+      adAccountId: adAccountId ?? "",
       targetCpa: body.targetCpa ?? null,
       targetCpl: body.targetCpl ?? null,
     });

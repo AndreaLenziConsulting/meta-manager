@@ -33,6 +33,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         clienteEmail={cliente?.email}
         tuttiITab
         haConnessioneGhl={haConnessioneGhl}
+        ruoloAdmin={sessione.ruolo === "admin"}
       />
     </div>
   );

@@ -35,7 +35,9 @@ export async function POST(req: NextRequest) {
   if (!nome) {
     return NextResponse.json({ error: "Nome sede obbligatorio" }, { status: 400 });
   }
-  if (!adAccountId || !/^\d+$/.test(adAccountId)) {
+  // Opzionale come alla creazione del cliente — vedi il commento in /api/clienti (POST): se
+  // fornito deve avere il formato giusto, ma una sede può nascere senza (sincronizzabile dopo).
+  if (adAccountId && !/^\d+$/.test(adAccountId)) {
     return NextResponse.json({ error: 'Ad account id non valido: solo cifre, senza il prefisso "act_"' }, { status: 400 });
   }
 
@@ -50,7 +52,7 @@ export async function POST(req: NextRequest) {
       sedeId,
       clienteId,
       nome,
-      adAccountId,
+      adAccountId: adAccountId ?? "",
       targetCpa: body.targetCpa ?? null,
       targetCpl: body.targetCpl ?? null,
       tipoConversioneLead: body.tipoConversioneLead,

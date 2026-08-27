@@ -139,8 +139,8 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Es. Mobilieri Bianchi Srl" required />
       </Field>
 
-      <Field label="Ad account Meta">
-        <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" required />
+      <Field label="Ad account Meta (opzionale)" hint="Puoi collegarlo anche in un secondo momento dal tab KPI del cliente.">
+        <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
       </Field>
 
       <Field label="Email cliente (opzionale)" hint="Per l'invio automatico del follow-up meeting">
@@ -195,7 +195,7 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
 
       {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
 
-      <Button type="submit" disabled={caricamento || !nome || !adAccountId || !consulenteId} className="w-full">
+      <Button type="submit" disabled={caricamento || !nome || !consulenteId} className="w-full">
         {caricamento ? "Creazione…" : "Crea cliente"}
       </Button>
     </form>
