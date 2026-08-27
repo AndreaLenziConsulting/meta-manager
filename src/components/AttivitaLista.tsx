@@ -33,6 +33,9 @@ type Props = {
   onCambiaScadenza: (attivitaId: string, nuovaDataFine: string) => void;
   onElimina: (attivitaId: string) => void;
   onVaiAMeeting?: (meetingId: string) => void;
+  // clienteId -> nome, solo nella vista aggregata multi-cliente (AttivitaGlobali.tsx). Assente nel
+  // tab per-cliente esistente (AttivitaTab.tsx): lì il cliente è già il contesto della pagina.
+  nomeClientePer?: Map<string, string>;
 };
 
 /**
@@ -48,7 +51,7 @@ type Props = {
  * dell'header colorato si ottengono con `rounded-t-2xl` esplicito sull'header stesso, non più
  * per ritaglio del genitore.
  */
-export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onElimina, onVaiAMeeting }: Props) {
+export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onElimina, onVaiAMeeting, nomeClientePer }: Props) {
   const gruppi = raggruppaPerStato(attivita);
 
   const [menuApertoPer, setMenuApertoPer] = useState<string | null>(null);
@@ -124,6 +127,7 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
                   onChiudiElimina={() => setConfermaEliminaPer(null)}
                   onConfermaElimina={() => confermaElimina(a.attivitaId)}
                   onVaiAMeeting={onVaiAMeeting}
+                  nomeCliente={nomeClientePer?.get(a.clienteId)}
                 />
               ))}
             </div>
@@ -151,6 +155,7 @@ function RigaAttivita({
   onChiudiElimina,
   onConfermaElimina,
   onVaiAMeeting,
+  nomeCliente,
 }: {
   attivita: AttivitaClienteRow;
   menuAperto: boolean;
@@ -168,6 +173,7 @@ function RigaAttivita({
   onChiudiElimina: () => void;
   onConfermaElimina: () => void;
   onVaiAMeeting?: (meetingId: string) => void;
+  nomeCliente?: string;
 }) {
   const info = formatStatoAttivita(attivita.stato);
   const isMeeting = attivita.blocco === "meeting";
@@ -178,6 +184,22 @@ function RigaAttivita({
       <div className="min-w-0 flex-1">
         <p className="text-base text-gray-800">{attivita.descrizione}</p>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          {nomeCliente && (
+            // Pill piena e scura (non un tint chiaro come le altre): qui il "quale cliente" è
+            // l'asse di lettura primario della vista aggregata, e sia il badge fase di default
+            // (grigio chiaro) sia quello meeting (azzurro chiaro) sono già tint chiari — un terzo
+            // tint chiaro (anche con l'azzurro brand) si confonderebbe visivamente con l'uno o
+            // l'altro sui dati reali (verificato: la maggior parte dei task viene da un meeting).
+            <a
+              href={`/dashboard/cliente/${encodeURIComponent(attivita.clienteId)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Vai alla scheda di ${nomeCliente}`}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-ink-900 text-white hover:bg-ink-700 cursor-pointer transition-colors truncate max-w-[160px]"
+            >
+              {nomeCliente}
+            </a>
+          )}
           {meetingId && onVaiAMeeting ? (
             <button
               type="button"

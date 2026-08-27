@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Building2, LayoutDashboard, PanelLeftClose, PanelLeftOpen, Users, X, type LucideIcon } from "lucide-react";
+import { Building2, LayoutDashboard, ListChecks, PanelLeftClose, PanelLeftOpen, Users, X, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Ruolo } from "@/types/kpi";
 
@@ -44,6 +44,14 @@ const NAV_ITEMS: NavItem[] = [
     // reale (con stato vuoto), meglio di nessuna voce di navigazione com'era prima.
     ruoli: ["admin", "consulente"],
     attiva: (p) => p.startsWith("/dashboard/clienti") || p.startsWith("/dashboard/cliente/"),
+  },
+  {
+    href: "/dashboard/attivita",
+    label: "Attività",
+    icon: ListChecks,
+    // Niente commerciale: dominio cliente/roadmap prodotto, non prospect.
+    ruoli: ["admin", "consulente"],
+    attiva: (p) => p.startsWith("/dashboard/attivita"),
   },
 ];
 
