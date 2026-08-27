@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import { raggruppaPerStato } from "@/lib/roadmap";
-import { formatStatoAttivita } from "@/lib/format";
+import { formatStatoAttivita, iniziali } from "@/lib/format";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
 
 const STATI_MENU: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
@@ -11,13 +11,6 @@ const COL_RESPONSABILE = "w-[130px]";
 const COL_SCADENZA = "w-[112px]";
 const COL_STATO = "w-[92px]";
 const COL_AZIONI = "w-6";
-
-function iniziali(nome: string): string {
-  const parti = nome.trim().split(/\s+/).filter(Boolean);
-  if (parti.length === 0) return "?";
-  if (parti.length === 1) return parti[0].slice(0, 2).toUpperCase();
-  return (parti[0][0] + parti[1][0]).toUpperCase();
-}
 
 /** Per le righe da meeting, "fase" è "Meeting: <titolo lungo> (<data>)" — troppo lungo per un
  * badge. Ne teniamo solo la data: chi vuole il resto clicca il badge (porta al meeting). */

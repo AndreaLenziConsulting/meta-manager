@@ -19,6 +19,14 @@ export function formatPercentuale(value: number | null): string {
   return new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 1 }).format(value);
 }
 
+/** Iniziali di un nome/nome+cognome, per gli avatar circolari (responsabile attività, consulente). */
+export function iniziali(nome: string): string {
+  const parti = nome.trim().split(/\s+/).filter(Boolean);
+  if (parti.length === 0) return "?";
+  if (parti.length === 1) return parti[0].slice(0, 2).toUpperCase();
+  return (parti[0][0] + parti[1][0]).toUpperCase();
+}
+
 export function formatRoas(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
   return `${value.toFixed(2)}x`;

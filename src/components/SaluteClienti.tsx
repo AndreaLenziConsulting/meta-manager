@@ -29,7 +29,15 @@ function Puntino({ tono }: { tono: LivelloStato }) {
   return <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${STILE_LIVELLO[tono].puntino}`} />;
 }
 
-function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica: () => void }) {
+function ClienteCard({
+  item,
+  nomeConsulente,
+  onModifica,
+}: {
+  item: SaluteClienteItem;
+  nomeConsulente: string | undefined;
+  onModifica: () => void;
+}) {
   const router = useRouter();
   const stile = STILE_STATO[item.valutazione.stato];
   const href = `/dashboard/cliente/${encodeURIComponent(item.cliente.clienteId)}`;
@@ -50,7 +58,10 @@ function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-heading font-bold text-ink-900 text-lg truncate">{item.cliente.nome}</p>
-          <p className={`text-xs font-bold mt-0.5 ${stile.testoClasse}`}>{stile.label}</p>
+          <p className="text-xs mt-0.5 flex items-center gap-1.5">
+            <span className={`font-bold ${stile.testoClasse}`}>{stile.label}</span>
+            {nomeConsulente && <span className="text-ink-500 truncate">· {nomeConsulente}</span>}
+          </p>
         </div>
         <button
           type="button"
@@ -101,7 +112,15 @@ function ClienteCard({ item, onModifica }: { item: SaluteClienteItem; onModifica
   );
 }
 
-function ClienteRiga({ item, onModifica }: { item: SaluteClienteItem; onModifica: () => void }) {
+function ClienteRiga({
+  item,
+  nomeConsulente,
+  onModifica,
+}: {
+  item: SaluteClienteItem;
+  nomeConsulente: string | undefined;
+  onModifica: () => void;
+}) {
   const router = useRouter();
   const stile = STILE_STATO[item.valutazione.stato];
   const href = `/dashboard/cliente/${encodeURIComponent(item.cliente.clienteId)}`;
@@ -123,6 +142,7 @@ function ClienteRiga({ item, onModifica }: { item: SaluteClienteItem; onModifica
         <Puntino tono={stile.tono} />
         <span className="text-sm font-medium text-ink-700 truncate">{item.cliente.nome}</span>
         <span className="text-[11px] text-ink-500 flex-shrink-0">{stile.label}</span>
+        {nomeConsulente && <span className="text-[11px] text-ink-500 flex-shrink-0">· {nomeConsulente}</span>}
         {item.attivitaInRitardo.length > 0 && (
           <span className="text-[11px] font-semibold text-red-600 flex-shrink-0">· {item.attivitaInRitardo.length} in ritardo</span>
         )}
@@ -161,6 +181,11 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
 
   const itemInModifica = items.find((i) => i.cliente.clienteId === clienteInModifica) ?? null;
   const apriModifica = (clienteId: string) => setClienteInModifica(clienteId);
+
+  // Solo il nome (non un raggruppamento): le zone di urgenza restano il criterio primario di
+  // lettura di questa pagina ("colpo d'occhio su dove intervenire", scelta di Fase C) — vedere
+  // il carico raggruppato per consulente sta nella pagina Clienti (dashboard/clienti/page.tsx).
+  const nomeConsulentePer = new Map(consulenti.map((c) => [c.consulenteId, c.nome]));
 
   // Bucket per urgenza sull'array già ordinato da ordinaPerPriorita (dashboard/page.tsx) — .filter()
   // preserva l'ordine relativo esistente, nessuna nuova logica di ordinamento qui.
@@ -206,13 +231,23 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
             {zona.compatta ? (
               <div className="rounded-2xl border border-ink-300 overflow-hidden divide-y divide-ink-300/60">
                 {zona.items.map((item) => (
-                  <ClienteRiga key={item.cliente.clienteId} item={item} onModifica={() => apriModifica(item.cliente.clienteId)} />
+                  <ClienteRiga
+                    key={item.cliente.clienteId}
+                    item={item}
+                    nomeConsulente={nomeConsulentePer.get(item.cliente.consulenteId)}
+                    onModifica={() => apriModifica(item.cliente.clienteId)}
+                  />
                 ))}
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {zona.items.map((item) => (
-                  <ClienteCard key={item.cliente.clienteId} item={item} onModifica={() => apriModifica(item.cliente.clienteId)} />
+                  <ClienteCard
+                    key={item.cliente.clienteId}
+                    item={item}
+                    nomeConsulente={nomeConsulentePer.get(item.cliente.consulenteId)}
+                    onModifica={() => apriModifica(item.cliente.clienteId)}
+                  />
                 ))}
               </div>
             )}
