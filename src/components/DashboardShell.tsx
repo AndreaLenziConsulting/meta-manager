@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
-import { ClientSwitcher } from "@/components/ClientSwitcher";
+import { AccountMenu } from "@/components/AccountMenu";
 import type { Ruolo } from "@/types/kpi";
-
-type ClienteOption = { clienteId: string; nome: string };
 
 const CHIAVE_COMPRESSO = "sidebar-collapsed";
 
@@ -39,15 +37,14 @@ function snapshotServerCompresso(): boolean {
  * per "adjusting state when a prop changes", niente useEffect per questo).
  */
 export function DashboardShell({
-  clienti,
   ruolo,
+  nomeAccount,
   children,
 }: {
-  clienti: ClienteOption[];
   ruolo: Ruolo;
+  nomeAccount: string | null;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const collapsed = useSyncExternalStore(sottoscriviCompresso, leggiCompresso, snapshotServerCompresso);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -61,9 +58,6 @@ export function DashboardShell({
   function toggleCollapsed() {
     scriviCompresso(!collapsed);
   }
-
-  const match = pathname.match(/^\/dashboard\/cliente\/([^/]+)/);
-  const clienteAttuale = match ? decodeURIComponent(match[1]) : "";
 
   return (
     <div className="flex min-h-screen bg-surface">
@@ -86,14 +80,7 @@ export function DashboardShell({
             <Menu size={22} />
           </button>
           <div className="flex-1" />
-          {clienti.length > 0 && (
-            <ClientSwitcher
-              clienti={clienti}
-              value={clienteAttuale}
-              placeholder="Seleziona cliente"
-              onChange={(id) => router.push(`/dashboard/cliente/${encodeURIComponent(id)}`)}
-            />
-          )}
+          <AccountMenu ruolo={ruolo} nome={nomeAccount} />
         </div>
         <main className="flex-1">{children}</main>
       </div>

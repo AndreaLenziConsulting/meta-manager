@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getProspect, getReportCommerciale } from "@/lib/sheets";
+import { getCommerciali, getProspect, getReportCommerciale } from "@/lib/sheets";
 import { prospectVisibili } from "@/lib/authz";
 import { NuovoProspectForm } from "@/components/NuovoProspectForm";
 
@@ -13,7 +13,10 @@ export default async function ProspectListaPage() {
     redirect("/dashboard");
   }
 
-  const [prospect, report] = await Promise.all([getProspect(), getReportCommerciale()]);
+  // getCommerciali() serve solo all'admin (sceglie a chi assegnare il nuovo prospect, vedi
+  // NuovoProspectForm) — recuperato comunque in parallelo con le altre letture, costo trascurabile
+  // anche quando è il commerciale a vedere la pagina e non gli serve.
+  const [prospect, report, commerciali] = await Promise.all([getProspect(), getReportCommerciale(), getCommerciali()]);
   const visibili = prospectVisibili(sessione, prospect);
   const ultimoReportPer = new Map<string, string>();
   for (const r of report) {
@@ -31,6 +34,11 @@ export default async function ProspectListaPage() {
       </div>
 
       {sessione.ruolo === "commerciale" && <NuovoProspectForm />}
+      {sessione.ruolo === "admin" && (
+        <NuovoProspectForm
+          commerciali={commerciali.filter((c) => c.attivo).map((c) => ({ commercialeId: c.commercialeId, nome: c.nome }))}
+        />
+      )}
 
       {visibili.length === 0 ? (
         <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">

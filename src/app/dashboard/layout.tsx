@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getClienti } from "@/lib/sheets";
-import { clientiVisibili } from "@/lib/authz";
+import { getCommerciali, getConsulenti } from "@/lib/sheets";
 import { DashboardShell } from "@/components/DashboardShell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -11,13 +10,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  const clienti = clientiVisibili(sessione, await getClienti()).map((c) => ({
-    clienteId: c.clienteId,
-    nome: c.nome,
-  }));
+  // Nome da mostrare nell'indicatore account (AccountMenu.tsx) — null per l'admin, che non ha un
+  // nome proprio (password condivisa di team, nessun id associato in Sessione).
+  let nomeAccount: string | null = null;
+  if (sessione.ruolo === "consulente") {
+    const consulenti = await getConsulenti();
+    nomeAccount = consulenti.find((c) => c.consulenteId === sessione.consulenteId)?.nome ?? null;
+  } else if (sessione.ruolo === "commerciale") {
+    const commerciali = await getCommerciali();
+    nomeAccount = commerciali.find((c) => c.commercialeId === sessione.commercialeId)?.nome ?? null;
+  }
 
   return (
-    <DashboardShell clienti={clienti} ruolo={sessione.ruolo}>
+    <DashboardShell ruolo={sessione.ruolo} nomeAccount={nomeAccount}>
       {children}
     </DashboardShell>
   );
