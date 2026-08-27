@@ -81,4 +81,7 @@ export type GhlRiepilogoResponse =
       calendariConfigurati: boolean;
       appuntamenti: { totali: number; confermati: number; annullati: number };
       opportunita: { vendite: number; fatturato: number };
+      // >0 se uno o più calendari erano irraggiungibili al momento della richiesta (dopo un
+      // retry) — il conteggio appuntamenti è quindi parziale, non un vero zero. Vedi fetchAppuntamenti.
+      calendariFalliti: number;
     };

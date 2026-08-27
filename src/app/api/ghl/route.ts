@@ -27,8 +27,11 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const clienteId = searchParams.get("clienteId");
   const sedeIdParam = searchParams.get("sedeId");
-  const da = searchParams.get("da") || `${meseCorrente()}-01`;
-  const a = searchParams.get("a") || new Date().toISOString().slice(0, 10);
+  // da/a in formato YYYY-MM (mese), stesso formato di /api/kpi — non YYYY-MM-DD: il pannello ora
+  // ha un vero selettore di periodo (MonthRangePicker, come il tab KPI) invece del solo mese
+  // corrente fisso della Fase 1 iniziale.
+  const da = searchParams.get("da") || meseCorrente();
+  const a = searchParams.get("a") || meseCorrente();
 
   if (!clienteId) {
     return NextResponse.json({ error: "clienteId mancante" }, { status: 400 });
@@ -52,11 +55,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(risposta);
   }
 
-  const startMs = new Date(`${da}T00:00:00Z`).getTime();
-  const endMs = new Date(`${a}T23:59:59Z`).getTime();
+  const startMs = new Date(`${da}-01T00:00:00Z`).getTime();
+  // Fine dell'ultimo giorno del mese `a`: primo istante del mese successivo meno 1ms, corretto per
+  // qualunque lunghezza di mese senza bisogno di sapere quanti giorni ha.
+  const [annoA, meseANum] = a.split("-").map(Number);
+  const endMs = Date.UTC(annoA, meseANum, 1) - 1;
 
   try {
-    const [appuntamenti, opportunitaVinte] = await Promise.all([
+    const [{ appuntamenti, calendariFalliti }, opportunitaVinte] = await Promise.all([
       fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       fetchOpportunita(connessione.locationId, connessione.privateToken, { status: "won" }),
     ]);
@@ -65,6 +71,7 @@ export async function GET(req: NextRequest) {
       calendariConfigurati: connessione.calendarIds.length > 0,
       appuntamenti: riepilogoAppuntamenti(appuntamenti, startMs, endMs),
       opportunita: riepilogoOpportunita(opportunitaVinte, startMs, endMs),
+      calendariFalliti,
     };
     return NextResponse.json(risposta);
   } catch (err) {

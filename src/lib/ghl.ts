@@ -71,6 +71,31 @@ async function fetchAppuntamentiPerCalendario(
 // richiesto anche se l'incontro si tiene fino a un anno prima/dopo, senza scaricare anni di dati.
 const MARGINE_RICERCA_MS = 365 * 24 * 60 * 60 * 1000;
 
+// Un calendario che fallisce (osservato dal vivo: un 401 "Command timed out" transitorio,
+// sparito al tentativo successivo) non deve far fallire l'intero riepilogo — con 7 calendari
+// configurati per sede, un solo blip lato GHL bloccherebbe l'intero pannello invece di limitarsi a
+// quel calendario. Un retry immediato prima di arrendersi, poi si prosegue senza quel calendario
+// (il chiamante riceve quanti sono falliti per poterlo segnalare, non lo nasconde).
+async function fetchAppuntamentiPerCalendarioConRetry(
+  locationId: string,
+  token: string,
+  calendarId: string,
+  startTimeMs: number,
+  endTimeMs: number
+): Promise<GhlAppuntamento[] | null> {
+  for (let tentativo = 1; tentativo <= 2; tentativo++) {
+    try {
+      return await fetchAppuntamentiPerCalendario(locationId, token, calendarId, startTimeMs, endTimeMs);
+    } catch (err) {
+      if (tentativo === 2) {
+        console.warn(`[ghl] Calendario ${calendarId} non raggiungibile dopo 2 tentativi:`, err);
+        return null;
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Recupera gli appuntamenti dei calendari indicati (scelta esplicita dell'admin — vedi
  * GhlConnessione.calendarIds — mai "tutti i calendari della location" in automatico: una location
@@ -78,6 +103,10 @@ const MARGINE_RICERCA_MS = 365 * 24 * 60 * 60 * 1000;
  * di prenotazione client-facing). Interroga l'API su una finestra più ampia di [startMs, endMs]
  * (vedi MARGINE_RICERCA_MS) perché il filtro vero per periodo lo fa riepilogoAppuntamenti su
  * dateAdded, non questa funzione.
+ *
+ * `calendariFalliti` conta i calendari rimasti irraggiungibili dopo il retry — il riepilogo che
+ * torna è quindi parziale in quel caso, il chiamante lo segnala invece di mostrare un totale che
+ * sembra completo ma non lo è.
  */
 export async function fetchAppuntamenti(
   locationId: string,
@@ -85,23 +114,28 @@ export async function fetchAppuntamenti(
   calendarIds: string[],
   startMs: number,
   endMs: number
-): Promise<GhlAppuntamento[]> {
-  if (calendarIds.length === 0) return [];
+): Promise<{ appuntamenti: GhlAppuntamento[]; calendariFalliti: number }> {
+  if (calendarIds.length === 0) return { appuntamenti: [], calendariFalliti: 0 };
   const perCalendario = await Promise.all(
     calendarIds.map((id) =>
-      fetchAppuntamentiPerCalendario(locationId, token, id, startMs - MARGINE_RICERCA_MS, endMs + MARGINE_RICERCA_MS)
+      fetchAppuntamentiPerCalendarioConRetry(locationId, token, id, startMs - MARGINE_RICERCA_MS, endMs + MARGINE_RICERCA_MS)
     )
   );
   const visti = new Set<string>();
   const risultato: GhlAppuntamento[] = [];
+  let calendariFalliti = 0;
   for (const lista of perCalendario) {
+    if (lista === null) {
+      calendariFalliti++;
+      continue;
+    }
     for (const a of lista) {
       if (visti.has(a.id)) continue;
       visti.add(a.id);
       risultato.push(a);
     }
   }
-  return risultato;
+  return { appuntamenti: risultato, calendariFalliti };
 }
 
 /**

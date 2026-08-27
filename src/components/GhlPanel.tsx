@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
+import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { formatEuro, formatNumero } from "@/lib/format";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
+
+function meseCorrente(): string {
+  return new Date().toISOString().slice(0, 7);
+}
 
 /**
  * Pannello di sola lettura "Vendite e appuntamenti (GHL)" — Fase 1 dell'integrazione Go High
@@ -11,10 +16,15 @@ import type { GhlRiepilogoResponse } from "@/types/ghl";
  * toccato da questa feature): un tipo di risposta a parte (GhlRiepilogoResponse), niente scrittura
  * automatica, solo lettura diretta dall'account GHL del cliente al momento della richiesta.
  *
- * Nessun selettore di periodo qui in Fase 1 (mese corrente, stesso default del backend) — tenere
- * lo scope stretto finché il dato non è stato validato su più clienti reali.
+ * Selettore di periodo (stesso MonthRangePicker del tab KPI, indipendente da esso — sono due tab
+ * separati in SchedaCliente.tsx, niente periodo condiviso tra loro): la Fase 1 iniziale mostrava
+ * solo il mese corrente fisso; aggiunto dopo un test reale dell'utente che si aspettava di vedere
+ * un periodo più ampio (giugno→agosto) qui riflettere quanto scelto altrove, cosa che il pannello
+ * non faceva. Default resta il solo mese corrente, comportamento invariato finché non si allarga.
  */
 export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: string }) {
+  const [da, setDa] = useState(meseCorrente());
+  const [a, setA] = useState(meseCorrente());
   const [stato, setStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
   const [dati, setDati] = useState<GhlRiepilogoResponse | null>(null);
   const [erroreMsg, setErroreMsg] = useState<string | null>(null);
@@ -24,7 +34,7 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
     Promise.resolve()
       .then(() => {
         setStato("caricamento");
-        const params = new URLSearchParams({ clienteId });
+        const params = new URLSearchParams({ clienteId, da, a });
         if (sedeId) params.set("sedeId", sedeId);
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal });
       })
@@ -40,7 +50,7 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
         setStato("errore");
       });
     return () => controller.abort();
-  }, [clienteId, sedeId]);
+  }, [clienteId, sedeId, da, a]);
 
   if (stato === "caricamento") {
     return <p className="text-sm text-ink-500">Caricamento dati GHL…</p>;
@@ -68,7 +78,7 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
 
   if (!dati || !dati.connesso) return null;
 
-  const { appuntamenti, opportunita, calendariConfigurati } = dati;
+  const { appuntamenti, opportunita, calendariConfigurati, calendariFalliti } = dati;
   const tessere = [
     { label: "Appuntamenti totali", value: formatNumero(appuntamenti.totali) },
     { label: "Confermati", value: formatNumero(appuntamenti.confermati) },
@@ -79,18 +89,26 @@ export function GhlPanel({ clienteId, sedeId }: { clienteId: string; sedeId?: st
 
   return (
     <Card padding="lg">
-      <div className="flex items-start justify-between gap-3 mb-4">
+      <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
         <div>
           <h3 className="font-heading font-bold text-ink-900">Vendite e appuntamenti (GHL)</h3>
           <p className="text-xs text-ink-500 mt-0.5">
-            Mese corrente, letto in diretta dal suo account GHL/Squadd — non ancora collegato al Funnel.
+            Letto in diretta dal suo account GHL/Squadd — non ancora collegato al Funnel.
           </p>
         </div>
+        <MonthRangePicker da={da} a={a} onChange={(nDa, nA) => { setDa(nDa); setA(nA); }} />
       </div>
       {!calendariConfigurati && (
         <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mb-4">
           Nessun calendario selezionato per questa connessione — gli appuntamenti restano a zero finché non scegli
           quali calendari includere (Dashboard Amministratore → modifica cliente → sezione Sedi).
+        </p>
+      )}
+      {calendariFalliti > 0 && (
+        <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mb-4">
+          {calendariFalliti === 1 ? "Un calendario non era" : `${calendariFalliti} calendari non erano`} raggiungibile
+          {calendariFalliti === 1 ? "" : "i"} in questo momento — gli appuntamenti mostrati potrebbero essere
+          incompleti. Riprova tra poco.
         </p>
       )}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
