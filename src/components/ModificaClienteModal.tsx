@@ -252,7 +252,8 @@ function SedeRow({
 }
 
 /**
- * Collegamento GHL/Squadd di una sede (Fase 1, sola lettura — vedi GhlPanel.tsx). Il token non
+ * Collegamento GHL/Squadd di una sede (sola lettura — alimenta le tessere del tab KPI, vedi
+ * src/lib/kpiGhlOverlay.ts). Il token non
  * viene mai ri-mostrato per intero dopo la creazione, solo mascherato ("••••3f9a"): il campo di
  * modifica parte vuoto e sovrascrive solo se l'admin ci digita davvero un nuovo valore.
  */

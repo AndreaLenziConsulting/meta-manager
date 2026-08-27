@@ -14,7 +14,9 @@ function settimanaDiData(data: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-function divideOrNull(numeratore: number, denominatore: number): number | null {
+// export: riusata da kpiGhlOverlay.ts per ricalcolare ROAS/CPA con la stessa regola di null-handling
+// quando fatturato/vendite vengono sostituiti da GHL — non reimplementata lì.
+export function divideOrNull(numeratore: number, denominatore: number): number | null {
   if (!denominatore) return null;
   return numeratore / denominatore;
 }

@@ -18,8 +18,9 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   }
   const cliente = clienti.find((c) => c.clienteId === clienteId);
 
-  // Fase 1 integrazione GHL/Squadd: il tab "Vendite (GHL)" compare solo se almeno una sede di
-  // questo cliente ha una connessione attiva — vedi src/components/GhlPanel.tsx.
+  // Integrazione GHL/Squadd: le tessere Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati del tab
+  // KPI vengono lette in diretta da GHL solo se almeno una sede di questo cliente ha una
+  // connessione attiva — vedi src/lib/kpiGhlOverlay.ts.
   const [sedi, connessioniGhl] = await Promise.all([getSedi(), getGhlConnessioni()]);
   const sediIdsCliente = new Set(sedi.filter((s) => s.clienteId === clienteId).map((s) => s.sedeId));
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);

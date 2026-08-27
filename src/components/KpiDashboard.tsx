@@ -8,11 +8,14 @@ import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import { calcolaSalute } from "@/lib/salute";
 import { formatMotivoIntervento } from "@/lib/saluteMessaggio";
 import { attivitaInRitardo } from "@/lib/roadmap";
+import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
+import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 function meseCorrente(): string {
   return new Date().toISOString().slice(0, 7);
@@ -24,9 +27,9 @@ function meseIndietro(n: number): string {
   return d.toISOString().slice(0, 7);
 }
 
-type Props = { code?: string; clienteId?: string };
+type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean };
 
-export function KpiDashboard({ code, clienteId }: Props) {
+export function KpiDashboard({ code, clienteId, haConnessioneGhl }: Props) {
   const [da, setDa] = useState(meseIndietro(2));
   const [a, setA] = useState(meseCorrente());
   const [dati, setDati] = useState<KpiResponse | null>(null);
@@ -38,6 +41,11 @@ export function KpiDashboard({ code, clienteId }: Props) {
   // Solo per la vista interna (clienteId) — mai richiesto/mostrato sul link pubblico (code), vedi
   // il richiamo "solo per il team" più sotto e src/app/api/attivita/route.ts (già riservata al team).
   const [attivitaInRitardoCount, setAttivitaInRitardoCount] = useState(0);
+  // Sostituisce (non affianca) le tessere Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati con i
+  // dati letti in diretta da GHL quando il cliente ha una connessione attiva — vedi
+  // kpiGhlOverlay.ts per il perché di quali tessere sì e quali no. null = nessun dato GHL
+  // disponibile (non connesso, filtro campagne attivo, o fetch non ancora arrivato).
+  const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
 
   // Contesto = quale cliente/codice sto guardando, indipendente dalla sede: cambia solo quando si
   // naviga verso un cliente diverso, non quando si cambia sede all'interno dello stesso cliente.
@@ -118,10 +126,50 @@ export function KpiDashboard({ code, clienteId }: Props) {
     return () => controller.abort();
   }, [clienteId]);
 
+  // Dati GHL per l'overlay delle tessere KPI (vedi kpiGhlOverlay.ts) — fetch separato dal
+  // /api/kpi principale sopra, stesso motivo di attivitaInRitardoCount: /api/ghl può essere lento
+  // (chiama l'account GHL del cliente in diretta), non deve mai bloccare il caricamento dei numeri
+  // Meta Ads. Mai sul link pubblico (code): gated su clienteId+haConnessioneGhl, mai su code.
+  // sedeGhl legge la sede RISOLTA dal server (dati?.sede?.sedeId), non lo stato locale sedeId: se
+  // sedeId è ancora null (default non ancora scelto) partirebbe un fetch senza sapere su quale sede,
+  // stesso motivo per cui handleAggiornaKpi sotto usa dati?.sede?.sedeId e non sedeId.
+  const sedeGhl = dati?.sede?.sedeId;
+  useEffect(() => {
+    const controller = new AbortController();
+    // Promise.resolve().then() invece di un return/setState diretto nel corpo dell'effect: stesso
+    // schema già in uso nel fetch principale sopra e in AttivitaTab.tsx/ProspectTab.tsx (regola
+    // react-hooks/set-state-in-effect — niente setState sincrono nel corpo di un effect).
+    Promise.resolve()
+      .then(() => {
+        if (!clienteId || !haConnessioneGhl || !sedeGhl || campagneSelezionate) {
+          setGhlDati(null);
+          return undefined;
+        }
+        const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
+        return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setGhlDati(null);
+      });
+    return () => controller.abort();
+  }, [clienteId, haConnessioneGhl, sedeGhl, da, a, campagneSelezionate, refreshTick]);
+
+  // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
+  // filtro campagne attivo), altrimenti dal Funnel come sempre — vedi kpiGhlOverlay.ts per il
+  // dettaglio di quali tessere e perché non tutte.
+  const overlayGhl = dati
+    ? applicaOverlayGhl(dati.totale, campagneSelezionate ? null : ghlDati, {
+        filtroCampagneAttivo: campagneSelezionate !== null,
+      })
+    : null;
+
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
-  // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta ad ogni apertura del
-  // suo tab (vedi GhlPanel.tsx): qui non c'è nulla da scrivere, solo da verificare che il
-  // collegamento risponda e mostrarne un riepilogo insieme all'esito di Meta, in un solo messaggio.
+  // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
+  // (vedi l'effect sopra e kpiGhlOverlay.ts): qui non c'è nulla da scrivere, solo da verificare che
+  // il collegamento risponda e mostrarne un riepilogo insieme all'esito di Meta, in un solo messaggio.
   // Promise.allSettled (non un semplice Promise.all): un errore GHL non deve nascondere l'esito
   // reale della sincronizzazione Meta, e viceversa.
   async function handleAggiornaKpi() {
@@ -179,19 +227,30 @@ export function KpiDashboard({ code, clienteId }: Props) {
         )
       : null;
 
-  const metricheSecondarie = dati
-    ? [
-        { label: "Investimento", value: formatEuro(dati.totale.investimento) },
-        { label: "Lead", value: formatNumero(dati.totale.numeroLead) },
-        { label: "Costo per Lead", value: formatEuro(dati.totale.costoPerLead) },
-        { label: "Appuntamenti effettuati", value: formatNumero(dati.totale.appuntamentiEffettuati) },
-        { label: "% effettuati su fissati", value: formatPercentuale(dati.totale.percentualeEffettuatiSuFissati) },
-        { label: "Vendite", value: formatNumero(dati.totale.numeroVendite) },
-        { label: "Tasso di chiusura", value: formatPercentuale(dati.totale.tassoDiChiusura) },
-        { label: "ROAS", value: formatRoas(dati.totale.roas) },
-        { label: "CPA", value: formatEuro(dati.totale.cpa) },
-      ]
-    : [];
+  // "Appuntamenti effettuati" / "% effettuati su fissati" / "Tasso di chiusura" restano SEMPRE dal
+  // Funnel, mai da overlayGhl — scelta deliberata, non dimenticanza: vedi il commento in cima a
+  // kpiGhlOverlay.ts sul perché (GHL in questo dominio non sa se il cliente si è presentato
+  // davvero, e mescolare un numeratore GHL con un denominatore Funnel nel tasso di chiusura
+  // sarebbe più fuorviante che lasciare entrambi su una sola fonte).
+  const metricheSecondarie =
+    dati && overlayGhl
+      ? [
+          { label: "Investimento", value: formatEuro(dati.totale.investimento) },
+          { label: "Lead", value: formatNumero(dati.totale.numeroLead) },
+          { label: "Costo per Lead", value: formatEuro(dati.totale.costoPerLead) },
+          {
+            label: "Appuntamenti fissati",
+            value: formatNumero(overlayGhl.appuntamentiFissati.valore),
+            ghl: overlayGhl.appuntamentiFissati.fonte === "ghl",
+          },
+          { label: "Appuntamenti effettuati", value: formatNumero(dati.totale.appuntamentiEffettuati) },
+          { label: "% effettuati su fissati", value: formatPercentuale(dati.totale.percentualeEffettuatiSuFissati) },
+          { label: "Vendite", value: formatNumero(overlayGhl.numeroVendite.valore), ghl: overlayGhl.numeroVendite.fonte === "ghl" },
+          { label: "Tasso di chiusura", value: formatPercentuale(dati.totale.tassoDiChiusura) },
+          { label: "ROAS", value: formatRoas(overlayGhl.roas.valore), ghl: overlayGhl.roas.fonte === "ghl" },
+          { label: "CPA", value: formatEuro(overlayGhl.cpa.valore), ghl: overlayGhl.cpa.fonte === "ghl" },
+        ]
+      : [];
 
   return (
     <div className="viz-root space-y-6">
@@ -266,19 +325,31 @@ export function KpiDashboard({ code, clienteId }: Props) {
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
           <div>
             <div className="pb-5 mb-5 border-b border-ink-300/60">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Fatturato</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Fatturato</p>
+                {overlayGhl?.fatturato.fonte === "ghl" && <Badge tono="neutro">GHL</Badge>}
+              </div>
               <p className="font-heading font-bold text-4xl sm:text-5xl text-ink-900 mt-1.5 tabular-nums">
-                {formatEuro(dati.totale.fatturato)}
+                {formatEuro(overlayGhl?.fatturato.valore ?? dati.totale.fatturato)}
               </p>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
               {metricheSecondarie.map((m) => (
                 <div key={m.label}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{m.label}</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500 flex items-center gap-1.5">
+                    {m.label}
+                    {"ghl" in m && m.ghl && <Badge tono="neutro">GHL</Badge>}
+                  </p>
                   <p className="font-heading font-bold text-xl text-ink-900 mt-1 tabular-nums">{m.value}</p>
                 </div>
               ))}
             </div>
+            {overlayGhl?.parziale && (
+              <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mt-5">
+                Uno o più calendari GHL non erano raggiungibili al momento del caricamento — il numero di
+                &quot;Appuntamenti fissati&quot; potrebbe essere incompleto (vendite e fatturato non sono interessati).
+              </p>
+            )}
           </div>
 
           <TrendChart trendSettimanale={dati.trendSettimanale} />

@@ -5,7 +5,6 @@ import { Tabs } from "@/components/Tabs";
 import { KpiDashboard } from "@/components/KpiDashboard";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
-import { GhlPanel } from "@/components/GhlPanel";
 
 type Props = {
   code?: string;
@@ -13,9 +12,11 @@ type Props = {
   clienteNome?: string;
   clienteEmail?: string;
   tuttiITab: boolean;
-  // Fase 1 dell'integrazione GHL/Squadd: tab mostrato solo se almeno una sede del cliente ha una
-  // connessione attiva — calcolato lato server in dashboard/cliente/[clienteId]/page.tsx, stesso
-  // schema di come tuttiITab arriva dall'alto.
+  // Se almeno una sede del cliente ha una connessione GHL/Squadd attiva — calcolato lato server in
+  // dashboard/cliente/[clienteId]/page.tsx, stesso schema di come tuttiITab arriva dall'alto. Non
+  // governa più un tab a parte (rimosso: l'utente lo trovava ridondante col tab KPI, che ora
+  // mostra questi numeri direttamente — vedi kpiGhlOverlay.ts) ma dice a KpiDashboard se tentare
+  // il fetch GHL per sostituire le sue tessere.
   haConnessioneGhl?: boolean;
 };
 
@@ -36,20 +37,17 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
     { id: "kpi", label: "KPI" },
     ...(!code ? [{ id: "attivita", label: "Attività" }] : []),
     ...(tuttiITab ? [{ id: "meeting", label: "Meeting" }] : []),
-    // Mai sul link pubblico cliente (stesso motivo di Attività): dato GHL non ancora validato
-    // quanto il Funnel, resta un pannello solo per il team finché non lo sarà.
-    ...(!code && haConnessioneGhl ? [{ id: "ghl", label: "Vendite (GHL)" }] : []),
   ];
 
   if (tabs.length === 1) {
-    return <KpiDashboard code={code} clienteId={clienteId} />;
+    return <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} />;
   }
 
   return (
     <div className="space-y-6">
       <Tabs tabs={tabs} attivo={tabAttivo} onChange={setTabAttivo} />
 
-      {tabAttivo === "kpi" && <KpiDashboard code={code} clienteId={clienteId} />}
+      {tabAttivo === "kpi" && <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} />}
 
       {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} />}
 
@@ -62,8 +60,6 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
           meetingIdEvidenziato={meetingDaEvidenziare}
         />
       )}
-
-      {tabAttivo === "ghl" && clienteId && <GhlPanel clienteId={clienteId} />}
     </div>
   );
 }
