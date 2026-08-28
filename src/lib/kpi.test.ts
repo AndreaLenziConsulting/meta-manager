@@ -81,13 +81,22 @@ describe("computeKpi", () => {
     expect(luglio.numeroLead).toBe(1);
   });
 
-  it("il trend settimanale usa il lunedì della settimana come chiave, coerente a cavallo di mese, e riporta il fatturato del mese di appartenenza", () => {
-    // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana.
+  it("il trend settimanale copre l'intera griglia di settimane del mese, comprese quelle senza spesa reale", () => {
+    // 2026-06-01 è un lunedì -> la griglia di giugno 2026 è esattamente 5 lunedì (01/08/15/22/29).
+    // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana:
+    // solo quella settimana ha investimento/lead reali, le altre 4 sono placeholder (0, ma fatturato comunque
+    // presente: il Funnel è mensile, si ripete per ogni settimana del mese).
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
-    expect(trendSettimanale).toEqual([{ settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15, mese: "2026-06" }]);
+    expect(trendSettimanale).toEqual([
+      { settimana: "2026-06-01", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
+      { settimana: "2026-06-08", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
+      { settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15, mese: "2026-06" },
+      { settimana: "2026-06-22", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
+      { settimana: "2026-06-29", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
+    ]);
   });
 
-  it("una settimana a cavallo di due mesi riporta il fatturato del mese con più spesa in quella settimana", () => {
+  it("una settimana a cavallo di due mesi riporta il fatturato del mese con più spesa in quella settimana, e la griglia copre l'intero range a cavallo", () => {
     // Settimana del lunedì 2026-06-29 (fino a domenica 2026-07-05): il lunedì stesso è di giugno, ma la
     // spesa reale in quella settimana è quasi tutta di luglio -> il fatturato deve seguire la spesa, non il lunedì.
     const metaDaily: MetaDailyRow[] = [
@@ -99,10 +108,34 @@ describe("computeKpi", () => {
       { mese: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
     ];
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", metaDaily, CAMPAGNE, funnel);
+
     const settimana = trendSettimanale.find((t) => t.settimana === "2026-06-29")!;
     expect(settimana.investimento).toBe(100);
     expect(settimana.numeroLead).toBe(10);
     expect(settimana.fatturato).toBe(5000); // luglio (90 di spesa) batte giugno (10 di spesa)
+
+    // 9 lunedì da 2026-06-01 a 2026-07-27 (2026-07-31, ultimo giorno di luglio, è nella settimana del 27) —
+    // non solo le 2 settimane con righe MetaDaily reali (bug segnalato: "agosto ne ha solo 1??").
+    expect(trendSettimanale.map((t) => t.settimana)).toEqual([
+      "2026-06-01", "2026-06-08", "2026-06-15", "2026-06-22", "2026-06-29",
+      "2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27",
+    ]);
+    const placeholder = trendSettimanale.find((t) => t.settimana === "2026-06-01")!;
+    expect(placeholder).toEqual({ settimana: "2026-06-01", investimento: 0, fatturato: 1000, numeroLead: 0, mese: "2026-06" });
+  });
+
+  it("un periodo senza nessuna riga MetaDaily/Funnel produce comunque una griglia completa di settimane, fatturato null", () => {
+    // Riproduce esattamente il bug segnalato ("agosto un solo punto"): prima di questo fix, un mese
+    // senza nessuna riga MetaDaily reale avrebbe restituito un array vuoto, non una griglia completa.
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-08", "2026-08", META_DAILY, CAMPAGNE, FUNNEL);
+    expect(trendSettimanale).toEqual([
+      { settimana: "2026-07-27", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-07" },
+      { settimana: "2026-08-03", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+      { settimana: "2026-08-10", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+      { settimana: "2026-08-17", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+      { settimana: "2026-08-24", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+      { settimana: "2026-08-31", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+    ]);
   });
 
   describe("filtro campagneSelezionate", () => {

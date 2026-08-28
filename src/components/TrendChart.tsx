@@ -39,6 +39,19 @@ function indicizza(valori: number[]): (number | null)[] {
   return valori.map((v) => (v / base) * 100);
 }
 
+/** Mese successivo in formato YYYY-MM — enumera i confini mese sotto. */
+function meseSuccessivo(mese: string): string {
+  const [anno, m] = mese.split("-").map(Number);
+  return m === 12 ? `${anno + 1}-01` : `${anno}-${String(m + 1).padStart(2, "0")}`;
+}
+
+/** Giorni di calendario fra due date YYYY-MM-DD (b - a) — posiziona i confini mese su un asse X
+ * continuo basato sulla data reale, non sull'indice del punto più vicino (un confine "1 Lug"
+ * finiva altrimenti sotto al primo lunedì DI luglio, es. "6 Lug"). */
+function giorniTra(a: string, b: string): number {
+  return Math.round((new Date(`${b}T00:00:00Z`).getTime() - new Date(`${a}T00:00:00Z`).getTime()) / 86400000);
+}
+
 /** Larghezza reale del contenitore, misurata via ResizeObserver — vedi commento sopra HEIGHT. */
 function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
@@ -64,7 +77,15 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
   return [ref, larghezza];
 }
 
-export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettimanale[] }) {
+export function TrendChart({
+  trendSettimanale,
+  fatturatoReale,
+}: {
+  trendSettimanale: TrendSettimanale[];
+  // true quando il fatturato di ogni settimana è un dato reale (letto da GHL), non il totale
+  // mensile ripetuto — cambia solo la didascalia sotto la legenda, vedi più sotto.
+  fatturatoReale?: boolean;
+}) {
   const [modalita, setModalita] = useState<"valori" | "lead">("valori");
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
@@ -81,16 +102,26 @@ export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettim
     [trendSettimanale]
   );
 
-  // Righe verticali che segnano l'inizio di ogni mese — la vista è sempre a settimana, ma i mesi
+  // Righe verticali che segnano il VERO 1° di ogni mese — la vista è sempre a settimana, ma i mesi
   // restano un riferimento utile: senza il selettore Mese/Settimana di prima, sono l'unico modo di
-  // orientarsi su "che mese è" scorrendo le etichette di settimana (es. "24 Lug").
+  // orientarsi su "che mese è" scorrendo le etichette di settimana (es. "24 Lug"). Enumerati per
+  // data di calendario (non per "il punto dati dove cambia il mese", che quasi mai coincide col 1°
+  // — le settimane sono lunedì, il 1° di un mese raramente lo è: un confine "1 Lug" finiva prima
+  // sotto al primo lunedì reale di luglio, es. "6 Lug"). La posizione X esatta si calcola dopo,
+  // vedi xForData — qui si porta solo il mese, non un indice.
   const confiniMese = useMemo(() => {
-    const confini: { indice: number; etichetta: string }[] = [];
-    punti.forEach((p, i) => {
-      const mese = p.chiave.slice(0, 7);
-      const mesePrecedente = i > 0 ? punti[i - 1].chiave.slice(0, 7) : null;
-      if (mese !== mesePrecedente) confini.push({ indice: i, etichetta: formatMese(mese).split(" ")[0] });
-    });
+    if (punti.length === 0) return [];
+    const primoGiorno = punti[0].chiave;
+    const ultimoGiorno = punti[punti.length - 1].chiave;
+    let mese = primoGiorno.slice(0, 7);
+    // Il 1° del mese del primo punto è (quasi) sempre PRIMA del punto stesso (chiave è un lunedì,
+    // il 1° del mese raramente lo è): quel confine cadrebbe fuori dal grafico, si parte dal mese dopo.
+    if (`${mese}-01` < primoGiorno) mese = meseSuccessivo(mese);
+    const confini: { mese: string; etichetta: string }[] = [];
+    while (`${mese}-01` <= ultimoGiorno) {
+      confini.push({ mese, etichetta: formatMese(mese).split(" ")[0] });
+      mese = meseSuccessivo(mese);
+    }
     return confini;
   }, [punti]);
 
@@ -137,6 +168,15 @@ export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettim
   const maxLead = Math.max(1, ...punti.map((p) => p.numeroLead)) * 1.15;
 
   const xFor = (i: number) => PAD_LEFT + (punti.length === 1 ? plotW / 2 : (i / (punti.length - 1)) * plotW);
+  // Stessa retta di xFor(i) sopra (i punti sono ora una griglia continua a 7 giorni, vedi kpi.ts:
+  // per un punto i, giorniTra(primoGiorno, punti[i].chiave) = 7*i, quindi le due formule coincidono
+  // esattamente sui punti dati) — ma parametrizzata sulla data reale invece che sull'indice, per i
+  // confini mese: un confine quasi mai coincide con un punto dati esatto (es. "1 Lug" cade fra due lunedì).
+  const primoGiorno = punti[0].chiave;
+  const ultimoGiorno = punti[punti.length - 1].chiave;
+  const giorniTotali = giorniTra(primoGiorno, ultimoGiorno);
+  const xForData = (dataIso: string) =>
+    giorniTotali === 0 ? PAD_LEFT + plotW / 2 : PAD_LEFT + (giorniTra(primoGiorno, dataIso) / giorniTotali) * plotW;
   const yForPrincipale = (v: number) => HEIGHT_PRINCIPALE - (v / maxValorePrincipale) * HEIGHT_PRINCIPALE;
   const stripTop = HEIGHT_PRINCIPALE + GAP_STRISCIA;
   const yForStriscia = (v: number) => stripTop + HEIGHT_STRISCIA - (v / maxLead) * HEIGHT_STRISCIA;
@@ -213,7 +253,9 @@ export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettim
           </span>
         ) : (
           <span className="text-[11px] text-ink-500">
-            Fatturato tracciato a livello mensile: il valore si ripete per l&apos;intero mese
+            {fatturatoReale
+              ? "Fatturato tracciato per settimana (dati GHL)"
+              : "Fatturato tracciato a livello mensile: il valore si ripete per l'intero mese"}
           </span>
         )}
       </div>
@@ -244,22 +286,25 @@ export function TrendChart({ trendSettimanale }: { trendSettimanale: TrendSettim
 
           {/* Confini mese: tratteggiate e recessive, sotto ai dati (vedi skill dataviz — grid/assi
               recessivi) — segnano la struttura, non devono competere con le due serie. */}
-          {confiniMese.map((c) => (
-            <g key={c.indice}>
-              <line
-                x1={xFor(c.indice)}
-                x2={xFor(c.indice)}
-                y1={0}
-                y2={stripTop + HEIGHT_STRISCIA}
-                stroke="var(--gridline)"
-                strokeWidth={1}
-                strokeDasharray="3,3"
-              />
-              <text x={xFor(c.indice) + 4} y={10} fontSize={9} fill="var(--text-muted)">
-                {c.etichetta}
-              </text>
-            </g>
-          ))}
+          {confiniMese.map((c) => {
+            const x = xForData(`${c.mese}-01`);
+            return (
+              <g key={c.mese}>
+                <line
+                  x1={x}
+                  x2={x}
+                  y1={0}
+                  y2={stripTop + HEIGHT_STRISCIA}
+                  stroke="var(--gridline)"
+                  strokeWidth={1}
+                  strokeDasharray="3,3"
+                />
+                <text x={x + 4} y={10} fontSize={9} fill="var(--text-muted)">
+                  {c.etichetta}
+                </text>
+              </g>
+            );
+          })}
 
           {/* Linee principali leggermente meno satura/opache: i punti (sotto) restano a piena opacità
               e portano il valore esatto — la linea deve suggerire l'andamento, non "gridare". */}

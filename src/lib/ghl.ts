@@ -1,3 +1,4 @@
+import { settimanaDiData } from "@/lib/kpi";
 import type { GhlAppuntamento, GhlCalendario, GhlOpportunita } from "@/types/ghl";
 
 /**
@@ -234,26 +235,40 @@ export function riepilogoOpportunita(opportunita: GhlOpportunita[], startMs: num
 }
 
 /**
- * Come riepilogoOpportunita, ma il fatturato è raggruppato per mese di lastStatusChangeAt invece
- * che sommato in un unico totale — alimenta il grafico "Investimento vs Fatturato" del tab KPI
- * (vedi kpiGhlOverlay.ts/TrendChart.tsx), che è tracciato a livello mensile. Nessuna chiamata API
- * in più: usa la stessa lista `opportunita` (l'intera location, già scaricata da fetchOpportunita)
- * già passata a riepilogoOpportunita.
+ * Come riepilogoOpportunita, ma il fatturato è raggruppato per settimana (lunedì di
+ * lastStatusChangeAt, stessa chiave di trendSettimanale in kpi.ts) invece che sommato in un unico
+ * totale — alimenta il grafico "Investimento vs Fatturato" del tab KPI (vedi kpiGhlOverlay.ts/
+ * TrendChart.tsx), tracciato a settimana intera.
+ *
+ * A differenza di riepilogoOpportunita, il filtro effettivo NON è [startMs, endMs] alla lettera:
+ * si allarga al lunedì della prima settimana e alla domenica dell'ultima settimana coperte da quel
+ * range — le settimane di bordo del grafico (che quasi mai iniziano/finiscono esattamente a
+ * inizio/fine mese) devono mostrare il fatturato reale dell'intera settimana, non solo dei giorni
+ * dentro il mese richiesto. route.ts continua a passare lo stesso startMs/endMs calendario-mese di
+ * sempre (identico a quello usato per la griglia di settimane in kpi.ts): l'allargamento qui
+ * dentro combacia esattamente con quella griglia, nessuna settimana di bordo scoperta. Nessuna
+ * chiamata API in più: usa la stessa lista `opportunita` (l'intera location, già scaricata da
+ * fetchOpportunita) già passata a riepilogoOpportunita.
  */
-export function fatturatoGhlPerMese(
+export function fatturatoGhlPerSettimana(
   opportunita: GhlOpportunita[],
   startMs: number,
   endMs: number
-): { mese: string; fatturato: number }[] {
-  const perMese = new Map<string, number>();
+): { settimana: string; fatturato: number }[] {
+  const inizioSettimana = settimanaDiData(new Date(startMs).toISOString().slice(0, 10));
+  const fineSettimana = settimanaDiData(new Date(endMs).toISOString().slice(0, 10));
+  const inizioMs = new Date(`${inizioSettimana}T00:00:00Z`).getTime();
+  const fineMs = new Date(`${fineSettimana}T00:00:00Z`).getTime() + 7 * 86400000 - 1; // fine della domenica di quella settimana
+
+  const perSettimana = new Map<string, number>();
   for (const o of opportunita) {
     if (o.status !== "won") continue;
     const t = new Date(o.lastStatusChangeAt).getTime();
-    if (!Number.isFinite(t) || t < startMs || t > endMs) continue;
-    const mese = o.lastStatusChangeAt.slice(0, 7);
-    perMese.set(mese, (perMese.get(mese) ?? 0) + (o.monetaryValue || 0));
+    if (!Number.isFinite(t) || t < inizioMs || t > fineMs) continue;
+    const settimana = settimanaDiData(o.lastStatusChangeAt.slice(0, 10));
+    perSettimana.set(settimana, (perSettimana.get(settimana) ?? 0) + (o.monetaryValue || 0));
   }
-  return Array.from(perMese.entries())
-    .map(([mese, fatturato]) => ({ mese, fatturato }))
-    .sort((a, b) => a.mese.localeCompare(b.mese));
+  return Array.from(perSettimana.entries())
+    .map(([settimana, fatturato]) => ({ settimana, fatturato }))
+    .sort((a, b) => a.settimana.localeCompare(b.settimana));
 }

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
+import type { KpiConOverlayGhl } from "@/lib/kpiGhlOverlay";
 import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
@@ -29,7 +30,19 @@ const VISTA_TABS = [
   { id: "campagna", label: "Per singola campagna" },
 ];
 
-export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; totale: KpiGroup; campagne: RigaCampagna[] }) {
+export function KpiTable({
+  gruppi,
+  totale,
+  campagne,
+  overlayGhl,
+}: {
+  gruppi: KpiGroup[];
+  totale: KpiGroup;
+  campagne: RigaCampagna[];
+  // Solo per la riga "Totale" sotto — le righe per tipo campagna sopra restano sempre 100% Funnel,
+  // GHL non è attribuibile per tipo di campagna. Vedi applicaOverlayGhl in kpiGhlOverlay.ts.
+  overlayGhl?: KpiConOverlayGhl | null;
+}) {
   const [vista, setVista] = useState<"tipo" | "campagna">("tipo");
 
   const totaleCampagne = useMemo(() => {
@@ -37,6 +50,23 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
     const numeroLead = campagne.reduce((s, c) => s + c.numeroLead, 0);
     return { investimento, numeroLead, costoPerLead: numeroLead ? investimento / numeroLead : null };
   }, [campagne]);
+
+  // La riga Totale mostra i numeri GHL quando disponibili (stessi delle tessere sopra la tabella),
+  // le righe per tipo campagna sopra restano invariate — vedi il prop overlayGhl sopra.
+  const totaleVisualizzato: KpiGroup = overlayGhl
+    ? {
+        ...totale,
+        appuntamentiFissati: overlayGhl.appuntamentiFissati.valore,
+        appuntamentiEffettuati: overlayGhl.appuntamentiEffettuati.valore,
+        percentualeEffettuatiSuFissati: overlayGhl.percentualeEffettuatiSuFissati.valore,
+        costoPerAppuntamentoEffettuato: overlayGhl.costoPerAppuntamentoEffettuato.valore,
+        numeroVendite: overlayGhl.numeroVendite.valore,
+        tassoDiChiusura: overlayGhl.tassoDiChiusura.valore,
+        fatturato: overlayGhl.fatturato.valore,
+        roas: overlayGhl.roas.valore,
+        cpa: overlayGhl.cpa.valore,
+      }
+    : totale;
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -78,12 +108,18 @@ export function KpiTable({ gruppi, totale, campagne }: { gruppi: KpiGroup[]; tot
                 <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
                 {COLONNE_TIPO.map((c) => (
                   <td key={c.key} className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
-                    {c.format(totale[c.key] as number | null)}
+                    {c.format(totaleVisualizzato[c.key] as number | null)}
                   </td>
                 ))}
               </tr>
             </tbody>
           </table>
+          {overlayGhl && overlayGhl.fatturato.fonte === "ghl" && (
+            <p className="px-5 py-3 text-xs text-ink-500">
+              La riga Totale (appuntamenti, vendite, fatturato) è letta in diretta da GHL — le righe per tipo campagna
+              sopra restano quelle del Funnel (dato inserito a mano) e possono quindi non sommare esattamente al Totale.
+            </p>
+          )}
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">

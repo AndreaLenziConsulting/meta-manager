@@ -177,6 +177,9 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: 
         filtroCampagneAttivo: campagneSelezionate !== null,
       })
     : [];
+  // Stessa condizione di sospensione di applicaOverlayGhlTrend sopra: la didascalia del grafico
+  // (TrendChart.tsx) deve dire il vero su quale fonte sta mostrando, mai disallinearsi dal dato reale.
+  const trendFatturatoReale = Boolean(dati && campagneSelezionate === null && ghlDati?.connesso);
 
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
   // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
@@ -440,9 +443,9 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: 
             )}
           </div>
 
-          <TrendChart trendSettimanale={trendSettimanaleConOverlay} />
+          <TrendChart trendSettimanale={trendSettimanaleConOverlay} fatturatoReale={trendFatturatoReale} />
 
-          <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} />
+          <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} overlayGhl={overlayGhl} />
         </div>
       )}
     </div>

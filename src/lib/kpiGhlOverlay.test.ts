@@ -11,6 +11,7 @@ const TOTALE_FUNNEL = {
   appuntamentiFissati: 3,
   appuntamentiEffettuati: 1,
   percentualeEffettuatiSuFissati: 1 / 3,
+  costoPerAppuntamentoEffettuato: 1000, // investimento(1000) / effettuati(1)
   tassoDiChiusura: 2,
 };
 
@@ -20,9 +21,9 @@ function ghlConnesso(overrides: Partial<Extract<GhlRiepilogoResponse, { connesso
     calendariConfigurati: true,
     appuntamenti: { totali: 7, confermati: 4, annullati: 3, effettuati: 5 },
     opportunita: { vendite: 6, fatturato: 19991 },
-    fatturatoPerMese: [
-      { mese: "2026-06", fatturato: 5000 },
-      { mese: "2026-08", fatturato: 14991 },
+    fatturatoPerSettimana: [
+      { settimana: "2026-06-01", fatturato: 5000 },
+      { settimana: "2026-08-03", fatturato: 14991 },
     ],
     calendariFalliti: 0,
     ...overrides,
@@ -39,6 +40,7 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 3, fonte: "funnel" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 1, fonte: "funnel" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 1 / 3, fonte: "funnel" });
+    expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000, fonte: "funnel" });
     expect(r.tassoDiChiusura).toEqual({ valore: 2, fonte: "funnel" });
     expect(r.parziale).toBe(false);
   });
@@ -47,6 +49,7 @@ describe("applicaOverlayGhl", () => {
     const r = applicaOverlayGhl(TOTALE_FUNNEL, { connesso: false });
     expect(r.fatturato.fonte).toBe("funnel");
     expect(r.appuntamentiEffettuati.fonte).toBe("funnel");
+    expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("funnel");
   });
 
   it("connesso + filtro campagne attivo -> tutto dal Funnel, mai dati GHL mischiati con un investimento filtrato", () => {
@@ -55,9 +58,10 @@ describe("applicaOverlayGhl", () => {
     expect(r.numeroVendite.fonte).toBe("funnel");
     expect(r.appuntamentiFissati.fonte).toBe("funnel");
     expect(r.appuntamentiEffettuati.fonte).toBe("funnel");
+    expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("funnel");
   });
 
-  it("connesso, calendari configurati -> tutte le tessere (incluse effettuati/%/tasso) da GHL", () => {
+  it("connesso, calendari configurati -> tutte le tessere (incluse effettuati/%/costo/tasso) da GHL", () => {
     const r = applicaOverlayGhl(TOTALE_FUNNEL, ghlConnesso());
     expect(r.fatturato).toEqual({ valore: 19991, fonte: "ghl" });
     expect(r.numeroVendite).toEqual({ valore: 6, fonte: "ghl" });
@@ -66,13 +70,15 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 7, fonte: "ghl" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 5, fonte: "ghl" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 5 / 7, fonte: "ghl" });
+    // investimento resta sempre da Meta Ads (1000): solo il denominatore (effettuati) cambia fonte.
+    expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000 / 5, fonte: "ghl" });
     // tassoDiChiusura = vendite GHL / effettuati GHL: numeratore e denominatore dalla stessa fonte,
     // a differenza del caso senza calendari configurati sotto.
     expect(r.tassoDiChiusura).toEqual({ valore: 6 / 5, fonte: "ghl" });
     expect(r.parziale).toBe(false);
   });
 
-  it("connesso ma calendari NON configurati -> appuntamenti/effettuati/%/tasso restano dal Funnel, fatturato/vendite/ROAS/CPA da GHL", () => {
+  it("connesso ma calendari NON configurati -> appuntamenti/effettuati/%/costo/tasso restano dal Funnel, fatturato/vendite/ROAS/CPA da GHL", () => {
     const r = applicaOverlayGhl(
       TOTALE_FUNNEL,
       ghlConnesso({ calendariConfigurati: false, appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 } })
@@ -80,6 +86,7 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 3, fonte: "funnel" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 1, fonte: "funnel" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 1 / 3, fonte: "funnel" });
+    expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000, fonte: "funnel" });
     expect(r.tassoDiChiusura).toEqual({ valore: 2, fonte: "funnel" });
     expect(r.fatturato.fonte).toBe("ghl");
     expect(r.parziale).toBe(false);
@@ -94,6 +101,7 @@ describe("applicaOverlayGhl", () => {
   it("investimento, vendite o effettuati a 0 -> i rapporti tornano null (stessa regola di divideOrNull, non una nuova)", () => {
     const rInvestimentoZero = applicaOverlayGhl({ ...TOTALE_FUNNEL, investimento: 0 }, ghlConnesso());
     expect(rInvestimentoZero.roas).toEqual({ valore: null, fonte: "ghl" });
+    expect(rInvestimentoZero.costoPerAppuntamentoEffettuato).toEqual({ valore: 0, fonte: "ghl" }); // 0/5 = 0, non null
 
     const rVenditeZero = applicaOverlayGhl(TOTALE_FUNNEL, ghlConnesso({ opportunita: { vendite: 0, fatturato: 0 } }));
     expect(rVenditeZero.cpa).toEqual({ valore: null, fonte: "ghl" });
@@ -103,6 +111,7 @@ describe("applicaOverlayGhl", () => {
       ghlConnesso({ appuntamenti: { totali: 7, confermati: 0, annullati: 7, effettuati: 0 } })
     );
     expect(rEffettuatiZero.tassoDiChiusura).toEqual({ valore: null, fonte: "ghl" });
+    expect(rEffettuatiZero.costoPerAppuntamentoEffettuato).toEqual({ valore: null, fonte: "ghl" }); // 1000/0
   });
 });
 
@@ -121,16 +130,16 @@ describe("applicaOverlayGhlTrend", () => {
     expect(applicaOverlayGhlTrend(TREND, ghlConnesso(), { filtroCampagneAttivo: true })).toEqual(TREND);
   });
 
-  it("connesso -> ogni settimana prende il fatturato GHL del proprio mese", () => {
+  it("connesso -> ogni settimana prende il proprio fatturato GHL, per settimana non per mese", () => {
     const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
     expect(r.find((s) => s.settimana === "2026-06-01")?.fatturato).toBe(5000);
     expect(r.find((s) => s.settimana === "2026-08-03")?.fatturato).toBe(14991);
   });
 
-  it("un mese senza nessuna opportunità vinta in GHL diventa 0, non il valore del Funnel — mai un patchwork di due fonti sulla stessa linea", () => {
+  it("una settimana senza nessuna opportunità vinta in GHL diventa 0, non il valore del Funnel — mai un patchwork di due fonti sulla stessa linea", () => {
     const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
     const luglio = r.find((s) => s.settimana === "2026-07-06");
-    expect(luglio?.fatturato).toBe(0); // luglio non è in fatturatoPerMese del fixture ghlConnesso()
+    expect(luglio?.fatturato).toBe(0); // 2026-07-06 non è in fatturatoPerSettimana del fixture ghlConnesso()
   });
 
   it("altri campi della settimana (investimento, numeroLead) restano invariati", () => {

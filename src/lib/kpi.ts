@@ -6,11 +6,28 @@ function meseDiData(data: string): string {
   return data.slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
 }
 
+// export: riusata da ghl.ts per raggruppare il fatturato GHL nella stessa identica settimana
+// (lunedì-domenica) usata qui per trendSettimanale — due implementazioni indipendenti rischierebbero
+// di derivare chiavi-settimana leggermente diverse, che romperebbe silenziosamente il join fra
+// trendSettimanale e fatturatoPerSettimana in kpiGhlOverlay.ts.
 /** Lunedì della settimana che contiene `data` (YYYY-MM-DD) — chiave stabile e ordinabile, niente calcolo ISO-week. */
-function settimanaDiData(data: string): string {
+export function settimanaDiData(data: string): string {
   const d = new Date(`${data}T00:00:00Z`);
   const giorno = (d.getUTCDay() + 6) % 7; // 0 = lunedì ... 6 = domenica
   d.setUTCDate(d.getUTCDate() - giorno);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Ultimo giorno di calendario (YYYY-MM-DD) del mese `mese` (YYYY-MM) — stesso trucco già in uso in api/ghl/route.ts. */
+function ultimoGiornoDelMese(mese: string): string {
+  const [anno, m] = mese.split("-").map(Number);
+  return new Date(Date.UTC(anno, m, 1) - 1).toISOString().slice(0, 10);
+}
+
+/** Lunedì della settimana successiva a `settimana` (YYYY-MM-DD, un lunedì) — solo per scandire la griglia di settimane sotto. */
+function settimanaSuccessiva(settimana: string): string {
+  const d = new Date(`${settimana}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 7);
   return d.toISOString().slice(0, 10);
 }
 
@@ -107,6 +124,17 @@ export function computeKpi(
   // a livello mensile): si usa il mese con più spesa in quella settimana.
   const trendSettimanaleMap = new Map<string, { investimento: number; numeroLead: number; spesaPerMese: Map<string, number> }>();
 
+  // Una entry per OGNI settimana del periodo, non solo quelle con almeno una riga MetaDaily reale
+  // — altrimenti un mese con poca spesa sincronizzata avrebbe pochi o un solo punto nel grafico
+  // (bug segnalato: "agosto ne ha solo 1??"), e i confini mese del grafico non avrebbero settimane
+  // vicine su cui allinearsi. Investimento/numeroLead partono da 0, sovrascritti sotto se esistono
+  // righe MetaDaily reali per quella settimana.
+  const primaSettimana = settimanaDiData(`${daMese}-01`);
+  const ultimaSettimana = settimanaDiData(ultimoGiornoDelMese(aMese));
+  for (let s = primaSettimana; s <= ultimaSettimana; s = settimanaSuccessiva(s)) {
+    trendSettimanaleMap.set(s, { investimento: 0, numeroLead: 0, spesaPerMese: new Map() });
+  }
+
   const nelPeriodo = (mese: string) => mese >= daMese && mese <= aMese;
 
   for (const row of metaDaily) {
@@ -178,8 +206,11 @@ export function computeKpi(
 
   const trendSettimanale = Array.from(trendSettimanaleMap.entries())
     .map(([settimana, v]) => {
-      let meseProprietario = "";
-      let spesaMax = -1;
+      // Default: il mese del lunedì stesso — usato quando la settimana non ha nessuna riga
+      // MetaDaily reale (placeholder aggiunto sopra per completare la griglia). spesaMax parte da 0
+      // (non -1): una spesa reale di 0€ in un mese non deve scavalcare questo default a torto.
+      let meseProprietario = settimana.slice(0, 7);
+      let spesaMax = 0;
       for (const [mese, spesa] of v.spesaPerMese) {
         if (spesa > spesaMax) {
           spesaMax = spesa;

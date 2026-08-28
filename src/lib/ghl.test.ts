@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fatturatoGhlPerMese, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
+import { fatturatoGhlPerSettimana, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
 import type { GhlAppuntamento, GhlOpportunita } from "@/types/ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
@@ -134,24 +134,37 @@ describe("riepilogoOpportunita", () => {
   });
 });
 
-describe("fatturatoGhlPerMese", () => {
-  const GIU_INIZIO = new Date("2026-06-01T00:00:00Z").getTime();
+describe("fatturatoGhlPerSettimana", () => {
+  const GIU_INIZIO = new Date("2026-06-01T00:00:00Z").getTime(); // 2026-06-01 è un lunedì
 
   it("nessuna opportunità -> array vuoto", () => {
-    expect(fatturatoGhlPerMese([], GIU_INIZIO, AGOSTO_FINE)).toEqual([]);
+    expect(fatturatoGhlPerSettimana([], GIU_INIZIO, AGOSTO_FINE)).toEqual([]);
   });
 
-  it("raggruppa per mese di lastStatusChangeAt, ordinato, sole vinte nel periodo", () => {
+  it("raggruppa per settimana (lunedì) di lastStatusChangeAt, ordinato, sole vinte nel periodo", () => {
     const lista = [
-      opportunita({ id: "1", status: "won", monetaryValue: 1000, lastStatusChangeAt: "2026-08-05T00:00:00Z" }),
-      opportunita({ id: "2", status: "won", monetaryValue: 2500, lastStatusChangeAt: "2026-08-20T00:00:00Z" }),
-      opportunita({ id: "3", status: "won", monetaryValue: 400, lastStatusChangeAt: "2026-06-10T00:00:00Z" }),
+      opportunita({ id: "1", status: "won", monetaryValue: 1000, lastStatusChangeAt: "2026-08-05T00:00:00Z" }), // settimana 2026-08-03
+      opportunita({ id: "2", status: "won", monetaryValue: 2500, lastStatusChangeAt: "2026-08-20T00:00:00Z" }), // settimana 2026-08-17
+      opportunita({ id: "3", status: "won", monetaryValue: 400, lastStatusChangeAt: "2026-06-10T00:00:00Z" }), // settimana 2026-06-08
       opportunita({ id: "4", status: "open", monetaryValue: 9999, lastStatusChangeAt: "2026-07-10T00:00:00Z" }),
-      opportunita({ id: "5", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-05-10T00:00:00Z" }), // fuori periodo
+      opportunita({ id: "5", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-05-10T00:00:00Z" }), // fuori periodo anche allargato
     ];
-    expect(fatturatoGhlPerMese(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([
-      { mese: "2026-06", fatturato: 400 },
-      { mese: "2026-08", fatturato: 3500 },
+    expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([
+      { settimana: "2026-06-08", fatturato: 400 },
+      { settimana: "2026-08-03", fatturato: 1000 },
+      { settimana: "2026-08-17", fatturato: 2500 },
     ]);
+  });
+
+  it("allarga la finestra fino alla domenica dell'ultima settimana, non si ferma alla fine calendario del mese `a`", () => {
+    // AGOSTO_FINE è il 31 agosto 2026 (un lunedì): la sua settimana arriva fino a domenica 6 settembre.
+    const lista = [opportunita({ status: "won", monetaryValue: 777, lastStatusChangeAt: "2026-09-03T00:00:00Z" })];
+    expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([{ settimana: "2026-08-31", fatturato: 777 }]);
+  });
+
+  it("allarga la finestra fino al lunedì della prima settimana quando l'inizio richiesto non è un lunedì", () => {
+    const inizioMercoledi = new Date("2026-08-05T00:00:00Z").getTime(); // mercoledì, settimana 2026-08-03
+    const lista = [opportunita({ status: "won", monetaryValue: 111, lastStatusChangeAt: "2026-08-03T00:00:00Z" })]; // lunedì della stessa settimana, prima di startMs alla lettera
+    expect(fatturatoGhlPerSettimana(lista, inizioMercoledi, AGOSTO_FINE)).toContainEqual({ settimana: "2026-08-03", fatturato: 111 });
   });
 });
