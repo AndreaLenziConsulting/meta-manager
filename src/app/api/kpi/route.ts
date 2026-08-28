@@ -11,6 +11,7 @@ import {
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
+import { computeTotaleCumulato, primaDataConDati } from "@/lib/kpiCumulato";
 import type { CampagnaDisponibile, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -28,6 +29,7 @@ export async function GET(req: NextRequest) {
   const a = searchParams.get("a") || meseCorrente();
   const campagneParam = searchParams.get("campagne");
   const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
+  const cumulato = searchParams.get("cumulato") === "1";
 
   let clienteId: string;
   let nomeCliente: string;
@@ -133,6 +135,13 @@ export async function GET(req: NextRequest) {
     campagne: righeCampagne,
     campagneDisponibili,
   };
+
+  // Additivo: solo quando richiesto esplicitamente, riusa metaDaily/campagne/funnel già in memoria
+  // per questa richiesta (nessuna nuova lettura Sheets) per calcolare il totale "da sempre" della sede.
+  if (cumulato) {
+    response.primaData = primaDataConDati(clienteId, sede.sedeId, metaDaily, campagne, funnel);
+    response.totaleCumulato = computeTotaleCumulato(clienteId, sede.sedeId, metaDaily, campagne, funnel);
+  }
 
   return NextResponse.json(response);
 }

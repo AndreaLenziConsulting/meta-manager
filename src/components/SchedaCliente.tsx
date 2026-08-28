@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Tabs } from "@/components/Tabs";
 import { KpiDashboard } from "@/components/KpiDashboard";
+import { PerformanceDashboard } from "@/components/PerformanceDashboard";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
 
@@ -39,6 +40,9 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
   // `code` in /api/attivita), qui è solo la scelta di cosa mostrare.
   const tabs = [
     { id: "kpi", label: "KPI" },
+    // "KPI (nuovo)" (PerformanceDashboard) è riservata all'area cliente autenticata: mai sul link
+    // pubblico (`code`, senza clienteId), stesso principio del tab Attività sopra.
+    ...(clienteId ? [{ id: "performance", label: "KPI (nuovo)" }] : []),
     ...(!code ? [{ id: "attivita", label: "Attività" }] : []),
     ...(tuttiITab ? [{ id: "meeting", label: "Meeting" }] : []),
   ];
@@ -53,6 +57,10 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
 
       {tabAttivo === "kpi" && (
         <KpiDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />
+      )}
+
+      {tabAttivo === "performance" && (
+        <PerformanceDashboard code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />
       )}
 
       {tabAttivo === "attivita" && clienteId && <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} />}
