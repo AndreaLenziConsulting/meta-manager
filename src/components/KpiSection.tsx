@@ -28,7 +28,15 @@ function meseIndietro(n: number): string {
 
 type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
 
-export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
+/**
+ * Contenuto della voce "KPI" dell'accordion in SchedaCliente.tsx — sostituisce KpiDashboard.tsx.
+ * Fase 1 del redesign (blocchi 1-3): nome cliente e switcher sede sono usciti da qui (il primo è
+ * ora ClienteHeader.tsx in cima alla pagina, fuori dall'accordion; il secondo si è spostato nella
+ * riga filtri sotto — un filtro come gli altri due, non più accanto al nome). Tutto il resto
+ * (tessere, grafico, tabella) resta identico a KpiDashboard.tsx per ora: viene sostituito blocco
+ * per blocco nelle fasi successive del redesign (5, 6, 7), non tutto insieme.
+ */
+export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
   const [da, setDa] = useState(meseIndietro(2));
   const [a, setA] = useState(meseCorrente());
   const [dati, setDati] = useState<KpiResponse | null>(null);
@@ -298,89 +306,74 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: 
 
   return (
     <div className="viz-root space-y-6">
-      {dati && (
-        <div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="font-heading font-bold text-2xl text-ink-900">{dati.cliente.nome}</h2>
-            {/* Solo se il cliente ha più di una sede — con una sola (il caso comune) resta identico a oggi. */}
-            {dati.sediDisponibili.length > 1 && (
-              <Tabs
-                tabs={dati.sediDisponibili.map((s) => ({ id: s.sedeId, label: s.nome }))}
-                attivo={dati.sede.sedeId}
-                onChange={(id) => setSedeScelta({ contesto: contestoCliente, sedeId: id })}
-              />
-            )}
-          </div>
-          {motivo && (
-            <div className="mt-3 flex flex-wrap items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-              <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-700 leading-relaxed flex-1 min-w-[220px]">
-                <span className="font-semibold">Solo per te: </span>
-                {motivo}
-              </p>
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-red-700/60 whitespace-nowrap">
-                Visibile solo al team
-              </span>
-            </div>
-          )}
-          {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
-              nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
-              clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
-              senso mostrato al cliente finale, è un'azione di configurazione del team. */}
-          {clienteId && !dati.sede.adAccountId && (
-            <div className="mt-3 rounded-lg bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
-              <p>
-                Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero
-                finché non lo colleghi.
-              </p>
-              {ruoloAdmin &&
-                (adAccountAperto ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="text"
-                      value={adAccountBozza}
-                      onChange={(e) => setAdAccountBozza(e.target.value)}
-                      placeholder="Solo cifre, senza act_"
-                      autoFocus
-                      className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleSalvaAdAccount}
-                      disabled={salvandoAdAccount}
-                      className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-                    >
-                      {salvandoAdAccount ? "Salvataggio…" : "Salva"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAdAccountAperto(false);
-                        setErroreAdAccount(null);
-                      }}
-                      className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
-                    >
-                      Annulla
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAdAccountAperto(true)}
-                    className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-                  >
-                    + Aggiungi ad account
-                  </button>
-                ))}
-              {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
-            </div>
-          )}
+      {dati && motivo && (
+        <div className="flex flex-wrap items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+          <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-red-700 leading-relaxed flex-1 min-w-[220px]">
+            <span className="font-semibold">Solo per te: </span>
+            {motivo}
+          </p>
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-red-700/60 whitespace-nowrap">
+            Visibile solo al team
+          </span>
+        </div>
+      )}
+      {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
+          nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
+          clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
+          senso mostrato al cliente finale, è un'azione di configurazione del team. */}
+      {dati && clienteId && !dati.sede.adAccountId && (
+        <div className="rounded-lg bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
+          <p>
+            Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero finché
+            non lo colleghi.
+          </p>
+          {ruoloAdmin &&
+            (adAccountAperto ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="text"
+                  value={adAccountBozza}
+                  onChange={(e) => setAdAccountBozza(e.target.value)}
+                  placeholder="Solo cifre, senza act_"
+                  autoFocus
+                  className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
+                />
+                <button
+                  type="button"
+                  onClick={handleSalvaAdAccount}
+                  disabled={salvandoAdAccount}
+                  className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+                >
+                  {salvandoAdAccount ? "Salvataggio…" : "Salva"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAdAccountAperto(false);
+                    setErroreAdAccount(null);
+                  }}
+                  className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
+                >
+                  Annulla
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdAccountAperto(true)}
+                className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+              >
+                + Aggiungi ad account
+              </button>
+            ))}
+          {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
         </div>
       )}
 
-      {/* Due gruppi distinti, non N toggle appiattiti sulla stessa riga: filtri (cosa sto guardando)
-          a sinistra, azione + suo esito (cosa sto facendo) a destra — justify-between li separa
-          visivamente anche quando vanno a capo su viewport stretti. */}
+      {/* Riga filtri: data, sede (solo se il cliente ne ha più di una — un filtro come gli altri,
+          non più accostata al nome cliente come prima di questo redesign), campagne. Azione +
+          relativo esito a destra. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <MonthRangePicker
@@ -391,6 +384,14 @@ export function KpiDashboard({ code, clienteId, haConnessioneGhl, ruoloAdmin }: 
               setA(nA);
             }}
           />
+
+          {dati && dati.sediDisponibili.length > 1 && (
+            <Tabs
+              tabs={dati.sediDisponibili.map((s) => ({ id: s.sedeId, label: s.nome }))}
+              attivo={dati.sede.sedeId}
+              onChange={(id) => setSedeScelta({ contesto: contestoCliente, sedeId: id })}
+            />
+          )}
 
           {dati && (
             <CampagneFilter
