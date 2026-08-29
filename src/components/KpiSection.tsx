@@ -301,7 +301,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
           senso mostrato al cliente finale, è un'azione di configurazione del team. */}
       {dati && clienteId && !dati.sede.adAccountId && (
-        <div className="rounded-lg bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
+        <div className="rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
           <p>
             Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero finché
             non lo colleghi.
@@ -382,7 +382,13 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
         <div className="flex flex-wrap items-center gap-3">
           {clienteId && (
-            <Button variant="ghost" size="sm" onClick={handleAggiornaKpi} disabled={sincronizzando} className="flex items-center gap-2 bg-surface-card shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleAggiornaKpi}
+              disabled={sincronizzando}
+              className="flex items-center gap-2 bg-surface-card py-2 shadow-sm"
+            >
               <RefreshCw size={14} className={sincronizzando ? "animate-spin" : ""} />
               {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
             </Button>

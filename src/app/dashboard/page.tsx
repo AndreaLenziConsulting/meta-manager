@@ -37,7 +37,7 @@ export default async function DashboardHomePage() {
     const assegnati = clientiVisibili(sessione, clienti);
     if (assegnati.length === 0) {
       return (
-        <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8">
+        <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8">
           <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
         </div>
       );
@@ -101,7 +101,7 @@ export default async function DashboardHomePage() {
   const riepilogo = calcolaRiepilogo(itemsOrdinati);
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h2 className="font-heading font-bold text-xl text-ink-900">Dashboard Amministratore</h2>

@@ -64,14 +64,14 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm hover:border-brand/40 transition"
+        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
       >
         <FiltroIcon />
         {tutteSelezionate ? `Tutte le campagne (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} campagne`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-gray-200 bg-white shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-4">
           <button
             type="button"
             onClick={toggleTutte}
@@ -86,7 +86,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
               const tuttiNelGruppo = idsGruppo.every((id) => attive.has(id));
               return (
                 <div key={tipo}>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-gray-900 cursor-pointer">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-ink-900 cursor-pointer">
                     <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="accent-current text-brand" />
                     {tipo}
                   </label>
@@ -94,7 +94,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
                     {lista.map((c) => {
                       const stato = formatStatoCampagna(c.stato);
                       return (
-                        <label key={c.campaignId} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                        <label key={c.campaignId} className="flex items-center gap-2 text-xs text-ink-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={attive.has(c.campaignId)}
@@ -112,7 +112,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
                 </div>
               );
             })}
-            {gruppi.length === 0 && <p className="text-xs text-gray-400">Nessuna campagna nel periodo selezionato.</p>}
+            {gruppi.length === 0 && <p className="text-xs text-ink-500">Nessuna campagna nel periodo selezionato.</p>}
           </div>
         </div>
       )}
@@ -122,7 +122,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
 
 function FiltroIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-400">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-500">
       <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
     </svg>
   );

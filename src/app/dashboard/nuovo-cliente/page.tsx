@@ -15,7 +15,7 @@ export default async function NuovoClientePage() {
   const [consulenti, prodotti] = await Promise.all([getConsulenti(), getProdotti()]);
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <div>
         <h2 className="text-xl font-bold text-gray-900">Nuovo cliente</h2>
         <p className="text-sm text-gray-500 mt-1">

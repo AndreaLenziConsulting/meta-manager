@@ -26,7 +26,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <SchedaCliente
         clienteId={clienteId}
         clienteNome={cliente?.nome}

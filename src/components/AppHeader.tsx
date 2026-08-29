@@ -11,7 +11,7 @@ import type { ReactNode } from "react";
 export function AppHeader({ subtitle, children }: { subtitle?: string; children?: ReactNode }) {
   return (
     <header className="bg-surface-card border-b border-ink-300/60 sticky top-0 z-10 backdrop-blur supports-[backdrop-filter]:bg-surface-card/85">
-      <div className="max-w-screen-2xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 h-16 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3.5 min-w-0">
           <Image
             src="/lenzi.webp"
