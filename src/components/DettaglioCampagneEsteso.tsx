@@ -3,14 +3,25 @@
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
 import type { KpiConOverlayGhl } from "@/lib/kpiGhlOverlay";
+import { valutaCampagna } from "@/lib/valutazioneCampagna";
 import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
+import { PallinoStato } from "@/components/ui/PallinoStato";
 
-const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string }[] = [
+// Colonne "per tipo campagna" — Investimento…Costo/Lead sono il blocco nuovo (blocco 7 del
+// redesign KPI, gia' aggregabile a questo livello); da Richieste in poi sono le colonne gia'
+// esistenti, invariate. Frequenza e Stato/pallino NON compaiono qui: un gruppo "tipo campagna" puo'
+// contenere piu' campagne con Frequenza/stato diversi, un unico valore/pallino mentirebbe.
+const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string; evidenzia?: boolean }[] = [
   { key: "investimento", label: "Investimento", format: formatEuro },
-  { key: "numeroLead", label: "Lead", format: formatNumero },
+  { key: "impressions", label: "Impression", format: formatNumero },
+  { key: "cpm", label: "CPM", format: formatEuro },
+  { key: "clicUniciUscita", label: "Clic unici uscita", format: formatNumero },
+  { key: "costoPerClicUnico", label: "Costo/clic unico", format: formatEuro },
+  { key: "ctrClicUnici", label: "CTR clic unici", format: formatPercentuale },
+  { key: "numeroLead", label: "Lead", format: formatNumero, evidenzia: true },
   { key: "costoPerLead", label: "Costo/Lead", format: formatEuro },
   { key: "numeroRichieste", label: "Richieste", format: formatNumero },
   { key: "costoPerRichiesta", label: "Costo/Richiesta", format: formatEuro },
@@ -30,11 +41,14 @@ const VISTA_TABS = [
   { id: "campagna", label: "Per singola campagna" },
 ];
 
-export function KpiTable({
+export function DettaglioCampagneEsteso({
   gruppi,
   totale,
   campagne,
   overlayGhl,
+  frequenzaPerCampagna,
+  targetCpl,
+  mostraValutazione,
 }: {
   gruppi: KpiGroup[];
   totale: KpiGroup;
@@ -42,13 +56,33 @@ export function KpiTable({
   // Solo per la riga "Totale" sotto — le righe per tipo campagna sopra restano sempre 100% Funnel,
   // GHL non è attribuibile per tipo di campagna. Vedi applicaOverlayGhl in kpiGhlOverlay.ts.
   overlayGhl?: KpiConOverlayGhl | null;
+  // Da /api/meta-frequenza — letta live sull'intero periodo, mai persistita (vedi lib/meta.ts).
+  // Mappa vuota se la chiamata Meta fallisce o non è ancora arrivata: quella campagna mostra
+  // Frequenza non disponibile e non contribuisce al pallino (mai un falso verde).
+  frequenzaPerCampagna: Record<string, number>;
+  // Sede.targetCpl — null se non impostato (pallino grigio "non-valutabile" su tutte le campagne).
+  targetCpl: number | null;
+  // Pallino + colonna Frequenza solo per consulente/admin (gated su Boolean(clienteId) dal
+  // chiamante, mai sul link pubblico "code" — stesso principio del banner "Solo per te").
+  mostraValutazione: boolean;
 }) {
   const [vista, setVista] = useState<"tipo" | "campagna">("tipo");
 
   const totaleCampagne = useMemo(() => {
     const investimento = campagne.reduce((s, c) => s + c.investimento, 0);
     const numeroLead = campagne.reduce((s, c) => s + c.numeroLead, 0);
-    return { investimento, numeroLead, costoPerLead: numeroLead ? investimento / numeroLead : null };
+    const impressions = campagne.reduce((s, c) => s + c.impressions, 0);
+    const clicUniciUscita = campagne.reduce((s, c) => s + c.clicUniciUscita, 0);
+    return {
+      investimento,
+      numeroLead,
+      impressions,
+      clicUniciUscita,
+      costoPerLead: numeroLead ? investimento / numeroLead : null,
+      cpm: impressions ? (investimento / impressions) * 1000 : null,
+      costoPerClicUnico: clicUniciUscita ? investimento / clicUniciUscita : null,
+      ctrClicUnici: impressions ? clicUniciUscita / impressions : null,
+    };
   }, [campagne]);
 
   // La riga Totale mostra i numeri GHL quando disponibili (stessi delle tessere sopra la tabella),
@@ -80,7 +114,7 @@ export function KpiTable({
 
       {vista === "tipo" ? (
         <div className="overflow-x-auto mt-3">
-          <table className="w-full text-sm border-collapse min-w-[900px]">
+          <table className="w-full text-sm border-collapse min-w-[1400px]">
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">
@@ -98,7 +132,10 @@ export function KpiTable({
                 <tr key={g.tipoCampagna} className="border-b border-ink-300/60">
                   <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">{g.tipoCampagna}</td>
                   {COLONNE_TIPO.map((c) => (
-                    <td key={c.key} className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">
+                    <td
+                      key={c.key}
+                      className={`text-right px-4 py-3 whitespace-nowrap tabular-nums ${c.evidenzia ? "font-bold text-brand" : "text-ink-700"}`}
+                    >
                       {c.format(g[c.key] as number | null)}
                     </td>
                   ))}
@@ -107,7 +144,10 @@ export function KpiTable({
               <tr>
                 <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
                 {COLONNE_TIPO.map((c) => (
-                  <td key={c.key} className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                  <td
+                    key={c.key}
+                    className={`text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums ${c.evidenzia ? "text-brand" : "text-ink-900"}`}
+                  >
                     {c.format(totaleVisualizzato[c.key] as number | null)}
                   </td>
                 ))}
@@ -126,12 +166,18 @@ export function KpiTable({
           <p className="px-5 pb-2 text-xs text-ink-500">
             Solo le metriche da Meta Ads — vendite/fatturato sono tracciati solo per tipo campagna, non per singola campagna.
           </p>
-          <table className="w-full text-sm border-collapse min-w-[600px]">
+          <table className="w-full text-sm border-collapse min-w-[1100px]">
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Campagna</th>
                 <th className="text-left font-medium px-4 py-3 text-ink-500">Stato</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Investimento</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Impression</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">CPM</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Clic unici uscita</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/clic unico</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">CTR clic unici</th>
+                {mostraValutazione && <th className="text-right font-medium px-4 py-3 text-ink-500">Frequenza</th>}
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Lead</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/Lead</th>
               </tr>
@@ -139,10 +185,22 @@ export function KpiTable({
             <tbody>
               {campagne.map((c) => {
                 const stato = formatStatoCampagna(c.stato);
+                const frequenza = frequenzaPerCampagna[c.campaignId] ?? null;
+                const valutazione = mostraValutazione
+                  ? valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl })
+                  : null;
                 return (
                   <tr key={c.campaignId} className="border-b border-ink-300/60">
                     <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">
-                      {c.nomeCampagna}
+                      <span className="flex items-center gap-2">
+                        {valutazione && (
+                          <PallinoStato
+                            tono={valutazione.livello === "non-valutabile" ? "neutro" : valutazione.livello}
+                            motivo={valutazione.motivo}
+                          />
+                        )}
+                        {c.nomeCampagna}
+                      </span>
                       <span className="block text-[11px] text-ink-500 font-normal">{c.tipoCampagna}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
@@ -158,14 +216,24 @@ export function KpiTable({
                       )}
                     </td>
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.investimento)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.numeroLead)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.impressions)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.cpm)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.clicUniciUscita)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerClicUnico)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatPercentuale(c.ctrClicUnici)}</td>
+                    {mostraValutazione && (
+                      <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">
+                        {frequenza !== null ? frequenza.toFixed(2) : "—"}
+                      </td>
+                    )}
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums font-bold text-brand">{formatNumero(c.numeroLead)}</td>
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerLead)}</td>
                   </tr>
                 );
               })}
               {campagne.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="px-5 py-6 text-center text-ink-500">
+                  <td colSpan={mostraValutazione ? 11 : 10} className="px-5 py-6 text-center text-ink-500">
                     Nessuna campagna nel periodo selezionato.
                   </td>
                 </tr>
@@ -178,6 +246,22 @@ export function KpiTable({
                     {formatEuro(totaleCampagne.investimento)}
                   </td>
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                    {formatNumero(totaleCampagne.impressions)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                    {formatEuro(totaleCampagne.cpm)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                    {formatNumero(totaleCampagne.clicUniciUscita)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                    {formatEuro(totaleCampagne.costoPerClicUnico)}
+                  </td>
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                    {formatPercentuale(totaleCampagne.ctrClicUnici)}
+                  </td>
+                  {mostraValutazione && <td className="px-4 py-3" />}
+                  <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-brand">
                     {formatNumero(totaleCampagne.numeroLead)}
                   </td>
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">

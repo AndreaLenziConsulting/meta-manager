@@ -6,8 +6,9 @@ import { Pencil } from "lucide-react";
 import type { Consulente, Salute } from "@/types/kpi";
 import type { SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
-import { STILE_LIVELLO, type LivelloStato } from "@/lib/statusStyles";
+import type { LivelloStato } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
+import { PallinoStato } from "@/components/ui/PallinoStato";
 
 // Trattamento a rail (bordo superiore colorato) + etichetta di testo, non più a pillola — le tinte
 // restano le stesse di STILE_LIVELLO ma qui vanno scomposte in bordo/testo separati, cosa che la
@@ -23,11 +24,6 @@ const STILE_STATO: Record<Salute, { label: string; tono: LivelloStato; railClass
 };
 
 type Zona = { key: string; titolo: string; criterio: string; titoloClasse: string; compatta: boolean; items: SaluteClienteItem[] };
-
-/** Puntino colorato — sostituisce le emoji 🔴🟡🟢⚪, usato nelle righe compatte della zona "in linea". */
-function Puntino({ tono }: { tono: LivelloStato }) {
-  return <span className={`inline-block w-1.5 h-1.5 rounded-full flex-shrink-0 ${STILE_LIVELLO[tono].puntino}`} />;
-}
 
 function ClienteCard({
   item,
@@ -85,7 +81,7 @@ function ClienteCard({
             const stileSede = STILE_STATO[s.valutazione.stato];
             return (
               <div key={s.sede.sedeId} className="flex items-center gap-2 text-sm">
-                <Puntino tono={stileSede.tono} />
+                <PallinoStato tono={stileSede.tono} />
                 <span className="text-ink-700 font-medium">{s.sede.nome}</span>
                 <span className={`text-xs font-semibold ${stileSede.testoClasse}`}>{stileSede.label}</span>
               </div>
@@ -139,7 +135,7 @@ function ClienteRiga({
       className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-3 bg-surface-card hover:bg-brand-light/40 transition cursor-pointer"
     >
       <div className="flex items-center gap-2 min-w-0">
-        <Puntino tono={stile.tono} />
+        <PallinoStato tono={stile.tono} />
         <span className="text-sm font-medium text-ink-700 truncate">{item.cliente.nome}</span>
         <span className="text-[11px] text-ink-500 flex-shrink-0">{stile.label}</span>
         {nomeConsulente && <span className="text-[11px] text-ink-500 flex-shrink-0">· {nomeConsulente}</span>}

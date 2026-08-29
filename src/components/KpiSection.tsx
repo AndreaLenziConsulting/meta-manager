@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { RefreshCw, AlertTriangle } from "lucide-react";
 import { TrendChart } from "@/components/TrendChart";
-import { KpiTable } from "@/components/KpiTable";
+import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
@@ -58,6 +58,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // kpiGhlOverlay.ts per il perché di quali tessere sì e quali no. null = nessun dato GHL
   // disponibile (non connesso, filtro campagne attivo, o fetch non ancora arrivato).
   const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
+  // Frequenza per campagna (blocco 7) — letta live sull'intero periodo, mai persistita (vedi
+  // lib/meta.ts). Mappa vuota finché non arriva o se la chiamata fallisce: quella campagna mostra
+  // "dato non disponibile" e non contribuisce al pallino, mai un falso verde.
+  const [frequenzaPerCampagna, setFrequenzaPerCampagna] = useState<Record<string, number>>({});
 
   // Contesto = quale cliente/codice sto guardando, indipendente dalla sede: cambia solo quando si
   // naviga verso un cliente diverso, non quando si cambia sede all'interno dello stesso cliente.
@@ -168,6 +172,31 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       });
     return () => controller.abort();
   }, [clienteId, haConnessioneGhl, sedeGhl, da, a, campagneSelezionate, refreshTick]);
+
+  // Frequenza per campagna (blocco 7, tabella Dettaglio) — stesso ciclo di vita del fetch GHL
+  // sopra: una volta per apertura sezione, non solo aprendo la vista "per singola campagna", perché
+  // la stessa mappa alimenterà anche gli avvisi operativi (blocco 4) più avanti nel redesign. Usa
+  // la sede RISOLTA dal server (sedeGhl, già letto sopra), stesso motivo dell'effect GHL: prima che
+  // /api/kpi risponda non sappiamo ancora su quale sede/ad account chiedere.
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        if (!clienteId || !sedeGhl) {
+          setFrequenzaPerCampagna({});
+          return undefined;
+        }
+        const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
+        return fetch(`/api/meta-frequenza?${params.toString()}`, { signal: controller.signal })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body: { frequenzaPerCampagna: Record<string, number> } | null) => setFrequenzaPerCampagna(body?.frequenzaPerCampagna ?? {}));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setFrequenzaPerCampagna({});
+      });
+    return () => controller.abort();
+  }, [clienteId, sedeGhl, da, a, refreshTick]);
 
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
   // filtro campagne attivo), altrimenti dal Funnel come sempre — vedi kpiGhlOverlay.ts per il
@@ -417,7 +446,15 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
           <TrendChart trendSettimanale={trendSettimanaleConOverlay} fatturatoReale={trendFatturatoReale} />
 
-          <KpiTable gruppi={dati.gruppi} totale={dati.totale} campagne={dati.campagne} overlayGhl={overlayGhl} />
+          <DettaglioCampagneEsteso
+            gruppi={dati.gruppi}
+            totale={dati.totale}
+            campagne={dati.campagne}
+            overlayGhl={overlayGhl}
+            frequenzaPerCampagna={frequenzaPerCampagna}
+            targetCpl={dati.sede.targetCpl ?? null}
+            mostraValutazione={Boolean(clienteId)}
+          />
         </div>
       )}
     </div>
