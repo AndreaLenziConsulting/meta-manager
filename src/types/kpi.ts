@@ -97,6 +97,7 @@ export type KpiGroup = {
   appuntamentiFissati: number;
   appuntamentiEffettuati: number;
   percentualeEffettuatiSuFissati: number | null;
+  costoPerAppuntamentoFissato: number | null;
   costoPerAppuntamentoEffettuato: number | null;
   numeroVendite: number;
   tassoDiChiusura: number | null;

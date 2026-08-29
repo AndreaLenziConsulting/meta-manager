@@ -91,6 +91,7 @@ export function computeTotaleCumulato(
     appuntamentiFissati,
     appuntamentiEffettuati,
     percentualeEffettuatiSuFissati: divideOrNull(appuntamentiEffettuati, appuntamentiFissati),
+    costoPerAppuntamentoFissato: divideOrNull(investimento, appuntamentiFissati),
     costoPerAppuntamentoEffettuato: divideOrNull(investimento, appuntamentiEffettuati),
     numeroVendite,
     tassoDiChiusura: divideOrNull(numeroVendite, appuntamentiEffettuati),

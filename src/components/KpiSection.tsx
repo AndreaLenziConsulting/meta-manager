@@ -8,7 +8,7 @@ import { MonthRangePicker } from "@/components/MonthRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
-import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
+import { SintesiTessere } from "@/components/SintesiTessere";
 import { calcolaSalute } from "@/lib/salute";
 import { formatMotivoIntervento } from "@/lib/saluteMessaggio";
 import { attivitaInRitardo } from "@/lib/roadmap";
@@ -282,28 +282,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         )
       : null;
 
-  // "Appuntamenti effettuati" segue lo standard operativo deciso dall'utente il 27/08/2026 (incontro
-  // passato e mai annullato — vedi il commento in cima a kpiGhlOverlay.ts), quindi ora PUÒ venire da
-  // GHL insieme a fissati/%/tasso di chiusura, quando i calendari sono configurati: numeratore e
-  // denominatore del tasso di chiusura sono in quel caso entrambi GHL, mai un mix con il Funnel.
-  // Nessuna etichetta "GHL" in vista (tolta su richiesta esplicita) — il dato sostituisce quello del
-  // Funnel senza distinguerlo visivamente in UI, resta distinguibile solo leggendo `fonte` in overlayGhl.
-  const metricheSecondarie =
-    dati && overlayGhl
-      ? [
-          { label: "Investimento", value: formatEuro(dati.totale.investimento) },
-          { label: "Lead", value: formatNumero(dati.totale.numeroLead) },
-          { label: "Costo per Lead", value: formatEuro(dati.totale.costoPerLead) },
-          { label: "Appuntamenti fissati", value: formatNumero(overlayGhl.appuntamentiFissati.valore) },
-          { label: "Appuntamenti effettuati", value: formatNumero(overlayGhl.appuntamentiEffettuati.valore) },
-          { label: "% effettuati su fissati", value: formatPercentuale(overlayGhl.percentualeEffettuatiSuFissati.valore) },
-          { label: "Vendite", value: formatNumero(overlayGhl.numeroVendite.valore) },
-          { label: "Tasso di chiusura", value: formatPercentuale(overlayGhl.tassoDiChiusura.valore) },
-          { label: "ROAS", value: formatRoas(overlayGhl.roas.valore) },
-          { label: "CPA", value: formatEuro(overlayGhl.cpa.valore) },
-        ]
-      : [];
-
   return (
     <div className="viz-root space-y-6">
       {dati && motivo && (
@@ -421,20 +399,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
           <div>
-            <div className="pb-5 mb-5 border-b border-ink-300/60">
-              <p className="text-xs font-semibold uppercase tracking-widest text-ink-500">Fatturato</p>
-              <p className="font-heading font-bold text-4xl sm:text-5xl text-ink-900 mt-1.5 tabular-nums">
-                {formatEuro(overlayGhl?.fatturato.valore ?? dati.totale.fatturato)}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-6 gap-y-5">
-              {metricheSecondarie.map((m) => (
-                <div key={m.label}>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{m.label}</p>
-                  <p className="font-heading font-bold text-xl text-ink-900 mt-1 tabular-nums">{m.value}</p>
-                </div>
-              ))}
-            </div>
+            <SintesiTessere totale={dati.totale} overlayGhl={overlayGhl} />
             {overlayGhl?.parziale && (
               <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mt-5">
                 Uno o più calendari GHL non erano raggiungibili al momento del caricamento — i numeri di

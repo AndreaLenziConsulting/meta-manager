@@ -113,6 +113,7 @@ describe("computeTotaleCumulato", () => {
     expect(r.fatturato).toBe(800);
     expect(r.costoPerRichiesta).toBe(150 / 7);
     expect(r.percentualeEffettuatiSuFissati).toBe(5 / 6);
+    expect(r.costoPerAppuntamentoFissato).toBe(150 / 6);
     expect(r.costoPerAppuntamentoEffettuato).toBe(150 / 5);
     expect(r.tassoDiChiusura).toBe(2 / 5);
     expect(r.roas).toBe(800 / 150);
@@ -149,6 +150,7 @@ describe("computeTotaleCumulato", () => {
     expect(r.costoPerLead).toBeNull();
     expect(r.costoPerRichiesta).toBeNull();
     expect(r.percentualeEffettuatiSuFissati).toBeNull();
+    expect(r.costoPerAppuntamentoFissato).toBeNull();
     expect(r.costoPerAppuntamentoEffettuato).toBeNull();
     expect(r.tassoDiChiusura).toBeNull();
     expect(r.roas).toBeNull();
@@ -178,6 +180,7 @@ describe("computeTotaleCumulato", () => {
       appuntamentiFissati: 15,
       appuntamentiEffettuati: 12,
       percentualeEffettuatiSuFissati: 12 / 15,
+      costoPerAppuntamentoFissato: 500 / 15,
       costoPerAppuntamentoEffettuato: 500 / 12,
       numeroVendite: 6,
       tassoDiChiusura: 6 / 12,

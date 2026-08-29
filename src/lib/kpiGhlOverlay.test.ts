@@ -11,6 +11,7 @@ const TOTALE_FUNNEL = {
   appuntamentiFissati: 3,
   appuntamentiEffettuati: 1,
   percentualeEffettuatiSuFissati: 1 / 3,
+  costoPerAppuntamentoFissato: 1000 / 3, // investimento(1000) / fissati(3)
   costoPerAppuntamentoEffettuato: 1000, // investimento(1000) / effettuati(1)
   tassoDiChiusura: 2,
 };
@@ -40,6 +41,7 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 3, fonte: "funnel" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 1, fonte: "funnel" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 1 / 3, fonte: "funnel" });
+    expect(r.costoPerAppuntamentoFissato).toEqual({ valore: 1000 / 3, fonte: "funnel" });
     expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000, fonte: "funnel" });
     expect(r.tassoDiChiusura).toEqual({ valore: 2, fonte: "funnel" });
     expect(r.parziale).toBe(false);
@@ -49,6 +51,7 @@ describe("applicaOverlayGhl", () => {
     const r = applicaOverlayGhl(TOTALE_FUNNEL, { connesso: false });
     expect(r.fatturato.fonte).toBe("funnel");
     expect(r.appuntamentiEffettuati.fonte).toBe("funnel");
+    expect(r.costoPerAppuntamentoFissato.fonte).toBe("funnel");
     expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("funnel");
   });
 
@@ -58,6 +61,7 @@ describe("applicaOverlayGhl", () => {
     expect(r.numeroVendite.fonte).toBe("funnel");
     expect(r.appuntamentiFissati.fonte).toBe("funnel");
     expect(r.appuntamentiEffettuati.fonte).toBe("funnel");
+    expect(r.costoPerAppuntamentoFissato.fonte).toBe("funnel");
     expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("funnel");
   });
 
@@ -70,7 +74,8 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 7, fonte: "ghl" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 5, fonte: "ghl" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 5 / 7, fonte: "ghl" });
-    // investimento resta sempre da Meta Ads (1000): solo il denominatore (effettuati) cambia fonte.
+    // investimento resta sempre da Meta Ads (1000): solo il denominatore (fissati/effettuati) cambia fonte.
+    expect(r.costoPerAppuntamentoFissato).toEqual({ valore: 1000 / 7, fonte: "ghl" });
     expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000 / 5, fonte: "ghl" });
     // tassoDiChiusura = vendite GHL / effettuati GHL: numeratore e denominatore dalla stessa fonte,
     // a differenza del caso senza calendari configurati sotto.
@@ -86,6 +91,7 @@ describe("applicaOverlayGhl", () => {
     expect(r.appuntamentiFissati).toEqual({ valore: 3, fonte: "funnel" });
     expect(r.appuntamentiEffettuati).toEqual({ valore: 1, fonte: "funnel" });
     expect(r.percentualeEffettuatiSuFissati).toEqual({ valore: 1 / 3, fonte: "funnel" });
+    expect(r.costoPerAppuntamentoFissato).toEqual({ valore: 1000 / 3, fonte: "funnel" });
     expect(r.costoPerAppuntamentoEffettuato).toEqual({ valore: 1000, fonte: "funnel" });
     expect(r.tassoDiChiusura).toEqual({ valore: 2, fonte: "funnel" });
     expect(r.fatturato.fonte).toBe("ghl");
@@ -101,6 +107,7 @@ describe("applicaOverlayGhl", () => {
   it("investimento, vendite o effettuati a 0 -> i rapporti tornano null (stessa regola di divideOrNull, non una nuova)", () => {
     const rInvestimentoZero = applicaOverlayGhl({ ...TOTALE_FUNNEL, investimento: 0 }, ghlConnesso());
     expect(rInvestimentoZero.roas).toEqual({ valore: null, fonte: "ghl" });
+    expect(rInvestimentoZero.costoPerAppuntamentoFissato).toEqual({ valore: 0, fonte: "ghl" }); // 0/7 = 0, non null
     expect(rInvestimentoZero.costoPerAppuntamentoEffettuato).toEqual({ valore: 0, fonte: "ghl" }); // 0/5 = 0, non null
 
     const rVenditeZero = applicaOverlayGhl(TOTALE_FUNNEL, ghlConnesso({ opportunita: { vendite: 0, fatturato: 0 } }));

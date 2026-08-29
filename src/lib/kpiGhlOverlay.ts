@@ -12,6 +12,7 @@ export type KpiConOverlayGhl = {
   appuntamentiFissati: CampoConFonte<number>;
   appuntamentiEffettuati: CampoConFonte<number>;
   percentualeEffettuatiSuFissati: CampoConFonte<number | null>;
+  costoPerAppuntamentoFissato: CampoConFonte<number | null>;
   costoPerAppuntamentoEffettuato: CampoConFonte<number | null>;
   tassoDiChiusura: CampoConFonte<number | null>;
   // Solo gli appuntamenti possono essere parziali: fetchAppuntamenti (ghl.ts) è per-calendario con
@@ -30,6 +31,7 @@ type TotaleFunnel = Pick<
   | "appuntamentiFissati"
   | "appuntamentiEffettuati"
   | "percentualeEffettuatiSuFissati"
+  | "costoPerAppuntamentoFissato"
   | "costoPerAppuntamentoEffettuato"
   | "tassoDiChiusura"
 >;
@@ -43,6 +45,7 @@ function soloFunnel(t: TotaleFunnel): KpiConOverlayGhl {
     appuntamentiFissati: { valore: t.appuntamentiFissati, fonte: "funnel" },
     appuntamentiEffettuati: { valore: t.appuntamentiEffettuati, fonte: "funnel" },
     percentualeEffettuatiSuFissati: { valore: t.percentualeEffettuatiSuFissati, fonte: "funnel" },
+    costoPerAppuntamentoFissato: { valore: t.costoPerAppuntamentoFissato, fonte: "funnel" },
     costoPerAppuntamentoEffettuato: { valore: t.costoPerAppuntamentoEffettuato, fonte: "funnel" },
     tassoDiChiusura: { valore: t.tassoDiChiusura, fonte: "funnel" },
     parziale: false,
@@ -91,6 +94,7 @@ export function applicaOverlayGhl(
     appuntamentiFissati: { valore: totaleFunnel.appuntamentiFissati, fonte: "funnel" },
     appuntamentiEffettuati: { valore: totaleFunnel.appuntamentiEffettuati, fonte: "funnel" },
     percentualeEffettuatiSuFissati: { valore: totaleFunnel.percentualeEffettuatiSuFissati, fonte: "funnel" },
+    costoPerAppuntamentoFissato: { valore: totaleFunnel.costoPerAppuntamentoFissato, fonte: "funnel" },
     costoPerAppuntamentoEffettuato: { valore: totaleFunnel.costoPerAppuntamentoEffettuato, fonte: "funnel" },
     tassoDiChiusura: { valore: totaleFunnel.tassoDiChiusura, fonte: "funnel" },
     parziale: false,
@@ -103,7 +107,8 @@ export function applicaOverlayGhl(
     risultato.appuntamentiEffettuati = { valore: effettuati, fonte: "ghl" };
     risultato.percentualeEffettuatiSuFissati = { valore: divideOrNull(effettuati, fissati), fonte: "ghl" };
     // investimento resta sempre da Meta Ads (GHL non ha questo concetto) — solo il denominatore
-    // (effettuati) cambia fonte, stesso schema di percentualeEffettuatiSuFissati sopra.
+    // (fissati/effettuati) cambia fonte, stesso schema di percentualeEffettuatiSuFissati sopra.
+    risultato.costoPerAppuntamentoFissato = { valore: divideOrNull(totaleFunnel.investimento, fissati), fonte: "ghl" };
     risultato.costoPerAppuntamentoEffettuato = { valore: divideOrNull(totaleFunnel.investimento, effettuati), fonte: "ghl" };
     // Numeratore (vendite) e denominatore (effettuati) sono entrambi GHL qui — a differenza del
     // caso senza calendari configurati, dove mescolare un numeratore GHL con un denominatore
