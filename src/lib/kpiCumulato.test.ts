@@ -31,6 +31,7 @@ function metaRow(overrides: Partial<MetaDailyRow> = {}): MetaDailyRow {
     cpc: 2,
     cpm: 100,
     lead: 10,
+    clicUniciUscita: 5,
     ...overrides,
   };
 }
@@ -148,6 +149,9 @@ describe("computeTotaleCumulato", () => {
     expect(r.investimento).toBe(0);
     expect(r.numeroLead).toBe(0);
     expect(r.costoPerLead).toBeNull();
+    expect(r.cpm).toBeNull();
+    expect(r.costoPerClicUnico).toBeNull();
+    expect(r.ctrClicUnici).toBeNull();
     expect(r.costoPerRichiesta).toBeNull();
     expect(r.percentualeEffettuatiSuFissati).toBeNull();
     expect(r.costoPerAppuntamentoFissato).toBeNull();
@@ -173,8 +177,13 @@ describe("computeTotaleCumulato", () => {
     expect(r).toEqual({
       tipoCampagna: "Da sempre",
       investimento: 500,
+      impressions: 2000, // 1000 (default metaRow) x 2 righe
+      cpm: (500 / 2000) * 1000,
       numeroLead: 30,
       costoPerLead: 500 / 30,
+      clicUniciUscita: 10, // 5 (default metaRow) x 2 righe
+      costoPerClicUnico: 500 / 10,
+      ctrClicUnici: 10 / 2000,
       numeroRichieste: 20,
       costoPerRichiesta: 500 / 20,
       appuntamentiFissati: 15,

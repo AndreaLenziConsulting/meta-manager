@@ -12,14 +12,14 @@ const CAMPAGNE: Campagna[] = [
 ];
 
 const META_DAILY: MetaDailyRow[] = [
-  { data: "2026-06-15", clienteId: "alc-01", campaignId: "c1", spesa: 100, impressions: 1000, clicks: 10, ctr: 1, cpc: 10, cpm: 100, lead: 5 },
-  { data: "2026-06-16", clienteId: "alc-01", campaignId: "c2", spesa: 50, impressions: 500, clicks: 5, ctr: 1, cpc: 10, cpm: 100, lead: 2 },
-  { data: "2026-06-20", clienteId: "alc-01", campaignId: "c3", spesa: 200, impressions: 2000, clicks: 20, ctr: 1, cpc: 10, cpm: 100, lead: 8 },
-  { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 30, impressions: 300, clicks: 3, ctr: 1, cpc: 10, cpm: 100, lead: 1 },
+  { data: "2026-06-15", clienteId: "alc-01", campaignId: "c1", spesa: 100, impressions: 1000, clicks: 10, ctr: 1, cpc: 10, cpm: 100, lead: 5, clicUniciUscita: 0 },
+  { data: "2026-06-16", clienteId: "alc-01", campaignId: "c2", spesa: 50, impressions: 500, clicks: 5, ctr: 1, cpc: 10, cpm: 100, lead: 2, clicUniciUscita: 0 },
+  { data: "2026-06-20", clienteId: "alc-01", campaignId: "c3", spesa: 200, impressions: 2000, clicks: 20, ctr: 1, cpc: 10, cpm: 100, lead: 8, clicUniciUscita: 0 },
+  { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 30, impressions: 300, clicks: 3, ctr: 1, cpc: 10, cpm: 100, lead: 1, clicUniciUscita: 0 },
   // Fuori dal periodo di test [2026-06, 2026-06]: deve essere escluso quando si filtra a giugno.
-  { data: "2026-05-01", clienteId: "alc-01", campaignId: "c1", spesa: 999, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 99 },
+  { data: "2026-05-01", clienteId: "alc-01", campaignId: "c1", spesa: 999, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 99, clicUniciUscita: 0 },
   // Altro cliente: non deve mai comparire nei totali di alc-01.
-  { data: "2026-06-15", clienteId: "altro-cliente", campaignId: "c9", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50 },
+  { data: "2026-06-15", clienteId: "altro-cliente", campaignId: "c9", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicUniciUscita: 0 },
 ];
 
 const FUNNEL: FunnelRow[] = [
@@ -37,6 +37,32 @@ describe("computeKpi", () => {
     expect(prospecting.numeroLead).toBe(7);
     expect(retargeting.investimento).toBe(200);
     expect(retargeting.numeroLead).toBe(8);
+  });
+
+  it("aggrega impressions/clic unici in uscita e calcola i derivati (cpm, costo/clic unico, ctr clic unici) dall'aggregato, mai media dei valori giornalieri", () => {
+    const metaDaily: MetaDailyRow[] = [
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c1", spesa: 100, impressions: 2000, clicks: 50, ctr: 2.5, cpc: 2, cpm: 50, lead: 5, clicUniciUscita: 20 },
+      { data: "2026-06-02", clienteId: "alc-01", campaignId: "c1", spesa: 50, impressions: 1000, clicks: 25, ctr: 2.5, cpc: 2, cpm: 50, lead: 3, clicUniciUscita: 10 },
+    ];
+    const { gruppi, totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", metaDaily, CAMPAGNE, []);
+    const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
+    expect(prospecting.impressions).toBe(3000);
+    expect(prospecting.clicUniciUscita).toBe(30);
+    expect(prospecting.cpm).toBeCloseTo((150 / 3000) * 1000, 5); // 50 — ricalcolato dall'aggregato, non la media dei due cpm giornalieri (identici qui per costruzione, ma il punto è che non sono quelli letti)
+    expect(prospecting.costoPerClicUnico).toBeCloseTo(150 / 30, 5);
+    expect(prospecting.ctrClicUnici).toBeCloseTo(30 / 3000, 5);
+    expect(totale.impressions).toBe(3000);
+    expect(totale.clicUniciUscita).toBe(30);
+  });
+
+  it("cpm/costo-per-clic-unico/ctr-clic-unici sono null quando il denominatore è 0 (nessuna impression/clic unico)", () => {
+    const metaDaily: MetaDailyRow[] = [
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c1", spesa: 100, impressions: 0, clicks: 0, ctr: 0, cpc: 0, cpm: 0, lead: 0, clicUniciUscita: 0 },
+    ];
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", metaDaily, CAMPAGNE, []);
+    expect(totale.cpm).toBeNull();
+    expect(totale.costoPerClicUnico).toBeNull();
+    expect(totale.ctrClicUnici).toBeNull();
   });
 
   it("esclude righe fuori dal range di mesi e di altri clienti", () => {
@@ -100,8 +126,8 @@ describe("computeKpi", () => {
     // Settimana del lunedì 2026-06-29 (fino a domenica 2026-07-05): il lunedì stesso è di giugno, ma la
     // spesa reale in quella settimana è quasi tutta di luglio -> il fatturato deve seguire la spesa, non il lunedì.
     const metaDaily: MetaDailyRow[] = [
-      { data: "2026-06-29", clienteId: "alc-01", campaignId: "c1", spesa: 10, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1 },
-      { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9 },
+      { data: "2026-06-29", clienteId: "alc-01", campaignId: "c1", spesa: 10, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicUniciUscita: 0 },
+      { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9, clicUniciUscita: 0 },
     ];
     const funnel: FunnelRow[] = [
       { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
@@ -168,8 +194,8 @@ describe("computeKpi", () => {
       { campaignId: "s2-c1", clienteId: "multi", sedeId: "sede-2", nomeCampagna: "Sede 2", tipoCampagna: "Prospecting", stato: "ACTIVE" },
     ];
     const metaDailyDueSedi: MetaDailyRow[] = [
-      { data: "2026-06-10", clienteId: "multi", campaignId: "s1-c1", spesa: 100, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 10 },
-      { data: "2026-06-10", clienteId: "multi", campaignId: "s2-c1", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50 },
+      { data: "2026-06-10", clienteId: "multi", campaignId: "s1-c1", spesa: 100, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 10, clicUniciUscita: 0 },
+      { data: "2026-06-10", clienteId: "multi", campaignId: "s2-c1", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicUniciUscita: 0 },
     ];
     const funnelDueSedi: FunnelRow[] = [
       { mese: "2026-06", clienteId: "multi", sedeId: "sede-1", tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
@@ -200,6 +226,20 @@ describe("computeKpiPerCampagna", () => {
     expect(c1.costoPerLead).toBe(20);
     expect(c1.tipoCampagna).toBe("Prospecting");
     expect(c1.stato).toBe("ACTIVE");
+  });
+
+  it("aggrega impressions/clic unici in uscita per singola campagna e calcola cpm/costo-clic-unico/ctr-clic-unici", () => {
+    const metaDaily: MetaDailyRow[] = [
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c1", spesa: 100, impressions: 2000, clicks: 50, ctr: 2.5, cpc: 2, cpm: 50, lead: 5, clicUniciUscita: 20 },
+      { data: "2026-06-02", clienteId: "alc-01", campaignId: "c1", spesa: 50, impressions: 1000, clicks: 25, ctr: 2.5, cpc: 2, cpm: 50, lead: 3, clicUniciUscita: 10 },
+    ];
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", metaDaily, CAMPAGNE);
+    const c1 = righe.find((r) => r.campaignId === "c1")!;
+    expect(c1.impressions).toBe(3000);
+    expect(c1.clicUniciUscita).toBe(30);
+    expect(c1.cpm).toBeCloseTo((150 / 3000) * 1000, 5);
+    expect(c1.costoPerClicUnico).toBeCloseTo(150 / 30, 5);
+    expect(c1.ctrClicUnici).toBeCloseTo(30 / 3000, 5);
   });
 
   it("ordina per investimento decrescente", () => {
@@ -235,6 +275,7 @@ describe("computeKpiPerCampagna", () => {
       cpc: 0,
       cpm: 0,
       lead: 0,
+      clicUniciUscita: 0,
     };
     const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", [...META_DAILY, rigaNonMappata], CAMPAGNE);
     expect(righe.find((r) => r.campaignId === "sconosciuta")).toBeUndefined();

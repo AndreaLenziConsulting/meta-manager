@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractLeads } from "./meta";
+import { extractLeads, extractOutboundClicksUnique } from "./meta";
 import type { MetaAction } from "./meta";
 
 function azione(action_type: string, value: string): MetaAction {
@@ -43,5 +43,28 @@ describe("extractLeads", () => {
 
   it("value mancante o non numerico -> 0", () => {
     expect(extractLeads([azione("lead", "")])).toBe(0);
+  });
+});
+
+describe("extractOutboundClicksUnique", () => {
+  it("nessun array -> 0", () => {
+    expect(extractOutboundClicksUnique(undefined)).toBe(0);
+    expect(extractOutboundClicksUnique([])).toBe(0);
+  });
+
+  it("trova l'unico action_type atteso, outbound_click", () => {
+    expect(extractOutboundClicksUnique([azione("outbound_click", "12")])).toBe(12);
+  });
+
+  it("ignora altri action_type eventualmente presenti nello stesso array", () => {
+    expect(extractOutboundClicksUnique([azione("link_click", "999"), azione("outbound_click", "8")])).toBe(8);
+  });
+
+  it("outbound_click assente -> 0, nessun fallback su altri tipi", () => {
+    expect(extractOutboundClicksUnique([azione("link_click", "999")])).toBe(0);
+  });
+
+  it("value mancante o non numerico -> 0", () => {
+    expect(extractOutboundClicksUnique([azione("outbound_click", "")])).toBe(0);
   });
 });

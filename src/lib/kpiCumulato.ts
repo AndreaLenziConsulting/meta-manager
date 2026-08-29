@@ -58,13 +58,18 @@ export function computeTotaleCumulato(
   );
 
   let investimento = 0;
+  let impressions = 0;
   let numeroLead = 0;
+  let clicUniciUscita = 0;
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
     if (!campaignIdsSede.has(row.campaignId)) continue;
     investimento += row.spesa;
+    impressions += row.impressions;
     numeroLead += row.lead;
+    clicUniciUscita += row.clicUniciUscita;
   }
+  const cpmRatio = divideOrNull(investimento, impressions);
 
   let numeroRichieste = 0;
   let appuntamentiFissati = 0;
@@ -84,8 +89,13 @@ export function computeTotaleCumulato(
   return {
     tipoCampagna: TIPO_CAMPAGNA_CUMULATO,
     investimento,
+    impressions,
+    cpm: cpmRatio === null ? null : cpmRatio * 1000,
     numeroLead,
     costoPerLead: divideOrNull(investimento, numeroLead),
+    clicUniciUscita,
+    costoPerClicUnico: divideOrNull(investimento, clicUniciUscita),
+    ctrClicUnici: divideOrNull(clicUniciUscita, impressions),
     numeroRichieste,
     costoPerRichiesta: divideOrNull(investimento, numeroRichieste),
     appuntamentiFissati,

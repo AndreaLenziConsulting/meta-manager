@@ -23,6 +23,9 @@ type MetaInsightRow = {
   cpc?: string;
   cpm?: string;
   actions?: MetaAction[];
+  // Array di azioni A PARTE (non dentro `actions`) — Meta lo restituisce solo se richiesto come
+  // campo a sé nella `fields` della insight, stessa struttura {action_type, value} di `actions`.
+  unique_outbound_clicks?: MetaAction[];
 };
 
 // `tipoConversioneLead` (colonna `tipo_conversione_lead` in Clienti) copre i clienti il cui
@@ -40,6 +43,18 @@ export function extractLeads(actions: MetaAction[] | undefined, tipoConversioneL
     if (match) return Number(match.value || 0);
   }
   return 0;
+}
+
+/**
+ * Clic UNICI sul link in uscita (blocco 7 del redesign KPI) — Meta li restituisce come array a
+ * parte (`unique_outbound_clicks`, richiesto come campo a sé, non dentro `actions`), con un solo
+ * `action_type` atteso: "outbound_click". Diverso dal `ctr`/`cpc` già sincronizzati (che contano
+ * TUTTI i click, non solo quelli unici verso un link esterno) — non vanno confusi.
+ */
+export function extractOutboundClicksUnique(uniqueOutboundClicks: MetaAction[] | undefined): number {
+  if (!uniqueOutboundClicks) return 0;
+  const match = uniqueOutboundClicks.find((a) => a.action_type === "outbound_click");
+  return match ? Number(match.value || 0) : 0;
 }
 
 function metaToken(): string {
@@ -83,7 +98,7 @@ export async function fetchCampaignInsights(
   until: string,
   tipoConversioneLead?: string
 ): Promise<{ rows: MetaDailyRow[]; campagne: { campaignId: string; nomeCampagna: string }[] }> {
-  const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions";
+  const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions,unique_outbound_clicks";
   const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
   url.searchParams.set("level", "campaign");
   url.searchParams.set("time_increment", "1");
@@ -109,6 +124,7 @@ export async function fetchCampaignInsights(
       cpc: Number(item.cpc || 0),
       cpm: Number(item.cpm || 0),
       lead: extractLeads(item.actions, tipoConversioneLead),
+      clicUniciUscita: extractOutboundClicksUnique(item.unique_outbound_clicks),
     });
   }
 
@@ -136,4 +152,33 @@ export async function fetchStatoCampagne(adAccountId: string): Promise<Map<strin
     if (item.effective_status) stati.set(item.id, item.effective_status);
   }
   return stati;
+}
+
+type MetaFrequenzaRow = { campaign_id: string; frequency?: string };
+
+/**
+ * Frequenza media per campagna sull'INTERO intervallo `since`/`until` — mai sincronizzata/salvata
+ * nel foglio insieme al resto (a differenza di spesa/lead/ecc.). `frequency = impressions/reach`,
+ * dove `reach` conta persone DISTINTE: non è sommabile né mediabile su righe giornaliere come fa
+ * `fetchCampaignInsights` (che usa `time_increment=1`) — la frequenza di un solo giorno è quasi
+ * sempre vicina a 1 e non dice nulla sulla vera frequenza del periodo. Per questo qui NON si passa
+ * `time_increment`: un'unica chiamata aggregata su tutto l'intervallo, stesso principio già usato
+ * da `fetchStatoCampagne` per un dato "a pacchetto unico". Il chiamante decide la resilienza
+ * (questa funzione può rifiutarsi come qualunque altra chiamata Meta) — vedi `/api/meta-frequenza`.
+ */
+export async function fetchFrequenzaPerCampagna(adAccountId: string, since: string, until: string): Promise<Map<string, number>> {
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
+  url.searchParams.set("level", "campaign");
+  url.searchParams.set("fields", "campaign_id,frequency");
+  url.searchParams.set("time_range", JSON.stringify({ since, until }));
+  url.searchParams.set("access_token", metaToken());
+  url.searchParams.set("limit", "500");
+
+  const items = await fetchTutteLePagine<MetaFrequenzaRow>(url);
+
+  const frequenze = new Map<string, number>();
+  for (const item of items) {
+    if (item.frequency !== undefined) frequenze.set(item.campaign_id, Number(item.frequency));
+  }
+  return frequenze;
 }

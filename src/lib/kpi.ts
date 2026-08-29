@@ -42,8 +42,13 @@ function nuovoGruppoVuoto(tipoCampagna: string): KpiGroup {
   return {
     tipoCampagna,
     investimento: 0,
+    impressions: 0,
+    cpm: null,
     numeroLead: 0,
     costoPerLead: null,
+    clicUniciUscita: 0,
+    costoPerClicUnico: null,
+    ctrClicUnici: null,
     numeroRichieste: 0,
     costoPerRichiesta: null,
     appuntamentiFissati: 0,
@@ -60,9 +65,16 @@ function nuovoGruppoVuoto(tipoCampagna: string): KpiGroup {
 }
 
 function chiudiFormule(g: KpiGroup): KpiGroup {
+  // CPM ricalcolato dall'aggregato (investimento/impressions*1000), MAI media dei cpm giornalieri
+  // di MetaDailyRow — quella media pesa ogni giorno allo stesso modo indipendentemente da quante
+  // impression ha portato, questo no.
+  const cpmRatio = divideOrNull(g.investimento, g.impressions);
   return {
     ...g,
+    cpm: cpmRatio === null ? null : cpmRatio * 1000,
     costoPerLead: divideOrNull(g.investimento, g.numeroLead),
+    costoPerClicUnico: divideOrNull(g.investimento, g.clicUniciUscita),
+    ctrClicUnici: divideOrNull(g.clicUniciUscita, g.impressions),
     costoPerRichiesta: divideOrNull(g.investimento, g.numeroRichieste),
     percentualeEffettuatiSuFissati: divideOrNull(g.appuntamentiEffettuati, g.appuntamentiFissati),
     costoPerAppuntamentoFissato: divideOrNull(g.investimento, g.appuntamentiFissati),
@@ -149,7 +161,9 @@ export function computeKpi(
     const tipoCampagna = tipoPerCampagna.get(row.campaignId) ?? NON_CLASSIFICATA;
     const gruppo = gruppiMap.get(tipoCampagna) ?? nuovoGruppoVuoto(tipoCampagna);
     gruppo.investimento += row.spesa;
+    gruppo.impressions += row.impressions;
     gruppo.numeroLead += row.lead;
+    gruppo.clicUniciUscita += row.clicUniciUscita;
     gruppiMap.set(tipoCampagna, gruppo);
 
     const trendEntry = trendMap.get(mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0 };
@@ -192,7 +206,9 @@ export function computeKpi(
 
   const totaleGrezzo = gruppi.reduce((acc, g) => {
     acc.investimento += g.investimento;
+    acc.impressions += g.impressions;
     acc.numeroLead += g.numeroLead;
+    acc.clicUniciUscita += g.clicUniciUscita;
     acc.numeroRichieste += g.numeroRichieste;
     acc.appuntamentiFissati += g.appuntamentiFissati;
     acc.appuntamentiEffettuati += g.appuntamentiEffettuati;
@@ -256,7 +272,7 @@ export function computeKpiPerCampagna(
   const campaignIdsSede = new Set(campagneSede.map((c) => c.campaignId));
 
   const nelPeriodo = (mese: string) => mese >= daMese && mese <= aMese;
-  const righeMap = new Map<string, { investimento: number; numeroLead: number }>();
+  const righeMap = new Map<string, { investimento: number; impressions: number; numeroLead: number; clicUniciUscita: number }>();
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
@@ -264,15 +280,18 @@ export function computeKpiPerCampagna(
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
     if (!nelPeriodo(meseDiData(row.data))) continue;
 
-    const entry = righeMap.get(row.campaignId) ?? { investimento: 0, numeroLead: 0 };
+    const entry = righeMap.get(row.campaignId) ?? { investimento: 0, impressions: 0, numeroLead: 0, clicUniciUscita: 0 };
     entry.investimento += row.spesa;
+    entry.impressions += row.impressions;
     entry.numeroLead += row.lead;
+    entry.clicUniciUscita += row.clicUniciUscita;
     righeMap.set(row.campaignId, entry);
   }
 
   return Array.from(righeMap.entries())
     .map(([campaignId, v]) => {
       const info = infoCampagna.get(campaignId);
+      const cpmRatio = divideOrNull(v.investimento, v.impressions);
       return {
         campaignId,
         nomeCampagna: info?.nomeCampagna ?? campaignId,
@@ -280,8 +299,13 @@ export function computeKpiPerCampagna(
         stato: info?.stato ?? "",
         statoDal: ultimoCambioPerCampagna?.get(campaignId) ?? null,
         investimento: v.investimento,
+        impressions: v.impressions,
+        cpm: cpmRatio === null ? null : cpmRatio * 1000,
         numeroLead: v.numeroLead,
         costoPerLead: divideOrNull(v.investimento, v.numeroLead),
+        clicUniciUscita: v.clicUniciUscita,
+        costoPerClicUnico: divideOrNull(v.investimento, v.clicUniciUscita),
+        ctrClicUnici: divideOrNull(v.clicUniciUscita, v.impressions),
       };
     })
     .sort((a, b) => b.investimento - a.investimento);

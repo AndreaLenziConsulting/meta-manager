@@ -729,6 +729,9 @@ export async function getMetaDaily(): Promise<MetaDailyRow[]> {
       cpc: toNumber(r[7]),
       cpm: toNumber(r[8]),
       lead: toNumber(r[9]),
+      // Colonna K, aggiunta dopo le prime dieci: righe storiche pre-migrazione non ce l'hanno,
+      // toNumber su una cella vuota torna 0 — dato mancante, non un errore da segnalare.
+      clicUniciUscita: toNumber(r[10]),
     }));
 }
 
@@ -767,10 +770,11 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
       row.cpc,
       row.cpm,
       row.lead,
+      row.clicUniciUscita,
     ];
     const existingRowNumber = indexByKey.get(key);
     if (existingRowNumber) {
-      daAggiornare.push({ range: `${TAB.metaDaily}!A${existingRowNumber}:J${existingRowNumber}`, values: [rowValues] });
+      daAggiornare.push({ range: `${TAB.metaDaily}!A${existingRowNumber}:K${existingRowNumber}`, values: [rowValues] });
     } else {
       daAggiungere.push(rowValues);
     }

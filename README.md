@@ -34,8 +34,10 @@ Crea uno spreadsheet Google con **10 tab**, ognuna con la riga 1 come intestazio
 Per clienti con **più edizioni dello stesso tipo di funnel** (es. webinar/eventi ricorrenti, un cliente diverso ogni poche settimane) — il Funnel (sotto) è tracciato per mese + `tipo_campagna`, quindi se più edizioni cadono nello stesso mese finirebbero sommate insieme sotto un unico tipo generico. Includi anche la data nel prefisso per tenerle distinte: `[Presentazione 20.08] Studente Felice - LAL`, `[Presentazione 27.08] Studente Felice - BROAD`, `[Challenge 3-7.08] Studente Felice - LAL` — così ogni edizione ha il proprio `tipo_campagna` e resta tracciabile separatamente nel Funnel, anche a distanza di pochi giorni nello stesso mese.
 
 **MetaDaily** — scritta SOLO dal cron, non modificare a mano.
-| A data | B cliente_id | C campaign_id | D spesa | E impressions | F clicks | G ctr | H cpc | I cpm | J lead |
-|---|---|---|---|---|---|---|---|---|---|
+| A data | B cliente_id | C campaign_id | D spesa | E impressions | F clicks | G ctr | H cpc | I cpm | J lead | K clic_unici_uscita |
+|---|---|---|---|---|---|---|---|---|---|---|
+
+Colonna K aggiunta dopo il redesign KPI di fine agosto 2026 (blocco 7, Meta `unique_outbound_clicks`) — righe sincronizzate prima di allora la leggono come 0, non un errore. La **Frequenza** per campagna (stesso blocco 7) NON è invece una colonna qui: `frequency = impressions/reach` non è sommabile/mediabile su righe giornaliere (una persona vista in due giorni diversi non va contata due volte) — va letta live su tutto il periodo richiesto via `/api/meta-frequenza`, mai persistita.
 
 **Funnel** — aggiornata a mano da Andrea/team, una riga per mese+cliente+tipo campagna.
 | A mese (YYYY-MM) | B cliente_id | C tipo_campagna | D richieste | E appuntamenti_fissati | F appuntamenti_effettuati | G vendite | H fatturato |

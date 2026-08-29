@@ -73,6 +73,12 @@ export type MetaDailyRow = {
   cpc: number;
   cpm: number;
   lead: number;
+  // Clic UNICI sul link in uscita (Meta "unique_outbound_clicks") — diverso da `clicks` (tutti i
+  // click) e da `ctr`/`cpc` (calcolati su tutti i click) sincronizzati sopra. Vedi extractOutboundClicksUnique
+  // in lib/meta.ts. NON esiste invece una "frequenza" giornaliera qui: la frequenza (impressions/reach)
+  // non è sommabile/mediabile su righe giornaliere — va letta live su un intervallo intero, vedi
+  // fetchFrequenzaPerCampagna in lib/meta.ts e /api/meta-frequenza, mai persistita nel foglio.
+  clicUniciUscita: number;
 };
 
 export type FunnelRow = {
@@ -90,8 +96,13 @@ export type FunnelRow = {
 export type KpiGroup = {
   tipoCampagna: string;
   investimento: number;
+  impressions: number;
+  cpm: number | null; // (investimento/impressions)*1000 — MAI la media dei cpm giornalieri
   numeroLead: number;
   costoPerLead: number | null;
+  clicUniciUscita: number;
+  costoPerClicUnico: number | null; // investimento/clicUniciUscita — diverso dal cpc esistente
+  ctrClicUnici: number | null; // clicUniciUscita/impressions — diverso dal ctr esistente
   numeroRichieste: number;
   costoPerRichiesta: number | null;
   appuntamentiFissati: number;
@@ -113,8 +124,16 @@ export type RigaCampagna = {
   stato: string;
   statoDal: string | null; // ISO datetime dell'ultimo cambio di stato rilevato, null se mai rilevato
   investimento: number;
+  impressions: number;
+  cpm: number | null;
   numeroLead: number;
   costoPerLead: number | null;
+  clicUniciUscita: number;
+  costoPerClicUnico: number | null;
+  ctrClicUnici: number | null;
+  // Frequenza NON è qui: è letta live per periodo intero (mai per singolo giorno, vedi
+  // MetaDailyRow.clicUniciUscita sopra), popolata a parte dal chiamante (fetchFrequenzaPerCampagna)
+  // e non fa parte del payload di computeKpiPerCampagna.
 };
 
 export type CampagnaDisponibile = {
