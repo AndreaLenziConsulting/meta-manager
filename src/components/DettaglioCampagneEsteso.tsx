@@ -2,18 +2,19 @@
 
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
-import type { KpiConOverlayGhl } from "@/lib/kpiGhlOverlay";
 import { valutaCampagna } from "@/lib/valutazioneCampagna";
-import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatRoas, formatStatoCampagna } from "@/lib/format";
+import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { PallinoStato } from "@/components/ui/PallinoStato";
 
-// Colonne "per tipo campagna" — Investimento…Costo/Lead sono il blocco nuovo (blocco 7 del
-// redesign KPI, gia' aggregabile a questo livello); da Richieste in poi sono le colonne gia'
-// esistenti, invariate. Frequenza e Stato/pallino NON compaiono qui: un gruppo "tipo campagna" puo'
-// contenere piu' campagne con Frequenza/stato diversi, un unico valore/pallino mentirebbe.
+// Solo metriche pubblicitarie Meta Ads (blocco 7 del redesign KPI) — le vecchie colonne
+// Funnel/GHL (Richieste, Appuntamenti, Vendite, Tasso chiusura, Fatturato, ROAS, CPA) sono state
+// tolte su richiesta esplicita: questa tabella ora parla solo di performance pubblicitaria, non
+// più del funnel commerciale a valle (quello resta nelle tessere di sintesi sopra). Investimento,
+// Impression, Clic e Lead non sono MAI overlay-GHL (GHL non ha questi concetti), quindi non serve
+// più nessun overlayGhl qui — a differenza della vecchia KpiTable.tsx.
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string; evidenzia?: boolean }[] = [
   { key: "investimento", label: "Investimento", format: formatEuro },
   { key: "impressions", label: "Impression", format: formatNumero },
@@ -23,17 +24,6 @@ const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | n
   { key: "ctrClicUnici", label: "CTR clic unici", format: formatPercentuale },
   { key: "numeroLead", label: "Lead", format: formatNumero, evidenzia: true },
   { key: "costoPerLead", label: "Costo/Lead", format: formatEuro },
-  { key: "numeroRichieste", label: "Richieste", format: formatNumero },
-  { key: "costoPerRichiesta", label: "Costo/Richiesta", format: formatEuro },
-  { key: "appuntamentiFissati", label: "App. fissati", format: formatNumero },
-  { key: "appuntamentiEffettuati", label: "App. effettuati", format: formatNumero },
-  { key: "percentualeEffettuatiSuFissati", label: "% effettuati", format: formatPercentuale },
-  { key: "costoPerAppuntamentoEffettuato", label: "Costo/App. effettuato", format: formatEuro },
-  { key: "numeroVendite", label: "Vendite", format: formatNumero },
-  { key: "tassoDiChiusura", label: "Tasso chiusura", format: formatPercentuale },
-  { key: "fatturato", label: "Fatturato", format: formatEuro },
-  { key: "roas", label: "ROAS", format: formatRoas },
-  { key: "cpa", label: "CPA", format: formatEuro },
 ];
 
 const VISTA_TABS = [
@@ -45,7 +35,6 @@ export function DettaglioCampagneEsteso({
   gruppi,
   totale,
   campagne,
-  overlayGhl,
   frequenzaPerCampagna,
   targetCpl,
   mostraValutazione,
@@ -53,9 +42,6 @@ export function DettaglioCampagneEsteso({
   gruppi: KpiGroup[];
   totale: KpiGroup;
   campagne: RigaCampagna[];
-  // Solo per la riga "Totale" sotto — le righe per tipo campagna sopra restano sempre 100% Funnel,
-  // GHL non è attribuibile per tipo di campagna. Vedi applicaOverlayGhl in kpiGhlOverlay.ts.
-  overlayGhl?: KpiConOverlayGhl | null;
   // Da /api/meta-frequenza — letta live sull'intero periodo, mai persistita (vedi lib/meta.ts).
   // Mappa vuota se la chiamata Meta fallisce o non è ancora arrivata: quella campagna mostra
   // Frequenza non disponibile e non contribuisce al pallino (mai un falso verde).
@@ -85,23 +71,6 @@ export function DettaglioCampagneEsteso({
     };
   }, [campagne]);
 
-  // La riga Totale mostra i numeri GHL quando disponibili (stessi delle tessere sopra la tabella),
-  // le righe per tipo campagna sopra restano invariate — vedi il prop overlayGhl sopra.
-  const totaleVisualizzato: KpiGroup = overlayGhl
-    ? {
-        ...totale,
-        appuntamentiFissati: overlayGhl.appuntamentiFissati.valore,
-        appuntamentiEffettuati: overlayGhl.appuntamentiEffettuati.valore,
-        percentualeEffettuatiSuFissati: overlayGhl.percentualeEffettuatiSuFissati.valore,
-        costoPerAppuntamentoEffettuato: overlayGhl.costoPerAppuntamentoEffettuato.valore,
-        numeroVendite: overlayGhl.numeroVendite.valore,
-        tassoDiChiusura: overlayGhl.tassoDiChiusura.valore,
-        fatturato: overlayGhl.fatturato.valore,
-        roas: overlayGhl.roas.valore,
-        cpa: overlayGhl.cpa.valore,
-      }
-    : totale;
-
   return (
     <Card padding="none" className="overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-5 flex-wrap gap-2">
@@ -114,7 +83,7 @@ export function DettaglioCampagneEsteso({
 
       {vista === "tipo" ? (
         <div className="overflow-x-auto mt-3">
-          <table className="w-full text-sm border-collapse min-w-[1400px]">
+          <table className="w-full text-sm border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">
@@ -148,24 +117,15 @@ export function DettaglioCampagneEsteso({
                     key={c.key}
                     className={`text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums ${c.evidenzia ? "text-brand" : "text-ink-900"}`}
                   >
-                    {c.format(totaleVisualizzato[c.key] as number | null)}
+                    {c.format(totale[c.key] as number | null)}
                   </td>
                 ))}
               </tr>
             </tbody>
           </table>
-          {overlayGhl && overlayGhl.fatturato.fonte === "ghl" && (
-            <p className="px-5 py-3 text-xs text-ink-500">
-              La riga Totale (appuntamenti, vendite, fatturato) è letta in diretta da GHL — le righe per tipo campagna
-              sopra restano quelle del Funnel (dato inserito a mano) e possono quindi non sommare esattamente al Totale.
-            </p>
-          )}
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">
-          <p className="px-5 pb-2 text-xs text-ink-500">
-            Solo le metriche da Meta Ads — vendite/fatturato sono tracciati solo per tipo campagna, non per singola campagna.
-          </p>
           <table className="w-full text-sm border-collapse min-w-[1100px]">
             <thead>
               <tr className="border-b border-ink-300/60">
@@ -185,10 +145,16 @@ export function DettaglioCampagneEsteso({
             <tbody>
               {campagne.map((c) => {
                 const stato = formatStatoCampagna(c.stato);
+                const attiva = c.stato === "ACTIVE";
                 const frequenza = frequenzaPerCampagna[c.campaignId] ?? null;
-                const valutazione = mostraValutazione
-                  ? valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl })
-                  : null;
+                // Una campagna non attiva (in pausa/archiviata/eliminata) non è azionabile ora — il
+                // pallino resta grigio a prescindere da CPL/Frequenza, mai un giudizio su qualcosa
+                // che non si può più correggere in questo momento.
+                const valutazione = !mostraValutazione
+                  ? null
+                  : !attiva
+                    ? { livello: "non-valutabile" as const, motivo: "Campagna non attiva" }
+                    : valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl });
                 return (
                   <tr key={c.campaignId} className="border-b border-ink-300/60">
                     <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">

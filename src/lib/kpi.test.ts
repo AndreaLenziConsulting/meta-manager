@@ -248,6 +248,18 @@ describe("computeKpiPerCampagna", () => {
     expect(investimenti).toEqual([...investimenti].sort((a, b) => b - a));
   });
 
+  it("le campagne attive vengono sempre prima di quelle non attive, anche se investono meno — non solo per investimento decrescente", () => {
+    // c2 (PAUSED) investe piu' di c1 e c3 (entrambe ACTIVE): senza la regola attiva-prima-di-tutto
+    // finirebbe comunque per prima per puro investimento — qui deve restare per ultima.
+    const metaDaily: MetaDailyRow[] = [
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c1", spesa: 50, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicUniciUscita: 0 },
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c2", spesa: 999, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicUniciUscita: 0 },
+      { data: "2026-06-01", clienteId: "alc-01", campaignId: "c3", spesa: 30, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicUniciUscita: 0 },
+    ];
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", metaDaily, CAMPAGNE);
+    expect(righe.map((r) => r.campaignId)).toEqual(["c1", "c3", "c2"]); // c1/c3 ACTIVE (per investimento), c2 PAUSED per ultima nonostante investa di piu'
+  });
+
   it("include statoDal quando è disponibile una mappa di ultimo cambio, null se assente", () => {
     const ultimoCambio = new Map([["c1", "2026-06-10T05:00:00.000Z"]]);
     const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, undefined, ultimoCambio);

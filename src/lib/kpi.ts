@@ -308,7 +308,15 @@ export function computeKpiPerCampagna(
         ctrClicUnici: divideOrNull(v.clicUniciUscita, v.impressions),
       };
     })
-    .sort((a, b) => b.investimento - a.investimento);
+    // Attive prima delle non attive (sempre, a prescindere dall'investimento) — poi investimento
+    // decrescente dentro ciascuno dei due gruppi. Le campagne in pausa/archiviate/eliminate non
+    // sono azionabili ora, non devono competere per posizione con quelle che lo sono.
+    .sort((a, b) => {
+      const aAttiva = a.stato === "ACTIVE" ? 0 : 1;
+      const bAttiva = b.stato === "ACTIVE" ? 0 : 1;
+      if (aAttiva !== bAttiva) return aAttiva - bAttiva;
+      return b.investimento - a.investimento;
+    });
 }
 
 /**

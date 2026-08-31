@@ -450,7 +450,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             gruppi={dati.gruppi}
             totale={dati.totale}
             campagne={dati.campagne}
-            overlayGhl={overlayGhl}
             frequenzaPerCampagna={frequenzaPerCampagna}
             targetCpl={dati.sede.targetCpl ?? null}
             mostraValutazione={Boolean(clienteId)}
