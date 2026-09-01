@@ -174,10 +174,6 @@ export type KpiResponse = {
   }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
-  // Presenti solo quando la richiesta ha il query param "cumulato=1" (vedi src/app/api/kpi/route.ts
-  // e src/lib/kpiCumulato.ts) — totale "da sempre" per la sede, indipendente dal periodo `da`/`a`.
-  primaData?: string | null;
-  totaleCumulato?: KpiGroup;
 };
 
 export type Prodotto = {

@@ -9,6 +9,12 @@ const HEIGHT_ETICHETTE = 26;
 const PAD_LEFT = 64;
 const PAD_RIGHT = 12;
 const MAX_ETICHETTE = 9;
+// Quota minima dell'altezza riservata SOTTO lo zero quando la serie scende almeno una volta sotto
+// zero — richiesta esplicita: senza questo, un calo piccolo rispetto al picco successivo finiva
+// schiacciato in pochi pixel vicino al bordo inferiore, la linea dello zero quasi a pari delle
+// ascisse. Si applica solo se c'è un vero calo (mai se la serie resta sempre positiva: altrimenti
+// riserverebbe una fascia rossa vuota senza motivo).
+const FRAZIONE_MIN_SOTTO_ZERO = 0.32;
 
 function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
@@ -35,17 +41,24 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
 }
 
 /**
- * Blocco 6c — "Saldo netto cumulato": UNA sola linea (fatturato cumulato − investimento cumulato,
- * da `primaData` della sede — vedi calcolaSaldoNettoCumulato) invece delle due linee separate di
- * TrendChart.tsx (non toccato). Riempimento diverso sopra/sotto lo zero (verde = in attivo, rosso
- * = in perdita) — uso legittimo dei colori di stato qui: "sopra/sotto zero" è un vero stato, non
- * un'identità di serie (vedi il commento su --pos/--neg in globals.css). La linea stessa resta un
- * colore neutro: il colore che porta il significato è il riempimento, non la linea.
+ * Blocco 6c — "Saldo netto cumulato": UNA sola linea (fatturato cumulato − investimento cumulato)
+ * invece delle due linee separate di TrendChart.tsx (non toccato). Copre il PERIODO SELEZIONATO nei
+ * filtri del blocco 3 (non più tutta la storia della sede, come nella prima versione) — il saldo
+ * riparte sempre da zero all'inizio di quel periodo: `calcolaSaldoNettoCumulato` cumula da zero
+ * qualunque serie riceva, quindi qui basta passargli le settimane del periodo scelto (stesso
+ * `trendSettimanaleConOverlay` già usato dagli altri grafici del blocco 6, nessun fetch dedicato).
+ * Riempimento diverso sopra/sotto lo zero (verde = in attivo, rosso = in perdita) — uso legittimo
+ * dei colori di stato qui: "sopra/sotto zero" è un vero stato, non un'identità di serie (vedi il
+ * commento su --pos/--neg in globals.css). La linea stessa resta un colore neutro: il colore che
+ * porta il significato è il riempimento, non la linea.
+ *
+ * Nessun puntino permanente su ogni settimana (richiesta esplicita) — solo la linea, con un singolo
+ * punto ed etichetta al passaggio del mouse O al click (per i touch screen, dove non c'è hover).
  */
 export function SaldoNettoCumulatoChart({
-  serieDaSempre,
+  serieSettimanale,
 }: {
-  serieDaSempre: { settimana: string; investimento: number; fatturato: number | null }[];
+  serieSettimanale: { settimana: string; investimento: number; fatturato: number | null }[];
 }) {
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -56,20 +69,25 @@ export function SaldoNettoCumulatoChart({
   const clipId = useId();
 
   const punti: (PuntoSaldoNetto & { etichetta: string })[] = useMemo(
-    () => calcolaSaldoNettoCumulato(serieDaSempre).map((p) => ({ ...p, etichetta: formatSettimana(p.settimana) })),
-    [serieDaSempre]
+    () => calcolaSaldoNettoCumulato(serieSettimanale).map((p) => ({ ...p, etichetta: formatSettimana(p.settimana) })),
+    [serieSettimanale]
   );
 
   if (punti.length === 0) {
-    return <p className="text-sm text-ink-500">Nessun dato disponibile.</p>;
+    return <p className="text-sm text-ink-500">Nessun dato nel periodo selezionato.</p>;
   }
 
   const plotW = WIDTH - PAD_LEFT - PAD_RIGHT;
   const xFor = (i: number) => PAD_LEFT + (punti.length === 1 ? plotW / 2 : (i / (punti.length - 1)) * plotW);
 
   const valori = punti.map((p) => p.saldoNetto);
+  const minReale = Math.min(0, ...valori);
   const yMax = Math.max(1, ...valori) * 1.15;
-  const yMin = Math.min(-1, ...valori) * 1.15;
+  // Il pavimento in spazio si applica solo se c'è davvero un calo sotto zero da mostrare — vedi
+  // FRAZIONE_MIN_SOTTO_ZERO sopra. yMinDaSpazio deriva dalla stessa proporzione desiderata:
+  // (0 - yMin) / (yMax - yMin) = FRAZIONE_MIN_SOTTO_ZERO, risolta per yMin.
+  const yMinDaSpazio = -(FRAZIONE_MIN_SOTTO_ZERO / (1 - FRAZIONE_MIN_SOTTO_ZERO)) * yMax;
+  const yMin = minReale < 0 ? Math.min(minReale * 1.15, yMinDaSpazio) : -1;
   const range = yMax - yMin;
   const yFor = (v: number) => HEIGHT - ((v - yMin) / range) * HEIGHT;
   const yZero = yFor(0);
@@ -77,12 +95,10 @@ export function SaldoNettoCumulatoChart({
   const linePath = punti.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(i)},${yFor(p.saldoNetto)}`).join("");
   const areaPath = `M${xFor(0)},${yZero} ${punti.map((p, i) => `L${xFor(i)},${yFor(p.saldoNetto)}`).join(" ")} L${xFor(punti.length - 1)},${yZero} Z`;
 
-  // Dedupe non solo per valore ma per posizione in pixel: quando il minimo storico è piccolo
-  // rispetto al massimo (es. una sede quasi sempre in attivo, con un solo breve periodo iniziale
-  // leggermente sotto zero), il tick "yMin" e il tick "0" cadono a pochi px l'uno dall'altro e le
-  // etichette si sovrappongono illeggibili — osservato dal vivo. Priorità a 0 (la linea di
-  // pareggio, il riferimento che conta di più in questo grafico) e a yMax, yMin cede il passo se
-  // troppo vicino a un tick già scelto.
+  // Dedupe non solo per valore ma per posizione in pixel: quando il minimo è piccolo rispetto al
+  // massimo, il tick "yMin" e il tick "0" possono cadere a pochi px l'uno dall'altro e le etichette
+  // si sovrappongono illeggibili — osservato dal vivo. Priorità a 0 (la linea di pareggio, il
+  // riferimento che conta di più in questo grafico) e a yMax, yMin cede il passo se troppo vicino.
   const MIN_PX_TRA_TICK = 14;
   const yTicks: number[] = [];
   const yPxUsati: number[] = [];
@@ -95,7 +111,7 @@ export function SaldoNettoCumulatoChart({
   const passoEtichette = Math.max(1, Math.ceil(punti.length / MAX_ETICHETTE));
   const active = hoverIndex !== null ? punti[hoverIndex] : null;
 
-  function handleMove(e: React.MouseEvent<SVGRectElement>) {
+  function selezionaDaEvento(e: React.MouseEvent<SVGRectElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const relX = e.clientX - rect.left;
     const idx = Math.round((relX / rect.width) * (punti.length - 1));
@@ -104,26 +120,23 @@ export function SaldoNettoCumulatoChart({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-        <ul className="flex gap-4 text-xs text-ink-500">
-          <li className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--pos)" }} />
-            In attivo (fatturato &gt; investimento, da sempre)
-          </li>
-          <li className="flex items-center gap-1.5">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--neg)" }} />
-            In perdita
-          </li>
-        </ul>
-        <span className="text-[11px] text-ink-500">Da inizio collaborazione, non dal periodo filtrato sopra</span>
-      </div>
+      <ul className="flex gap-4 text-xs text-ink-500 mb-2">
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--pos)" }} />
+          In attivo (fatturato &gt; investimento nel periodo)
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--neg)" }} />
+          In perdita
+        </li>
+      </ul>
 
       <div className="relative" ref={wrapRef}>
         <svg
           viewBox={`0 0 ${WIDTH} ${HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Saldo netto cumulato per settimana: fatturato cumulato meno investimento cumulato, da sempre"
+          aria-label="Saldo netto cumulato per settimana nel periodo selezionato: fatturato cumulato meno investimento cumulato"
         >
           <defs>
             <clipPath id={`${clipId}-pos`}>
@@ -147,19 +160,19 @@ export function SaldoNettoCumulatoChart({
           <path d={areaPath} fill="var(--neg)" fillOpacity={0.15} clipPath={`url(#${clipId}-neg)`} />
           <path d={linePath} fill="none" stroke="var(--text-primary)" strokeOpacity={0.75} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
-          {punti.map((p, i) => (
-            <circle
-              key={p.settimana}
-              cx={xFor(i)}
-              cy={yFor(p.saldoNetto)}
-              r={3}
-              fill={p.saldoNetto >= 0 ? "var(--pos)" : "var(--neg)"}
-              stroke="var(--surface-1)"
-              strokeWidth={1.5}
-            />
-          ))}
-
-          {hoverIndex !== null && <line x1={xFor(hoverIndex)} x2={xFor(hoverIndex)} y1={0} y2={HEIGHT} stroke="var(--baseline)" strokeWidth={1} />}
+          {hoverIndex !== null && (
+            <>
+              <line x1={xFor(hoverIndex)} x2={xFor(hoverIndex)} y1={0} y2={HEIGHT} stroke="var(--baseline)" strokeWidth={1} />
+              <circle
+                cx={xFor(hoverIndex)}
+                cy={yFor(punti[hoverIndex].saldoNetto)}
+                r={4}
+                fill={punti[hoverIndex].saldoNetto >= 0 ? "var(--pos)" : "var(--neg)"}
+                stroke="var(--surface-1)"
+                strokeWidth={1.5}
+              />
+            </>
+          )}
 
           {punti.map((p, i) =>
             i % passoEtichette === 0 ? (
@@ -176,8 +189,9 @@ export function SaldoNettoCumulatoChart({
             height={HEIGHT}
             fill="transparent"
             tabIndex={0}
-            onMouseMove={handleMove}
+            onMouseMove={selezionaDaEvento}
             onMouseLeave={() => setHoverIndex(null)}
+            onClick={selezionaDaEvento}
             onFocus={() => setHoverIndex((i) => i ?? 0)}
             onBlur={() => setHoverIndex(null)}
           />

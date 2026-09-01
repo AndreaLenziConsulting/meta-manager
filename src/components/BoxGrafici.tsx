@@ -11,13 +11,14 @@ type TipoGrafico = "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoApp
 const OPZIONI: { id: TipoGrafico; label: string; descrizione: string }[] = [
   { id: "funnel", label: "Funnel di conversione", descrizione: "Lead → appuntamenti fissati → effettuati → vendite" },
   { id: "costoPerRisultato", label: "Costo per Risultato", descrizione: "Spesa, costo/appuntamento e CAC per settimana" },
-  { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Fatturato meno investimento, da sempre" },
+  { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Fatturato meno investimento, nel periodo selezionato" },
   { id: "andamentoAppuntamenti", label: "Andamento appuntamenti", descrizione: "Fissati vs effettuati per settimana" },
 ];
 
 type SerieSettimanaleOverlay = {
   settimana: string;
   investimento: number;
+  fatturato: number | null;
   appuntamentiFissati: number | null;
   appuntamentiEffettuati: number | null;
   numeroVendite: number | null;
@@ -31,12 +32,9 @@ type SerieSettimanaleOverlay = {
 export function BoxGrafici({
   funnel,
   trendSettimanaleConOverlay,
-  serieSaldoNetto,
 }: {
   funnel: { numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number };
   trendSettimanaleConOverlay: SerieSettimanaleOverlay[];
-  // null finché il fetch dedicato (da primaData della sede) non è arrivato — vedi KpiSection.tsx.
-  serieSaldoNetto: { settimana: string; investimento: number; fatturato: number | null }[] | null;
 }) {
   const [selezionato, setSelezionato] = useState<TipoGrafico>("funnel");
   const [open, setOpen] = useState(false);
@@ -98,8 +96,7 @@ export function BoxGrafici({
       {selezionato === "funnel" && <FunnelConversioneChart {...funnel} />}
       {selezionato === "costoPerRisultato" && <CostoPerRisultatoChart serieSettimanale={trendSettimanaleConOverlay} />}
       {selezionato === "andamentoAppuntamenti" && <AndamentoAppuntamentiChart serieSettimanale={trendSettimanaleConOverlay} />}
-      {selezionato === "saldoNetto" &&
-        (serieSaldoNetto ? <SaldoNettoCumulatoChart serieDaSempre={serieSaldoNetto} /> : <p className="text-sm text-ink-500">Caricamento…</p>)}
+      {selezionato === "saldoNetto" && <SaldoNettoCumulatoChart serieSettimanale={trendSettimanaleConOverlay} />}
     </div>
   );
 }

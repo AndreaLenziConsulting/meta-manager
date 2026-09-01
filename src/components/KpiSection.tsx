@@ -118,10 +118,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   useEffect(() => {
     if (!code && !clienteId) return;
     const controller = new AbortController();
-    // cumulato=1: aggiunge solo primaData/totaleCumulato alla risposta (calcolo additivo, riusa
-    // dati già in memoria lato server — vedi api/kpi/route.ts), serve al grafico "Saldo netto
-    // cumulato" (blocco 6c) per sapere da quale mese parte la storia della sede.
-    const params = new URLSearchParams({ da, a, cumulato: "1" });
+    const params = new URLSearchParams({ da, a });
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
     if (sedeId) params.set("sedeId", sedeId);
@@ -280,65 +277,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return () => controller.abort();
   }, [clienteId, sedeGhl, da, a, refreshTick]);
 
-  // Mese di inizio storia della sede (da dati.primaData, letto grazie a cumulato=1 sul fetch
-  // principale sopra) — serve al grafico "Saldo netto cumulato" (blocco 6c), che copre l'intera
-  // storia della sede, non il periodo scelto nel filtro. Se il mese di inizio coincide (o è
-  // successivo, caso limite) col `da` già selezionato, non c'è storia aggiuntiva da recuperare: si
-  // riusa direttamente trendSettimanaleConOverlay sotto invece di una fetch praticamente identica.
-  const meseInizioStorico = dati?.primaData ? dati.primaData.slice(0, 7) : null;
-  const serveFetchCumulato = meseInizioStorico !== null && meseInizioStorico < da;
-
-  const [datiCumulato, setDatiCumulato] = useState<KpiResponse | null>(null);
-  useEffect(() => {
-    if (!code && !clienteId) return;
-    const controller = new AbortController();
-    Promise.resolve()
-      .then(() => {
-        if (!meseInizioStorico || !serveFetchCumulato) {
-          setDatiCumulato(null);
-          return undefined;
-        }
-        const params = new URLSearchParams({ da: meseInizioStorico, a });
-        if (code) params.set("code", code);
-        if (clienteId) params.set("clienteId", clienteId);
-        if (sedeId) params.set("sedeId", sedeId);
-        if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
-        return fetch(`/api/kpi?${params.toString()}`, { signal: controller.signal })
-          .then((res) => (res.ok ? (res.json() as Promise<KpiResponse>) : null))
-          .then((data) => setDatiCumulato(data));
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setDatiCumulato(null);
-      });
-
-    return () => controller.abort();
-  }, [code, clienteId, sedeId, meseInizioStorico, serveFetchCumulato, a, campagneSelezionate, refreshTick]);
-
-  // Stesso principio del fetch GHL "periodo precedente" sopra: il saldo netto cumulato non deve
-  // mai mettere a confronto un fatturato GHL (mostrato ovunque nella pagina, tessere comprese) con
-  // un fatturato Funnel per le stesse settimane in questo solo grafico — stessa fonte ovunque.
-  const [ghlDatiCumulato, setGhlDatiCumulato] = useState<GhlRiepilogoResponse | null>(null);
-  useEffect(() => {
-    const controller = new AbortController();
-    Promise.resolve()
-      .then(() => {
-        if (!clienteId || !haConnessioneGhl || !sedeGhl || campagneSelezionate || !meseInizioStorico || !serveFetchCumulato) {
-          setGhlDatiCumulato(null);
-          return undefined;
-        }
-        const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da: meseInizioStorico, a });
-        return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
-          .then((res) => (res.ok ? res.json() : null))
-          .then((body: GhlRiepilogoResponse | null) => setGhlDatiCumulato(body));
-      })
-      .catch((err) => {
-        if (err instanceof DOMException && err.name === "AbortError") return;
-        setGhlDatiCumulato(null);
-      });
-    return () => controller.abort();
-  }, [clienteId, haConnessioneGhl, sedeGhl, meseInizioStorico, serveFetchCumulato, a, campagneSelezionate, refreshTick]);
-
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
   // filtro campagne attivo), altrimenti dal Funnel come sempre — vedi kpiGhlOverlay.ts per il
   // dettaglio di quali tessere e perché non tutte.
@@ -362,20 +300,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         filtroCampagneAttivo: campagneSelezionate !== null,
       })
     : [];
-  // Serie settimanale per il grafico "Saldo netto cumulato" (blocco 6c) — copre l'intera storia
-  // della sede: se serve un fetch dedicato (vedi serveFetchCumulato sopra) usa quello, overlay-GHL
-  // applicato allo stesso modo di trendSettimanaleConOverlay; altrimenti il periodo già selezionato
-  // COINCIDE con tutta la storia disponibile, si riusa trendSettimanaleConOverlay direttamente.
-  // null solo mentre il fetch dedicato è ancora in corso — il grafico mostra "Caricamento…".
-  const serieSaldoNetto = !dati
-    ? null
-    : !serveFetchCumulato
-      ? trendSettimanaleConOverlay
-      : datiCumulato
-        ? applicaOverlayGhlTrend(datiCumulato.trendSettimanale, campagneSelezionate ? null : ghlDatiCumulato, {
-            filtroCampagneAttivo: campagneSelezionate !== null,
-          })
-        : null;
 
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
   // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
@@ -616,7 +540,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               numeroVendite: overlayGhl?.numeroVendite.valore ?? dati.totale.numeroVendite,
             }}
             trendSettimanaleConOverlay={trendSettimanaleConOverlay}
-            serieSaldoNetto={serieSaldoNetto}
           />
 
           <DettaglioCampagneEsteso
