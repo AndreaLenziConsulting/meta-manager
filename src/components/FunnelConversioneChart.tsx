@@ -8,17 +8,13 @@ import { divideOrNull } from "@/lib/kpi";
 const ROW_H = 64;
 const GAP = 3; // gap di superficie fra bande impilate — vedi skill dataviz, mai bande a contatto
 const HEIGHT = ROW_H * 4 + GAP * 3;
-const MIN_FRAC = 0.16; // larghezza minima proporzionale anche a conversione quasi-zero
-// Larghezza minima in PIXEL, non solo proporzionale — nome+numero+percentuale sono scritti dentro
-// la banda con lo stesso colore di testo scelto per quella banda (--funnel-N-ink): se la banda è
-// più stretta del proprio testo, la parte di testo che sconfina finisce sopra lo sfondo della card
-// (bianco/quasi bianco) invece che sopra la banda colorata — e un testo bianco (bande scure) diventa
-// invisibile su quello sfondo bianco. Bug osservato dal vivo su "Appuntamenti effettuati" con una
-// conversione minima: solo la parte centrale (sopra la banda) restava leggibile. 190px basta per la
-// riga più lunga ("Appuntamenti effettuati" a 11px, misurata ~160px) con un margine di sicurezza.
-const LARGHEZZA_MIN_PX = 190;
+// Larghezza minima PROPORZIONALE (non in pixel): le etichette restano fuori dal grafico apposta
+// (vedi il commento sul componente sotto), quindi le bande sono libere di restringersi quanto
+// serve per rappresentare davvero il calo fra uno stadio e l'altro — un pavimento in pixel come
+// nella versione precedente le avrebbe appiattite tutte alla stessa larghezza. 12% resta solo la
+// garanzia minima contro una banda-filo invisibile a conversione vicina allo zero.
+const MIN_FRAC = 0.12;
 const COLORI = ["var(--funnel-1)", "var(--funnel-2)", "var(--funnel-3)", "var(--funnel-4)"];
-const INK = ["var(--funnel-1-ink)", "var(--funnel-2-ink)", "var(--funnel-3-ink)", "var(--funnel-4-ink)"];
 
 /** Larghezza reale del contenitore, misurata via ResizeObserver — stesso pattern di TrendChart.tsx. */
 function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
@@ -46,16 +42,16 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
 }
 
 /**
- * Blocco 6a — funnel di conversione: un vero imbuto (trapezi impilati), nome e numeri scritti
- * DENTRO ciascuna banda (non più in un elenco a lato, come nella prima versione — poco leggibile
- * come "un nome per fase" a colpo d'occhio). Il colore del testo (`INK`) è precalcolato per banda E
- * per tema in globals.css (--funnel-N-ink): --funnel-1/2 sono chiare in chiaro ma le più scure in
- * scuro (vedi il commento sulla rampa lì), un solo colore di testo fisso non basterebbe in entrambi
- * i casi. Tra una banda e la prossima, un'etichetta "converte al successivo" mostra il tasso di
- * abbandono nel punto esatto in cui l'imbuto si restringe. Cliccando una banda si apre un pannello
- * di dettaglio sotto (conteggio esatto, quota sul totale lead, persi rispetto allo stadio
- * precedente, convertiti al successivo) — tutto derivato dagli stessi 4 conteggi già in ingresso,
- * nessun nuovo dato da scaricare.
+ * Blocco 6a — funnel di conversione: un vero imbuto (trapezi impilati) a sinistra, nome/conteggio/
+ * percentuale in un elenco a destra — mai scritti DENTRO le bande: un pavimento in pixel per farceli
+ * stare avrebbe reso tutte le bande quasi della stessa larghezza a conversione bassa, perdendo
+ * proprio quello che un imbuto deve mostrare a colpo d'occhio (il calo fra uno stadio e l'altro). Un
+ * pallino del colore della banda in testa a ogni riga lega comunque etichetta e banda senza
+ * ambiguità, anche se sono spazialmente separate. Tra una banda e la prossima, una pillola mostra il
+ * tasso di conversione nel punto esatto in cui l'imbuto si restringe. Cliccando una banda O la sua
+ * riga (stesso stadio, stesso gestore) si apre un pannello di dettaglio sotto — conteggio esatto,
+ * quota sul totale lead, persi rispetto allo stadio precedente, convertiti al successivo — tutto
+ * derivato dagli stessi 4 conteggi già in ingresso, nessun nuovo dato da scaricare.
  */
 export function FunnelConversioneChart({
   numeroLead,
@@ -76,13 +72,15 @@ export function FunnelConversioneChart({
   }
 
   const stadi = costruisciFunnelConversione({ numeroLead, appuntamentiFissati, appuntamentiEffettuati, numeroVendite });
+  const larghezze = stadi.map((s) => Math.max(s.percentualeSuLead ?? 0, MIN_FRAC));
 
-  const funnelW = Math.min(420, WIDTH * 0.72);
-  // Larghezza in PIXEL di ogni banda: proporzionale alla quota sul primo stadio, ma mai sotto
-  // LARGHEZZA_MIN_PX (vedi sopra) né sopra funnelW stesso (un contenitore molto stretto non può
-  // comunque superare la propria larghezza massima disponibile).
-  const larghezzePx = stadi.map((s) => Math.min(funnelW, Math.max((s.percentualeSuLead ?? 0) * funnelW, funnelW * MIN_FRAC, LARGHEZZA_MIN_PX)));
-  const centroX = WIDTH / 2;
+  // Più stretto di quanto starebbe comodo a schermo intero apposta: l'etichetta più lunga
+  // ("Appuntamenti effettuati") ha bisogno di spazio a destra a qualunque larghezza, anche stretta
+  // (mobile) — un funnelW troppo generoso lasciava troppo poco spazio e tagliava il testo (bug
+  // osservato dal vivo sotto i ~450px di larghezza).
+  const funnelW = Math.min(240, WIDTH * 0.34);
+  const centroX = funnelW / 2;
+  const labelX = funnelW + 28;
   const yTop = (i: number) => i * (ROW_H + GAP);
 
   const attivo = selezionato !== null ? stadi[selezionato] : null;
@@ -97,26 +95,33 @@ export function FunnelConversioneChart({
         <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="img" aria-label="Funnel di conversione: lead, appuntamenti fissati, effettuati, vendite">
           {stadi.map((s, i) => {
             const top = yTop(i);
-            const topW = larghezzePx[i];
-            const botW = i < 3 ? larghezzePx[i + 1] : larghezzePx[i];
+            const topW = larghezze[i] * funnelW;
+            const botW = i < 3 ? larghezze[i + 1] * funnelW : larghezze[i] * funnelW;
             const path = `M${centroX - topW / 2},${top} L${centroX + topW / 2},${top} L${centroX + botW / 2},${top + ROW_H} L${centroX - botW / 2},${top + ROW_H} Z`;
             const selezionata = selezionato === i;
+            const rowCenterY = top + ROW_H / 2;
             return (
               <g
                 key={s.stadio}
                 onClick={() => setSelezionato((sel) => (sel === i ? null : i))}
                 style={{ cursor: "pointer" }}
-                opacity={selezionato === null || selezionata ? 1 : 0.55}
+                opacity={selezionato === null || selezionata ? 1 : 0.45}
               >
                 <path d={path} fill={COLORI[i]} stroke={selezionata ? "var(--text-primary)" : "none"} strokeWidth={selezionata ? 2 : 0} />
-                <text x={centroX} y={top + 22} textAnchor="middle" fontSize={11} fontWeight={600} fill={INK[i]} style={{ textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {/* Area invisibile a tutta larghezza riga: rende cliccabile anche lo spazio bianco
+                    intorno alla banda stretta, non solo il trapezio esatto. */}
+                <rect x={0} y={top} width={WIDTH} height={ROW_H} fill="transparent" />
+
+                <circle cx={labelX + 5} cy={rowCenterY - 14} r={5} fill={COLORI[i]} />
+                <text x={labelX + 16} y={rowCenterY - 10} fontSize={11} fontWeight={600} fill="var(--text-secondary)" style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
                   {s.etichetta}
                 </text>
-                <text x={centroX} y={top + 42} textAnchor="middle" fontSize={19} fontWeight={700} fill={INK[i]}>
+                <text x={labelX + 16} y={rowCenterY + 12} fontSize={19} fontWeight={700} fill="var(--text-primary)">
                   {formatNumero(s.conteggio)}
-                </text>
-                <text x={centroX} y={top + 57} textAnchor="middle" fontSize={10.5} fill={INK[i]} opacity={0.85}>
-                  {s.percentualeSuLead !== null ? `${formatPercentuale(s.percentualeSuLead)} dei lead` : "—"}
+                  <tspan fontSize={11} fontWeight={400} fill="var(--text-muted)">
+                    {"  "}
+                    {s.percentualeSuLead !== null ? `${formatPercentuale(s.percentualeSuLead)} dei lead` : "—"}
+                  </tspan>
                 </text>
               </g>
             );
@@ -124,7 +129,7 @@ export function FunnelConversioneChart({
 
           {/* Etichetta di conversione fra una banda e la successiva, nel punto esatto in cui
               l'imbuto si restringe — pillola neutra sopra ai trapezi (z-order), leggibile a
-              prescindere dal colore delle bande sotto. */}
+              prescindere da quanto è stretta la banda sotto. */}
           {stadi.slice(0, 3).map((s, i) => {
             const y = yTop(i + 1);
             const testo = s.percentualeConversioneAlProssimo !== null ? `${formatPercentuale(s.percentualeConversioneAlProssimo)} converte` : "n/d";
@@ -185,4 +190,3 @@ function Dettaglio({ etichetta, valore }: { etichetta: string; valore: string })
     </div>
   );
 }
-

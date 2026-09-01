@@ -76,13 +76,6 @@ body {
   --funnel-2: #8ec2e8;
   --funnel-3: #2a78d6;
   --funnel-4: #0d4a85;
-  /* Testo leggibile SOPRA ciascuna banda del funnel — non derivabile da --text-primary (che segue
-     solo il tema, non la luminosità di ogni singola banda): --funnel-1/2 sono chiare in questo
-     tema -> testo scuro, --funnel-3/4 sono scure -> testo bianco. */
-  --funnel-1-ink: #0b2540;
-  --funnel-2-ink: #0b2540;
-  --funnel-3-ink: #ffffff;
-  --funnel-4-ink: #ffffff;
   /* Stato "sopra/sotto lo zero" del saldo netto cumulato (blocco 6c) — stessi verdi/rossi già
      usati per successo/critico in statusStyles.ts: qui è un uso legittimo di colore di stato (in
      attivo vs in perdita è un vero stato, non un'identità di serie), non una ripetizione arbitraria. */
@@ -112,13 +105,6 @@ body {
     --funnel-2: #2f6690;
     --funnel-3: #3987e5;
     --funnel-4: #7fc4f5;
-    /* Ordine di luminosità invertito rispetto al chiaro (--funnel-4 è la più chiara qui, vedi
-       sopra): il testo segue di conseguenza, --funnel-4 è l'unica banda scura->chiara che ha
-       bisogno di testo scuro in questo tema. */
-    --funnel-1-ink: #eaf3fb;
-    --funnel-2-ink: #eaf3fb;
-    --funnel-3-ink: #ffffff;
-    --funnel-4-ink: #0b2540;
     --pos: #22c55e;
     --neg: #f87171;
   }
@@ -143,10 +129,6 @@ body {
   --funnel-2: #2f6690;
   --funnel-3: #3987e5;
   --funnel-4: #7fc4f5;
-  --funnel-1-ink: #eaf3fb;
-  --funnel-2-ink: #eaf3fb;
-  --funnel-3-ink: #ffffff;
-  --funnel-4-ink: #0b2540;
   --pos: #22c55e;
   --neg: #f87171;
 }
