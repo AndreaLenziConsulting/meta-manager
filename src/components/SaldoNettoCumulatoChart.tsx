@@ -19,6 +19,45 @@ const MAX_ETICHETTE = 9;
 // riserverebbe una fascia rossa vuota senza motivo).
 const FRAZIONE_MIN_SOTTO_ZERO = 0.32;
 
+/** "Nice number" (algoritmo classico di Heckbert) — il numero tondo più vicino a `valore`: 1/2/5/10
+ * per la scala di grandezza di `valore`, mai un decimale arbitrario come 5688. `arrotonda=true`
+ * sceglie il tondo più vicino (per la spaziatura fra i tick), `false` il tondo per eccesso (per il
+ * raggio complessivo di partenza). */
+function numeroTondo(valore: number, arrotonda: boolean): number {
+  const esponente = Math.floor(Math.log10(valore));
+  const frazione = valore / 10 ** esponente;
+  let frazioneTonda: number;
+  if (arrotonda) {
+    if (frazione < 1.5) frazioneTonda = 1;
+    else if (frazione < 3) frazioneTonda = 2;
+    else if (frazione < 7) frazioneTonda = 5;
+    else frazioneTonda = 10;
+  } else {
+    if (frazione <= 1) frazioneTonda = 1;
+    else if (frazione <= 2) frazioneTonda = 2;
+    else if (frazione <= 5) frazioneTonda = 5;
+    else frazioneTonda = 10;
+  }
+  return frazioneTonda * 10 ** esponente;
+}
+
+/** Tick dell'asse a passo tondo (es. 5.000 € / 10.000 €, mai un valore arbitrario come "metà range")
+ * — sempre include lo 0 se cade nell'intervallo, dato che qualunque passo tondo ha 0 come multiplo.
+ * `tickDesiderati` è un obiettivo, non un vincolo esatto: il passo tondo più vicino può produrne
+ * qualcuno in più o in meno. */
+function tickRotondi(min: number, max: number, tickDesiderati: number): number[] {
+  if (max <= min) return [0];
+  const passo = numeroTondo((max - min) / Math.max(1, tickDesiderati - 1), true);
+  const ticks: number[] = [];
+  for (let v = Math.ceil(min / passo) * passo; v <= max + passo * 0.001; v += passo) {
+    // "|| 0" normalizza un eventuale -0 (Math.ceil(min/passo)*passo può produrlo quando min è
+    // negativo e passo lo divide esattamente) a 0 positivo — altrimenti Intl.NumberFormat lo
+    // formatta come "-0,00 €", un segno meno senza alcun significato davanti allo zero.
+    ticks.push(Math.round(v) || 0);
+  }
+  return ticks;
+}
+
 function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElement | null>, number] {
   const ref = useRef<HTMLDivElement>(null);
   const [larghezza, setLarghezza] = useState(fallback);
@@ -98,19 +137,10 @@ export function SaldoNettoCumulatoChart({
   const linePath = punti.map((p, i) => `${i === 0 ? "M" : "L"}${xFor(i)},${yFor(p.saldoNetto)}`).join("");
   const areaPath = `M${xFor(0)},${yZero} ${punti.map((p, i) => `L${xFor(i)},${yFor(p.saldoNetto)}`).join(" ")} L${xFor(punti.length - 1)},${yZero} Z`;
 
-  // Dedupe non solo per valore ma per posizione in pixel: quando il minimo è piccolo rispetto al
-  // massimo, il tick "yMin" e il tick "0" possono cadere a pochi px l'uno dall'altro e le etichette
-  // si sovrappongono illeggibili — osservato dal vivo. Priorità a 0 (la linea di pareggio, il
-  // riferimento che conta di più in questo grafico) e a yMax, yMin cede il passo se troppo vicino.
-  const MIN_PX_TRA_TICK = 14;
-  const yTicks: number[] = [];
-  const yPxUsati: number[] = [];
-  for (const v of [0, yMax, yMin + range * 0.5, yMin]) {
-    const y = yFor(v);
-    if (yPxUsati.some((yu) => Math.abs(yu - y) < MIN_PX_TRA_TICK)) continue;
-    yTicks.push(v);
-    yPxUsati.push(y);
-  }
+  // Tick a passo tondo (vedi tickRotondi sopra) invece del vecchio "0, max, metà del range, min":
+  // quella "metà del range" produceva valori come "5.688 €" senza nessun significato proprio, solo
+  // il punto medio aritmetico fra due estremi arbitrari — segnalato esplicitamente come confuso.
+  const yTicks = tickRotondi(yMin, yMax, 4);
   const passoEtichette = Math.max(1, Math.ceil(punti.length / MAX_ETICHETTE));
   const active = hoverIndex !== null ? punti[hoverIndex] : null;
 
