@@ -83,14 +83,14 @@ export function DettaglioCampagneEsteso({
 
       {vista === "tipo" ? (
         <div className="overflow-x-auto mt-3">
-          <table className="w-full text-sm border-collapse min-w-[800px]">
+          <table className="w-full text-xs border-collapse min-w-[800px]">
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">
                   Tipo campagna
                 </th>
                 {COLONNE_TIPO.map((c) => (
-                  <th key={c.key} className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">
+                  <th key={c.key} className="text-right font-medium px-4 py-3 text-ink-500">
                     {c.label}
                   </th>
                 ))}
@@ -126,7 +126,7 @@ export function DettaglioCampagneEsteso({
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">
-          <table className="w-full text-sm border-collapse min-w-[1100px]">
+          <table className="w-full text-xs border-collapse min-w-[1100px]">
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Campagna</th>
@@ -158,16 +158,19 @@ export function DettaglioCampagneEsteso({
                 return (
                   <tr key={c.campaignId} className="border-b border-ink-300/60">
                     <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">
-                      <span className="flex items-center gap-2">
+                      <span className="flex items-start gap-2">
                         {valutazione && (
                           <PallinoStato
                             tono={valutazione.livello === "non-valutabile" ? "neutro" : valutazione.livello}
                             motivo={valutazione.motivo}
+                            className="mt-1"
                           />
                         )}
-                        {c.nomeCampagna}
+                        <span className="flex flex-col">
+                          {c.nomeCampagna}
+                          <span className="text-[11px] text-ink-500 font-normal">{c.tipoCampagna}</span>
+                        </span>
                       </span>
-                      <span className="block text-[11px] text-ink-500 font-normal">{c.tipoCampagna}</span>
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {stato ? (

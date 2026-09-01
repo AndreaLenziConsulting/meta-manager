@@ -20,10 +20,32 @@ function meseCorrente(): string {
   return new Date().toISOString().slice(0, 7);
 }
 
-function meseIndietro(n: number): string {
+// Default del filtro periodo: i mesi coperti dagli ultimi 30 giorni (oggi compreso), non più un
+// intervallo fisso — su richiesta esplicita. Quasi sempre 2 mesi (il mese in corso + il
+// precedente), tranne nei primissimi giorni del mese dove coincide con 1 solo mese.
+function meseIniziale30Giorni(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - n);
+  d.setDate(d.getDate() - 29);
   return d.toISOString().slice(0, 7);
+}
+
+// Numero di mesi coperti dal periodo selezionato (inclusivo su entrambi gli estremi) — serve a
+// calcolare un periodo precedente di pari durata per il confronto sotto alle tessere di sintesi
+// (vedi SintesiTessere.tsx/confrontoPeriodo.ts): "ultimi 30 giorni" (~1-2 mesi) si confronta con
+// gli altrettanti mesi subito prima, "ultimi 3/6 mesi" allo stesso modo. Il filtro dell'app lavora
+// a livello di mese (vedi /api/kpi), quindi il confronto resta anch'esso a livello di mese: è
+// l'equivalente più fedele di "stesso numero di giorni prima" che l'architettura attuale permetta
+// senza introdurre un secondo asse di filtro giorno-per-giorno.
+function contaMesiPeriodo(da: string, a: string): number {
+  const [dY, dM] = da.split("-").map(Number);
+  const [aY, aM] = a.split("-").map(Number);
+  return (aY - dY) * 12 + (aM - dM) + 1;
+}
+
+function spostaMesi(mese: string, delta: number): string {
+  const [y, m] = mese.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
@@ -37,8 +59,12 @@ type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ru
  * per blocco nelle fasi successive del redesign (5, 6, 7), non tutto insieme.
  */
 export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
-  const [da, setDa] = useState(meseIndietro(2));
+  const [da, setDa] = useState(meseIniziale30Giorni());
   const [a, setA] = useState(meseCorrente());
+  // Periodo precedente di pari durata (mesi), per il confronto sotto alle tessere di sintesi —
+  // vedi il commento su contaMesiPeriodo/spostaMesi sopra e SintesiTessere.tsx.
+  const aPrecedente = spostaMesi(da, -1);
+  const daPrecedente = spostaMesi(da, -contaMesiPeriodo(da, a));
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
@@ -58,6 +84,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // kpiGhlOverlay.ts per il perché di quali tessere sì e quali no. null = nessun dato GHL
   // disponibile (non connesso, filtro campagne attivo, o fetch non ancora arrivato).
   const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
+  // Stesse due variabili ma per il periodo precedente (confronto sotto alle tessere) — null finché
+  // il rispettivo fetch non è arrivato o se non c'è un periodo precedente comparabile.
+  const [datiPrecedenti, setDatiPrecedenti] = useState<KpiResponse | null>(null);
+  const [ghlDatiPrecedenti, setGhlDatiPrecedenti] = useState<GhlRiepilogoResponse | null>(null);
   // Frequenza per campagna (blocco 7) — letta live sull'intero periodo, mai persistita (vedi
   // lib/meta.ts). Mappa vuota finché non arriva o se la chiamata fallisce: quella campagna mostra
   // "dato non disponibile" e non contribuisce al pallino, mai un falso verde.
@@ -121,6 +151,31 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return () => controller.abort();
   }, [code, clienteId, sedeId, da, a, campagneSelezionate, refreshTick]);
 
+  // Stesso fetch di sopra ma sul periodo precedente (daPrecedente/aPrecedente) — solo per il
+  // confronto sotto alle tessere di sintesi, mai per il resto della pagina (grafico/tabella
+  // restano sul periodo scelto dall'utente). Fallisce in silenzio (null): un confronto mancante
+  // fa solo sparire l'indicatore, non è un errore da mostrare come i dati principali sopra.
+  useEffect(() => {
+    if (!code && !clienteId) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams({ da: daPrecedente, a: aPrecedente });
+    if (code) params.set("code", code);
+    if (clienteId) params.set("clienteId", clienteId);
+    if (sedeId) params.set("sedeId", sedeId);
+    if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+
+    Promise.resolve()
+      .then(() => fetch(`/api/kpi?${params.toString()}`, { signal: controller.signal }))
+      .then((res) => (res.ok ? (res.json() as Promise<KpiResponse>) : null))
+      .then((data) => setDatiPrecedenti(data))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setDatiPrecedenti(null);
+      });
+
+    return () => controller.abort();
+  }, [code, clienteId, sedeId, daPrecedente, aPrecedente, campagneSelezionate, refreshTick]);
+
   // Conteggio attività in ritardo per il richiamo "solo per il team" — indipendente dal periodo
   // scelto per i KPI (le attività non hanno stagionalità), quindi un effect separato legato solo a
   // clienteId. /api/attivita non ha mai un ramo `code`: sul link pubblico questo fetch non parte.
@@ -173,6 +228,30 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return () => controller.abort();
   }, [clienteId, haConnessioneGhl, sedeGhl, da, a, campagneSelezionate, refreshTick]);
 
+  // Stesso fetch GHL di sopra ma sul periodo precedente — serve perché il confronto sotto alle
+  // tessere non deve mai mettere a confronto un valore "oggi" letto da GHL con un valore "ieri"
+  // letto dal Funnel: sarebbe un confronto fra fonti diverse spacciato per un trend reale (stessa
+  // regola di non-mescolare-provenienza già seguita altrove in questo file).
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        if (!clienteId || !haConnessioneGhl || !sedeGhl || campagneSelezionate) {
+          setGhlDatiPrecedenti(null);
+          return undefined;
+        }
+        const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da: daPrecedente, a: aPrecedente });
+        return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body: GhlRiepilogoResponse | null) => setGhlDatiPrecedenti(body));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setGhlDatiPrecedenti(null);
+      });
+    return () => controller.abort();
+  }, [clienteId, haConnessioneGhl, sedeGhl, daPrecedente, aPrecedente, campagneSelezionate, refreshTick]);
+
   // Frequenza per campagna (blocco 7, tabella Dettaglio) — stesso ciclo di vita del fetch GHL
   // sopra: una volta per apertura sezione, non solo aprendo la vista "per singola campagna", perché
   // la stessa mappa alimenterà anche gli avvisi operativi (blocco 4) più avanti nel redesign. Usa
@@ -203,6 +282,13 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // dettaglio di quali tessere e perché non tutte.
   const overlayGhl = dati
     ? applicaOverlayGhl(dati.totale, campagneSelezionate ? null : ghlDati, {
+        filtroCampagneAttivo: campagneSelezionate !== null,
+      })
+    : null;
+  // Stesso overlay ma sul periodo precedente — per il confronto sotto alle tessere di sintesi,
+  // vedi il commento sul fetch GHL precedente sopra per il perché.
+  const overlayGhlPrecedente = datiPrecedenti
+    ? applicaOverlayGhl(datiPrecedenti.totale, campagneSelezionate ? null : ghlDatiPrecedenti, {
         filtroCampagneAttivo: campagneSelezionate !== null,
       })
     : null;
@@ -434,7 +520,12 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
           <div>
-            <SintesiTessere totale={dati.totale} overlayGhl={overlayGhl} />
+            <SintesiTessere
+              totale={dati.totale}
+              overlayGhl={overlayGhl}
+              totalePrecedente={datiPrecedenti?.totale ?? null}
+              overlayGhlPrecedente={overlayGhlPrecedente}
+            />
             {overlayGhl?.parziale && (
               <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mt-5">
                 Uno o più calendari GHL non erano raggiungibili al momento del caricamento — i numeri di

@@ -19,6 +19,14 @@ export function formatPercentuale(value: number | null): string {
   return new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 1 }).format(value);
 }
 
+/** Come formatPercentuale, ma con segno esplicito — per una variazione vs periodo precedente,
+ * dove "12%" da solo non direbbe se in aumento o in calo (vedi confrontoPeriodo.ts). */
+export function formatVariazionePercentuale(value: number): string {
+  const segno = value > 0 ? "+" : value < 0 ? "−" : "";
+  const testo = new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 0 }).format(Math.abs(value));
+  return `${segno}${testo}`;
+}
+
 /** Iniziali di un nome/nome+cognome, per gli avatar circolari (responsabile attività, consulente). */
 export function iniziali(nome: string): string {
   const parti = nome.trim().split(/\s+/).filter(Boolean);
