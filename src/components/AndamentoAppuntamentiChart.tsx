@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { formatNumero, formatSettimana } from "@/lib/format";
+import { formatNumero, formatPercentuale, formatSettimana } from "@/lib/format";
+import { divideOrNull } from "@/lib/kpi";
 
 const HEIGHT = 158;
 const HEIGHT_ETICHETTE = 26;
@@ -38,8 +39,11 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
   return [ref, larghezza];
 }
 
-/** Rettangolo con solo gli angoli superiori arrotondati, ancorato alla base `y1` — barre verticali positive. */
-function barraPath(x: number, yTop: number, larghezza: number, yBase: number): string {
+/** Segmento di barra impilata: angoli arrotondati solo sul bordo ESTERNO (in cima), quello a
+ * contatto con un altro segmento sotto/sopra resta dritto — mai due bordi arrotondati che si
+ * toccano a metà barra, l'illusione di "due barre separate" invece di una sola impilata. */
+function segmentoPath(x: number, yTop: number, larghezza: number, yBase: number, angoliInCima: boolean): string {
+  if (!angoliInCima) return `M${x},${yBase} L${x},${yTop} L${x + larghezza},${yTop} L${x + larghezza},${yBase} Z`;
   const r = Math.min(RAGGIO, larghezza / 2, Math.max(0, yBase - yTop));
   if (r <= 0) return `M${x},${yBase} L${x},${yTop} L${x + larghezza},${yTop} L${x + larghezza},${yBase} Z`;
   return (
@@ -50,9 +54,22 @@ function barraPath(x: number, yTop: number, larghezza: number, yBase: number): s
 }
 
 /**
- * Blocco 6d — "Andamento appuntamenti": barre raggruppate Appuntamenti Fissati vs Effettuati per
- * settimana. Nessuna libreria pura dedicata (a differenza di 6a/6b/6c): consuma trendSettimanale
- * già esteso+overlay-GHL-aware direttamente da KpiSection.tsx, qui c'è solo aritmetica di layout.
+ * Blocco 6d — "Andamento appuntamenti": UNA barra impilata per settimana (non più due barre
+ * affiancate) — Effettuati è per costruzione una QUOTA di Fissati (un appuntamento va fissato prima
+ * di poter essere effettuato), quindi impilarli invece di affiancarli mostra subito sia il totale
+ * (l'altezza intera = Fissati) sia quanti di quelli sono stati portati a termine (il segmento verde
+ * in basso), senza dover confrontare due barre vicine a occhio. Scelta pensata anche per il futuro:
+ * quando si aggiungerà un confronto per commerciale, una barra impilata regge un numero crescente di
+ * segmenti molto meglio di barre affiancate, che si affollano rapidamente.
+ *
+ * Se i dati (inseriti a mano nel Funnel) danno per una settimana Effettuati > Fissati — non
+ * dovrebbe succedere in teoria, ma capita con dati non perfettamente allineati fra loro, stesso
+ * caso già visto nel funnel di conversione — la barra mostra comunque l'altezza reale di Effettuati
+ * (mai troncata), semplicemente senza il segmento "non ancora effettuati" sopra: un'anomalia nei
+ * dati resta visibile, non viene nascosta forzando Effettuati dentro Fissati.
+ *
+ * Nessuna libreria pura dedicata (a differenza di 6a/6b/6c): consuma trendSettimanale già
+ * esteso+overlay-GHL-aware direttamente da KpiSection.tsx, qui c'è solo aritmetica di layout.
  */
 export function AndamentoAppuntamentiChart({
   serieSettimanale,
@@ -73,8 +90,8 @@ export function AndamentoAppuntamentiChart({
 
   const plotW = WIDTH - PAD_LEFT - PAD_RIGHT;
   const groupW = plotW / punti.length;
-  const barW = Math.max(2, Math.min(16, groupW * 0.32));
-  const barGap = 3;
+  // Una sola barra per settimana ora (non più due affiancate): può essere più larga.
+  const barW = Math.max(4, Math.min(28, groupW * 0.5));
 
   const maxValore = Math.max(1, ...punti.map((p) => Math.max(p.appuntamentiFissati ?? 0, p.appuntamentiEffettuati ?? 0))) * 1.15;
   const yFor = (v: number) => HEIGHT - (v / maxValore) * HEIGHT;
@@ -84,6 +101,7 @@ export function AndamentoAppuntamentiChart({
 
   const passoEtichette = Math.max(1, Math.ceil(punti.length / MAX_ETICHETTE));
   const active = hoverIndex !== null ? punti[hoverIndex] : null;
+  const percentualeEffettuati = active ? divideOrNull(active.appuntamentiEffettuati ?? 0, active.appuntamentiFissati ?? 0) : null;
 
   function handleMove(e: React.MouseEvent<SVGRectElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -96,12 +114,12 @@ export function AndamentoAppuntamentiChart({
     <div>
       <div className="flex items-center gap-4 text-xs text-ink-500 mb-2">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-1)" }} />
-          Appuntamenti fissati
+          <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-1)", opacity: 0.35 }} />
+          Fissati, non ancora effettuati
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-3)" }} />
-          Appuntamenti effettuati
+          Effettuati
         </span>
       </div>
 
@@ -110,7 +128,7 @@ export function AndamentoAppuntamentiChart({
           viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Andamento appuntamenti per settimana: fissati vs effettuati"
+          aria-label="Andamento appuntamenti per settimana: effettuati come quota dei fissati"
         >
         <g transform={`translate(0, ${PAD_TOP})`}>
           {yTicks.map((tick) => (
@@ -126,11 +144,20 @@ export function AndamentoAppuntamentiChart({
             const groupCenter = PAD_LEFT + i * groupW + groupW / 2;
             const fissati = p.appuntamentiFissati ?? 0;
             const effettuati = p.appuntamentiEffettuati ?? 0;
+            // Vedi il commento sul componente: mai troncare Effettuati se supera Fissati, l'anomalia
+            // resta visibile invece di sparire dentro un valore forzato.
+            const cima = Math.max(fissati, effettuati);
+            const haResiduo = fissati > effettuati;
             const attivo = hoverIndex === null || hoverIndex === i;
+            const x = groupCenter - barW / 2;
             return (
               <g key={p.settimana} opacity={attivo ? 1 : 0.45}>
-                <path d={barraPath(groupCenter - barGap / 2 - barW, yFor(fissati), barW, HEIGHT)} fill="var(--series-1)" />
-                <path d={barraPath(groupCenter + barGap / 2, yFor(effettuati), barW, HEIGHT)} fill="var(--series-3)" />
+                {/* Effettuati: sempre il segmento in basso, ancorato alla base — arrotondato in
+                    cima solo quando non c'è nessun residuo "fissati non effettuati" sopra di lui. */}
+                <path d={segmentoPath(x, yFor(effettuati), barW, HEIGHT, !haResiduo)} fill="var(--series-3)" />
+                {/* Fissati non ancora effettuati: il residuo, impilato sopra — sempre lui il bordo
+                    esterno arrotondato quando presente. */}
+                {haResiduo && <path d={segmentoPath(x, yFor(cima), barW, yFor(effettuati), true)} fill="var(--series-1)" fillOpacity={0.35} />}
               </g>
             );
           })}
@@ -165,12 +192,13 @@ export function AndamentoAppuntamentiChart({
           >
             <p className="font-medium mb-1 text-ink-500">{active.etichetta}</p>
             <p className="flex items-center gap-1.5 text-ink-900">
-              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-1)" }} />
+              <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-1)", opacity: 0.35 }} />
               <strong>{formatNumero(active.appuntamentiFissati)}</strong> fissati
             </p>
             <p className="flex items-center gap-1.5 text-ink-900">
               <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--series-3)" }} />
               <strong>{formatNumero(active.appuntamentiEffettuati)}</strong> effettuati
+              {percentualeEffettuati !== null && <span className="text-ink-500"> ({formatPercentuale(percentualeEffettuati)})</span>}
             </p>
           </div>
         )}

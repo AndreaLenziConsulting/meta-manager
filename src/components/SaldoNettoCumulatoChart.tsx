@@ -153,7 +153,18 @@ export function SaldoNettoCumulatoChart({
 
           {yTicks.map((tick) => (
             <g key={tick}>
-              <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yFor(tick)} y2={yFor(tick)} stroke={tick === 0 ? "var(--baseline)" : "var(--gridline)"} strokeWidth={1} />
+              {/* Lo zero resta una linea continua (è la vera linea di pareggio, il riferimento che
+                  conta di più in questo grafico) — le altre sono tratteggiate, per leggersi come
+                  riferimento di scala e non come un altro dato, richiesta esplicita. */}
+              <line
+                x1={PAD_LEFT}
+                x2={WIDTH - PAD_RIGHT}
+                y1={yFor(tick)}
+                y2={yFor(tick)}
+                stroke={tick === 0 ? "var(--baseline)" : "var(--gridline)"}
+                strokeWidth={1}
+                strokeDasharray={tick === 0 ? undefined : "3,3"}
+              />
               <text x={PAD_LEFT - 8} y={yFor(tick) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">
                 {formatEuro(tick)}
               </text>
