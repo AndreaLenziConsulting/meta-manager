@@ -23,9 +23,6 @@ type MetaInsightRow = {
   cpc?: string;
   cpm?: string;
   actions?: MetaAction[];
-  // Array di azioni A PARTE (non dentro `actions`) — Meta lo restituisce solo se richiesto come
-  // campo a sé nella `fields` della insight, stessa struttura {action_type, value} di `actions`.
-  unique_outbound_clicks?: MetaAction[];
 };
 
 // `tipoConversioneLead` (colonna `tipo_conversione_lead` in Clienti) copre i clienti il cui
@@ -46,14 +43,23 @@ export function extractLeads(actions: MetaAction[] | undefined, tipoConversioneL
 }
 
 /**
- * Clic UNICI sul link in uscita (blocco 7 del redesign KPI) — Meta li restituisce come array a
- * parte (`unique_outbound_clicks`, richiesto come campo a sé, non dentro `actions`), con un solo
- * `action_type` atteso: "outbound_click". Diverso dal `ctr`/`cpc` già sincronizzati (che contano
- * TUTTI i click, non solo quelli unici verso un link esterno) — non vanno confusi.
+ * Clic sul link (blocco 7 del redesign KPI) — dentro lo stesso `actions` già sincronizzato per i
+ * lead, nessun campo/chiamata Meta in più a differenza della precedente "clic unici in uscita"
+ * (`unique_outbound_clicks`, rimossa: richiedeva un array a parte come campo a sé).
+ *
+ * Sostituisce deliberatamente "clic unici in uscita" (Meta `outbound_click`, che conta solo i clic
+ * che portano FUORI da Facebook/Instagram): per una campagna Lead Ads a Modulo Istantaneo il modulo
+ * si apre DENTRO l'app, quindi quel conteggio restava quasi sempre a zero anche con investimento e
+ * lead reali — un dato tecnicamente corretto ma non significativo per metà delle campagne
+ * dell'agenzia (osservato dal vivo su un cliente reale). "link_click" invece scatta sia
+ * sull'apertura di un modulo istantaneo sia sul clic verso una landing page esterna: unico
+ * indicatore di clic sensato per ENTRAMBI i tipi di campagna, non solo per chi porta a un sito
+ * esterno. Diverso dal `clicks` già sincronizzato (che conta anche reazioni/commenti/altri click
+ * non di navigazione, un numero più "rumoroso") — non vanno confusi.
  */
-export function extractOutboundClicksUnique(uniqueOutboundClicks: MetaAction[] | undefined): number {
-  if (!uniqueOutboundClicks) return 0;
-  const match = uniqueOutboundClicks.find((a) => a.action_type === "outbound_click");
+export function extractClicLink(actions: MetaAction[] | undefined): number {
+  if (!actions) return 0;
+  const match = actions.find((a) => a.action_type === "link_click");
   return match ? Number(match.value || 0) : 0;
 }
 
@@ -98,7 +104,7 @@ export async function fetchCampaignInsights(
   until: string,
   tipoConversioneLead?: string
 ): Promise<{ rows: MetaDailyRow[]; campagne: { campaignId: string; nomeCampagna: string }[] }> {
-  const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions,unique_outbound_clicks";
+  const fields = "campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,cpm,actions";
   const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
   url.searchParams.set("level", "campaign");
   url.searchParams.set("time_increment", "1");
@@ -124,7 +130,7 @@ export async function fetchCampaignInsights(
       cpc: Number(item.cpc || 0),
       cpm: Number(item.cpm || 0),
       lead: extractLeads(item.actions, tipoConversioneLead),
-      clicUniciUscita: extractOutboundClicksUnique(item.unique_outbound_clicks),
+      clicLink: extractClicLink(item.actions),
     });
   }
 

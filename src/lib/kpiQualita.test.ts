@@ -29,7 +29,7 @@ function metaRow(overrides: Partial<MetaDailyRow> = {}): MetaDailyRow {
     cpc: 10,
     cpm: 100,
     lead: 1,
-    clicUniciUscita: 5,
+    clicLink: 5,
     ...overrides,
   };
 }

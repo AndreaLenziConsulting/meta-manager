@@ -729,9 +729,12 @@ export async function getMetaDaily(): Promise<MetaDailyRow[]> {
       cpc: toNumber(r[7]),
       cpm: toNumber(r[8]),
       lead: toNumber(r[9]),
-      // Colonna K, aggiunta dopo le prime dieci: righe storiche pre-migrazione non ce l'hanno,
-      // toNumber su una cella vuota torna 0 — dato mancante, non un errore da segnalare.
-      clicUniciUscita: toNumber(r[10]),
+      // Colonna K: ha cambiato significato una volta ("clic unici in uscita" -> "clic sul link",
+      // vedi extractClicLink in lib/meta.ts) — le righe scritte prima di ciascun cambio restano col
+      // valore della metrica precedente finché non le rilegge un backfill una tantum, non
+      // automaticamente. toNumber su una cella vuota (mai sincronizzata) torna 0 — dato mancante,
+      // non un errore da segnalare.
+      clicLink: toNumber(r[10]),
     }));
 }
 
@@ -770,7 +773,7 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
       row.cpc,
       row.cpm,
       row.lead,
-      row.clicUniciUscita,
+      row.clicLink,
     ];
     const existingRowNumber = indexByKey.get(key);
     if (existingRowNumber) {

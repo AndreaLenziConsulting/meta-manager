@@ -5,7 +5,7 @@ export type PuntoCostoPerRisultato = {
   spesa: number;
   costoPerAppuntamento: number | null;
   // CAC (Customer Acquisition Cost) = investimento/vendite di quella settimana — chiamato
-  // "costoPerVendita" qui per coerenza col resto del dominio (costoPerLead, costoPerClicUnico,
+  // "costoPerVendita" qui per coerenza col resto del dominio (costoPerLead, costoPerClic,
   // ecc. — tutti "costoPer<risultato>"), "CAC" resta il nome mostrato in etichetta/legenda.
   costoPerVendita: number | null;
 };

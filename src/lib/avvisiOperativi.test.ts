@@ -86,6 +86,42 @@ describe("generaAvvisiOperativi", () => {
     });
   });
 
+  it("mese senza Funnel NON genera l'avviso se GHL è connesso con calendari configurati — la compilazione è automatica (bug reale corretto)", () => {
+    const ghl: GhlRiepilogoResponse = {
+      connesso: true,
+      calendariConfigurati: true,
+      appuntamenti: { totali: 5, confermati: 5, annullati: 0, effettuati: 3 },
+      opportunita: { vendite: 1, fatturato: 500 },
+      fatturatoPerSettimana: [],
+      appuntamentiPerSettimana: [],
+      calendariFalliti: 0,
+    };
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      meseSenzaFunnel: [{ mese: "2026-06", investimento: 100 }],
+      ghl,
+    });
+    expect(avvisi.find((a) => a.id === "funnel-mancante")).toBeUndefined();
+  });
+
+  it("mese senza Funnel genera comunque l'avviso se GHL è connesso ma SENZA calendari configurati — appuntamenti non sono automatici in quel caso", () => {
+    const ghl: GhlRiepilogoResponse = {
+      connesso: true,
+      calendariConfigurati: false,
+      appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
+      opportunita: { vendite: 1, fatturato: 500 },
+      fatturatoPerSettimana: [],
+      appuntamentiPerSettimana: [],
+      calendariFalliti: 0,
+    };
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      meseSenzaFunnel: [{ mese: "2026-06", investimento: 100 }],
+      ghl,
+    });
+    expect(avvisi.find((a) => a.id === "funnel-mancante")).toBeDefined();
+  });
+
   it("GHL connesso senza calendari configurati -> da-sistemare", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,
@@ -148,7 +184,10 @@ describe("generaAvvisiOperativi", () => {
   it("ordina gli avvisi per severità: attenzione, poi da-sistemare, poi da-sapere", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,
-      calendariConfigurati: true,
+      // false (non true): calendari non configurati genera da solo il "da-sistemare" di questo
+      // test — con true, il Funnel vuoto sotto sarebbe compilato automaticamente da GHL e non
+      // genererebbe più nessun avviso "da-sistemare" (vedi il test dedicato sopra).
+      calendariConfigurati: false,
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
       opportunita: { vendite: 0, fatturato: 0 },
       fatturatoPerSettimana: [],
@@ -158,8 +197,8 @@ describe("generaAvvisiOperativi", () => {
     const avvisi = generaAvvisiOperativi({
       valutazioneSalute: SALUTE_OK,
       attivitaInRitardoCount: 0,
-      meseSenzaFunnel: [{ mese: "2026-06", investimento: 100 }], // da-sistemare
-      ghl,
+      meseSenzaFunnel: [],
+      ghl, // calendari non configurati -> da-sistemare, calendari falliti -> da-sapere
       campagneFrequenzaAlta: [{ nomeCampagna: "A", frequenza: 3 }], // attenzione
     });
     expect(avvisi.map((a) => a.tono)).toEqual(["attenzione", "da-sistemare", "da-sapere"]);

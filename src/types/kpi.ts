@@ -73,12 +73,17 @@ export type MetaDailyRow = {
   cpc: number;
   cpm: number;
   lead: number;
-  // Clic UNICI sul link in uscita (Meta "unique_outbound_clicks") — diverso da `clicks` (tutti i
-  // click) e da `ctr`/`cpc` (calcolati su tutti i click) sincronizzati sopra. Vedi extractOutboundClicksUnique
-  // in lib/meta.ts. NON esiste invece una "frequenza" giornaliera qui: la frequenza (impressions/reach)
-  // non è sommabile/mediabile su righe giornaliere — va letta live su un intervallo intero, vedi
-  // fetchFrequenzaPerCampagna in lib/meta.ts e /api/meta-frequenza, mai persistita nel foglio.
-  clicUniciUscita: number;
+  // Clic sul link (Meta "link_click", dentro lo stesso `actions` dei lead) — diverso da `clicks`
+  // (tutti i click, incluse reazioni/commenti/altre interazioni non di navigazione) e da `ctr`/`cpc`
+  // (calcolati su tutti i click) sincronizzati sopra. Vedi extractClicLink in lib/meta.ts — sostituisce
+  // la precedente "clic unici in uscita" (Meta "outbound_click"): quella restava quasi sempre a zero
+  // per le campagne Lead Ads a Modulo Istantaneo (il modulo si apre dentro l'app, mai un'uscita verso
+  // un sito esterno), "link_click" scatta invece sia lì sia su una landing page esterna — significativo
+  // per entrambi i tipi di campagna. NON esiste invece una "frequenza" giornaliera qui: la frequenza
+  // (impressions/reach) non è sommabile/mediabile su righe giornaliere — va letta live su un
+  // intervallo intero, vedi fetchFrequenzaPerCampagna in lib/meta.ts e /api/meta-frequenza, mai
+  // persistita nel foglio.
+  clicLink: number;
 };
 
 export type FunnelRow = {
@@ -100,9 +105,9 @@ export type KpiGroup = {
   cpm: number | null; // (investimento/impressions)*1000 — MAI la media dei cpm giornalieri
   numeroLead: number;
   costoPerLead: number | null;
-  clicUniciUscita: number;
-  costoPerClicUnico: number | null; // investimento/clicUniciUscita — diverso dal cpc esistente
-  ctrClicUnici: number | null; // clicUniciUscita/impressions — diverso dal ctr esistente
+  clicLink: number;
+  costoPerClic: number | null; // investimento/clicLink — diverso dal cpc esistente
+  ctrClicLink: number | null; // clicLink/impressions — diverso dal ctr esistente
   numeroRichieste: number;
   costoPerRichiesta: number | null;
   appuntamentiFissati: number;
@@ -128,11 +133,11 @@ export type RigaCampagna = {
   cpm: number | null;
   numeroLead: number;
   costoPerLead: number | null;
-  clicUniciUscita: number;
-  costoPerClicUnico: number | null;
-  ctrClicUnici: number | null;
+  clicLink: number;
+  costoPerClic: number | null;
+  ctrClicLink: number | null;
   // Frequenza NON è qui: è letta live per periodo intero (mai per singolo giorno, vedi
-  // MetaDailyRow.clicUniciUscita sopra), popolata a parte dal chiamante (fetchFrequenzaPerCampagna)
+  // MetaDailyRow.clicLink sopra), popolata a parte dal chiamante (fetchFrequenzaPerCampagna)
   // e non fa parte del payload di computeKpiPerCampagna.
 };
 

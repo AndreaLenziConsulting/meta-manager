@@ -68,7 +68,13 @@ export function generaAvvisiOperativi(input: {
     });
   }
 
-  if (input.meseSenzaFunnel.length > 0) {
+  // Una sede connessa a GHL con calendari configurati compila appuntamenti/effettuati/vendite/
+  // fatturato in automatico dall'overlay (vedi applicaOverlayGhl in kpiGhlOverlay.ts) — un Funnel
+  // vuoto in quel caso è atteso, non un gap da segnalare: il team lavora con GHL, non a mano sul
+  // foglio Funnel. Senza questo controllo l'avviso era un falso positivo per ogni cliente GHL
+  // pienamente configurato (bug segnalato dal vivo su un cliente reale).
+  const ghlCompilaAutomaticamente = Boolean(input.ghl && input.ghl.connesso && input.ghl.calendariConfigurati);
+  if (input.meseSenzaFunnel.length > 0 && !ghlCompilaAutomaticamente) {
     const mesi = input.meseSenzaFunnel.map((m) => formatMese(m.mese)).join(", ");
     avvisi.push({
       id: "funnel-mancante",

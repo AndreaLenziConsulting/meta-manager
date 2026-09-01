@@ -19,9 +19,9 @@ const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | n
   { key: "investimento", label: "Investimento", format: formatEuro },
   { key: "impressions", label: "Impression", format: formatNumero },
   { key: "cpm", label: "CPM", format: formatEuro },
-  { key: "clicUniciUscita", label: "Clic unici uscita", format: formatNumero },
-  { key: "costoPerClicUnico", label: "Costo/clic unico", format: formatEuro },
-  { key: "ctrClicUnici", label: "CTR clic unici", format: formatPercentuale },
+  { key: "clicLink", label: "Clic sul link", format: formatNumero },
+  { key: "costoPerClic", label: "Costo/clic", format: formatEuro },
+  { key: "ctrClicLink", label: "CTR link", format: formatPercentuale },
   { key: "numeroLead", label: "Lead", format: formatNumero, evidenzia: true },
   { key: "costoPerLead", label: "Costo/Lead", format: formatEuro },
 ];
@@ -58,16 +58,16 @@ export function DettaglioCampagneEsteso({
     const investimento = campagne.reduce((s, c) => s + c.investimento, 0);
     const numeroLead = campagne.reduce((s, c) => s + c.numeroLead, 0);
     const impressions = campagne.reduce((s, c) => s + c.impressions, 0);
-    const clicUniciUscita = campagne.reduce((s, c) => s + c.clicUniciUscita, 0);
+    const clicLink = campagne.reduce((s, c) => s + c.clicLink, 0);
     return {
       investimento,
       numeroLead,
       impressions,
-      clicUniciUscita,
+      clicLink,
       costoPerLead: numeroLead ? investimento / numeroLead : null,
       cpm: impressions ? (investimento / impressions) * 1000 : null,
-      costoPerClicUnico: clicUniciUscita ? investimento / clicUniciUscita : null,
-      ctrClicUnici: impressions ? clicUniciUscita / impressions : null,
+      costoPerClic: clicLink ? investimento / clicLink : null,
+      ctrClicLink: impressions ? clicLink / impressions : null,
     };
   }, [campagne]);
 
@@ -134,9 +134,9 @@ export function DettaglioCampagneEsteso({
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Investimento</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Impression</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">CPM</th>
-                <th className="text-right font-medium px-4 py-3 text-ink-500">Clic unici uscita</th>
-                <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/clic unico</th>
-                <th className="text-right font-medium px-4 py-3 text-ink-500">CTR clic unici</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Clic sul link</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/clic</th>
+                <th className="text-right font-medium px-4 py-3 text-ink-500">CTR link</th>
                 {mostraValutazione && <th className="text-right font-medium px-4 py-3 text-ink-500">Frequenza</th>}
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Lead</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/Lead</th>
@@ -187,9 +187,9 @@ export function DettaglioCampagneEsteso({
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.investimento)}</td>
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.impressions)}</td>
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.cpm)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.clicUniciUscita)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerClicUnico)}</td>
-                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatPercentuale(c.ctrClicUnici)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(c.clicLink)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerClic)}</td>
+                    <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatPercentuale(c.ctrClicLink)}</td>
                     {mostraValutazione && (
                       <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">
                         {frequenza !== null ? frequenza.toFixed(2) : "—"}
@@ -221,13 +221,13 @@ export function DettaglioCampagneEsteso({
                     {formatEuro(totaleCampagne.cpm)}
                   </td>
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
-                    {formatNumero(totaleCampagne.clicUniciUscita)}
+                    {formatNumero(totaleCampagne.clicLink)}
                   </td>
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
-                    {formatEuro(totaleCampagne.costoPerClicUnico)}
+                    {formatEuro(totaleCampagne.costoPerClic)}
                   </td>
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
-                    {formatPercentuale(totaleCampagne.ctrClicUnici)}
+                    {formatPercentuale(totaleCampagne.ctrClicLink)}
                   </td>
                   {mostraValutazione && <td className="px-4 py-3" />}
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-brand">
