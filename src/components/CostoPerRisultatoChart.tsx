@@ -6,6 +6,11 @@ import { calcolaCostoPerRisultatoSettimanale, type PuntoCostoPerRisultato } from
 
 const HEIGHT = 158;
 const HEIGHT_ETICHETTE = 26;
+// Spazio sopra il grafico per l'etichetta del tick più alto: quel tick cade esattamente a y=0 (il
+// massimo asse coincide col bordo superiore del plot), e il testo lì sopra (ascendenti dei
+// caratteri, il "3" di offset del baseline) sconfinava oltre il viewBox — tagliato in cima. Senza
+// questo padding esplicito, non un problema di zoom/scala: succede sempre, a qualunque larghezza.
+const PAD_TOP = 14;
 const PAD_LEFT = 56;
 const PAD_RIGHT = 56; // simmetrico a PAD_LEFT: qui ospita le etichette dell'asse destro (€/unità)
 const MAX_ETICHETTE = 9;
@@ -119,11 +124,12 @@ export function CostoPerRisultatoChart({
 
       <div className="relative" ref={wrapRef}>
         <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT + HEIGHT_ETICHETTE}`}
+          viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
           aria-label="Costo per risultato per settimana: spesa pubblicitaria, costo per appuntamento e CAC"
         >
+        <g transform={`translate(0, ${PAD_TOP})`}>
           {yTicksSpesa.map((tick) => (
             <g key={`sx-${tick}`}>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yForSpesa(tick)} y2={yForSpesa(tick)} stroke="var(--gridline)" strokeWidth={1} />
@@ -176,6 +182,7 @@ export function CostoPerRisultatoChart({
             onFocus={() => setHoverIndex((i) => i ?? 0)}
             onBlur={() => setHoverIndex(null)}
           />
+        </g>
         </svg>
 
         {active && hoverIndex !== null && (

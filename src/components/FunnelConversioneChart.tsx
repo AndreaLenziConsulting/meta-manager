@@ -8,6 +8,10 @@ import { divideOrNull } from "@/lib/kpi";
 const ROW_H = 64;
 const GAP = 3; // gap di superficie fra bande impilate — vedi skill dataviz, mai bande a contatto
 const HEIGHT = ROW_H * 4 + GAP * 3;
+// Il bordo del primo stadio (selezionato di default) tocca y=0: col contorno di selezione (2px) la
+// metà superiore del tratto sconfinava dal viewBox — stesso bug/fix di PAD_TOP negli altri grafici
+// del blocco 6, qui basta poco perché non c'è testo vicino al bordo, solo il tratto del contorno.
+const PAD_TOP = 4;
 // Larghezza minima PROPORZIONALE (non in pixel): le etichette restano fuori dal grafico apposta
 // (vedi il commento sul componente sotto), quindi le bande sono libere di restringersi quanto
 // serve per rappresentare davvero il calo fra uno stadio e l'altro — un pavimento in pixel come
@@ -94,7 +98,8 @@ export function FunnelConversioneChart({
   return (
     <div className="flex flex-col lg:flex-row gap-4">
       <div ref={wrapRef} className="flex-1 min-w-0">
-        <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="w-full h-auto" role="img" aria-label="Funnel di conversione: lead, appuntamenti fissati, effettuati, vendite">
+        <svg viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT}`} className="w-full h-auto" role="img" aria-label="Funnel di conversione: lead, appuntamenti fissati, effettuati, vendite">
+        <g transform={`translate(0, ${PAD_TOP})`}>
           {stadi.map((s, i) => {
             const top = yTop(i);
             const topW = larghezze[i] * funnelW;
@@ -140,6 +145,7 @@ export function FunnelConversioneChart({
               </g>
             );
           })}
+        </g>
         </svg>
       </div>
 

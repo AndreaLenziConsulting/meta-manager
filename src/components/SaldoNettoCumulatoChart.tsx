@@ -6,6 +6,9 @@ import { calcolaSaldoNettoCumulato, type PuntoSaldoNetto } from "@/lib/saldoNett
 
 const HEIGHT = 158;
 const HEIGHT_ETICHETTE = 26;
+// Spazio sopra il grafico per l'etichetta del tick più alto — vedi lo stesso commento in
+// CostoPerRisultatoChart.tsx: il tick massimo cade a y=0, il testo lì sopra sconfinava dal viewBox.
+const PAD_TOP = 14;
 const PAD_LEFT = 64;
 const PAD_RIGHT = 12;
 const MAX_ETICHETTE = 9;
@@ -133,11 +136,12 @@ export function SaldoNettoCumulatoChart({
 
       <div className="relative" ref={wrapRef}>
         <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT + HEIGHT_ETICHETTE}`}
+          viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
           aria-label="Saldo netto cumulato per settimana nel periodo selezionato: fatturato cumulato meno investimento cumulato"
         >
+        <g transform={`translate(0, ${PAD_TOP})`}>
           <defs>
             <clipPath id={`${clipId}-pos`}>
               <rect x={0} y={0} width={WIDTH} height={Math.max(0, yZero)} />
@@ -195,6 +199,7 @@ export function SaldoNettoCumulatoChart({
             onFocus={() => setHoverIndex((i) => i ?? 0)}
             onBlur={() => setHoverIndex(null)}
           />
+        </g>
         </svg>
 
         {active && hoverIndex !== null && (
