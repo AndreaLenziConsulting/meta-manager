@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fatturatoGhlPerSettimana, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
+import { appuntamentiGhlPerSettimana, fatturatoGhlPerSettimana, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
 import type { GhlAppuntamento, GhlOpportunita } from "@/types/ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
@@ -150,21 +150,63 @@ describe("fatturatoGhlPerSettimana", () => {
       opportunita({ id: "5", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-05-10T00:00:00Z" }), // fuori periodo anche allargato
     ];
     expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([
-      { settimana: "2026-06-08", fatturato: 400 },
-      { settimana: "2026-08-03", fatturato: 1000 },
-      { settimana: "2026-08-17", fatturato: 2500 },
+      { settimana: "2026-06-08", fatturato: 400, vendite: 1 },
+      { settimana: "2026-08-03", fatturato: 1000, vendite: 1 },
+      { settimana: "2026-08-17", fatturato: 2500, vendite: 1 },
     ]);
   });
 
   it("allarga la finestra fino alla domenica dell'ultima settimana, non si ferma alla fine calendario del mese `a`", () => {
     // AGOSTO_FINE è il 31 agosto 2026 (un lunedì): la sua settimana arriva fino a domenica 6 settembre.
     const lista = [opportunita({ status: "won", monetaryValue: 777, lastStatusChangeAt: "2026-09-03T00:00:00Z" })];
-    expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([{ settimana: "2026-08-31", fatturato: 777 }]);
+    expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([{ settimana: "2026-08-31", fatturato: 777, vendite: 1 }]);
   });
 
   it("allarga la finestra fino al lunedì della prima settimana quando l'inizio richiesto non è un lunedì", () => {
     const inizioMercoledi = new Date("2026-08-05T00:00:00Z").getTime(); // mercoledì, settimana 2026-08-03
     const lista = [opportunita({ status: "won", monetaryValue: 111, lastStatusChangeAt: "2026-08-03T00:00:00Z" })]; // lunedì della stessa settimana, prima di startMs alla lettera
-    expect(fatturatoGhlPerSettimana(lista, inizioMercoledi, AGOSTO_FINE)).toContainEqual({ settimana: "2026-08-03", fatturato: 111 });
+    expect(fatturatoGhlPerSettimana(lista, inizioMercoledi, AGOSTO_FINE)).toContainEqual({ settimana: "2026-08-03", fatturato: 111, vendite: 1 });
+  });
+
+  it("conta le vendite (non solo il fatturato) quando più opportunità vinte cadono nella stessa settimana", () => {
+    const lista = [
+      opportunita({ id: "1", status: "won", monetaryValue: 1000, lastStatusChangeAt: "2026-08-05T00:00:00Z" }),
+      opportunita({ id: "2", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-08-06T00:00:00Z" }), // stessa settimana 2026-08-03
+    ];
+    expect(fatturatoGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE)).toEqual([{ settimana: "2026-08-03", fatturato: 1500, vendite: 2 }]);
+  });
+});
+
+describe("appuntamentiGhlPerSettimana", () => {
+  const GIU_INIZIO = new Date("2026-06-01T00:00:00Z").getTime();
+
+  it("nessun appuntamento -> array vuoto", () => {
+    expect(appuntamentiGhlPerSettimana([], GIU_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([]);
+  });
+
+  it("raggruppa per settimana (lunedì) di dateAdded, fissati ed effettuati separati", () => {
+    const lista = [
+      // Settimana 2026-08-03: uno effettuato (incontro passato, confermato), uno no (incontro futuro).
+      appuntamento({ id: "1", dateAdded: "2026-08-04T00:00:00Z", appointmentStatus: "confirmed", startTime: "2026-08-05T10:00:00Z" }),
+      appuntamento({ id: "2", dateAdded: "2026-08-05T00:00:00Z", appointmentStatus: "confirmed", startTime: "2026-09-01T10:00:00Z" }),
+      // Settimana 2026-06-08: annullato -> fissato ma mai effettuato.
+      appuntamento({ id: "3", dateAdded: "2026-06-10T00:00:00Z", appointmentStatus: "cancelled", startTime: "2026-06-11T10:00:00Z" }),
+    ];
+    expect(appuntamentiGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([
+      { settimana: "2026-06-08", fissati: 1, effettuati: 0 },
+      { settimana: "2026-08-03", fissati: 2, effettuati: 1 },
+    ]);
+  });
+
+  it("esclude gli appuntamenti eliminati", () => {
+    const lista = [appuntamento({ dateAdded: "2026-08-04T00:00:00Z", deleted: true })];
+    expect(appuntamentiGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([]);
+  });
+
+  it("allarga la finestra ai confini di settimana, come fatturatoGhlPerSettimana", () => {
+    const lista = [appuntamento({ dateAdded: "2026-09-03T00:00:00Z", appointmentStatus: "confirmed", startTime: "2026-09-04T10:00:00Z" })];
+    expect(appuntamentiGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([
+      { settimana: "2026-08-31", fissati: 1, effettuati: 0 },
+    ]);
   });
 });

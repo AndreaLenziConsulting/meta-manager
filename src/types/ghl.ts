@@ -83,10 +83,15 @@ export type GhlRiepilogoResponse =
       calendariConfigurati: boolean;
       appuntamenti: { totali: number; confermati: number; annullati: number; effettuati: number };
       opportunita: { vendite: number; fatturato: number };
-      // Stesso fatturato di `opportunita.fatturato`, ma spezzato per settimana (lastStatusChangeAt)
-      // — alimenta il grafico del tab KPI, tracciato a settimana intera. Vedi fatturatoGhlPerSettimana
-      // in lib/ghl.ts.
-      fatturatoPerSettimana: { settimana: string; fatturato: number }[];
+      // Stessi fatturato/vendite di `opportunita`, ma spezzati per settimana (lastStatusChangeAt) —
+      // alimentano i grafici "Investimento vs Fatturato" e "Saldo netto cumulato" del tab KPI,
+      // tracciati a settimana intera. Vedi fatturatoGhlPerSettimana in lib/ghl.ts.
+      fatturatoPerSettimana: { settimana: string; fatturato: number; vendite: number }[];
+      // Appuntamenti fissati/effettuati per settimana (dateAdded) — alimenta il grafico "Andamento
+      // appuntamenti". Array vuoto se calendariConfigurati è false (stessa condizione di
+      // appuntamenti sopra: senza calendari scelti, GHL non ha nessun dato reale da restituire qui,
+      // non uno zero vero). Vedi appuntamentiGhlPerSettimana in lib/ghl.ts.
+      appuntamentiPerSettimana: { settimana: string; fissati: number; effettuati: number }[];
       // >0 se uno o più calendari erano irraggiungibili al momento della richiesta (dopo un
       // retry) — il conteggio appuntamenti è quindi parziale, non un vero zero. Vedi fetchAppuntamenti.
       calendariFalliti: number;

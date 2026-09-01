@@ -158,9 +158,20 @@ export type KpiResponse = {
   totale: KpiGroup;
   trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
   // `mese` = mese di appartenenza già risolto da computeKpi (vedi kpi.ts) — esposto perché
-  // KpiDashboard.tsx lo usa per sapere quale fatturato mensile GHL sovrapporre a questa settimana
-  // quando la sede è connessa, vedi kpiGhlOverlay.ts.
-  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number; mese: string }[];
+  // KpiSection.tsx lo usa per sapere quale fatturato mensile GHL sovrapporre a questa settimana
+  // quando la sede è connessa, vedi kpiGhlOverlay.ts. appuntamentiFissati/appuntamentiEffettuati/
+  // numeroVendite seguono lo stesso trattamento di fatturato (mensile Funnel ripetuto sulla
+  // settimana) — alimentano i grafici "Andamento appuntamenti" e "Saldo netto cumulato" (blocco 6).
+  trendSettimanale: {
+    settimana: string;
+    investimento: number;
+    fatturato: number | null;
+    numeroLead: number;
+    appuntamentiFissati: number | null;
+    appuntamentiEffettuati: number | null;
+    numeroVendite: number | null;
+    mese: string;
+  }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
   // Presenti solo quando la richiesta ha il query param "cumulato=1" (vedi src/app/api/kpi/route.ts

@@ -23,8 +23,12 @@ function ghlConnesso(overrides: Partial<Extract<GhlRiepilogoResponse, { connesso
     appuntamenti: { totali: 7, confermati: 4, annullati: 3, effettuati: 5 },
     opportunita: { vendite: 6, fatturato: 19991 },
     fatturatoPerSettimana: [
-      { settimana: "2026-06-01", fatturato: 5000 },
-      { settimana: "2026-08-03", fatturato: 14991 },
+      { settimana: "2026-06-01", fatturato: 5000, vendite: 2 },
+      { settimana: "2026-08-03", fatturato: 14991, vendite: 4 },
+    ],
+    appuntamentiPerSettimana: [
+      { settimana: "2026-06-01", fissati: 10, effettuati: 8 },
+      { settimana: "2026-08-03", fissati: 20, effettuati: 15 },
     ],
     calendariFalliti: 0,
     ...overrides,
@@ -124,9 +128,9 @@ describe("applicaOverlayGhl", () => {
 
 describe("applicaOverlayGhlTrend", () => {
   const TREND = [
-    { settimana: "2026-06-01", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-06" },
-    { settimana: "2026-07-06", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-07" },
-    { settimana: "2026-08-03", investimento: 100, fatturato: 999, numeroLead: 5, mese: "2026-08" },
+    { settimana: "2026-06-01", investimento: 100, fatturato: 999, numeroLead: 5, appuntamentiFissati: 2, appuntamentiEffettuati: 1, numeroVendite: 3, mese: "2026-06" },
+    { settimana: "2026-07-06", investimento: 100, fatturato: 999, numeroLead: 5, appuntamentiFissati: 2, appuntamentiEffettuati: 1, numeroVendite: 3, mese: "2026-07" },
+    { settimana: "2026-08-03", investimento: 100, fatturato: 999, numeroLead: 5, appuntamentiFissati: 2, appuntamentiEffettuati: 1, numeroVendite: 3, mese: "2026-08" },
   ];
 
   it("non connesso -> il trend resta quello del Funnel, invariato", () => {
@@ -153,5 +157,33 @@ describe("applicaOverlayGhlTrend", () => {
     const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
     expect(r[0].investimento).toBe(100);
     expect(r[0].numeroLead).toBe(5);
+  });
+
+  it("connesso -> ogni settimana prende le proprie vendite GHL (stessa fonte di fatturato, non dipende dai calendari)", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
+    expect(r.find((s) => s.settimana === "2026-06-01")?.numeroVendite).toBe(2);
+    expect(r.find((s) => s.settimana === "2026-08-03")?.numeroVendite).toBe(4);
+    // 2026-07-06 non è in fatturatoPerSettimana del fixture -> 0, non il valore del Funnel (3).
+    expect(r.find((s) => s.settimana === "2026-07-06")?.numeroVendite).toBe(0);
+  });
+
+  it("connesso e calendari configurati -> ogni settimana prende i propri appuntamenti fissati/effettuati GHL", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso());
+    const giugno = r.find((s) => s.settimana === "2026-06-01");
+    expect(giugno?.appuntamentiFissati).toBe(10);
+    expect(giugno?.appuntamentiEffettuati).toBe(8);
+    // 2026-07-06 non è in appuntamentiPerSettimana del fixture -> 0, non il valore del Funnel (2/1).
+    const luglio = r.find((s) => s.settimana === "2026-07-06");
+    expect(luglio?.appuntamentiFissati).toBe(0);
+    expect(luglio?.appuntamentiEffettuati).toBe(0);
+  });
+
+  it("connesso ma calendari NON configurati -> appuntamenti fissati/effettuati restano dal Funnel, fatturato/vendite comunque da GHL", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso({ calendariConfigurati: false, appuntamentiPerSettimana: [] }));
+    const giugno = r.find((s) => s.settimana === "2026-06-01");
+    expect(giugno?.appuntamentiFissati).toBe(2); // valore del Funnel del fixture TREND, invariato
+    expect(giugno?.appuntamentiEffettuati).toBe(1);
+    expect(giugno?.fatturato).toBe(5000); // fatturato/vendite non dipendono dai calendari
+    expect(giugno?.numeroVendite).toBe(2);
   });
 });

@@ -235,10 +235,13 @@ export function riepilogoOpportunita(opportunita: GhlOpportunita[], startMs: num
 }
 
 /**
- * Come riepilogoOpportunita, ma il fatturato è raggruppato per settimana (lunedì di
- * lastStatusChangeAt, stessa chiave di trendSettimanale in kpi.ts) invece che sommato in un unico
- * totale — alimenta il grafico "Investimento vs Fatturato" del tab KPI (vedi kpiGhlOverlay.ts/
- * TrendChart.tsx), tracciato a settimana intera.
+ * Come riepilogoOpportunita, ma fatturato e conteggio vendite sono raggruppati per settimana
+ * (lunedì di lastStatusChangeAt, stessa chiave di trendSettimanale in kpi.ts) invece che sommati in
+ * un unico totale — alimenta il grafico "Investimento vs Fatturato" (fatturato) e "Saldo netto
+ * cumulato" (fatturato + vendite) del tab KPI (vedi kpiGhlOverlay.ts/TrendChart.tsx). `vendite` è
+ * additivo rispetto alla versione precedente di questa funzione (prima solo fatturato): stesso giro
+ * sui dati, un solo contatore in più — niente di nuovo da scaricare né una seconda funzione quasi
+ * identica da mantenere in parallelo.
  *
  * A differenza di riepilogoOpportunita, il filtro effettivo NON è [startMs, endMs] alla lettera:
  * si allarga al lunedì della prima settimana e alla domenica dell'ultima settimana coperte da quel
@@ -254,21 +257,59 @@ export function fatturatoGhlPerSettimana(
   opportunita: GhlOpportunita[],
   startMs: number,
   endMs: number
-): { settimana: string; fatturato: number }[] {
+): { settimana: string; fatturato: number; vendite: number }[] {
   const inizioSettimana = settimanaDiData(new Date(startMs).toISOString().slice(0, 10));
   const fineSettimana = settimanaDiData(new Date(endMs).toISOString().slice(0, 10));
   const inizioMs = new Date(`${inizioSettimana}T00:00:00Z`).getTime();
   const fineMs = new Date(`${fineSettimana}T00:00:00Z`).getTime() + 7 * 86400000 - 1; // fine della domenica di quella settimana
 
-  const perSettimana = new Map<string, number>();
+  const perSettimana = new Map<string, { fatturato: number; vendite: number }>();
   for (const o of opportunita) {
     if (o.status !== "won") continue;
     const t = new Date(o.lastStatusChangeAt).getTime();
     if (!Number.isFinite(t) || t < inizioMs || t > fineMs) continue;
     const settimana = settimanaDiData(o.lastStatusChangeAt.slice(0, 10));
-    perSettimana.set(settimana, (perSettimana.get(settimana) ?? 0) + (o.monetaryValue || 0));
+    const entry = perSettimana.get(settimana) ?? { fatturato: 0, vendite: 0 };
+    entry.fatturato += o.monetaryValue || 0;
+    entry.vendite += 1;
+    perSettimana.set(settimana, entry);
   }
   return Array.from(perSettimana.entries())
-    .map(([settimana, fatturato]) => ({ settimana, fatturato }))
+    .map(([settimana, v]) => ({ settimana, ...v }))
+    .sort((a, b) => a.settimana.localeCompare(b.settimana));
+}
+
+/**
+ * Come fatturatoGhlPerSettimana sopra, ma per gli appuntamenti (fissati/effettuati) invece delle
+ * opportunità vinte — alimenta il grafico "Andamento appuntamenti" (blocco 6d). Stessa griglia
+ * settimanale allargata ai bordi, stesso raggruppamento per settimana di `dateAdded` (quando la
+ * prenotazione è stata fatta, non quando si tiene l'incontro — coerente con riepilogoAppuntamenti
+ * sopra) e stessa regola "effettuato" (incontro passato e mai annullato). Nessuna chiamata API in
+ * più: usa la stessa lista `appuntamenti` già scaricata da fetchAppuntamenti.
+ */
+export function appuntamentiGhlPerSettimana(
+  appuntamenti: GhlAppuntamento[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): { settimana: string; fissati: number; effettuati: number }[] {
+  const inizioSettimana = settimanaDiData(new Date(startMs).toISOString().slice(0, 10));
+  const fineSettimana = settimanaDiData(new Date(endMs).toISOString().slice(0, 10));
+  const inizioMs = new Date(`${inizioSettimana}T00:00:00Z`).getTime();
+  const fineMs = new Date(`${fineSettimana}T00:00:00Z`).getTime() + 7 * 86400000 - 1;
+
+  const perSettimana = new Map<string, { fissati: number; effettuati: number }>();
+  for (const a of appuntamenti) {
+    if (a.deleted) continue;
+    const t = new Date(a.dateAdded).getTime();
+    if (!Number.isFinite(t) || t < inizioMs || t > fineMs) continue;
+    const settimana = settimanaDiData(a.dateAdded.slice(0, 10));
+    const entry = perSettimana.get(settimana) ?? { fissati: 0, effettuati: 0 };
+    entry.fissati += 1;
+    if (a.appointmentStatus !== "cancelled" && new Date(a.startTime).getTime() < oraAttualeMs) entry.effettuati += 1;
+    perSettimana.set(settimana, entry);
+  }
+  return Array.from(perSettimana.entries())
+    .map(([settimana, v]) => ({ settimana, ...v }))
     .sort((a, b) => a.settimana.localeCompare(b.settimana));
 }

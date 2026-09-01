@@ -121,14 +121,17 @@ export function applicaOverlayGhl(
 }
 
 /**
- * Sovrappone il fatturato SETTIMANALE GHL al trend del grafico "Investimento vs Fatturato"
- * (TrendChart.tsx) — join diretto sulla chiave `settimana` (stessa griglia lunedì-domenica di
- * trendSettimanale, vedi kpi.ts/ghl.ts), non un valore mensile ripetuto: ogni settimana ha il
- * proprio fatturato reale. Se GHL non ha nessuna opportunità vinta in quella settimana il valore
- * diventa 0, non il Funnel: una volta connesso, l'intera linea segue una sola fonte, mai un
- * patchwork settimana per settimana. Stesse condizioni di sospensione di applicaOverlayGhl (filtro
- * campagne attivo, non connesso) — il fatturato non dipende dai calendari, quindi nessun controllo
- * su calendariConfigurati qui.
+ * Sovrappone fatturato/vendite/appuntamenti SETTIMANALI GHL al trend dei grafici del blocco 6
+ * (TrendChart.tsx, e i nuovi grafici "Andamento appuntamenti"/"Saldo netto cumulato") — join
+ * diretto sulla chiave `settimana` (stessa griglia lunedì-domenica di trendSettimanale, vedi
+ * kpi.ts/ghl.ts), non un valore mensile ripetuto: ogni settimana ha il proprio dato reale. Se GHL
+ * non ha nessun dato in quella settimana il valore diventa 0, non il Funnel: una volta connesso,
+ * l'intera linea segue una sola fonte, mai un patchwork settimana per settimana.
+ *
+ * Due regole diverse, stesso principio di applicaOverlayGhl sopra: fatturato/vendite non dipendono
+ * dai calendari (bastano "connesso" + nessun filtro campagne attivo), mentre appuntamenti fissati/
+ * effettuati restano sul Funnel finché l'admin non sceglie i calendari (senza, GHL risponderebbe
+ * comunque con appuntamentiPerSettimana vuoto — un falso zero, non un dato vero).
  */
 export function applicaOverlayGhlTrend(
   trendSettimanale: KpiResponse["trendSettimanale"],
@@ -139,5 +142,14 @@ export function applicaOverlayGhlTrend(
     return trendSettimanale;
   }
   const fatturatoPerSettimana = new Map(ghl.fatturatoPerSettimana.map((s) => [s.settimana, s.fatturato]));
-  return trendSettimanale.map((s) => ({ ...s, fatturato: fatturatoPerSettimana.get(s.settimana) ?? 0 }));
+  const venditePerSettimana = new Map(ghl.fatturatoPerSettimana.map((s) => [s.settimana, s.vendite]));
+  const conCalendari = ghl.calendariConfigurati;
+  const appuntamentiPerSettimana = new Map(ghl.appuntamentiPerSettimana.map((s) => [s.settimana, s]));
+  return trendSettimanale.map((s) => ({
+    ...s,
+    fatturato: fatturatoPerSettimana.get(s.settimana) ?? 0,
+    numeroVendite: venditePerSettimana.get(s.settimana) ?? 0,
+    appuntamentiFissati: conCalendari ? (appuntamentiPerSettimana.get(s.settimana)?.fissati ?? 0) : s.appuntamentiFissati,
+    appuntamentiEffettuati: conCalendari ? (appuntamentiPerSettimana.get(s.settimana)?.effettuati ?? 0) : s.appuntamentiEffettuati,
+  }));
 }

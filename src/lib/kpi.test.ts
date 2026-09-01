@@ -113,12 +113,14 @@ describe("computeKpi", () => {
     // solo quella settimana ha investimento/lead reali, le altre 4 sono placeholder (0, ma fatturato comunque
     // presente: il Funnel è mensile, si ripete per ogni settimana del mese).
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    // FUNNEL di giugno: Prospecting (fissati 6, effettuati 4, vendite 2) + Retargeting (fissati 2,
+    // effettuati 1, vendite 0) = 8/5/2 in totale, ripetuti su ogni settimana come il fatturato.
     expect(trendSettimanale).toEqual([
-      { settimana: "2026-06-01", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
-      { settimana: "2026-06-08", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
-      { settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15, mese: "2026-06" },
-      { settimana: "2026-06-22", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
-      { settimana: "2026-06-29", investimento: 0, fatturato: 4000, numeroLead: 0, mese: "2026-06" },
+      { settimana: "2026-06-01", investimento: 0, fatturato: 4000, numeroLead: 0, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
+      { settimana: "2026-06-08", investimento: 0, fatturato: 4000, numeroLead: 0, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
+      { settimana: "2026-06-15", investimento: 350, fatturato: 4000, numeroLead: 15, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
+      { settimana: "2026-06-22", investimento: 0, fatturato: 4000, numeroLead: 0, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
+      { settimana: "2026-06-29", investimento: 0, fatturato: 4000, numeroLead: 0, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
     ]);
   });
 
@@ -147,7 +149,16 @@ describe("computeKpi", () => {
       "2026-07-06", "2026-07-13", "2026-07-20", "2026-07-27",
     ]);
     const placeholder = trendSettimanale.find((t) => t.settimana === "2026-06-01")!;
-    expect(placeholder).toEqual({ settimana: "2026-06-01", investimento: 0, fatturato: 1000, numeroLead: 0, mese: "2026-06" });
+    expect(placeholder).toEqual({
+      settimana: "2026-06-01",
+      investimento: 0,
+      fatturato: 1000,
+      numeroLead: 0,
+      appuntamentiFissati: 0,
+      appuntamentiEffettuati: 0,
+      numeroVendite: 0,
+      mese: "2026-06",
+    });
   });
 
   it("un periodo senza nessuna riga MetaDaily/Funnel produce comunque una griglia completa di settimane, fatturato null", () => {
@@ -155,12 +166,12 @@ describe("computeKpi", () => {
     // senza nessuna riga MetaDaily reale avrebbe restituito un array vuoto, non una griglia completa.
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-08", "2026-08", META_DAILY, CAMPAGNE, FUNNEL);
     expect(trendSettimanale).toEqual([
-      { settimana: "2026-07-27", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-07" },
-      { settimana: "2026-08-03", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
-      { settimana: "2026-08-10", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
-      { settimana: "2026-08-17", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
-      { settimana: "2026-08-24", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
-      { settimana: "2026-08-31", investimento: 0, fatturato: null, numeroLead: 0, mese: "2026-08" },
+      { settimana: "2026-07-27", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-07" },
+      { settimana: "2026-08-03", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
+      { settimana: "2026-08-10", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
+      { settimana: "2026-08-17", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
+      { settimana: "2026-08-24", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
+      { settimana: "2026-08-31", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
     ]);
   });
 

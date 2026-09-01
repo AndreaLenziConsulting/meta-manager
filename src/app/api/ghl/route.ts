@@ -2,7 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { fatturatoGhlPerSettimana, fetchAppuntamenti, fetchOpportunita, riepilogoAppuntamenti, riepilogoOpportunita } from "@/lib/ghl";
+import {
+  appuntamentiGhlPerSettimana,
+  fatturatoGhlPerSettimana,
+  fetchAppuntamenti,
+  fetchOpportunita,
+  riepilogoAppuntamenti,
+  riepilogoOpportunita,
+} from "@/lib/ghl";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
@@ -72,6 +79,9 @@ export async function GET(req: NextRequest) {
       appuntamenti: riepilogoAppuntamenti(appuntamenti, startMs, endMs),
       opportunita: riepilogoOpportunita(opportunitaVinte, startMs, endMs),
       fatturatoPerSettimana: fatturatoGhlPerSettimana(opportunitaVinte, startMs, endMs),
+      // Vuoto se calendari non ancora scelti — stesso motivo di appuntamenti sopra (0 non sarebbe
+      // un dato vero), vedi il commento su appuntamentiPerSettimana in types/ghl.ts.
+      appuntamentiPerSettimana: connessione.calendarIds.length > 0 ? appuntamentiGhlPerSettimana(appuntamenti, startMs, endMs) : [],
       calendariFalliti,
     };
     return NextResponse.json(risposta);

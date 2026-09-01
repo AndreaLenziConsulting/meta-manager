@@ -95,7 +95,20 @@ export type KpiComputationResult = {
   // settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso mese).
   // `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante può avere un
   // fatturato mensile alternativo da sovrapporre a questa settimana (vedi kpiGhlOverlay.ts).
-  trendSettimanale: { settimana: string; investimento: number; fatturato: number | null; numeroLead: number; mese: string }[];
+  // appuntamentiFissati/appuntamentiEffettuati/numeroVendite seguono ESATTAMENTE lo stesso
+  // trattamento di fatturato sopra (Funnel mensile ripetuto su ogni settimana del mese proprietario)
+  // — servono al blocco 6 del redesign KPI (grafici "Andamento appuntamenti" e "Saldo netto
+  // cumulato"), null nello stesso identico caso limite di fatturato.
+  trendSettimanale: {
+    settimana: string;
+    investimento: number;
+    fatturato: number | null;
+    numeroLead: number;
+    appuntamentiFissati: number | null;
+    appuntamentiEffettuati: number | null;
+    numeroVendite: number | null;
+    mese: string;
+  }[];
 };
 
 /**
@@ -131,7 +144,10 @@ export function computeKpi(
     : null;
 
   const gruppiMap = new Map<string, KpiGroup>();
-  const trendMap = new Map<string, { investimento: number; fatturato: number; numeroLead: number }>();
+  const trendMap = new Map<
+    string,
+    { investimento: number; fatturato: number; numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }
+  >();
   // speesaPerMese: dentro ogni settimana, quanto investimento viene da ciascun mese — una settimana può
   // ricadere a cavallo di due mesi (bastano poche righe MetaDaily negli ultimi/primi giorni del mese), quindi
   // il solo lunedì della settimana non basta per decidere di quale mese mostrare il fatturato (tracciato solo
@@ -166,7 +182,8 @@ export function computeKpi(
     gruppo.clicUniciUscita += row.clicUniciUscita;
     gruppiMap.set(tipoCampagna, gruppo);
 
-    const trendEntry = trendMap.get(mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0 };
+    const trendEntry =
+      trendMap.get(mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
     trendEntry.investimento += row.spesa;
     trendEntry.numeroLead += row.lead;
     trendMap.set(mese, trendEntry);
@@ -195,8 +212,12 @@ export function computeKpi(
     gruppo.fatturato += row.fatturato;
     gruppiMap.set(tipoCampagna, gruppo);
 
-    const trendEntry = trendMap.get(row.mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0 };
+    const trendEntry =
+      trendMap.get(row.mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
     trendEntry.fatturato += row.fatturato;
+    trendEntry.appuntamentiFissati += row.appuntamentiFissati;
+    trendEntry.appuntamentiEffettuati += row.appuntamentiEffettuati;
+    trendEntry.numeroVendite += row.vendite;
     trendMap.set(row.mese, trendEntry);
   }
 
@@ -242,6 +263,11 @@ export function computeKpi(
         // il Funnel è tracciato solo a livello mensile: il fatturato mostrato per una settimana è
         // quello del mese con più spesa in quella settimana (vedi nota sopra su spesaPerMese).
         fatturato: trendMap.get(meseProprietario)?.fatturato ?? null,
+        // Stesso trattamento di fatturato sopra — mensile Funnel ripetuto sul mese proprietario
+        // della settimana (vedi tipo KpiComputationResult per il perché).
+        appuntamentiFissati: trendMap.get(meseProprietario)?.appuntamentiFissati ?? null,
+        appuntamentiEffettuati: trendMap.get(meseProprietario)?.appuntamentiEffettuati ?? null,
+        numeroVendite: trendMap.get(meseProprietario)?.numeroVendite ?? null,
         // Esposto (non solo usato internamente per il lookup sopra) perché il chiamante può avere
         // un fatturato mensile alternativo da sovrapporre a questa settimana (vedi
         // kpiGhlOverlay.ts) — senza saperne il mese di appartenenza non saprebbe quale usare.
