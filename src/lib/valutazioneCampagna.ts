@@ -10,7 +10,9 @@ const ORDINE_SEVERITA: Record<LivelloCampagna, number> = { critico: 0, attenzion
 
 const SOGLIA_ATTENZIONE_CPL = 1.0; // fino al target incluso -> successo
 const SOGLIA_CRITICO_CPL = 1.25; // fino a +25% sul target -> attenzione, oltre -> critico
-const SOGLIA_FREQUENZA = 2.5; // oltre -> attenzione (mai critico da sola, per spec)
+// Esportata: riusata da avvisiOperativi.ts (blocco 4) per segnalare le campagne con frequenza alta
+// nel pannello — stessa soglia, mai un secondo "2.5" duplicato altrove.
+export const SOGLIA_FREQUENZA = 2.5; // oltre -> attenzione (mai critico da sola, per spec)
 
 function valutaCpl(costoPerLead: number | null, targetCpl: number | null): { livello: LivelloCampagna; motivo: string } {
   if (targetCpl === null || targetCpl <= 0 || costoPerLead === null) {

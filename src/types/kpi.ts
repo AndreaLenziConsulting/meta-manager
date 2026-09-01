@@ -174,6 +174,10 @@ export type KpiResponse = {
   }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
+  // Presente solo nella richiesta interna (stesso motivo di targetCpa/targetCpl sopra) — alimenta
+  // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi mesiConSpesaSenzaFunnel
+  // in lib/kpiQualita.ts.
+  meseSenzaFunnel?: { mese: string; investimento: number }[];
 };
 
 export type Prodotto = {

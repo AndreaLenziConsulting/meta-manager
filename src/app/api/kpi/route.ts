@@ -11,6 +11,7 @@ import {
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
+import { mesiConSpesaSenzaFunnel } from "@/lib/kpiQualita";
 import type { CampagnaDisponibile, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -133,6 +134,19 @@ export async function GET(req: NextRequest) {
     campagne: righeCampagne,
     campagneDisponibili,
   };
+
+  // Additivo, solo ramo interno (stesso motivo di targetCpa/targetCpl sopra) — riusa
+  // metaDaily/campagne/funnel già in memoria per questa richiesta, nessuna lettura in più.
+  // mesiConSpesaSenzaFunnel guarda tutta la storia della sede per costruzione (vedi kpiQualita.ts):
+  // filtrato qui al periodo `da`/`a` scelto, per restare scoped come il resto del pannello Avvisi
+  // operativi (blocco 4) — non filtrato per campagna selezionata: il Funnel è tracciato per
+  // tipo_campagna in aggregato, non per singola campagna, "mese senza Funnel per queste campagne"
+  // non sarebbe una domanda ben posta.
+  if (internal) {
+    response.meseSenzaFunnel = mesiConSpesaSenzaFunnel(clienteId, sede.sedeId, metaDaily, campagne, funnel).filter(
+      (m) => m.mese >= da && m.mese <= a
+    );
+  }
 
   return NextResponse.json(response);
 }

@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { RefreshCw, AlertTriangle } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
@@ -9,8 +9,11 @@ import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
 import { SintesiTessere } from "@/components/SintesiTessere";
+import { AvvisiOperativi } from "@/components/AvvisiOperativi";
+import { PlaceholderTab } from "@/components/PlaceholderTab";
 import { calcolaSalute } from "@/lib/salute";
-import { formatMotivoIntervento } from "@/lib/saluteMessaggio";
+import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
+import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
 import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
@@ -384,86 +387,38 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     }
   }
 
-  // Motivo del richiamo: null quando non c'è nulla da segnalare, sempre e solo per la vista
-  // interna — vedi formatMotivoIntervento per l'unico punto di verità su quando comparire.
-  const motivo =
-    clienteId && dati
-      ? formatMotivoIntervento(
-          calcolaSalute(dati.totale, dati.sede.targetCpa ?? null, dati.sede.targetCpl ?? null),
-          attivitaInRitardoCount
-        )
-      : null;
+  // Campagne ATTIVE con frequenza sopra soglia (blocco 4) — stessa soglia di valutazioneCampagna.ts
+  // (blocco 7), mai un secondo "2.5" duplicato. Solo attive: una campagna in pausa non è azionabile
+  // ora, stessa regola già seguita dal pallino di Dettaglio campagne.
+  const campagneFrequenzaAlta = useMemo(() => {
+    if (!dati) return [];
+    return dati.campagne
+      .filter((c) => c.stato === "ACTIVE")
+      .map((c) => ({ nomeCampagna: c.nomeCampagna, frequenza: frequenzaPerCampagna[c.campaignId] ?? null }))
+      .filter((c): c is { nomeCampagna: string; frequenza: number } => c.frequenza !== null && c.frequenza > SOGLIA_FREQUENZA);
+  }, [dati, frequenzaPerCampagna]);
+
+  // Blocco 4 — Avvisi operativi: si ricalcola da solo quando cambiano periodo/campagne/sede, dato
+  // che tutti gli input (dati, ghlDati, frequenzaPerCampagna, attivitaInRitardoCount) sono già
+  // scoped a quel contesto. Gated su Boolean(clienteId) dal chiamante sotto — mai sul link pubblico
+  // `code`, mai per un ruolo commerciale (mai un clienteId per quel ruolo, vedi authz.ts).
+  const avvisiOperativi = useMemo(() => {
+    if (!clienteId || !dati) return [];
+    return generaAvvisiOperativi({
+      valutazioneSalute: calcolaSalute(dati.totale, dati.sede.targetCpa ?? null, dati.sede.targetCpl ?? null),
+      attivitaInRitardoCount,
+      meseSenzaFunnel: dati.meseSenzaFunnel ?? [],
+      ghl: ghlDati,
+      campagneFrequenzaAlta,
+    });
+  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta]);
 
   return (
     <div className="viz-root space-y-6">
-      {dati && motivo && (
-        <div className="flex flex-wrap items-start gap-2.5 rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-          <AlertTriangle size={16} className="text-red-500 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-700 leading-relaxed flex-1 min-w-[220px]">
-            <span className="font-semibold">Solo per te: </span>
-            {motivo}
-          </p>
-          <span className="text-[10px] font-semibold uppercase tracking-widest text-red-700/60 whitespace-nowrap">
-            Visibile solo al team
-          </span>
-        </div>
-      )}
-      {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
-          nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
-          clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
-          senso mostrato al cliente finale, è un'azione di configurazione del team. */}
-      {dati && clienteId && !dati.sede.adAccountId && (
-        <div className="rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
-          <p>
-            Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero finché
-            non lo colleghi.
-          </p>
-          {ruoloAdmin &&
-            (adAccountAperto ? (
-              <div className="flex flex-wrap items-center gap-2">
-                <input
-                  type="text"
-                  value={adAccountBozza}
-                  onChange={(e) => setAdAccountBozza(e.target.value)}
-                  placeholder="Solo cifre, senza act_"
-                  autoFocus
-                  className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
-                />
-                <button
-                  type="button"
-                  onClick={handleSalvaAdAccount}
-                  disabled={salvandoAdAccount}
-                  className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-                >
-                  {salvandoAdAccount ? "Salvataggio…" : "Salva"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAdAccountAperto(false);
-                    setErroreAdAccount(null);
-                  }}
-                  className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
-                >
-                  Annulla
-                </button>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setAdAccountAperto(true)}
-                className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-              >
-                + Aggiungi ad account
-              </button>
-            ))}
-          {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
-        </div>
-      )}
-
       {/* Riga filtri: data, sede (solo se il cliente ne ha più di una — un filtro come gli altri,
           non più accostata al nome cliente come prima di questo redesign), campagne. Azione +
-          relativo esito a destra. */}
+          relativo esito a destra. Prima cosa dentro la sezione KPI (blocco 3), sempre — anche
+          durante il caricamento, mai preceduta da avvisi/banner. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <MonthRangePicker
@@ -516,21 +471,71 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
-          <div>
-            <SintesiTessere
-              totale={dati.totale}
-              overlayGhl={overlayGhl}
-              totalePrecedente={datiPrecedenti?.totale ?? null}
-              overlayGhlPrecedente={overlayGhlPrecedente}
-            />
-            {overlayGhl?.parziale && (
-              <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5 mt-5">
-                Uno o più calendari GHL non erano raggiungibili al momento del caricamento — i numeri di
-                &quot;Appuntamenti fissati/effettuati&quot;, &quot;% effettuati su fissati&quot; e &quot;Tasso di chiusura&quot;
-                potrebbero essere incompleti (vendite e fatturato non sono interessati).
+          {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
+              nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
+              clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
+              senso mostrato al cliente finale, è un'azione di configurazione del team. Resta un
+              banner dedicato (non un avviso generico nel pannello sotto): è l'unico avviso che ha
+              un'azione diretta inline, un messaggio di solo testo nella lista gli toglierebbe
+              proprio quella. */}
+          {clienteId && !dati.sede.adAccountId && (
+            <div className="rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
+              <p>
+                Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero finché
+                non lo colleghi.
               </p>
-            )}
-          </div>
+              {ruoloAdmin &&
+                (adAccountAperto ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <input
+                      type="text"
+                      value={adAccountBozza}
+                      onChange={(e) => setAdAccountBozza(e.target.value)}
+                      placeholder="Solo cifre, senza act_"
+                      autoFocus
+                      className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSalvaAdAccount}
+                      disabled={salvandoAdAccount}
+                      className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+                    >
+                      {salvandoAdAccount ? "Salvataggio…" : "Salva"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAdAccountAperto(false);
+                        setErroreAdAccount(null);
+                      }}
+                      className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setAdAccountAperto(true)}
+                    className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+                  >
+                    + Aggiungi ad account
+                  </button>
+                ))}
+              {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
+            </div>
+          )}
+
+          {/* Blocco 4 — mai sul link pubblico `code` (gated su clienteId, mai valorizzato lì). */}
+          {clienteId && <AvvisiOperativi avvisi={avvisiOperativi} />}
+
+          <SintesiTessere
+            totale={dati.totale}
+            overlayGhl={overlayGhl}
+            totalePrecedente={datiPrecedenti?.totale ?? null}
+            overlayGhlPrecedente={overlayGhlPrecedente}
+          />
 
           <BoxGrafici
             funnel={{
@@ -550,6 +555,15 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             targetCpl={dati.sede.targetCpl ?? null}
             mostraValutazione={Boolean(clienteId)}
           />
+
+          {/* Blocco 8 — solo un segnaposto per ora, nessuna funzionalità (richiesta esplicita).
+              Mai sul link pubblico `code`, stesso motivo del blocco 4 sopra. */}
+          {clienteId && (
+            <PlaceholderTab
+              titolo="Andamento commerciale"
+              descrizione="Questa sezione arriverà più avanti — per ora riserva solo lo spazio nel layout."
+            />
+          )}
         </div>
       )}
     </div>
