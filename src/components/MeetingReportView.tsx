@@ -42,7 +42,7 @@ export function MeetingReportView({
   const actionItems = meeting.actionItems ?? [];
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand">
         <div className="flex items-start justify-between gap-4">
@@ -103,7 +103,7 @@ export function MeetingReportView({
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-xl bg-brand-light px-4 py-3">
             <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">Cliente</p>
-            <p className="mt-1 text-sm font-semibold text-gray-900 truncate">{clienteNome || "—"}</p>
+            <p className="mt-1 text-sm font-semibold text-ink-900 truncate">{clienteNome || "—"}</p>
           </div>
           <InfoBlock label="Referente" value={meeting.referente ?? ""} onChange={(v) => set({ referente: v })} editable={editable} />
           {(meeting.dataConsulenza || editable) && (
@@ -124,7 +124,7 @@ export function MeetingReportView({
               value={meeting.sentiment ?? ""}
               onChange={(v) => set({ sentiment: v })}
               editable={editable}
-              className="mt-3 text-gray-700 text-sm leading-relaxed"
+              className="mt-3 text-ink-700 text-sm leading-relaxed"
               placeholder="Sentiment generale del cliente, con una breve giustificazione…"
             />
           </section>
@@ -141,7 +141,7 @@ export function MeetingReportView({
             value={meeting.summary ?? ""}
             onChange={(v) => set({ summary: v })}
             editable={editable}
-            className="mt-3 text-gray-700 text-sm leading-relaxed"
+            className="mt-3 text-ink-700 text-sm leading-relaxed"
             placeholder="Sommario del meeting…"
           />
         </section>
@@ -194,7 +194,7 @@ export function MeetingReportView({
 
         <section>
           <SectionTitle>Action items</SectionTitle>
-          {editable && <p className="text-xs text-gray-400 mt-0.5">Diventano attività nel tab Attività al salvataggio.</p>}
+          {editable && <p className="text-xs text-ink-500 mt-0.5">Diventano attività nel tab Attività al salvataggio.</p>}
           <ActionItemsEditor items={actionItems} onChange={(items) => set({ actionItems: items })} editable={editable} />
         </section>
 
@@ -220,7 +220,7 @@ export function MeetingReportView({
           </section>
         )}
 
-        <div className="pt-5 mt-2 border-t border-gray-100 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-400">
+        <div className="pt-5 mt-2 border-t border-ink-300/40 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
           <span>{COMPANY_NAME} — Report meeting</span>
           {meeting.rawUrl && (
             <a href={meeting.rawUrl} className="hover:underline font-medium text-brand" target="_blank" rel="noopener noreferrer">
@@ -249,8 +249,8 @@ function ActionItemsEditor({
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm">
             <span className="mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white bg-brand">{i + 1}</span>
-            <span className="text-gray-700 flex-1">{item.text}</span>
-            {item.assignee && <span className="text-xs text-gray-400 font-medium flex-shrink-0">{item.assignee}</span>}
+            <span className="text-ink-700 flex-1">{item.text}</span>
+            {item.assignee && <span className="text-xs text-ink-500 font-medium flex-shrink-0">{item.assignee}</span>}
           </li>
         ))}
       </ul>
@@ -275,16 +275,16 @@ function ActionItemsEditor({
             value={item.text}
             onChange={(e) => update(i, { text: e.target.value })}
             placeholder="Descrizione azione"
-            className="flex-1 rounded-md border border-transparent hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-gray-700"
+            className="flex-1 rounded-md border border-transparent hover:border-ink-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-ink-700"
           />
           <input
             type="text"
             value={item.assignee || ""}
             onChange={(e) => update(i, { assignee: e.target.value })}
             placeholder="Assegnatario"
-            className="w-32 rounded-md border border-transparent hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-xs text-gray-500 font-medium"
+            className="w-32 rounded-md border border-transparent hover:border-ink-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-xs text-ink-500 font-medium"
           />
-          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 px-1 mt-1.5" aria-label="Rimuovi">
+          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-500 hover:text-red-500 px-1 mt-1.5" aria-label="Rimuovi">
             ×
           </button>
         </div>
@@ -358,7 +358,7 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
       <div className="w-1 h-5 rounded-full bg-brand" />
-      <h3 className="font-semibold text-gray-900 text-[15px]">{children}</h3>
+      <h3 className="font-semibold text-ink-900 text-[15px]">{children}</h3>
     </div>
   );
 }
@@ -384,11 +384,11 @@ function InfoBlock({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="mt-1 w-full text-sm font-semibold text-gray-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
+          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
           placeholder={placeholder || `Inserisci ${label.toLowerCase()}`}
         />
       ) : (
-        <p className="mt-1 text-sm font-semibold text-gray-900">{value || "—"}</p>
+        <p className="mt-1 text-sm font-semibold text-ink-900">{value || "—"}</p>
       )}
     </div>
   );
@@ -407,10 +407,10 @@ function KpiBlock({
 }) {
   if (!editable && !text) return null;
   return (
-    <div className="rounded-xl border border-gray-100 p-4 bg-white">
+    <div className="rounded-xl border border-ink-300/40 p-4 bg-surface-card">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">{label}</p>
       <div className="mt-2">
-        <EditableTextarea value={text} onChange={onChange} editable={editable} className="text-sm text-gray-700 leading-relaxed" placeholder="—" />
+        <EditableTextarea value={text} onChange={onChange} editable={editable} className="text-sm text-ink-700 leading-relaxed" placeholder="—" />
       </div>
     </div>
   );

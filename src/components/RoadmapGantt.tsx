@@ -85,13 +85,13 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full bg-brand" />
-          <h3 className="font-semibold text-gray-900 text-[15px]">Roadmap</h3>
+          <h3 className="font-semibold text-ink-900 text-[15px]">Roadmap</h3>
         </div>
-        <ul className="flex gap-3 text-[11px] text-gray-500 flex-wrap">
+        <ul className="flex gap-3 text-[11px] text-ink-500 flex-wrap">
           {STATI_LEGENDA.map((s) => {
             const info = formatStatoAttivita(s);
             return (
@@ -106,13 +106,13 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
 
       <div className="overflow-x-auto">
         <div style={{ minWidth: 760 }}>
-          <div className="flex border-b border-gray-100 sticky top-0 bg-white z-10">
+          <div className="flex border-b border-ink-300/40 sticky top-0 bg-surface-card z-10">
             <div style={{ width: LABEL_WIDTH }} className="flex-shrink-0" />
             <div className="relative flex-1 h-7">
               {tick.map((t) => (
                 <span
                   key={t}
-                  className="absolute top-1.5 text-[10px] text-gray-400 -translate-x-1/2 whitespace-nowrap"
+                  className="absolute top-1.5 text-[10px] text-ink-500 -translate-x-1/2 whitespace-nowrap"
                   style={{ left: `${pctFor(t, minData, maxData)}%` }}
                 >
                   {formatSettimana(t)}
@@ -135,17 +135,17 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
               const conteggi = contaStati(gruppo.attivita);
               const aperta = espanse.has(gruppo.fase);
               return (
-                <div key={gruppo.fase} className="border-b border-gray-100 last:border-b-0">
+                <div key={gruppo.fase} className="border-b border-ink-300/40 last:border-b-0">
                   <button
                     type="button"
                     onClick={() => toggleFase(gruppo.fase)}
-                    className="w-full flex items-center justify-between gap-2 px-5 py-2.5 bg-gray-50 hover:bg-gray-100 transition-colors text-left"
+                    className="w-full flex items-center justify-between gap-2 px-5 py-2.5 bg-surface hover:bg-ink-300/40 transition-colors text-left"
                   >
-                    <span className="flex items-center gap-2 text-xs font-semibold text-gray-700">
+                    <span className="flex items-center gap-2 text-xs font-semibold text-ink-700">
                       <ChevronIcon aperta={aperta} />
                       {gruppo.fase}
                     </span>
-                    <span className="text-[11px] text-gray-400 whitespace-nowrap">
+                    <span className="text-[11px] text-ink-500 whitespace-nowrap">
                       {conteggi.done}/{gruppo.attivita.length} fatte
                       {conteggi.blocked > 0 && (
                         <span className="text-red-500 font-semibold"> · {conteggi.blocked} bloccate</span>
@@ -213,15 +213,15 @@ function RigaAttivita({
 
   return (
     <div
-      className="flex items-center px-5 py-1.5 hover:bg-gray-50/70 transition-colors relative"
+      className="flex items-center px-5 py-1.5 hover:bg-surface/70 transition-colors relative"
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
     >
       <div style={{ width: LABEL_WIDTH }} className="flex-shrink-0 pr-3 min-w-0">
-        <p className="text-xs text-gray-800 truncate" title={attivita.descrizione}>
+        <p className="text-xs text-ink-900 truncate" title={attivita.descrizione}>
           {attivita.descrizione}
         </p>
-        <p className="text-[10px] text-gray-400 truncate">{attivita.responsabile}</p>
+        <p className="text-[10px] text-ink-500 truncate">{attivita.responsabile}</p>
       </div>
 
       <div className="relative flex-1 h-6">
@@ -245,12 +245,12 @@ function RigaAttivita({
 
         {hover && !popoverAperto && (
           <div
-            className="pointer-events-none absolute z-20 top-full mt-1 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs shadow-lg w-64"
+            className="pointer-events-none absolute z-20 top-full mt-1 rounded-lg border border-ink-300 bg-surface-card px-3 py-2 text-xs shadow-lg w-64"
             style={{ left: `${Math.min(left, 60)}%` }}
           >
-            <p className="font-medium text-gray-900">{attivita.descrizione}</p>
-            <p className="text-gray-500 mt-0.5">{attivita.responsabile}</p>
-            <p className="text-gray-400 mt-0.5">
+            <p className="font-medium text-ink-900">{attivita.descrizione}</p>
+            <p className="text-ink-500 mt-0.5">{attivita.responsabile}</p>
+            <p className="text-ink-500 mt-0.5">
               {formatDataBreve(attivita.dataInizio)} – {formatDataBreve(attivita.dataFine)}
             </p>
             <p className="mt-1">
@@ -258,7 +258,7 @@ function RigaAttivita({
                 {info.label}
               </span>
             </p>
-            {attivita.notaTeam && <p className="text-gray-600 mt-1.5 italic">&ldquo;{attivita.notaTeam}&rdquo;</p>}
+            {attivita.notaTeam && <p className="text-ink-500 mt-1.5 italic">&ldquo;{attivita.notaTeam}&rdquo;</p>}
           </div>
         )}
       </div>
@@ -269,25 +269,25 @@ function RigaAttivita({
             type="button"
             onClick={onApriBlocco}
             title="Segna come bloccata"
-            className="text-gray-300 hover:text-red-500 transition-colors"
+            className="text-ink-300 hover:text-red-500 transition-colors"
           >
             <BloccaIcon />
           </button>
         )}
 
         {popoverAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-900">Perché è bloccata?</p>
+          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-ink-900">Perché è bloccata?</p>
             <textarea
               autoFocus
               value={notaBozza}
               onChange={(e) => onNotaBozzaChange(e.target.value)}
               rows={2}
               placeholder="Motivo del blocco…"
-              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
+              className="w-full rounded-lg border border-ink-300 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
             />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onChiudiBlocco} className="text-[11px] font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100">
+              <button type="button" onClick={onChiudiBlocco} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40">
                 Annulla
               </button>
               <button

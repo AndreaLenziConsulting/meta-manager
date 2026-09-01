@@ -158,7 +158,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
     }
   }
 
-  if (caricamento && !dati) return <p className="text-sm text-gray-500">Caricamento…</p>;
+  if (caricamento && !dati) return <p className="text-sm text-ink-500">Caricamento…</p>;
   if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
   if (!dati) return null;
 
@@ -178,12 +178,12 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
   if (!haRoadmap) {
     const puoGenerare = !!(dati.cliente.prodottoId && dati.cliente.dataInizioProgetto);
     return (
-      <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
+      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
         <div className="text-center max-w-sm">
-          <h3 className="text-base font-semibold text-gray-900">Nessuna roadmap</h3>
+          <h3 className="text-base font-semibold text-ink-900">Nessuna roadmap</h3>
           {puoGenerare ? (
             <>
-              <p className="text-sm text-gray-500 mt-1.5">
+              <p className="text-sm text-ink-500 mt-1.5">
                 Il cliente ha un prodotto assegnato ma la roadmap non è ancora stata generata.
               </p>
               <button
@@ -196,7 +196,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
               </button>
             </>
           ) : (
-            <p className="text-sm text-gray-500 mt-1.5">
+            <p className="text-sm text-ink-500 mt-1.5">
               Assegna un prodotto e una data di inizio progetto a questo cliente (foglio Clienti, colonne
               prodotto_id/data_inizio_progetto) per generare la roadmap.
             </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Calendar } from "lucide-react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import { raggruppaPerStato } from "@/lib/roadmap";
 import { formatStatoAttivita, iniziali } from "@/lib/format";
@@ -75,15 +76,15 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
 
   if (gruppi.length === 0) {
     return (
-      <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 text-center">
-        <p className="text-sm text-gray-500">Nessuna attività.</p>
+      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+        <p className="text-sm text-ink-500">Nessuna attività.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+      <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
         <span className="flex-1">Task</span>
         <span className={`flex-shrink-0 ${COL_RESPONSABILE}`}>Responsabile</span>
         <span className={`flex-shrink-0 ${COL_SCADENZA}`}>Scadenza</span>
@@ -94,7 +95,7 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
       {gruppi.map((gruppo) => {
         const info = formatStatoAttivita(gruppo.stato);
         return (
-          <div key={gruppo.stato} className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
             <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
               <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
               <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
@@ -173,9 +174,9 @@ function RigaAttivita({
   const meetingId = isMeeting ? estraiMeetingIdDaTaskId(attivita.taskId) : null;
 
   return (
-    <div className="flex items-start gap-3 px-5 py-3 hover:bg-gray-50/70 transition-colors border-t border-gray-50 first:border-t-0">
+    <div className="flex items-start gap-3 px-5 py-3 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0">
       <div className="min-w-0 flex-1">
-        <p className="text-base text-gray-800">{attivita.descrizione}</p>
+        <p className="text-base text-ink-900">{attivita.descrizione}</p>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {nomeCliente && (
             // Pill piena e scura (non un tint chiaro come le altre): qui il "quale cliente" è
@@ -200,16 +201,18 @@ function RigaAttivita({
               title={`${attivita.fase} — vai al meeting`}
               className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors"
             >
-              📅 {faseCompatta(attivita.fase, true)}
+              <Calendar size={11} className="flex-shrink-0" />
+              {faseCompatta(attivita.fase, true)}
             </button>
           ) : (
             <span
               className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[220px] ${
-                isMeeting ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-gray-100 text-gray-600 border border-gray-200"
+                isMeeting ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-ink-300/40 text-ink-500 border border-ink-300"
               }`}
               title={attivita.fase}
             >
-              {isMeeting && "📅"} {faseCompatta(attivita.fase, isMeeting)}
+              {isMeeting && <Calendar size={11} className="flex-shrink-0" />}
+              {faseCompatta(attivita.fase, isMeeting)}
             </span>
           )}
           {attivita.notaTeam && (
@@ -224,7 +227,7 @@ function RigaAttivita({
         <span className="w-6 h-6 rounded-full bg-brand/10 text-brand text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
           {iniziali(attivita.responsabile || "?")}
         </span>
-        <span className="text-xs text-gray-500 hidden sm:inline truncate">{attivita.responsabile}</span>
+        <span className="text-xs text-ink-500 hidden sm:inline truncate">{attivita.responsabile}</span>
       </div>
 
       <div className={`flex-shrink-0 ${COL_SCADENZA}`}>
@@ -232,7 +235,7 @@ function RigaAttivita({
           type="date"
           value={attivita.dataFine}
           onChange={(e) => e.target.value && onCambiaScadenza(e.target.value)}
-          className="text-xs text-gray-500 bg-transparent border border-transparent hover:border-gray-200 focus:border-brand focus:ring-2 focus:ring-brand/30 rounded-md px-1 py-0.5 outline-none cursor-pointer transition-colors w-full"
+          className="text-xs text-ink-500 bg-transparent border border-transparent hover:border-ink-300 focus:border-brand focus:ring-2 focus:ring-brand/30 rounded-md px-1 py-0.5 outline-none cursor-pointer transition-colors w-full"
         />
       </div>
 
@@ -246,7 +249,7 @@ function RigaAttivita({
         </button>
 
         {menuAperto && (
-          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl border border-gray-200 bg-white shadow-lg py-1">
+          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1">
             {STATI_MENU.map((s) => {
               const opzione = formatStatoAttivita(s);
               return (
@@ -254,7 +257,7 @@ function RigaAttivita({
                   key={s}
                   type="button"
                   onClick={() => onSceltaStato(s)}
-                  className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 cursor-pointer flex items-center gap-2"
+                  className="w-full text-left px-3 py-1.5 text-xs text-ink-700 hover:bg-surface cursor-pointer flex items-center gap-2"
                 >
                   <span className={`w-2 h-2 rounded-sm ${opzione.puntino}`} />
                   {opzione.label}
@@ -265,18 +268,18 @@ function RigaAttivita({
         )}
 
         {popoverBloccoAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-gray-200 bg-white shadow-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-900">Perché è bloccata?</p>
+          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-ink-900">Perché è bloccata?</p>
             <textarea
               autoFocus
               value={notaBozza}
               onChange={(e) => onNotaBozzaChange(e.target.value)}
               rows={2}
               placeholder="Motivo del blocco…"
-              className="w-full rounded-lg border border-gray-200 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
+              className="w-full rounded-lg border border-ink-300 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
             />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onChiudiBlocco} className="text-[11px] font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer">
+              <button type="button" onClick={onChiudiBlocco} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
                 Annulla
               </button>
               <button
@@ -297,17 +300,17 @@ function RigaAttivita({
           type="button"
           onClick={confermaEliminaAperto ? onChiudiElimina : onApriElimina}
           title="Elimina attività"
-          className="text-gray-300 hover:text-red-500 transition-colors cursor-pointer"
+          className="text-ink-300 hover:text-red-500 transition-colors cursor-pointer"
         >
           <EliminaIcon />
         </button>
 
         {confermaEliminaAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl border border-gray-200 bg-white shadow-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-900">Eliminare questa attività?</p>
-            <p className="text-[11px] text-gray-400">Non si può annullare.</p>
+          <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2">
+            <p className="text-xs font-semibold text-ink-900">Eliminare questa attività?</p>
+            <p className="text-[11px] text-ink-500">Non si può annullare.</p>
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onChiudiElimina} className="text-[11px] font-medium px-2 py-1 rounded-lg text-gray-500 hover:bg-gray-100 cursor-pointer">
+              <button type="button" onClick={onChiudiElimina} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
                 Annulla
               </button>
               <button

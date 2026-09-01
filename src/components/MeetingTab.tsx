@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CheckCircle2, AlertCircle, FileDown, Mail, Pencil } from "lucide-react";
 import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
 import { MeetingReportView } from "@/components/MeetingReportView";
@@ -16,13 +17,13 @@ type Props = {
 };
 
 const inputClass =
-  "w-full rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
+  "w-full rounded-xl border border-ink-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
 // Senza "w-full": per gli input dentro una riga flex (testo + assegnatario), dove la larghezza
 // deve venire da flex-1/w-32 e non da w-full — le due classi insieme sullo stesso elemento
 // vanno in conflitto sulla proprietà width (ordine di generazione Tailwind, non l'ordine nella
 // stringa className), causando il campo assegnatario a espandersi su tutta la riga in anteprima.
 const inputClassFlex = inputClass.replace("w-full ", "");
-const labelClass = "text-xs font-semibold text-gray-700 mb-1 block";
+const labelClass = "text-xs font-semibold text-ink-700 mb-1 block";
 
 /**
  * Bottoni "Scarica PDF" / "Genera email di follow-up" — porting delle azioni di Fast Report
@@ -102,22 +103,30 @@ function MeetingAzioni({
   }
 
   return (
-    <div className="pt-3 mt-3 border-t border-gray-100 space-y-2.5">
+    <div className="pt-3 mt-3 border-t border-ink-300/40 space-y-2.5">
       <div className="flex flex-wrap gap-2.5">
         <button
           type="button"
           onClick={handleScaricaPdf}
           disabled={scaricando}
-          className="rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[.98]"
+          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[.98]"
         >
-          {scaricando ? "Generazione PDF…" : "📄 Scarica PDF"}
+          {scaricando ? (
+            "Generazione PDF…"
+          ) : (
+            <>
+              <FileDown size={14} className="flex-shrink-0" />
+              Scarica PDF
+            </>
+          )}
         </button>
         <button
           type="button"
           onClick={handleGeneraEmail}
-          className="rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light transition cursor-pointer active:scale-[.98]"
+          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light transition cursor-pointer active:scale-[.98]"
         >
-          {mostraEmail ? "✉️ Nascondi email" : "✉️ Genera email di follow-up"}
+          <Mail size={14} className="flex-shrink-0" />
+          {mostraEmail ? "Nascondi email" : "Genera email di follow-up"}
         </button>
       </div>
       {errorePdf && <p className="text-xs text-red-600">{errorePdf}</p>}
@@ -333,7 +342,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
     }
   }
 
-  if (caricamento && !meetingTeam && !meetingPubblico) return <p className="text-sm text-gray-500">Caricamento…</p>;
+  if (caricamento && !meetingTeam && !meetingPubblico) return <p className="text-sm text-ink-500">Caricamento…</p>;
   if (errore && !meetingTeam && !meetingPubblico) return <p className="text-sm text-red-600">{errore}</p>;
 
   const listaVuota = (meetingTeam?.length ?? meetingPubblico?.length ?? 0) === 0;
@@ -348,10 +357,17 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
             esitoInvio.inviata ? "bg-green-50 border-green-100 text-green-700" : "bg-yellow-50 border-yellow-100 text-yellow-800"
           }`}
         >
-          <p>
-            {esitoInvio.inviata
-              ? `✅ Meeting salvato ed email inviata a ${clienteEmail}.`
-              : `⚠️ Meeting salvato, ma l'invio email non è riuscito: ${esitoInvio.errore}. Usa "Genera email di follow-up" sul meeting salvato per copiarla a mano.`}
+          <p className="flex items-start gap-1.5">
+            {esitoInvio.inviata ? (
+              <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" />
+            ) : (
+              <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
+            )}
+            <span>
+              {esitoInvio.inviata
+                ? `Meeting salvato ed email inviata a ${clienteEmail}.`
+                : `Meeting salvato, ma l'invio email non è riuscito: ${esitoInvio.errore}. Usa "Genera email di follow-up" sul meeting salvato per copiarla a mano.`}
+            </span>
           </p>
           <button type="button" onClick={() => setEsitoInvio(null)} className="text-current opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Chiudi">
             ×
@@ -360,7 +376,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       )}
 
       {clienteId && !anteprima && (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
+        <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
           {!mostraForm ? (
             <button
               type="button"
@@ -394,13 +410,13 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                     setUrl("");
                     setErroreForm(null);
                   }}
-                  className="rounded-xl border border-gray-200 text-sm font-semibold px-3 py-2.5 text-gray-500 hover:bg-gray-50 transition"
+                  className="rounded-xl border border-ink-300 text-sm font-semibold px-3 py-2.5 text-ink-500 hover:bg-surface transition"
                 >
                   Annulla
                 </button>
               </div>
               {estraendo && (
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-ink-500">
                   Estrazione in corso — scraping della pagina più lettura del modello, con eventuale nuovo
                   tentativo automatico in caso di errore transitorio: può richiedere fino a due minuti e
                   mezzo…
@@ -414,7 +430,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
 
       {anteprima && (
         <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-gray-900">Anteprima — verifica e modifica prima di salvare</h4>
+          <h4 className="text-sm font-semibold text-ink-900">Anteprima — verifica e modifica prima di salvare</h4>
 
           {troncamento && (
             <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
@@ -439,7 +455,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
           )}
 
           <label
-            className={`flex items-center gap-2 text-xs pt-1 ${clienteEmail ? "text-gray-600 cursor-pointer" : "text-gray-400"}`}
+            className={`flex items-center gap-2 text-xs pt-1 ${clienteEmail ? "text-ink-500 cursor-pointer" : "text-ink-500"}`}
           >
             <input
               type="checkbox"
@@ -455,7 +471,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
 
           {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
 
-          <div className="flex gap-2 pt-2 border-t border-gray-100">
+          <div className="flex gap-2 pt-2 border-t border-ink-300/40">
             <button
               type="button"
               onClick={handleSalva}
@@ -470,7 +486,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                 setAnteprima(null);
                 setTroncamento(null);
               }}
-              className="rounded-xl border border-gray-200 text-sm font-semibold px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+              className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
             >
               Annulla
             </button>
@@ -479,8 +495,8 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       )}
 
       {listaVuota && !anteprima && (
-        <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 text-center">
-          <p className="text-sm text-gray-500">Nessun meeting registrato.</p>
+        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+          <p className="text-sm text-ink-500">Nessun meeting registrato.</p>
         </div>
       )}
 
@@ -492,20 +508,20 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}
-              className={`w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-2xl border bg-white shadow-sm transition-colors ${
-                m.meetingId === meetingIdEvidenziato ? "border-brand ring-2 ring-brand/20" : "border-gray-200"
+              className={`w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-2xl border bg-surface-card shadow-sm transition-colors ${
+                m.meetingId === meetingIdEvidenziato ? "border-brand ring-2 ring-brand/20" : "border-ink-300"
               }`}
             >
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{m.titolo || "(senza titolo)"}</p>
-                <p className="text-xs text-gray-400">
+                <p className="font-semibold text-ink-900 truncate">{m.titolo || "(senza titolo)"}</p>
+                <p className="text-xs text-ink-500">
                   {formatDataBreve(m.data)}
                   {m.dati.referente ? ` · ${m.dati.referente}` : ""}
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {m.sentiment && <span className="text-[11px] text-gray-500 max-w-[160px] truncate hidden sm:inline">{m.sentiment}</span>}
-                <span className="text-gray-300 text-xs">{aperto ? "▲" : "▼"}</span>
+                {m.sentiment && <span className="text-[11px] text-ink-500 max-w-[160px] truncate hidden sm:inline">{m.sentiment}</span>}
+                <span className="text-ink-300 text-xs">{aperto ? "▲" : "▼"}</span>
               </div>
             </button>
 
@@ -525,7 +541,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                   <button
                     type="button"
                     onClick={annullaModifica}
-                    className="rounded-xl border border-gray-200 text-sm font-semibold px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition"
+                    className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
                   >
                     Annulla
                   </button>
@@ -537,8 +553,13 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
               <div className="space-y-3">
                 <MeetingReportView meeting={m.dati} clienteNome={clienteNome} />
                 <div className="flex justify-end">
-                  <button type="button" onClick={() => iniziaModifica(m)} className="text-xs font-semibold text-brand hover:underline">
-                    ✎ Modifica report
+                  <button
+                    type="button"
+                    onClick={() => iniziaModifica(m)}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                  >
+                    <Pencil size={12} className="flex-shrink-0" />
+                    Modifica report
                   </button>
                 </div>
                 {clienteId && <MeetingAzioni clienteId={clienteId} meeting={m.dati} clienteNome={clienteNome} />}
@@ -551,28 +572,28 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       {meetingPubblico?.map((m) => {
         const aperto = espanso === m.meetingId;
         return (
-          <div key={m.meetingId} className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+          <div key={m.meetingId} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}
               className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3"
             >
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">{m.titolo || "(senza titolo)"}</p>
-                <p className="text-xs text-gray-400">
+                <p className="font-semibold text-ink-900 truncate">{m.titolo || "(senza titolo)"}</p>
+                <p className="text-xs text-ink-500">
                   {formatDataBreve(m.data)}
                   {m.durata ? ` · ${m.durata}` : ""}
                 </p>
               </div>
             </button>
             {aperto && (
-              <div className="px-5 pb-4 space-y-2 border-t border-gray-100 pt-3 text-sm">
-                {m.riassunto && <p className="text-gray-700">{m.riassunto}</p>}
-                {m.partecipanti.length > 0 && <p className="text-xs text-gray-500">Partecipanti: {m.partecipanti.join(", ")}</p>}
+              <div className="px-5 pb-4 space-y-2 border-t border-ink-300/40 pt-3 text-sm">
+                {m.riassunto && <p className="text-ink-700">{m.riassunto}</p>}
+                {m.partecipanti.length > 0 && <p className="text-xs text-ink-500">Partecipanti: {m.partecipanti.join(", ")}</p>}
                 {m.azioni.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-gray-700 mt-2">Azioni ({m.azioni.length})</p>
-                    <ul className="text-xs text-gray-600 list-disc list-inside space-y-0.5 mt-1">
+                    <p className="text-xs font-semibold text-ink-700 mt-2">Azioni ({m.azioni.length})</p>
+                    <ul className="text-xs text-ink-500 list-disc list-inside space-y-0.5 mt-1">
                       {m.azioni.map((a, i) => (
                         <li key={i}>
                           {a.assegnatario ? `${a.assegnatario}: ` : ""}
