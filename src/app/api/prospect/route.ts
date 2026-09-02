@@ -3,6 +3,7 @@ import { getSessione } from "@/lib/auth";
 import { aggiornaProspect, creaProspect, getCommerciali, getProspect } from "@/lib/sheets";
 import { generaProspectId } from "@/lib/accessCode";
 import { puoVedereProspect } from "@/lib/authz";
+import { assicuraCartelleProspect } from "@/lib/drive";
 
 export const runtime = "nodejs";
 
@@ -70,10 +71,23 @@ export async function POST(req: NextRequest) {
       commercialeId,
       creatoIl: new Date().toISOString(),
     });
-    return NextResponse.json({ prospectId }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 502 });
   }
+
+  // Cartella Drive del prospect (hand-off commerciale) — mai bloccante: un prospect creato con
+  // successo resta creato anche se Drive non è raggiungibile o lo shared drive non è configurato;
+  // driveFolderUrl resta vuota e la cartella si può ancora impostare/ricreare a mano dopo (vedi
+  // ProspectDatiCommerciali.tsx) o verrà ritentata al primo report caricato (assicuraCartelleProspect
+  // è idempotente, vedi drive.ts).
+  try {
+    const cartelle = await assicuraCartelleProspect(ragioneSociale);
+    await aggiornaProspect({ prospectId, driveFolderUrl: cartelle.principaleUrl });
+  } catch (err) {
+    console.error("Creazione cartella Drive del prospect fallita (non bloccante):", err);
+  }
+
+  return NextResponse.json({ prospectId }, { status: 201 });
 }
 
 type BodyPatch = {

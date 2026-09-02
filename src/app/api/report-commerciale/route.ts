@@ -7,6 +7,8 @@ import { hashReportId } from "@/lib/prospect";
 import { buildEmailTextCommerciale, separaOggettoECorpo } from "@/lib/reportCommercialeEmail";
 import { renderReportCommercialePdfBuffer } from "@/lib/reportCommercialePdf";
 import { inviaEmailMeeting } from "@/lib/gmail";
+import { assicuraCartelleProspect, caricaPdfReport, trovaOCreaCartellaReport } from "@/lib/drive";
+import { idCartellaDaUrl, nomeFileReport } from "@/lib/driveNomi";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
 
 export const runtime = "nodejs";
@@ -95,6 +97,14 @@ export async function POST(req: NextRequest) {
     console.error("Aggiornamento anagrafica prospect fallito (non bloccante):", err);
   }
 
+  // PDF del report — generato al più una volta per richiesta anche se serve sia all'email sia
+  // all'upload Drive sotto (entrambi possono capitare sullo stesso salvataggio).
+  let pdfBufferCache: Buffer | null = null;
+  async function getPdfBuffer(r: ReportCommercialeDataLoose): Promise<Buffer> {
+    if (!pdfBufferCache) pdfBufferCache = await renderReportCommercialePdfBuffer(r);
+    return pdfBufferCache;
+  }
+
   // Invio automatico dell'email di follow-up — solo al PRIMO salvataggio, stessa logica di
   // POST /api/meeting: mai bloccante, un fallimento è riportato al chiamante ma il salvataggio
   // del report resta comunque riuscito.
@@ -109,14 +119,13 @@ export async function POST(req: NextRequest) {
       const { oggetto, corpo } = separaOggettoECorpo(
         testoEmailBozza ?? buildEmailTextCommerciale(report, prospect.ragioneSociale, commerciale.nome)
       );
-      const pdfBuffer = await renderReportCommercialePdfBuffer(report);
       await inviaEmailMeeting({
         consulenteNome: commerciale.nome,
         consulenteEmail: commerciale.email,
         clienteEmail: prospect.email,
         oggetto,
         corpo,
-        allegatoPdf: pdfBuffer,
+        allegatoPdf: await getPdfBuffer(report),
         nomeAllegato: `report-${prospect.ragioneSociale.toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 40)}.pdf`,
       });
       emailInviata = true;
@@ -124,6 +133,32 @@ export async function POST(req: NextRequest) {
       erroreEmail = err instanceof Error ? err.message : "Errore sconosciuto nell'invio email";
       console.error("Invio email di follow-up commerciale fallito (non bloccante):", err);
     }
+  }
+
+  // Archiviazione su Drive (hand-off commerciale) — ogni salvataggio riuscito, non solo il primo:
+  // a differenza dell'email (che avrebbe poco senso reinviare a ogni correzione), l'archivio deve
+  // riflettere sempre l'ultima versione del report. Mai bloccante. Cartella già nota (driveFolderUrl
+  // impostata, dalla creazione del prospect o a mano) → un solo lookup per la sottocartella;
+  // altrimenti (prospect creato prima di questa funzionalità, o creazione cartella fallita
+  // all'epoca) ricade su assicuraCartelleProspect, che la crea e la salva per la prossima volta.
+  try {
+    const idNoto = prospect.driveFolderUrl ? idCartellaDaUrl(prospect.driveFolderUrl) : null;
+    const reportFolderId = idNoto
+      ? await trovaOCreaCartellaReport(idNoto, prospect.ragioneSociale)
+      : await (async () => {
+          const cartelle = await assicuraCartelleProspect(prospect.ragioneSociale);
+          await aggiornaProspect({ prospectId, driveFolderUrl: cartelle.principaleUrl }).catch(() => {});
+          return cartelle.reportFolderId;
+        })();
+
+    await caricaPdfReport({
+      cartellaId: reportFolderId,
+      reportId,
+      nomeFile: nomeFileReport(report.data ?? dataIso, report.titolo),
+      pdfBuffer: await getPdfBuffer(report),
+    });
+  } catch (err) {
+    console.error("Upload del PDF su Drive fallito (non bloccante):", err);
   }
 
   return NextResponse.json({ reportId, aggiornato, emailInviata, erroreEmail });

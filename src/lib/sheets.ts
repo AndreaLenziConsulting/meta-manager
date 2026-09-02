@@ -1,5 +1,6 @@
 import { google } from "googleapis";
 import { generaSedeId } from "@/lib/accessCode";
+import { getGoogleOAuth2Client } from "@/lib/googleAuth";
 import type {
   AttivitaClienteRow,
   Campagna,
@@ -43,21 +44,7 @@ let sheetsCache: ReturnType<typeof google.sheets> | null = null;
 
 function getAuth() {
   if (sheetsCache) return sheetsCache;
-
-  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
-  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN;
-
-  if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error(
-      "Google OAuth2 non configurato: mancano GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET / GOOGLE_OAUTH_REFRESH_TOKEN"
-    );
-  }
-
-  const auth = new google.auth.OAuth2(clientId, clientSecret);
-  auth.setCredentials({ refresh_token: refreshToken });
-
-  sheetsCache = google.sheets({ version: "v4", auth });
+  sheetsCache = google.sheets({ version: "v4", auth: getGoogleOAuth2Client() });
   return sheetsCache;
 }
 

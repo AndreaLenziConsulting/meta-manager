@@ -1,6 +1,8 @@
 /**
- * Ottiene un refresh token OAuth2 per l'account Google che avrà accesso allo Sheet.
- * Uso: node scripts/get-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>
+ * Ottiene un refresh token OAuth2 per l'account Google che avrà accesso allo Sheet e allo shared
+ * drive "COMMERCIALE ANDREA LENZI CONSULTING" (hand-off commerciale, vedi src/lib/drive.ts — se non
+ * ti interessa quella funzionalità il token funziona comunque, lo scope drive semplicemente non
+ * verrà mai usato). Uso: node scripts/get-refresh-token.js <CLIENT_ID> <CLIENT_SECRET>
  */
 const http = require("http");
 const { URL } = require("url");
@@ -21,7 +23,7 @@ const oauth2Client = new google.auth.OAuth2(clientId, clientSecret, redirectUri)
 const authUrl = oauth2Client.generateAuthUrl({
   access_type: "offline",
   prompt: "consent",
-  scope: ["https://www.googleapis.com/auth/spreadsheets"],
+  scope: ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"],
 });
 
 console.log("\nApri questo link nel browser e accedi con l'account Google da usare per lo Sheet:\n");
