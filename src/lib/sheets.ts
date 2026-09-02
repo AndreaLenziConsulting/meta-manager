@@ -1061,8 +1061,12 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
   return { aggiornato: true };
 }
 
-// Tab Prospect, colonne A→I: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
-// commercialeId, attivo, creatoIl — anagrafica persistente del prospect, vedi types/prospect.ts.
+// Tab Prospect, colonne A→Q: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
+// commercialeId, attivo, creatoIl, driveFolderUrl, mediaBudgetMensile, targetCpl,
+// targetCpaAppuntamento, targetLeadSettimana, targetAppuntamentiSettimana, targetFatturatoMensile,
+// targetMargineVenditaPct — anagrafica persistente del prospect, vedi types/prospect.ts. Le colonne
+// J→Q sono più recenti delle prime 9: righe create prima della loro introduzione le leggono vuote
+// (toNumberOrNull(undefined) → null, asText(undefined) → ""), mai un crash.
 export async function getProspect(): Promise<Prospect[]> {
   const rows = await readTab(TAB.prospect, { noCache: true });
   return rows
@@ -1077,6 +1081,14 @@ export async function getProspect(): Promise<Prospect[]> {
       commercialeId: asText(r[6]),
       attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
       creatoIl: asText(r[8]),
+      driveFolderUrl: asText(r[9]),
+      mediaBudgetMensile: toNumberOrNull(r[10]),
+      targetCpl: toNumberOrNull(r[11]),
+      targetCpaAppuntamento: toNumberOrNull(r[12]),
+      targetLeadSettimana: toNumberOrNull(r[13]),
+      targetAppuntamentiSettimana: toNumberOrNull(r[14]),
+      targetFatturatoMensile: toNumberOrNull(r[15]),
+      targetMargineVenditaPct: toNumberOrNull(r[16]),
     }));
 }
 
@@ -1120,19 +1132,28 @@ export type AggiornaProspectInput = {
   sedi?: string;
   email?: string;
   attivo?: boolean;
+  driveFolderUrl?: string;
+  mediaBudgetMensile?: number | null;
+  targetCpl?: number | null;
+  targetCpaAppuntamento?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
+  targetMargineVenditaPct?: number | null;
 };
 
 /**
  * Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato). Usata
- * sia dal modulo di gestione prospect sia — per i 4 campi anagrafici — a ogni salvataggio di un
- * report (vedi POST /api/report-commerciale): tenerli allineati all'ultimo report evita di doverli
- * re-inserire al report successivo.
+ * sia dal modulo di gestione prospect (anagrafica + dati commerciali, vedi PATCH /api/prospect) sia
+ * — per i 4 campi anagrafici soltanto — a ogni salvataggio di un report (vedi POST
+ * /api/report-commerciale): tenerli allineati all'ultimo report evita di doverli re-inserire al
+ * report successivo.
  */
 export async function aggiornaProspect(input: AggiornaProspectInput): Promise<void> {
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.prospect}!A2:I`,
+    range: `${TAB.prospect}!A2:Q`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -1151,6 +1172,14 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   if (input.sedi !== undefined) set("E", input.sedi);
   if (input.email !== undefined) set("F", input.email);
   if (input.attivo !== undefined) set("H", input.attivo ? "TRUE" : "FALSE");
+  if (input.driveFolderUrl !== undefined) set("J", input.driveFolderUrl);
+  if (input.mediaBudgetMensile !== undefined) set("K", input.mediaBudgetMensile ?? "");
+  if (input.targetCpl !== undefined) set("L", input.targetCpl ?? "");
+  if (input.targetCpaAppuntamento !== undefined) set("M", input.targetCpaAppuntamento ?? "");
+  if (input.targetLeadSettimana !== undefined) set("N", input.targetLeadSettimana ?? "");
+  if (input.targetAppuntamentiSettimana !== undefined) set("O", input.targetAppuntamentiSettimana ?? "");
+  if (input.targetFatturatoMensile !== undefined) set("P", input.targetFatturatoMensile ?? "");
+  if (input.targetMargineVenditaPct !== undefined) set("Q", input.targetMargineVenditaPct ?? "");
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

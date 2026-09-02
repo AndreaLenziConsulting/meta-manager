@@ -30,6 +30,25 @@ export type Prospect = {
   commercialeId: string;
   attivo: boolean;
   creatoIl: string; // ISO datetime
+
+  // Parametri commerciali — impostabili già in fase di prospect, prima ancora che diventi un
+  // Cliente vero e proprio (nessun collegamento prospect→cliente esiste ancora, vedi "Modifica
+  // dati commerciali" in ProspectTab.tsx): pensati per alimentare, in un giro successivo, sia il
+  // Simulatore ROI (oggi compilato a mano ogni volta, vedi ScenarioRoi sotto) sia gli indicatori di
+  // performance reali una volta collegati a una Sede — qui solo lo storage, non ancora consumati.
+  driveFolderUrl: string; // link alla cartella Drive del prospect — per ora inserito a mano, in
+  // futuro creato in automatico alla creazione del prospect (non ancora implementato)
+  mediaBudgetMensile: number | null; // € di spesa ads mensile pianificata/concordata
+  targetCpl: number | null; // € — target costo per lead
+  // Target costo per APPUNTAMENTO fissato, non per vendita: un target sul CPA-vendita è poco
+  // sensato in questa fase (troppo poche vendite per periodo per essere un riferimento stabile,
+  // stesso motivo per cui calcolaSalute in salute.ts usa il CPL come proxy finché non ci sono
+  // vendite) — l'appuntamento fissato è un evento più frequente e quindi un target più affidabile.
+  targetCpaAppuntamento: number | null;
+  targetLeadSettimana: number | null; // lead attesi a settimana
+  targetAppuntamentiSettimana: number | null; // appuntamenti fissati attesi a settimana
+  targetFatturatoMensile: number | null; // € di fatturato mensile atteso
+  targetMargineVenditaPct: number | null; // % di utile medio per vendita sul fatturato, 0-100
 };
 
 export type ScenarioRoi = {

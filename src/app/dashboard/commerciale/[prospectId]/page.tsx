@@ -3,6 +3,7 @@ import { getSessione } from "@/lib/auth";
 import { getProspect } from "@/lib/sheets";
 import { puoVedereProspect } from "@/lib/authz";
 import { ProspectTab } from "@/components/ProspectTab";
+import { ProspectDatiCommerciali } from "@/components/ProspectDatiCommerciali";
 
 export default async function ProspectDettaglioPage({ params }: { params: Promise<{ prospectId: string }> }) {
   const { prospectId } = await params;
@@ -28,6 +29,7 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
           {[p.tipoBusiness, p.fatturato, p.sedi].filter(Boolean).join(" · ") || "Nessun dato anagrafico ancora — verrà popolato dal primo report."}
         </p>
       </div>
+      <ProspectDatiCommerciali prospect={p} />
       <ProspectTab prospectId={p.prospectId} ragioneSociale={p.ragioneSociale} prospectEmail={p.email || undefined} />
     </div>
   );

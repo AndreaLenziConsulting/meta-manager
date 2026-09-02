@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { creaProspect, getCommerciali, getProspect } from "@/lib/sheets";
+import { aggiornaProspect, creaProspect, getCommerciali, getProspect } from "@/lib/sheets";
 import { generaProspectId } from "@/lib/accessCode";
+import { puoVedereProspect } from "@/lib/authz";
 
 export const runtime = "nodejs";
 
@@ -72,5 +73,81 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ prospectId }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 502 });
+  }
+}
+
+type BodyPatch = {
+  prospectId?: string;
+  driveFolderUrl?: string;
+  mediaBudgetMensile?: number | null;
+  targetCpl?: number | null;
+  targetCpaAppuntamento?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
+  targetMargineVenditaPct?: number | null;
+};
+
+const CAMPI_NUMERICI = [
+  "mediaBudgetMensile",
+  "targetCpl",
+  "targetCpaAppuntamento",
+  "targetLeadSettimana",
+  "targetAppuntamentiSettimana",
+  "targetFatturatoMensile",
+  "targetMargineVenditaPct",
+] as const;
+
+/**
+ * Modifica i dati commerciali di un prospect esistente (cartella Drive + parametri target, vedi
+ * types/prospect.ts) — l'anagrafica vera e propria (ragioneSociale/tipoBusiness/fatturato/sedi)
+ * resta gestita solo dall'estrazione automatica del report (vedi POST /api/report-commerciale),
+ * non da questa route. Un commerciale può modificare solo i propri prospect, l'admin qualsiasi.
+ */
+export async function PATCH(req: NextRequest) {
+  const sessione = await getSessione();
+  if (!sessione) {
+    return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
+  }
+  if (sessione.ruolo !== "commerciale" && sessione.ruolo !== "admin") {
+    return NextResponse.json({ error: "Solo un commerciale o l'amministratore possono modificare un prospect" }, { status: 403 });
+  }
+
+  const body = (await req.json().catch(() => ({}))) as BodyPatch;
+  const prospectId = body.prospectId?.trim();
+  if (!prospectId) {
+    return NextResponse.json({ error: "prospectId obbligatorio" }, { status: 400 });
+  }
+
+  const tutti = await getProspect();
+  if (!puoVedereProspect(sessione, prospectId, tutti)) {
+    return NextResponse.json({ error: "Prospect non trovato" }, { status: 404 });
+  }
+
+  for (const campo of CAMPI_NUMERICI) {
+    const v = body[campo];
+    if (v !== undefined && v !== null && !Number.isFinite(v)) {
+      return NextResponse.json({ error: `${campo} non valido` }, { status: 400 });
+    }
+  }
+  if (body.targetMargineVenditaPct != null && (body.targetMargineVenditaPct < 0 || body.targetMargineVenditaPct > 100)) {
+    return NextResponse.json({ error: "targetMargineVenditaPct deve essere tra 0 e 100" }, { status: 400 });
+  }
+
+  try {
+    await aggiornaProspect({
+      prospectId,
+      driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
+      mediaBudgetMensile: body.mediaBudgetMensile,
+      targetCpl: body.targetCpl,
+      targetCpaAppuntamento: body.targetCpaAppuntamento,
+      targetLeadSettimana: body.targetLeadSettimana,
+      targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,
+      targetFatturatoMensile: body.targetFatturatoMensile,
+      targetMargineVenditaPct: body.targetMargineVenditaPct,
+    });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nel salvataggio" }, { status: 502 });
   }
 }

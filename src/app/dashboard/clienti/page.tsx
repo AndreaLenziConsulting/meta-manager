@@ -3,7 +3,8 @@ import { getSessione } from "@/lib/auth";
 import { getClienti, getConsulenti, getProdotti, getSedi } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { iniziali } from "@/lib/format";
-import type { Cliente, Consulente } from "@/types/kpi";
+import { ClientiGrid } from "@/components/ClientiGrid";
+import type { Cliente, Consulente, Sede } from "@/types/kpi";
 
 /**
  * Elenco di tutti i clienti assegnati — mirror strutturale di dashboard/commerciale/page.tsx
@@ -38,29 +39,35 @@ export default async function ClientiListaPage() {
   const visibili = clientiVisibili(sessione, clienti);
 
   const nomeProdottoPer = new Map(prodotti.map((p) => [p.prodottoId, p.nome]));
-  const sediAttivePer = new Map<string, number>();
-  for (const s of sedi) {
-    if (!s.attivo) continue;
-    sediAttivePer.set(s.clienteId, (sediAttivePer.get(s.clienteId) ?? 0) + 1);
-  }
+  const isAdmin = sessione.ruolo === "admin";
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
-        <h2 className="font-heading font-bold text-xl text-ink-900">Clienti</h2>
-        <p className="text-sm text-ink-500 mt-1">
-          {sessione.ruolo === "admin" ? "Tutti i clienti assegnati ai consulenti." : "I tuoi clienti."}
-        </p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 className="font-heading font-bold text-xl text-ink-900">Clienti</h2>
+          <p className="text-sm text-ink-500 mt-1">
+            {isAdmin ? "Tutti i clienti assegnati ai consulenti." : "I tuoi clienti."}
+          </p>
+        </div>
+        {isAdmin && (
+          <a
+            href="/dashboard/nuovo-cliente"
+            className="flex-shrink-0 rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+          >
+            + Nuovo cliente
+          </a>
+        )}
       </div>
 
-      {visibili.length === 0 && sessione.ruolo !== "admin" ? (
+      {visibili.length === 0 && !isAdmin ? (
         <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
         </div>
-      ) : sessione.ruolo === "admin" ? (
-        <GruppiPerConsulente visibili={visibili} consulenti={consulenti} nomeProdottoPer={nomeProdottoPer} sediAttivePer={sediAttivePer} />
+      ) : isAdmin ? (
+        <GruppiPerConsulente visibili={visibili} consulenti={consulenti} sedi={sedi} nomeProdottoPer={nomeProdottoPer} isAdmin={isAdmin} />
       ) : (
-        <GrigliaClienti clienti={visibili} nomeProdottoPer={nomeProdottoPer} sediAttivePer={sediAttivePer} />
+        <ClientiGrid clienti={visibili} sedi={sedi} consulenti={consulenti} nomeProdottoPer={nomeProdottoPer} isAdmin={isAdmin} />
       )}
     </div>
   );
@@ -69,13 +76,15 @@ export default async function ClientiListaPage() {
 function GruppiPerConsulente({
   visibili,
   consulenti,
+  sedi,
   nomeProdottoPer,
-  sediAttivePer,
+  isAdmin,
 }: {
   visibili: Cliente[];
   consulenti: Consulente[];
+  sedi: Sede[];
   nomeProdottoPer: Map<string, string>;
-  sediAttivePer: Map<string, number>;
+  isAdmin: boolean;
 }) {
   const perConsulente = new Map<string, Cliente[]>();
   for (const c of visibili) {
@@ -112,7 +121,7 @@ function GruppiPerConsulente({
         <div key={consulente.consulenteId}>
           <IntestazioneGruppo nome={consulente.nome} conteggio={clienti.length} />
           {clienti.length > 0 ? (
-            <GrigliaClienti clienti={clienti} nomeProdottoPer={nomeProdottoPer} sediAttivePer={sediAttivePer} />
+            <ClientiGrid clienti={clienti} sedi={sedi} consulenti={consulenti} nomeProdottoPer={nomeProdottoPer} isAdmin={isAdmin} />
           ) : (
             <p className="text-sm text-ink-500 italic">Nessun cliente assegnato ancora.</p>
           )}
@@ -122,7 +131,7 @@ function GruppiPerConsulente({
       {nonAssegnati.length > 0 && (
         <div>
           <IntestazioneGruppo nome="Non assegnato" conteggio={nonAssegnati.length} />
-          <GrigliaClienti clienti={nonAssegnati} nomeProdottoPer={nomeProdottoPer} sediAttivePer={sediAttivePer} />
+          <ClientiGrid clienti={nonAssegnati} sedi={sedi} consulenti={consulenti} nomeProdottoPer={nomeProdottoPer} isAdmin={isAdmin} />
         </div>
       )}
     </div>
@@ -140,38 +149,6 @@ function IntestazioneGruppo({ nome, conteggio }: { nome: string; conteggio: numb
       <span className="text-[11px] font-semibold text-ink-500 uppercase tracking-wide flex-shrink-0">
         {conteggio > 0 ? `${conteggio} client${conteggio > 1 ? "i" : "e"}` : "In arrivo"}
       </span>
-    </div>
-  );
-}
-
-function GrigliaClienti({
-  clienti,
-  nomeProdottoPer,
-  sediAttivePer,
-}: {
-  clienti: Cliente[];
-  nomeProdottoPer: Map<string, string>;
-  sediAttivePer: Map<string, number>;
-}) {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-      {clienti.map((c) => {
-        const nSedi = sediAttivePer.get(c.clienteId) ?? 0;
-        const nomeProdotto = c.prodottoId ? nomeProdottoPer.get(c.prodottoId) : null;
-        return (
-          <a
-            key={c.clienteId}
-            href={`/dashboard/cliente/${encodeURIComponent(c.clienteId)}`}
-            className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 hover:shadow-md transition"
-          >
-            <p className="font-heading font-bold text-ink-900 text-base truncate">{c.nome}</p>
-            {nomeProdotto && <p className="text-xs text-ink-500 mt-0.5">{nomeProdotto}</p>}
-            <p className="text-[11px] text-ink-500 mt-2.5 pt-2.5 border-t border-ink-300/60">
-              {nSedi > 0 ? `${nSedi} sed${nSedi > 1 ? "i attive" : "e attiva"}` : "Nessuna sede attiva"}
-            </p>
-          </a>
-        );
-      })}
     </div>
   );
 }
