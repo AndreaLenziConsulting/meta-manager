@@ -25,14 +25,21 @@ export function Modal({
     // Overlay: chiude sul click fuori dal pannello. onMouseDown (non onClick) sul pannello ferma la
     // propagazione così un drag-select che parte dentro il form e finisce sopra l'overlay non chiude
     // accidentalmente il modale a metà modifica.
-    <div role="presentation" onClick={onClose} className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4 overflow-y-auto">
+    //
+    // Niente `items-center` qui: centrare verticalmente con align-items su un contenitore
+    // overflow-y-auto è il classico bug "flexbox centering + scroll" — quando il pannello (es.
+    // Modifica cliente con più sedi) eccede l'altezza della viewport, la parte che sporge SOPRA il
+    // punto di centraggio smette di essere raggiungibile scrollando (il calcolo dell'area scrollabile
+    // resta ancorato al centro, non al vero contenuto). Il pannello si centra invece con `my-auto`
+    // sotto — stesso risultato visivo quando il contenuto è corto, ma senza clipping quando eccede.
+    <div role="presentation" onClick={onClose} className="fixed inset-0 z-50 bg-black/40 flex justify-center p-4 overflow-y-auto">
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className={cn("w-full rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-6 space-y-4 my-8", maxWidth)}
+        className={cn("w-full rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-6 space-y-4 my-auto", maxWidth)}
       >
         <div className="flex items-start justify-between gap-3">
           <div>
