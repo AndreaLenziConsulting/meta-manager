@@ -2,7 +2,17 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Building2, LayoutDashboard, ListChecks, PanelLeftClose, PanelLeftOpen, Users, X, type LucideIcon } from "lucide-react";
+import {
+  BookOpen,
+  Building2,
+  LayoutDashboard,
+  ListChecks,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { Ruolo } from "@/types/kpi";
 
@@ -52,6 +62,15 @@ const NAV_ITEMS: NavItem[] = [
     // Niente commerciale: dominio cliente/roadmap prodotto, non prospect.
     ruoli: ["admin", "consulente"],
     attiva: (p) => p.startsWith("/dashboard/attivita"),
+  },
+  {
+    href: "/dashboard/guida",
+    label: "Guida",
+    icon: BookOpen,
+    // Macro-sezione tutorial su come usare la piattaforma — dominio trasversale (non
+    // cliente/prospect), visibile a tutto il team a differenza delle voci sopra.
+    ruoli: ["admin", "consulente", "commerciale"],
+    attiva: (p) => p.startsWith("/dashboard/guida"),
   },
 ];
 

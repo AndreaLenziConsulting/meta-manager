@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import type { Cliente, Consulente, Sede } from "@/types/kpi";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
@@ -169,13 +171,12 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
             <SedeRow
               key={sede.sedeId}
               sede={sede}
-              onSalvato={onSalvato}
               ghlConnessione={ghlPerSede[sede.sedeId]}
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
             />
           ))}
         </div>
-        <NuovaSedeForm clienteId={cliente.clienteId} onCreata={onSalvato} />
+        <NuovaSedeForm clienteId={cliente.clienteId} />
       </div>
     </Modal>
   );
@@ -183,12 +184,10 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
 
 function SedeRow({
   sede,
-  onSalvato,
   ghlConnessione,
   onGhlSalvato,
 }: {
   sede: Sede;
-  onSalvato: () => void;
   ghlConnessione?: GhlConnessioneVista;
   onGhlSalvato: () => void;
 }) {
@@ -200,7 +199,14 @@ function SedeRow({
   const [attivo, setAttivo] = useState(sede.attivo);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const [salvato, setSalvato] = useState(false);
+  const router = useRouter();
 
+  // `onSalvato` (prop condivisa con il form principale del cliente) chiude l'intera modale — giusto
+  // per "Salva modifiche" in cima, sbagliato qui: prima questo bottone lo richiamava anche per una
+  // singola sede, e la modale spariva di colpo subito dopo un salvataggio andato a buon fine (era
+  // già persistito lato server, ma sembrava un salvataggio fallito/un componente rotto). Qui invece
+  // solo un router.refresh() — la modale resta aperta, un check verde temporaneo conferma il salvataggio.
   async function salva() {
     setErrore(null);
     setSalvando(true);
@@ -220,9 +226,12 @@ function SedeRow({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
-      onSalvato();
+      router.refresh();
+      setSalvato(true);
+      setTimeout(() => setSalvato(false), 2500);
     } catch (err) {
       setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
       setSalvando(false);
     }
   }
@@ -233,7 +242,10 @@ function SedeRow({
         <Field label="Nome sede">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} />
         </Field>
-        <Field label="Ad account Meta (opzionale)">
+        <Field
+          label="Ad account Meta (opzionale)"
+          error={adAccountId !== "" && !/^\d+$/.test(adAccountId) ? 'Solo cifre, senza il prefisso "act_" — così "Salva sede" resta disabilitato' : undefined}
+        >
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
@@ -260,15 +272,22 @@ function SedeRow({
           <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />
           Sede attiva
         </label>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          onClick={salva}
-          disabled={salvando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}
-        >
-          {salvando ? "Salvataggio…" : "Salva sede"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {salvato && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+              <CheckCircle2 size={14} /> Salvato
+            </span>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={salva}
+            disabled={salvando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}
+          >
+            {salvando ? "Salvataggio…" : "Salva sede"}
+          </Button>
+        </div>
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
 
@@ -481,7 +500,7 @@ function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnes
   );
 }
 
-function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: () => void }) {
+function NuovaSedeForm({ clienteId }: { clienteId: string }) {
   const [attiva, setAttiva] = useState(false);
   const [nome, setNome] = useState("");
   const [adAccountId, setAdAccountId] = useState("");
@@ -489,6 +508,7 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
   const [targetCpl, setTargetCpl] = useState("");
   const [creando, setCreando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const router = useRouter();
 
   if (!attiva) {
     return (
@@ -498,6 +518,9 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
     );
   }
 
+  // Solo router.refresh() (non onSalvato, che chiuderebbe l'intera modale — stesso motivo del
+  // commento su SedeRow.salva sopra): dopo la creazione il form si richiude da solo (setAttiva(false)),
+  // la nuova sede compare nella lista sopra, ma la modale resta aperta.
   async function crea() {
     setErrore(null);
     setCreando(true);
@@ -515,9 +538,15 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
-      onCreata();
+      router.refresh();
+      setAttiva(false);
+      setNome("");
+      setAdAccountId("");
+      setTargetCpa("");
+      setTargetCpl("");
     } catch (err) {
       setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
       setCreando(false);
     }
   }
@@ -528,7 +557,10 @@ function NuovaSedeForm({ clienteId, onCreata }: { clienteId: string; onCreata: (
         <Field label="Nome sede">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Es. Milano" autoFocus />
         </Field>
-        <Field label="Ad account Meta (opzionale)">
+        <Field
+          label="Ad account Meta (opzionale)"
+          error={adAccountId !== "" && !/^\d+$/.test(adAccountId) ? 'Solo cifre, senza il prefisso "act_"' : undefined}
+        >
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
