@@ -171,6 +171,12 @@ export function MeetingReportView({
         {(meeting.taskMese || editable) && (
           <section>
             <SectionTitle>Task del mese</SectionTitle>
+            {editable && (
+              <p className="text-xs text-ink-500 mt-0.5">
+                Diventano anch&apos;esse attività nel tab Attività al salvataggio, con scadenza fine mese invece che +7
+                giorni — spesso senza un assegnatario (sono obiettivi generali, non task individuali).
+              </p>
+            )}
             <MultilineEditor
               value={meeting.taskMese ?? ""}
               onChange={(v) => set({ taskMese: v })}

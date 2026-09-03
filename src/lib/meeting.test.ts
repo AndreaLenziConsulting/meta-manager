@@ -5,6 +5,7 @@ import {
   estraiMeetingIdDaTaskId,
   generaAttivitaDaMeeting,
   hashMeetingId,
+  scadenzaFineMese,
   scadenzaTask,
 } from "./meeting";
 import type { MeetingDataLoose } from "@/types/meeting";
@@ -41,6 +42,22 @@ describe("scadenzaTask", () => {
 
   it("attraversa correttamente un cambio di mese/anno", () => {
     expect(scadenzaTask("2026-12-28")).toBe("2027-01-04");
+  });
+});
+
+describe("scadenzaFineMese", () => {
+  it("ultimo giorno di calendario del mese della data del meeting", () => {
+    expect(scadenzaFineMese("2026-08-11")).toBe("2026-08-31");
+  });
+
+  it("funziona per mesi da 28/29/30 giorni", () => {
+    expect(scadenzaFineMese("2026-02-03")).toBe("2026-02-28"); // 2026 non bisestile
+    expect(scadenzaFineMese("2024-02-03")).toBe("2024-02-29"); // 2024 bisestile
+    expect(scadenzaFineMese("2026-04-01")).toBe("2026-04-30");
+  });
+
+  it("dicembre resta nello stesso anno (mai un rollover all'anno dopo)", () => {
+    expect(scadenzaFineMese("2026-12-05")).toBe("2026-12-31");
   });
 });
 
@@ -109,6 +126,61 @@ describe("generaAttivitaDaMeeting", () => {
   it("nessun action item -> nessuna riga, non un errore", () => {
     expect(generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", [])).toEqual([]);
   });
+
+  describe("taskMese (opzionale)", () => {
+    it("assente -> nessuna riga aggiuntiva, comportamento invariato", () => {
+      const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", actionItems);
+      expect(righe).toHaveLength(2);
+    });
+
+    it("vuoto -> nessuna riga aggiuntiva", () => {
+      const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", actionItems, "");
+      expect(righe).toHaveLength(2);
+    });
+
+    it("una riga per voce di taskMese, con taskId prefissato tm- e scadenza fine mese (non +7 giorni)", () => {
+      const righe = generaAttivitaDaMeeting(
+        "alc-01",
+        "m1",
+        "2026-08-11",
+        "Call",
+        actionItems,
+        "Marco: lanciare la nuova offerta\nMantenere attive le campagne ad agosto"
+      );
+      expect(righe).toHaveLength(4);
+
+      const rigaMese1 = righe[2];
+      expect(rigaMese1.taskId).toBe("tm-m1-0");
+      expect(rigaMese1.attivitaId).toBe("alc-01::tm-m1-0");
+      expect(rigaMese1.descrizione).toBe("lanciare la nuova offerta");
+      expect(rigaMese1.responsabile).toBe("Marco"); // pattern "Nome: testo" riconosciuto
+      expect(rigaMese1.dataFine).toBe("2026-08-31"); // fine mese, non 2026-08-18 come i task settimana
+      expect(rigaMese1.blocco).toBe("meeting");
+      expect(rigaMese1.fase).toBe(righe[0].fase); // stessa corsia del meeting
+
+      const rigaMese2 = righe[3];
+      expect(rigaMese2.descrizione).toBe("Mantenere attive le campagne ad agosto");
+      expect(rigaMese2.responsabile).toBe("Da assegnare"); // nessun pattern "Nome:" riconoscibile
+    });
+
+    it("attivitaId non collide mai con quelli generati dagli action item (prefissi diversi)", () => {
+      const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", actionItems, "Obiettivo del mese");
+      const idsUnici = new Set(righe.map((r) => r.attivitaId));
+      expect(idsUnici.size).toBe(righe.length);
+    });
+
+    it("ordine: le righe di taskMese vengono sempre dopo quelle dei task settimana nella stessa corsia", () => {
+      const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", actionItems, "Obiettivo del mese");
+      const ultimoOrdineSettimana = Math.max(...righe.slice(0, 2).map((r) => r.ordine));
+      expect(righe[2].ordine).toBeGreaterThan(ultimoOrdineSettimana);
+    });
+
+    it("righe vuote/solo spazi in taskMese vengono ignorate", () => {
+      const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", [], "\n   \nUnico obiettivo\n\n");
+      expect(righe).toHaveLength(1);
+      expect(righe[0].descrizione).toBe("Unico obiettivo");
+    });
+  });
 });
 
 describe("estraiMeetingIdDaTaskId", () => {
@@ -125,6 +197,12 @@ describe("estraiMeetingIdDaTaskId", () => {
 
   it("indice a più cifre -> comunque corretto", () => {
     expect(estraiMeetingIdDaTaskId("m-alc-01::abc12345-12")).toBe("alc-01::abc12345");
+  });
+
+  it("riconosce anche il prefisso tm- (task mese, distinto da m- dei task settimana)", () => {
+    const righe = generaAttivitaDaMeeting("alc-01", "alc-01::abc12345", "2026-08-11", "Call mensile", [], "Obiettivo del mese");
+    expect(righe[0].taskId).toMatch(/^tm-/);
+    expect(estraiMeetingIdDaTaskId(righe[0].taskId)).toBe("alc-01::abc12345");
   });
 
   it("taskId non da meeting (roadmap prodotto, es. 'S01') -> null", () => {

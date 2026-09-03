@@ -18,8 +18,9 @@ export function settimanaDiData(data: string): string {
   return d.toISOString().slice(0, 10);
 }
 
-/** Ultimo giorno di calendario (YYYY-MM-DD) del mese `mese` (YYYY-MM) — stesso trucco già in uso in api/ghl/route.ts. */
-function ultimoGiornoDelMese(mese: string): string {
+/** Ultimo giorno di calendario (YYYY-MM-DD) del mese `mese` (YYYY-MM) — stesso trucco già in uso in api/ghl/route.ts.
+ * Esportata anche per meeting.ts (scadenzaFineMese) — nessuna dipendenza da IO qui, sicura da riusare. */
+export function ultimoGiornoDelMese(mese: string): string {
   const [anno, m] = mese.split("-").map(Number);
   return new Date(Date.UTC(anno, m, 1) - 1).toISOString().slice(0, 10);
 }

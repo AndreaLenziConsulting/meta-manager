@@ -118,7 +118,8 @@ export async function POST(req: NextRequest) {
     meetingId,
     dataIso,
     meeting.title ?? "Meeting",
-    meeting.actionItems ?? []
+    meeting.actionItems ?? [],
+    meeting.taskMese
   );
   await creaAttivitaPerCliente(righeAttivita);
 

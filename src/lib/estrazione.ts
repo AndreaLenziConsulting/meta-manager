@@ -1,5 +1,12 @@
 import Groq from "groq-sdk";
 import type { ActionItem, MeetingDataLoose } from "@/types/meeting";
+// toActionItems/actionItemsFromTaskLines vivono in meeting.ts (funzioni pure, nessuna dipendenza
+// da groq-sdk) — non qui, perché AttivitaLista.tsx (client component) importa già @/lib/meeting:
+// se fossero rimaste qui, quell'import avrebbe trascinato groq-sdk (server-only) nel bundle
+// browser. Import (per uso interno, sotto) + re-export (per chi le importava da questo file) —
+// non un semplice `export {...} from` da solo: quello ri-esporta ma non crea un binding locale.
+import { actionItemsFromTaskLines, toActionItems } from "@/lib/meeting";
+export { actionItemsFromTaskLines, toActionItems };
 
 /**
  * Estrazione dati meeting: scraping (Playwright/Chromium) di una pagina di condivisione
@@ -491,27 +498,6 @@ export function toStrArray(v: unknown): string[] {
   return [];
 }
 
-export function toActionItems(v: unknown): ActionItem[] {
-  const items = Array.isArray(v) ? v : typeof v === "string" ? v.split("\n") : [];
-  return items
-    .map((item) => {
-      if (typeof item === "string") {
-        const m = item.trim().match(/^([^:\-—]+)\s*[:\-—]\s*(.+)$/);
-        if (m) return { text: m[2].trim(), assignee: m[1].trim() };
-        return { text: item.trim() };
-      }
-      if (item && typeof item === "object") {
-        const o = item as { text?: unknown; assignee?: unknown };
-        return {
-          text: typeof o.text === "string" ? o.text : "",
-          assignee: typeof o.assignee === "string" && o.assignee ? o.assignee : undefined,
-        };
-      }
-      return { text: "" };
-    })
-    .filter((x) => x.text);
-}
-
 // ─── Rilevamento pagina con errore di caricamento transitorio (non un auth wall: la pagina esiste
 // ed è pubblica, ma il provider ha mostrato un proprio errore invece del contenuto — osservato su
 // Fathom in produzione, quasi sempre risolto da un secondo tentativo di navigazione).
@@ -552,13 +538,6 @@ export function isActionItemsSuspicious(items: ActionItem[], participants: strin
   return items.every((item) => nomi.has(norm(item.text)));
 }
 
-export function actionItemsFromTaskLines(taskSettimana: string): ActionItem[] {
-  const righe = taskSettimana
-    .split("\n")
-    .map((r) => r.trim())
-    .filter(Boolean);
-  return toActionItems(righe);
-}
 
 // ─── Orchestrazione ───────────────────────────────────────────────────────────
 

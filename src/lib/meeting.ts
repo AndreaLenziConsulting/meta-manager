@@ -3,6 +3,50 @@ import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import type { ActionItem, MeetingCampiPubblici, MeetingDataLoose } from "@/types/meeting";
 import { aggiungiGiorni } from "@/lib/roadmap";
 import { formatDataBreve } from "@/lib/format";
+import { ultimoGiornoDelMese } from "@/lib/kpi";
+
+/**
+ * Parsing di righe di testo libero in ActionItem — vive qui (non in estrazione.ts, dove queste due
+ * funzioni sono nate) perché AttivitaLista.tsx (client component) importa già @/lib/meeting per
+ * estraiMeetingIdDaTaskId: se questa logica restasse in estrazione.ts, che importa `groq-sdk`,
+ * trascinerebbe quella dipendenza server-only nel bundle browser. estrazione.ts le re-esporta da
+ * qui per restare compatibile con chi le importava da lì.
+ *
+ * Riconosce opportunisticamente il pattern "Nome: testo" (o "-"/"—" al posto di ":") riga per
+ * riga — se non combacia, l'intera riga diventa `text` senza `assignee` (poi "Da assegnare" in
+ * generaAttivitaDaMeeting sotto). Usata sia per taskSettimana sia, ora, per taskMese: quest'ultimo
+ * però è tipicamente un obiettivo generale non per-persona (vedi commento su generaAttivitaDaMeeting),
+ * quindi ci si aspetta "Da assegnare" più spesso che con taskSettimana.
+ */
+export function toActionItems(v: unknown): ActionItem[] {
+  const items = Array.isArray(v) ? v : typeof v === "string" ? v.split("\n") : [];
+  return items
+    .map((item) => {
+      if (typeof item === "string") {
+        const m = item.trim().match(/^([^:\-—]+)\s*[:\-—]\s*(.+)$/);
+        if (m) return { text: m[2].trim(), assignee: m[1].trim() };
+        return { text: item.trim() };
+      }
+      if (item && typeof item === "object") {
+        const o = item as { text?: unknown; assignee?: unknown };
+        return {
+          text: typeof o.text === "string" ? o.text : "",
+          assignee: typeof o.assignee === "string" && o.assignee ? o.assignee : undefined,
+        };
+      }
+      return { text: "" };
+    })
+    .filter((x) => x.text);
+}
+
+/** Righe non vuote di un blocco di testo libero (taskSettimana/taskMese) -> ActionItem[], via toActionItems sopra. */
+export function actionItemsFromTaskLines(testoLibero: string): ActionItem[] {
+  const righe = testoLibero
+    .split("\n")
+    .map((r) => r.trim())
+    .filter(Boolean);
+  return toActionItems(righe);
+}
 
 /**
  * "DD/MM/YYYY" (anche senza zero-padding, l'LLM a monte non è garantito) -> "YYYY-MM-DD".
@@ -30,6 +74,13 @@ export function scadenzaTask(dataMeetingIso: string): string {
   return aggiungiGiorni(dataMeetingIso, 7);
 }
 
+/** Scadenza per i task "del mese" generati da un meeting: l'ultimo giorno di calendario del mese
+ * della data del meeting — non +N giorni fissi come scadenzaTask sopra, un "task del mese" scade
+ * quando finisce quel mese, non una settimana dopo il meeting. Riusa ultimoGiornoDelMese di kpi.ts. */
+export function scadenzaFineMese(dataMeetingIso: string): string {
+  return ultimoGiornoDelMese(dataMeetingIso.slice(0, 7));
+}
+
 /** Id deterministico: stesso cliente + stesso link -> stesso meetingId (rende il salvataggio un upsert naturale). */
 export function hashMeetingId(clienteId: string, rawUrl: string): string {
   const hash = createHash("sha1").update(rawUrl).digest("hex").slice(0, 8);
@@ -41,19 +92,28 @@ export function hashMeetingId(clienteId: string, rawUrl: string): string {
  * reali) così da finire in corsie dedicate nel Gantt esistente, senza toccarne la UI. `ordine` è
  * derivato dalla data del meeting: sempre più grande di qualunque `ordine` di template prodotto
  * (piccoli interi), così le corsie meeting appaiono in coda, in ordine cronologico tra loro.
+ *
+ * `taskMese` (opzionale) genera righe aggiuntive nella STESSA corsia/fase, con scadenza fine mese
+ * invece di +7 giorni (scadenzaFineMese sopra) e taskId prefissato "tm-" invece di "m-" (mai lo
+ * stesso prefisso: estraiMeetingIdDaTaskId sotto deve poterli distinguere). A differenza degli
+ * action item di taskSettimana — quasi sempre assegnati a una persona — le righe di taskMese sono
+ * più spesso obiettivi generali ("Mantenere attive le campagne ad agosto") senza un assegnatario
+ * naturale: aspettarsi più "Da assegnare" qui che sugli action item veri e propri è normale, non un
+ * segno che l'estrazione ha perso un nome (comportamento distinto e deliberato, non lo stesso "bug
+ * dati mancanti" per cui taskMese/programmaTrimestre restano tuttora esclusi da `actionItems`).
  */
 export function generaAttivitaDaMeeting(
   clienteId: string,
   meetingId: string,
   dataMeetingIso: string,
   titolo: string,
-  actionItems: ActionItem[]
+  actionItems: ActionItem[],
+  taskMese?: string
 ): AttivitaClienteRow[] {
   const fase = `Meeting: ${titolo} (${formatDataBreve(dataMeetingIso)})`;
-  const dataFine = scadenzaTask(dataMeetingIso);
   const ordineBase = Number(dataMeetingIso.replaceAll("-", "")) * 100;
 
-  return actionItems.map((item, indice) => {
+  const righeSettimana = actionItems.map((item, indice) => {
     const taskId = `m-${meetingId}-${indice}`;
     return {
       attivitaId: `${clienteId}::${taskId}`,
@@ -66,24 +126,50 @@ export function generaAttivitaDaMeeting(
       responsabile: item.assignee || "Da assegnare",
       tipo: "",
       dataInizio: dataMeetingIso,
-      dataFine,
+      dataFine: scadenzaTask(dataMeetingIso),
       stato: "todo" as StatoAttivita,
       notaTeam: "",
       ordine: ordineBase + indice,
     };
   });
+
+  const itemsMese = taskMese ? actionItemsFromTaskLines(taskMese) : [];
+  const righeMese = itemsMese.map((item, indice) => {
+    const taskId = `tm-${meetingId}-${indice}`;
+    return {
+      attivitaId: `${clienteId}::${taskId}`,
+      clienteId,
+      prodottoId: "meeting",
+      taskId,
+      blocco: "meeting",
+      fase,
+      descrizione: item.text,
+      responsabile: item.assignee || "Da assegnare",
+      tipo: "",
+      dataInizio: dataMeetingIso,
+      dataFine: scadenzaFineMese(dataMeetingIso),
+      stato: "todo" as StatoAttivita,
+      notaTeam: "",
+      // Dopo i task settimanali nella stessa corsia (mai sovrapposti: righeSettimana.length come offset).
+      ordine: ordineBase + righeSettimana.length + indice,
+    };
+  });
+
+  return [...righeSettimana, ...righeMese];
 }
 
 /**
- * Inverso parziale di `generaAttivitaDaMeeting`: da un taskId `m-${meetingId}-${indice}` risale al
- * meetingId originale (per il link "vai al meeting" nella vista Attività). `meetingId` stesso è
- * `${clienteId}::${hash}` (mai un trattino finale seguito solo da cifre), quindi l'ultimo trattino
- * nella stringa separa sempre l'indice, indipendentemente da quante cifre ha. Null se il taskId non
- * è nel formato atteso (attività da roadmap prodotto, non da meeting).
+ * Inverso parziale di `generaAttivitaDaMeeting`: da un taskId `m-${meetingId}-${indice}` (task
+ * settimana) o `tm-${meetingId}-${indice}` (task mese) risale al meetingId originale (per il link
+ * "vai al meeting" nella vista Attività). `meetingId` stesso è `${clienteId}::${hash}` (mai un
+ * trattino finale seguito solo da cifre), quindi l'ultimo trattino nella stringa separa sempre
+ * l'indice, indipendentemente da quante cifre ha. Null se il taskId non è nel formato atteso
+ * (attività da roadmap prodotto, non da meeting).
  */
 export function estraiMeetingIdDaTaskId(taskId: string): string | null {
-  if (!taskId.startsWith("m-")) return null;
-  const senzaPrefisso = taskId.slice(2);
+  const prefisso = taskId.startsWith("tm-") ? "tm-" : taskId.startsWith("m-") ? "m-" : null;
+  if (!prefisso) return null;
+  const senzaPrefisso = taskId.slice(prefisso.length);
   const idx = senzaPrefisso.lastIndexOf("-");
   if (idx === -1) return null;
   return senzaPrefisso.slice(0, idx);
