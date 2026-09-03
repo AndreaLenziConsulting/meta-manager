@@ -152,8 +152,8 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
       </Field>
 
-      <Field label="Email cliente (opzionale)" hint="Per l'invio automatico del follow-up meeting">
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Field label="Email cliente (opzionale)" hint="Per l'invio automatico del follow-up meeting — più indirizzi separati da virgola">
+        <Input type="email" multiple value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
 
       <Field label="Consulente di riferimento">

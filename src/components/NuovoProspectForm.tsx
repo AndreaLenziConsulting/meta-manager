@@ -73,8 +73,11 @@ export function NuovoProspectForm({ commerciali }: { commerciali?: { commerciale
           </Select>
         </Field>
       )}
-      <Field label="Email prospect (opzionale)" hint="Per l'invio automatico dei report — il resto (tipo business, fatturato, sedi) lo popola l'estrazione dal primo report">
-        <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <Field
+        label="Email prospect (opzionale)"
+        hint="Per l'invio automatico dei report (più indirizzi separati da virgola) — il resto (tipo business, fatturato, sedi) lo popola l'estrazione dal primo report"
+      >
+        <Input type="email" multiple value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
       {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
       <div className="flex gap-2">

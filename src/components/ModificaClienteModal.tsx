@@ -102,8 +102,8 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
           <Input value={nome} onChange={(e) => setNome(e.target.value)} required />
         </Field>
 
-        <Field label="Email cliente (opzionale)" hint="Per l'invio automatico del follow-up meeting">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        <Field label="Email cliente (opzionale)" hint="Per l'invio automatico del follow-up meeting — più indirizzi separati da virgola">
+          <Input type="email" multiple value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
 
         <Field label="Consulente di riferimento">
