@@ -62,6 +62,29 @@ describe("toActionItems", () => {
     ]);
     expect(toActionItems("")).toEqual([]);
   });
+
+  it("un trattino dentro un range di date NON diventa un separatore Nome/testo — bug reale osservato in produzione: 'Aumentare il budget... a partire da metà settembre (15-17 settembre).' finiva tagliato in assignee='...(15' / text='17 settembre).'", () => {
+    expect(
+      toActionItems(["Aumentare il budget giornaliero delle campagne a €15 a partire da metà settembre (15-17 settembre)."])
+    ).toEqual([{ text: "Aumentare il budget giornaliero delle campagne a €15 a partire da metà settembre (15-17 settembre)." }]);
+  });
+
+  it("un due punti dentro un orario NON diventa un separatore Nome/testo", () => {
+    expect(toActionItems(["Chiamare il cliente alle 15:30 per il follow up"])).toEqual([
+      { text: "Chiamare il cliente alle 15:30 per il follow up" },
+    ]);
+  });
+
+  it("una lista di nomi corta prima dei due punti resta riconosciuta (nessuna cifra, sotto i 35 caratteri)", () => {
+    expect(toActionItems(["Orlando, Alessandro e Andrea: partecipare al meeting"])).toEqual([
+      { text: "partecipare al meeting", assignee: "Orlando, Alessandro e Andrea" },
+    ]);
+  });
+
+  it("un trattino/due punti anche senza cifre ma oltre 35 caratteri prima del separatore -> nessun assignee", () => {
+    const riga = "Ripensare la strategia commerciale e di marketing: rivedere tutto entro fine mese";
+    expect(toActionItems([riga])).toEqual([{ text: riga }]);
+  });
 });
 
 describe("toStrArray", () => {

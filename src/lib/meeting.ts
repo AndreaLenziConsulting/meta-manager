@@ -17,13 +17,23 @@ import { ultimoGiornoDelMese } from "@/lib/kpi";
  * generaAttivitaDaMeeting sotto). Usata sia per taskSettimana sia, ora, per taskMese: quest'ultimo
  * però è tipicamente un obiettivo generale non per-persona (vedi commento su generaAttivitaDaMeeting),
  * quindi ci si aspetta "Da assegnare" più spesso che con taskSettimana.
+ *
+ * Il gruppo "nome" esclude le cifre e resta corto (max 35 caratteri): senza questi due vincoli, un
+ * trattino/due-punti dentro il TESTO stesso — un range di date ("dal 15-17 settembre"), un orario
+ * ("alle 15:30"), un importo — viene scambiato per il separatore "Nome: testo" e taglia la frase a
+ * metà (bug reale osservato in produzione: "Aumentare il budget... a partire da metà settembre
+ * (15-17 settembre)." è finito diviso in assignee="...(15" e text="17 settembre)."). Un nome vero
+ * non contiene mai cifre ed è quasi sempre corto (anche una lista tipo "Orlando, Alessandro e
+ * Andrea" sta sotto 35 caratteri) — se il testo prima del separatore non rispetta questo, il match
+ * fallisce e l'intera riga diventa `text` senza `assignee`, esattamente come un pattern non
+ * riconosciuto: meglio un falso "Da assegnare" di troppo che un testo troncato a metà.
  */
 export function toActionItems(v: unknown): ActionItem[] {
   const items = Array.isArray(v) ? v : typeof v === "string" ? v.split("\n") : [];
   return items
     .map((item) => {
       if (typeof item === "string") {
-        const m = item.trim().match(/^([^:\-—]+)\s*[:\-—]\s*(.+)$/);
+        const m = item.trim().match(/^([^:\-—0-9]{1,35})[:\-—]\s*(.+)$/);
         if (m) return { text: m[2].trim(), assignee: m[1].trim() };
         return { text: item.trim() };
       }
