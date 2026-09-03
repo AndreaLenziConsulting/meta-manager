@@ -175,6 +175,10 @@ export function toNumberOrNull(value: CellValue): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// Colonne N→Q (logoUrl/colorePrimario/coloreSecondario/fontPersonalizzato) aggiunte per la
+// personalizzazione visiva per-cliente (vedi src/lib/temaCliente.ts) — righe create prima le
+// leggono vuote, comportamento invariato (nessuna personalizzazione, brand ALC standard).
+//
 // Le colonne C (adAccountId), G/H (targetCpa/targetCpl) ed L (tipoConversioneLead) restano
 // fisicamente sulla tab Clienti (niente shift su un foglio che il team guarda/modifica a mano) ma
 // sono vestigiali: da quando esiste Sede, questi valori vivono lì (uno per sede, non per cliente).
@@ -192,6 +196,10 @@ export async function getClienti(): Promise<Cliente[]> {
       prodottoId: asText(r[9]),
       dataInizioProgetto: normalizeData(r[10]) || null,
       email: asText(r[12]),
+      logoUrl: asText(r[13]),
+      colorePrimario: asText(r[14]),
+      coloreSecondario: asText(r[15]),
+      fontPersonalizzato: asText(r[16]),
     }));
 }
 
@@ -204,6 +212,10 @@ export type NuovoClienteInput = {
   prodottoId: string;
   dataInizioProgetto: string | null;
   email?: string;
+  logoUrl?: string;
+  colorePrimario?: string;
+  coloreSecondario?: string;
+  fontPersonalizzato?: string;
 };
 
 /** Crea un nuovo cliente (sempre attivo). Rifiuta esplicitamente un clienteId già in uso. */
@@ -227,6 +239,10 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
       input.dataInizioProgetto ?? "",
       "", // colonna L, tipoConversioneLead — vestigiale, vedi Sede
       input.email ?? "",
+      input.logoUrl ?? "",
+      input.colorePrimario ?? "",
+      input.coloreSecondario ?? "",
+      input.fontPersonalizzato ?? "",
     ],
   ]);
 }
@@ -238,6 +254,10 @@ export type AggiornaClienteInput = {
   mostraTabExtra?: boolean;
   attivo?: boolean;
   email?: string;
+  logoUrl?: string;
+  colorePrimario?: string;
+  coloreSecondario?: string;
+  fontPersonalizzato?: string;
 };
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
@@ -254,7 +274,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.clienti}!A2:M`,
+    range: `${TAB.clienti}!A2:Q`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -272,6 +292,10 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   if (input.consulenteId !== undefined) set("F", input.consulenteId);
   if (input.mostraTabExtra !== undefined) set("I", input.mostraTabExtra ? "TRUE" : "FALSE");
   if (input.email !== undefined) set("M", input.email);
+  if (input.logoUrl !== undefined) set("N", input.logoUrl);
+  if (input.colorePrimario !== undefined) set("O", input.colorePrimario);
+  if (input.coloreSecondario !== undefined) set("P", input.coloreSecondario);
+  if (input.fontPersonalizzato !== undefined) set("Q", input.fontPersonalizzato);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

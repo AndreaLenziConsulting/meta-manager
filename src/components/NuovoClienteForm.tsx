@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
 
 type Props = {
   consulenti: { consulenteId: string; nome: string }[];
@@ -24,6 +25,10 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
   const [prodottoId, setProdottoId] = useState("");
   const [dataInizioProgetto, setDataInizioProgetto] = useState("");
   const [mostraTabExtra, setMostraTabExtra] = useState(false);
+  const [logoUrl, setLogoUrl] = useState("");
+  const [colorePrimario, setColorePrimario] = useState("");
+  const [coloreSecondario, setColoreSecondario] = useState("");
+  const [fontPersonalizzato, setFontPersonalizzato] = useState("");
 
   const [caricamento, setCaricamento] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -48,6 +53,10 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
           prodottoId,
           dataInizioProgetto: prodottoId ? dataInizioProgetto : "",
           mostraTabExtra,
+          logoUrl,
+          colorePrimario,
+          coloreSecondario,
+          fontPersonalizzato,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -192,6 +201,25 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="accent-current text-brand" />
         Il cliente vede anche il tab Meeting (oltre a KPI)
       </label>
+
+      <div className="pt-2 border-t border-ink-300/60 space-y-3">
+        <div>
+          <p className="text-sm font-semibold text-ink-900">Personalizzazione (opzionale)</p>
+          <p className="text-xs text-ink-500 mt-0.5">
+            Sostituisce il brand ALC standard su questo cliente (scheda cliente + link pubblico) — lascia vuoto per il brand di default.
+          </p>
+        </div>
+        <PersonalizzazioneCliente
+          logoUrl={logoUrl}
+          onLogoUrlChange={setLogoUrl}
+          colorePrimario={colorePrimario}
+          onColorePrimarioChange={setColorePrimario}
+          coloreSecondario={coloreSecondario}
+          onColoreSecondarioChange={setColoreSecondario}
+          fontPersonalizzato={fontPersonalizzato}
+          onFontPersonalizzatoChange={setFontPersonalizzato}
+        />
+      </div>
 
       {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
 

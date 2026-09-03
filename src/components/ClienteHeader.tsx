@@ -1,15 +1,16 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { LogoONomeCliente } from "@/components/LogoONomeCliente";
 
 /**
- * Prima cosa visibile sulla scheda di un cliente: il nome e la via per tornare al menù di
- * selezione clienti. Usa la prop `clienteNome` passata da page.tsx (risolta lato server, nota
- * subito) — non aspetta la risposta di /api/kpi come faceva `dati.cliente.nome` in precedenza,
- * così compare prima di qualunque fetch. Mai sul link pubblico (`code`): quella pagina
- * (src/app/report/[code]/page.tsx) ha già il proprio <h2>{cliente.nome}</h2> sopra
- * SchedaCliente — qui comparirebbe raddoppiato.
+ * Prima cosa visibile sulla scheda di un cliente: il nome (o il suo logo, se personalizzato — vedi
+ * temaCliente.ts) e la via per tornare al menù di selezione clienti. Usa le prop passate da
+ * page.tsx (risolte lato server, note subito) — non aspetta la risposta di /api/kpi come faceva
+ * `dati.cliente.nome` in precedenza, così compare prima di qualunque fetch. Mai sul link pubblico
+ * (`code`): quella pagina (src/app/report/[code]/page.tsx) ha già il proprio header col nome/logo
+ * del cliente sopra SchedaCliente — qui comparirebbe raddoppiato.
  */
-export function ClienteHeader({ clienteNome }: { clienteNome: string }) {
+export function ClienteHeader({ clienteNome, clienteLogoUrl }: { clienteNome: string; clienteLogoUrl?: string }) {
   return (
     <div className="flex items-center gap-3">
       <Link
@@ -20,7 +21,13 @@ export function ClienteHeader({ clienteNome }: { clienteNome: string }) {
       >
         <ArrowLeft size={18} />
       </Link>
-      <h1 className="font-heading font-bold text-2xl text-ink-900">{clienteNome}</h1>
+      <h1>
+        <LogoONomeCliente
+          nome={clienteNome}
+          logoUrl={clienteLogoUrl}
+          className={clienteLogoUrl ? "h-9 w-auto object-contain" : "font-heading font-bold text-2xl text-ink-900"}
+        />
+      </h1>
     </div>
   );
 }

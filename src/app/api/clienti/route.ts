@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { generaAccessCode, generaClienteId, generaSedeId } from "@/lib/accessCode";
 import { generaAttivitaPerCliente } from "@/lib/roadmap";
+import { isHexValido } from "@/lib/colore";
+import { isFontClienteValido } from "@/lib/temaCliente";
 import {
   aggiornaCliente,
   creaAttivitaPerCliente,
@@ -26,7 +28,36 @@ type Body = {
   mostraTabExtra?: boolean;
   prodottoId?: string;
   dataInizioProgetto?: string;
+  logoUrl?: string;
+  colorePrimario?: string;
+  coloreSecondario?: string;
+  fontPersonalizzato?: string;
 };
+
+type CampiPersonalizzazione = {
+  logoUrl?: string;
+  colorePrimario?: string;
+  coloreSecondario?: string;
+  fontPersonalizzato?: string;
+};
+
+/** Validazione comune ai 4 campi di personalizzazione, POST e PATCH — stringa vuota sempre
+ * ammessa (nessuna personalizzazione), altrimenti deve rispettare il formato/whitelist atteso. */
+function erroreCampiPersonalizzazione(body: CampiPersonalizzazione): string | null {
+  if (body.logoUrl && !/^https?:\/\//.test(body.logoUrl.trim())) {
+    return "URL logo non valido: deve iniziare con http:// o https://";
+  }
+  if (body.colorePrimario && !isHexValido(body.colorePrimario.trim())) {
+    return "Colore primario non valido: formato atteso #RRGGBB";
+  }
+  if (body.coloreSecondario && !isHexValido(body.coloreSecondario.trim())) {
+    return "Colore secondario non valido: formato atteso #RRGGBB";
+  }
+  if (body.fontPersonalizzato && !isFontClienteValido(body.fontPersonalizzato.trim())) {
+    return `Font non disponibile: "${body.fontPersonalizzato}"`;
+  }
+  return null;
+}
 
 /**
  * Crea un nuovo cliente con una prima sede "Principale" (stessi campi ad account/target che il
@@ -65,6 +96,10 @@ export async function POST(req: NextRequest) {
   if (prodottoId && !dataInizioProgetto) {
     return NextResponse.json({ error: "Data inizio progetto obbligatoria se scegli un prodotto" }, { status: 400 });
   }
+  const erroreValidazione = erroreCampiPersonalizzazione(body);
+  if (erroreValidazione) {
+    return NextResponse.json({ error: erroreValidazione }, { status: 400 });
+  }
 
   const [clienti, consulenti, prodotti, sedi] = await Promise.all([
     getClienti(),
@@ -95,6 +130,10 @@ export async function POST(req: NextRequest) {
       prodottoId,
       dataInizioProgetto,
       email: body.email?.trim(),
+      logoUrl: body.logoUrl?.trim(),
+      colorePrimario: body.colorePrimario?.trim(),
+      coloreSecondario: body.coloreSecondario?.trim(),
+      fontPersonalizzato: body.fontPersonalizzato?.trim(),
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 409 });
@@ -144,6 +183,10 @@ type BodyPatch = {
   consulenteId?: string;
   mostraTabExtra?: boolean;
   attivo?: boolean;
+  logoUrl?: string;
+  colorePrimario?: string;
+  coloreSecondario?: string;
+  fontPersonalizzato?: string;
 };
 
 /**
@@ -171,6 +214,10 @@ export async function PATCH(req: NextRequest) {
   if (nome !== undefined && !nome) {
     return NextResponse.json({ error: "Nome obbligatorio" }, { status: 400 });
   }
+  const erroreValidazione = erroreCampiPersonalizzazione(body);
+  if (erroreValidazione) {
+    return NextResponse.json({ error: erroreValidazione }, { status: 400 });
+  }
 
   const [clienti, consulenti] = await Promise.all([getClienti(), getConsulenti()]);
   if (!clienti.some((c) => c.clienteId === clienteId)) {
@@ -192,6 +239,10 @@ export async function PATCH(req: NextRequest) {
       consulenteId: body.consulenteId,
       mostraTabExtra: body.mostraTabExtra,
       attivo: body.attivo,
+      logoUrl: body.logoUrl !== undefined ? body.logoUrl.trim() : undefined,
+      colorePrimario: body.colorePrimario !== undefined ? body.colorePrimario.trim() : undefined,
+      coloreSecondario: body.coloreSecondario !== undefined ? body.coloreSecondario.trim() : undefined,
+      fontPersonalizzato: body.fontPersonalizzato !== undefined ? body.fontPersonalizzato.trim() : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
 type GhlConnessioneVista = {
@@ -33,6 +34,10 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
   const [consulenteId, setConsulenteId] = useState(cliente.consulenteId);
   const [mostraTabExtra, setMostraTabExtra] = useState(cliente.mostraTabExtra);
   const [attivo, setAttivo] = useState(cliente.attivo);
+  const [logoUrl, setLogoUrl] = useState(cliente.logoUrl);
+  const [colorePrimario, setColorePrimario] = useState(cliente.colorePrimario);
+  const [coloreSecondario, setColoreSecondario] = useState(cliente.coloreSecondario);
+  const [fontPersonalizzato, setFontPersonalizzato] = useState(cliente.fontPersonalizzato);
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -72,6 +77,10 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
           consulenteId,
           mostraTabExtra,
           attivo,
+          logoUrl,
+          colorePrimario,
+          coloreSecondario,
+          fontPersonalizzato,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -115,6 +124,25 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
             <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />
             Cliente attivo
           </label>
+        </div>
+
+        <div className="pt-2 border-t border-ink-300/60 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-ink-900">Personalizzazione</p>
+            <p className="text-xs text-ink-500 mt-0.5">
+              Sostituisce il brand ALC standard su questo cliente (scheda cliente + link pubblico) — vuoto = brand di default.
+            </p>
+          </div>
+          <PersonalizzazioneCliente
+            logoUrl={logoUrl}
+            onLogoUrlChange={setLogoUrl}
+            colorePrimario={colorePrimario}
+            onColorePrimarioChange={setColorePrimario}
+            coloreSecondario={coloreSecondario}
+            onColoreSecondarioChange={setColoreSecondario}
+            fontPersonalizzato={fontPersonalizzato}
+            onFontPersonalizzatoChange={setFontPersonalizzato}
+          />
         </div>
 
         {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}

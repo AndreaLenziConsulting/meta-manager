@@ -12,6 +12,7 @@ type Props = {
   clienteId?: string;
   clienteNome?: string;
   clienteEmail?: string;
+  clienteLogoUrl?: string;
   tuttiITab: boolean;
   // Se almeno una sede del cliente ha una connessione GHL/Squadd attiva — calcolato lato server in
   // dashboard/cliente/[clienteId]/page.tsx, stesso schema di come tuttiITab arriva dall'alto. Non
@@ -25,7 +26,7 @@ type Props = {
   ruoloAdmin?: boolean;
 };
 
-export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tuttiITab, haConnessioneGhl, ruoloAdmin }: Props) {
+export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, clienteLogoUrl, tuttiITab, haConnessioneGhl, ruoloAdmin }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
   const [meetingDaEvidenziare, setMeetingDaEvidenziare] = useState<string | null>(null);
@@ -80,7 +81,7 @@ export function SchedaCliente({ code, clienteId, clienteNome, clienteEmail, tutt
     <div className="space-y-6">
       {/* Mai sul link pubblico (code): quella pagina ha già il proprio <h2> col nome cliente sopra
           SchedaCliente (src/app/report/[code]/page.tsx) — qui comparirebbe raddoppiato. */}
-      {clienteId && clienteNome && <ClienteHeader clienteNome={clienteNome} />}
+      {clienteId && clienteNome && <ClienteHeader clienteNome={clienteNome} clienteLogoUrl={clienteLogoUrl} />}
 
       <Accordion items={items} aperto={tabAttivo} onChange={setTabAttivo} />
     </div>

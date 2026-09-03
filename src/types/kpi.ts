@@ -10,6 +10,18 @@ export type Cliente = {
   // Destinatario dell'invio automatico dell'email di follow-up meeting. Vuota = invio automatico
   // disattivato per questo cliente (resta solo il flusso manuale scarica PDF/copia email).
   email: string;
+
+  // Personalizzazione visiva del cliente sulle proprie schermate (scheda cliente lato team + link
+  // pubblico) — vedi src/lib/temaCliente.ts. Tutti vuoti di default = brand ALC standard, nessuna
+  // di queste 4 colonne è mai obbligatoria.
+  logoUrl: string; // se presente, sostituisce il nome testuale del cliente nell'header — vedi
+  // LogoONomeCliente.tsx. Un <img> normale (non next/image): l'url arriva da dati per qualunque
+  // cliente futuro, whitelistare un hostname per volta in next.config.ts non scalerebbe.
+  colorePrimario: string; // hex #RRGGBB — sostituisce --brand-primary (accenti/bordi/testo brand)
+  coloreSecondario: string; // hex #RRGGBB — genera --brand-primary-light (tinta di sfondo, mai
+  // usato come testo diretto: vedi temaCliente.ts sul perché viene sempre schiarito)
+  fontPersonalizzato: string; // solo valori nella whitelist FONT_CLIENTE_DISPONIBILI di
+  // temaCliente.ts (oggi solo "poppins") — mai un nome libero, next/font richiede un import statico
 };
 
 /**
