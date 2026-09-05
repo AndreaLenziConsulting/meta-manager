@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import { raggruppaPerStato } from "@/lib/roadmap";
 import { formatStatoAttivita, iniziali } from "@/lib/format";
@@ -12,6 +12,16 @@ const COL_RESPONSABILE = "w-[130px]";
 const COL_SCADENZA = "w-[112px]";
 const COL_STATO = "w-[92px]";
 const COL_AZIONI = "w-6";
+
+/** Colonne ordinabili cliccando l'intestazione — "Stato" è escluso: è già l'asse di
+ * raggruppamento (ogni card è già un unico stato), ordinarlo dentro un gruppo sarebbe un no-op. */
+type ColonnaSort = "descrizione" | "responsabile" | "dataFine";
+type StatoSort = { colonna: ColonnaSort; direzione: "asc" | "desc" };
+
+function confrontaPerColonna(a: AttivitaClienteRow, b: AttivitaClienteRow, colonna: ColonnaSort): number {
+  if (colonna === "dataFine") return a.dataFine.localeCompare(b.dataFine); // YYYY-MM-DD: ordine lessicografico = ordine cronologico
+  return a[colonna].localeCompare(b[colonna], "it", { sensitivity: "base" });
+}
 
 /** Per le righe da meeting, "fase" è "Meeting: <titolo lungo> (<data>)" — troppo lungo per un
  * badge. Ne teniamo solo la data: chi vuole il resto clicca il badge (porta al meeting). */
@@ -52,6 +62,18 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
   const [popoverBloccoPer, setPopoverBloccoPer] = useState<string | null>(null);
   const [notaBozza, setNotaBozza] = useState("");
   const [confermaEliminaPer, setConfermaEliminaPer] = useState<string | null>(null);
+  // null = ordine naturale (per ordine crescente, già quello di raggruppaPerStato sopra). Un clic
+  // sull'intestazione ordina DENTRO ciascun gruppo-stato, senza mescolare i gruppi tra loro — sono
+  // già la struttura portante della vista (board-like), un sort globale li romperebbe.
+  const [sort, setSort] = useState<StatoSort | null>(null);
+
+  function handleClickColonna(colonna: ColonnaSort) {
+    setSort((prev) => {
+      if (!prev || prev.colonna !== colonna) return { colonna, direzione: "asc" };
+      if (prev.direzione === "asc") return { colonna, direzione: "desc" };
+      return null; // terzo clic sulla stessa colonna -> torna all'ordine naturale
+    });
+  }
 
   function handleScegliStato(a: AttivitaClienteRow, nuovoStato: StatoAttivita) {
     setMenuApertoPer(null);
@@ -85,15 +107,22 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-        <span className="flex-1">Task</span>
-        <span className={`flex-shrink-0 ${COL_RESPONSABILE}`}>Responsabile</span>
-        <span className={`flex-shrink-0 ${COL_SCADENZA}`}>Scadenza</span>
+        <IntestazioneOrdinabile colonna="descrizione" sort={sort} onClick={handleClickColonna} className="flex-1 text-left">
+          Task
+        </IntestazioneOrdinabile>
+        <IntestazioneOrdinabile colonna="responsabile" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_RESPONSABILE} text-left`}>
+          Responsabile
+        </IntestazioneOrdinabile>
+        <IntestazioneOrdinabile colonna="dataFine" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_SCADENZA} text-left`}>
+          Scadenza
+        </IntestazioneOrdinabile>
         <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
         <span className={`flex-shrink-0 ${COL_AZIONI}`} />
       </div>
 
       {gruppi.map((gruppo) => {
         const info = formatStatoAttivita(gruppo.stato);
+        const righe = sort ? [...gruppo.attivita].sort((a, b) => confrontaPerColonna(a, b, sort.colonna) * (sort.direzione === "asc" ? 1 : -1)) : gruppo.attivita;
         return (
           <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
             <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
@@ -102,7 +131,7 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
             </div>
 
             <div>
-              {gruppo.attivita.map((a) => (
+              {righe.map((a) => (
                 <RigaAttivita
                   key={a.attivitaId}
                   attivita={a}
@@ -129,6 +158,34 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
         );
       })}
     </div>
+  );
+}
+
+function IntestazioneOrdinabile({
+  colonna,
+  sort,
+  onClick,
+  className,
+  children,
+}: {
+  colonna: ColonnaSort;
+  sort: StatoSort | null;
+  onClick: (colonna: ColonnaSort) => void;
+  className: string;
+  children: React.ReactNode;
+}) {
+  const attiva = sort?.colonna === colonna;
+  const Icona = !attiva ? ChevronsUpDown : sort.direzione === "asc" ? ChevronUp : ChevronDown;
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(colonna)}
+      title="Ordina"
+      className={`inline-flex items-center gap-1 cursor-pointer hover:text-ink-700 transition-colors ${attiva ? "text-ink-700" : ""} ${className}`}
+    >
+      {children}
+      <Icona size={11} className={`flex-shrink-0 ${attiva ? "opacity-100" : "opacity-40"}`} />
+    </button>
   );
 }
 
