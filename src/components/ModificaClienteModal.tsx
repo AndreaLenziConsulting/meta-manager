@@ -500,7 +500,9 @@ function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnes
   );
 }
 
-function NuovaSedeForm({ clienteId }: { clienteId: string }) {
+// Esportato: riusato anche da NuovoClienteForm.tsx, per aggiungere sedi aggiuntive subito dopo
+// la creazione del cliente, senza dover riaprire "Modifica cliente" — vedi commento lì.
+export function NuovaSedeForm({ clienteId }: { clienteId: string }) {
   const [attiva, setAttiva] = useState(false);
   const [nome, setNome] = useState("");
   const [adAccountId, setAdAccountId] = useState("");

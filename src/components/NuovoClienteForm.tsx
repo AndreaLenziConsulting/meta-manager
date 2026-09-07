@@ -7,6 +7,7 @@ import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
+import { NuovaSedeForm } from "@/components/ModificaClienteModal";
 
 type Props = {
   consulenti: { consulenteId: string; nome: string }[];
@@ -110,6 +111,17 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
               {link}
             </button>
           </p>
+        </div>
+
+        <div className="pt-2 border-t border-ink-300/60 space-y-2">
+          <div>
+            <p className="text-sm font-semibold text-ink-900">Altre sedi</p>
+            <p className="text-xs text-ink-500 mt-0.5">
+              Il cliente è nato con una prima sede &ldquo;Principale&rdquo; (l&apos;ad account/i target inseriti sopra). Se ha più
+              negozi o account pubblicitari, aggiungili subito qui — evita di dover riaprire &ldquo;Modifica cliente&rdquo; dopo.
+            </p>
+          </div>
+          <NuovaSedeForm clienteId={esito.clienteId} />
         </div>
 
         {prodottoId && !esito.roadmapGenerata && (

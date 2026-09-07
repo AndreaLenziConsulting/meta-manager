@@ -98,7 +98,11 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Nome sede obbligatorio" }, { status: 400 });
   }
   const adAccountId = body.adAccountId !== undefined ? body.adAccountId.trim() : undefined;
-  if (adAccountId !== undefined && !/^\d+$/.test(adAccountId)) {
+  // Bug reale: `adAccountId !== undefined` è vero anche per stringa vuota ("" !== undefined),
+  // quindi salvare una sede lasciando il campo vuoto (che l'etichetta dichiara "opzionale")
+  // veniva rifiutato come formato non valido. Come in POST sopra: solo un valore NON vuoto deve
+  // rispettare il formato, "" resta sempre ammesso (= nessun ad account collegato).
+  if (adAccountId && !/^\d+$/.test(adAccountId)) {
     return NextResponse.json({ error: 'Ad account id non valido: solo cifre, senza il prefisso "act_"' }, { status: 400 });
   }
 
