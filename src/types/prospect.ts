@@ -32,12 +32,14 @@ export type Prospect = {
   creatoIl: string; // ISO datetime
 
   // Parametri commerciali — impostabili già in fase di prospect, prima ancora che diventi un
-  // Cliente vero e proprio (nessun collegamento prospect→cliente esiste ancora, vedi "Modifica
-  // dati commerciali" in ProspectTab.tsx): pensati per alimentare, in un giro successivo, sia il
-  // Simulatore ROI (oggi compilato a mano ogni volta, vedi ScenarioRoi sotto) sia gli indicatori di
-  // performance reali una volta collegati a una Sede — qui solo lo storage, non ancora consumati.
-  driveFolderUrl: string; // link alla cartella Drive del prospect — per ora inserito a mano, in
-  // futuro creato in automatico alla creazione del prospect (non ancora implementato)
+  // Cliente vero e proprio (il collegamento prospect→cliente è la conversione sopra, ma questi
+  // target NON vengono copiati automaticamente sul Cliente: sono metriche commerciali — CPL,
+  // CPA-appuntamento — diverse per definizione dai target ads di una Sede, vedi POST
+  // /api/prospect/converti): pensati per alimentare, in un giro successivo, sia il Simulatore ROI
+  // (oggi compilato a mano ogni volta, vedi ScenarioRoi sotto) sia gli indicatori di performance
+  // reali una volta collegati a una Sede — qui solo lo storage, non ancora consumati.
+  driveFolderUrl: string; // link alla cartella Drive del prospect — creato in automatico alla
+  // creazione del prospect (vedi assicuraCartelleProspect in drive.ts), sovrascrivibile a mano
   mediaBudgetMensile: number | null; // € di spesa ads mensile pianificata/concordata
   targetCpl: number | null; // € — target costo per lead
   // Target costo per APPUNTAMENTO fissato, non per vendita: un target sul CPA-vendita è poco
@@ -49,6 +51,14 @@ export type Prospect = {
   targetAppuntamentiSettimana: number | null; // appuntamenti fissati attesi a settimana
   targetFatturatoMensile: number | null; // € di fatturato mensile atteso
   targetMargineVenditaPct: number | null; // % di utile medio per vendita sul fatturato, 0-100
+
+  // Esito dell'hand-off commerciale→consulente (vedi POST /api/prospect/converti): vuoto = prospect
+  // non ancora convertito. Non vuoto = clienteId del Cliente creato da questo prospect. La
+  // conversione NON tocca `attivo`, a differenza di come si "chiude" tutto il resto nell'app:
+  // disattivarlo lo farebbe sparire da prospectVisibili/puoVedereProspect (filtrano su `attivo`)
+  // prima ancora di poter vedere il badge "Convertito in cliente" o riconsultare i vecchi report —
+  // resta quindi visibile come ogni altro prospect, solo marcato.
+  clienteId: string;
 };
 
 export type ScenarioRoi = {

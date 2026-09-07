@@ -2,13 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+import Link from "next/link";
+import { Pencil, CheckCircle2 } from "lucide-react";
 import type { Prospect } from "@/types/prospect";
 import { formatEuro, formatNumero } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ConvertiProspectModal } from "@/components/ConvertiProspectModal";
 
 function haDatiCommerciali(p: Prospect): boolean {
   return (
@@ -37,22 +39,55 @@ function formatPct(value: number | null): string {
  * Prospect invece che scenario per scenario e ricorrenti a ogni report. Non ancora consumati da
  * nessun indicatore/calcolo (vedi commento sul tipo Prospect) — per ora solo storage + editing.
  */
-export function ProspectDatiCommerciali({ prospect }: { prospect: Prospect }) {
+export function ProspectDatiCommerciali({
+  prospect,
+  ruoloAdmin,
+  consulenti,
+  prodotti,
+}: {
+  prospect: Prospect;
+  // Hand-off commerciale→consulente: solo l'admin può convertire (vedi POST /api/prospect/converti,
+  // stesso gate di POST /api/clienti). Assenti = nessuna delle due liste è stata caricata (es. per
+  // un commerciale, a cui non serve mai vederle) — in quel caso il bottone non compare comunque.
+  ruoloAdmin?: boolean;
+  consulenti?: { consulenteId: string; nome: string }[];
+  prodotti?: { prodottoId: string; nome: string }[];
+}) {
   const router = useRouter();
   const [modificaAperta, setModificaAperta] = useState(false);
+  const [conversioneAperta, setConversioneAperta] = useState(false);
+  const convertito = Boolean(prospect.clienteId);
 
   return (
     <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
       <div className="flex items-center justify-between gap-2">
         <p className="text-sm font-semibold text-ink-900">Dati commerciali</p>
-        <button
-          type="button"
-          onClick={() => setModificaAperta(true)}
-          className="text-ink-500 hover:text-brand transition cursor-pointer"
-          aria-label="Modifica dati commerciali"
-        >
-          <Pencil size={14} />
-        </button>
+        <div className="flex items-center gap-3">
+          {convertito ? (
+            <Link
+              href={`/dashboard/cliente/${encodeURIComponent(prospect.clienteId)}`}
+              className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:underline"
+            >
+              <CheckCircle2 size={14} /> Convertito in cliente
+            </Link>
+          ) : (
+            ruoloAdmin &&
+            consulenti &&
+            prodotti && (
+              <Button type="button" size="sm" variant="ghost" onClick={() => setConversioneAperta(true)}>
+                Converti in cliente
+              </Button>
+            )
+          )}
+          <button
+            type="button"
+            onClick={() => setModificaAperta(true)}
+            className="text-ink-500 hover:text-brand transition cursor-pointer"
+            aria-label="Modifica dati commerciali"
+          >
+            <Pencil size={14} />
+          </button>
+        </div>
       </div>
 
       {haDatiCommerciali(prospect) ? (
@@ -90,6 +125,15 @@ export function ProspectDatiCommerciali({ prospect }: { prospect: Prospect }) {
             setModificaAperta(false);
             router.refresh();
           }}
+        />
+      )}
+
+      {conversioneAperta && consulenti && prodotti && (
+        <ConvertiProspectModal
+          prospect={prospect}
+          consulenti={consulenti}
+          prodotti={prodotti}
+          onClose={() => setConversioneAperta(false)}
         />
       )}
     </div>

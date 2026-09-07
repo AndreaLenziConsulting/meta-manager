@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { getSessione } from "@/lib/auth";
 import { getCommerciali, getProspect, getReportCommerciale } from "@/lib/sheets";
 import { prospectVisibili } from "@/lib/authz";
@@ -52,7 +53,10 @@ export default async function ProspectListaPage() {
               href={`/dashboard/commerciale/${encodeURIComponent(p.prospectId)}`}
               className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 hover:shadow-md transition"
             >
-              <p className="font-heading font-bold text-ink-900 text-base truncate">{p.ragioneSociale}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="font-heading font-bold text-ink-900 text-base truncate">{p.ragioneSociale}</p>
+                {p.clienteId && <CheckCircle2 size={15} className="text-green-600 flex-shrink-0" aria-label="Convertito in cliente" />}
+              </div>
               {p.tipoBusiness && <p className="text-xs text-ink-500 mt-0.5">{p.tipoBusiness}</p>}
               <p className="text-[11px] text-ink-500 mt-2.5 pt-2.5 border-t border-ink-300/60">
                 {ultimoReportPer.has(p.prospectId) ? `Ultimo report: ${ultimoReportPer.get(p.prospectId)}` : "Nessun report ancora"}
