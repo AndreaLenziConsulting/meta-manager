@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Pencil } from "lucide-react";
+import { Pencil, Frown } from "lucide-react";
 import type { Consulente, Salute } from "@/types/kpi";
 import type { SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
@@ -103,6 +103,9 @@ function ClienteCard({
         {item.attivitaInRitardo.length > 0 && (
           <span className="text-red-600 font-semibold"> · {item.attivitaInRitardo.length} in ritardo</span>
         )}
+        {item.sentimentCritico && (
+          <span className="text-red-600 font-semibold inline-flex items-center gap-1"> · <Frown size={12} /> sentiment negativo</span>
+        )}
       </p>
     </div>
   );
@@ -141,6 +144,11 @@ function ClienteRiga({
         {nomeConsulente && <span className="text-[11px] text-ink-500 flex-shrink-0">· {nomeConsulente}</span>}
         {item.attivitaInRitardo.length > 0 && (
           <span className="text-[11px] font-semibold text-red-600 flex-shrink-0">· {item.attivitaInRitardo.length} in ritardo</span>
+        )}
+        {item.sentimentCritico && (
+          <span className="text-[11px] font-semibold text-red-600 flex-shrink-0 inline-flex items-center gap-1">
+            · <Frown size={11} /> sentiment negativo
+          </span>
         )}
       </div>
       <div className="flex items-center gap-3 flex-shrink-0">

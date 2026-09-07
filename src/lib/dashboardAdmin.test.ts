@@ -7,7 +7,8 @@ function cliente(over: Partial<Cliente>): Cliente {
     clienteId: "c", nome: "Cliente", accessCode: "x", attivo: true,
     consulenteId: "cons-1", mostraTabExtra: false,
     prodottoId: "", dataInizioProgetto: null, email: "",
-    logoUrl: "", colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "", ...over,
+    logoUrl: "", colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "",
+    driveFolderUrl: "", landingPageUrl: "", ...over,
   };
 }
 
@@ -27,26 +28,33 @@ function item(over: Partial<SaluteClienteItem>): SaluteClienteItem {
     numeroLead: 0,
     valutazione: { stato: "no-target", metricaUsata: null, valoreAttuale: null, targetUsato: null },
     attivitaInRitardo: [],
+    sentimentCritico: false,
     ...over,
   };
 }
 
 describe("calcolaRiepilogo", () => {
-  it("conta clienti con ads critiche, clienti con attività in ritardo e il totale attività in ritardo", () => {
+  it("conta clienti con ads critiche, clienti con attività in ritardo, sentiment negativo e il totale attività in ritardo", () => {
     const items = [
       item({ cliente: cliente({ clienteId: "a" }), valutazione: { stato: "interveni", metricaUsata: "lead", valoreAttuale: 10, targetUsato: 5 } }),
       item({ cliente: cliente({ clienteId: "b" }), attivitaInRitardo: attivitaFittizia(3) }),
-      item({ cliente: cliente({ clienteId: "c" }), valutazione: { stato: "scala", metricaUsata: "lead", valoreAttuale: 1, targetUsato: 5 } }),
+      item({ cliente: cliente({ clienteId: "c" }), valutazione: { stato: "scala", metricaUsata: "lead", valoreAttuale: 1, targetUsato: 5 }, sentimentCritico: true }),
     ];
     expect(calcolaRiepilogo(items)).toEqual({
       clientiAdsCritici: 1,
       clientiConAttivitaInRitardo: 1,
       totaleAttivitaInRitardo: 3,
+      clientiSentimentNegativo: 1,
     });
   });
 
   it("array vuoto -> tutti zero", () => {
-    expect(calcolaRiepilogo([])).toEqual({ clientiAdsCritici: 0, clientiConAttivitaInRitardo: 0, totaleAttivitaInRitardo: 0 });
+    expect(calcolaRiepilogo([])).toEqual({
+      clientiAdsCritici: 0,
+      clientiConAttivitaInRitardo: 0,
+      totaleAttivitaInRitardo: 0,
+      clientiSentimentNegativo: 0,
+    });
   });
 });
 

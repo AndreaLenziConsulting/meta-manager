@@ -23,26 +23,33 @@ export type SaluteClienteItem = {
   investimento: number; // somma delle sedi
   numeroLead: number; // somma delle sedi
   attivitaInRitardo: AttivitaClienteRow[];
+  // Sentiment "negativo" dell'ultimo meeting registrato (vedi src/lib/sentimentCliente.ts) — solo
+  // un segnale aggiuntivo mostrato in card, NON entra in ordinaPerPriorita: quella logica di
+  // priorità ads/attività è già testata e in produzione, non la tocchiamo per aggiungere questo.
+  sentimentCritico: boolean;
 };
 
 export type RiepilogoDashboard = {
   clientiAdsCritici: number; // valutazione.stato === "interveni"
   clientiConAttivitaInRitardo: number; // attivitaInRitardo.length > 0
   totaleAttivitaInRitardo: number; // somma di tutte le attività in ritardo, su tutti i clienti
+  clientiSentimentNegativo: number; // sentimentCritico === true
 };
 
 export function calcolaRiepilogo(items: SaluteClienteItem[]): RiepilogoDashboard {
   let clientiAdsCritici = 0;
   let clientiConAttivitaInRitardo = 0;
   let totaleAttivitaInRitardo = 0;
+  let clientiSentimentNegativo = 0;
   for (const item of items) {
     if (item.valutazione.stato === "interveni") clientiAdsCritici++;
     if (item.attivitaInRitardo.length > 0) {
       clientiConAttivitaInRitardo++;
       totaleAttivitaInRitardo += item.attivitaInRitardo.length;
     }
+    if (item.sentimentCritico) clientiSentimentNegativo++;
   }
-  return { clientiAdsCritici, clientiConAttivitaInRitardo, totaleAttivitaInRitardo };
+  return { clientiAdsCritici, clientiConAttivitaInRitardo, totaleAttivitaInRitardo, clientiSentimentNegativo };
 }
 
 // Severità ads a parità di bucket di urgenza combinata (vedi ordinaPerPriorita) — "interveni" non

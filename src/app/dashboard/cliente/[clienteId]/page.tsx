@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
+import { settimanaCorrente } from "@/lib/roadmap";
 import { SchedaCliente } from "@/components/SchedaCliente";
 import { styleTemaCliente } from "@/lib/temaCliente";
 
@@ -26,6 +27,8 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   const sediIdsCliente = new Set(sedi.filter((s) => s.clienteId === clienteId).map((s) => s.sedeId));
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);
 
+  const settimanaProgetto = cliente?.dataInizioProgetto ? settimanaCorrente(cliente.dataInizioProgetto) : null;
+
   return (
     // font-sans qui, non solo nello style: font-family è dichiarato sul <body> (fuori da questo
     // wrapper) e le proprietà ereditate si "congelano" al valore già calcolato lì — il body non
@@ -40,6 +43,9 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         clienteNome={cliente?.nome}
         clienteEmail={cliente?.email}
         clienteLogoUrl={cliente?.logoUrl}
+        settimanaProgetto={settimanaProgetto}
+        driveFolderUrl={cliente?.driveFolderUrl}
+        landingPageUrl={cliente?.landingPageUrl}
         tuttiITab
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={sessione.ruolo === "admin"}

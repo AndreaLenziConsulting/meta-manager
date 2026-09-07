@@ -1,4 +1,4 @@
-import { CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock, Frown } from "lucide-react";
 import type { RiepilogoDashboard } from "@/lib/dashboardAdmin";
 
 /**
@@ -9,8 +9,8 @@ import type { RiepilogoDashboard } from "@/lib/dashboardAdmin";
  * riusa direttamente Badge.
  */
 export function RiepilogoAllarmiAdmin({ riepilogo }: { riepilogo: RiepilogoDashboard }) {
-  const { clientiAdsCritici, clientiConAttivitaInRitardo, totaleAttivitaInRitardo } = riepilogo;
-  const nessunProblema = clientiAdsCritici === 0 && clientiConAttivitaInRitardo === 0;
+  const { clientiAdsCritici, clientiConAttivitaInRitardo, totaleAttivitaInRitardo, clientiSentimentNegativo } = riepilogo;
+  const nessunProblema = clientiAdsCritici === 0 && clientiConAttivitaInRitardo === 0 && clientiSentimentNegativo === 0;
 
   if (nessunProblema) {
     return (
@@ -24,7 +24,7 @@ export function RiepilogoAllarmiAdmin({ riepilogo }: { riepilogo: RiepilogoDashb
   return (
     <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
       <p className="text-[10px] font-semibold uppercase tracking-widest text-red-700 mb-3">Da controllare</p>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="flex items-center gap-3">
           <AlertCircle size={26} className="text-red-500 flex-shrink-0" />
           <div>
@@ -44,6 +44,17 @@ export function RiepilogoAllarmiAdmin({ riepilogo }: { riepilogo: RiepilogoDashb
             </p>
           </div>
         </div>
+        {clientiSentimentNegativo > 0 && (
+          <div className="flex items-center gap-3">
+            <Frown size={26} className="text-red-500 flex-shrink-0" />
+            <div>
+              <p className="text-2xl font-bold text-ink-900 leading-none">{clientiSentimentNegativo}</p>
+              <p className="text-xs text-ink-700 mt-1">
+                {clientiSentimentNegativo === 1 ? "cliente con sentiment negativo nell'ultimo meeting" : "clienti con sentiment negativo nell'ultimo meeting"}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

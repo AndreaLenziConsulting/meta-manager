@@ -40,6 +40,8 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
   const [colorePrimario, setColorePrimario] = useState(cliente.colorePrimario);
   const [coloreSecondario, setColoreSecondario] = useState(cliente.coloreSecondario);
   const [fontPersonalizzato, setFontPersonalizzato] = useState(cliente.fontPersonalizzato);
+  const [driveFolderUrl, setDriveFolderUrl] = useState(cliente.driveFolderUrl);
+  const [landingPageUrl, setLandingPageUrl] = useState(cliente.landingPageUrl);
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -83,6 +85,8 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
           colorePrimario,
           coloreSecondario,
           fontPersonalizzato,
+          driveFolderUrl,
+          landingPageUrl,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -126,6 +130,21 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
             <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />
             Cliente attivo
           </label>
+        </div>
+
+        <div className="pt-2 border-t border-ink-300/60 space-y-4">
+          <div>
+            <p className="text-sm font-semibold text-ink-900">Link rapidi</p>
+            <p className="text-xs text-ink-500 mt-0.5">Comparsi in alto sulla scheda cliente — visibili solo al team, mai sul link pubblico.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Field label="Cartella Drive">
+              <Input value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/…" />
+            </Field>
+            <Field label="Landing page">
+              <Input value={landingPageUrl} onChange={(e) => setLandingPageUrl(e.target.value)} placeholder="https://…" />
+            </Field>
+          </div>
         </div>
 
         <div className="pt-2 border-t border-ink-300/60 space-y-3">

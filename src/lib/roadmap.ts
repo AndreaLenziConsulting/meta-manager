@@ -28,6 +28,17 @@ export function dataFineSettimana(dataInizioProgetto: string, settimana: number)
 }
 
 /**
+ * Inverso di dataInizioSettimana/dataFineSettimana: in che settimana del progetto siamo oggi,
+ * dato quando è iniziato. Serve al consulente per capire a colpo d'occhio "dove siamo" senza
+ * contare a mano — utile in vista di rinnovo contratto/upsell. Clampata a 1 se il progetto non è
+ * ancora iniziato (dataInizioProgetto nel futuro): mai un numero ≤ 0, che si leggerebbe come un bug.
+ */
+export function settimanaCorrente(dataInizioProgetto: string, oggi: string = oggiIso()): number {
+  const giorni = giorniTra(dataInizioProgetto, oggi);
+  return Math.max(1, Math.floor(giorni / 7) + 1);
+}
+
+/**
  * Genera lo snapshot di roadmap per un cliente a partire dal template del prodotto scelto.
  * Pura: le date sono "bruciate" da settimana a data concreta qui, una volta sola — la roadmap
  * del cliente non dipende più dal concetto di "settimana" dopo questo momento (snapshot, non

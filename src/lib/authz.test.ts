@@ -7,7 +7,8 @@ function cliente(over: Partial<Cliente>): Cliente {
     clienteId: "c", nome: "Cliente", accessCode: "x", attivo: true,
     consulenteId: "cons-1", mostraTabExtra: false,
     prodottoId: "", dataInizioProgetto: null, email: "",
-    logoUrl: "", colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "", ...over,
+    logoUrl: "", colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "",
+    driveFolderUrl: "", landingPageUrl: "", ...over,
   };
 }
 

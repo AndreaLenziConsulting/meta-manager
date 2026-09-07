@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMetaDaily, getSedi } from "@/lib/sheets";
+import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMeetingCliente, getMetaDaily, getSedi } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
 import { aggregaValutazioniSedi, calcolaSalute } from "@/lib/salute";
 import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
+import { sentimentCritico, ultimoMeetingPerCliente } from "@/lib/sentimentCliente";
 import {
   calcolaRiepilogo,
   ordinaPerPriorita,
@@ -51,14 +52,19 @@ export default async function DashboardHomePage() {
   const daData = formatData(inizio);
   const aData = formatData(oggi);
 
-  const [metaDaily, campagne, attivitaTutte, consulenti, sedi] = await Promise.all([
+  const [metaDaily, campagne, attivitaTutte, consulenti, sedi, meetingTutti] = await Promise.all([
     getMetaDaily(),
     getCampagne(),
     getAttivitaCliente(),
     getConsulenti(),
     getSedi(),
+    getMeetingCliente(),
   ]);
   const attivitaPerCliente = raggruppaAttivitaPerCliente(attivitaTutte);
+  // Solo i meeting con un sentiment davvero compilato: l'ultimo meeting in assoluto a volte non è
+  // ancora stato revisionato (sentiment vuoto) e non deve mascherare un segnale negativo precedente
+  // ancora valido — vedi caso reale osservato: ultimo meeting vuoto, penultimo "Negativo".
+  const ultimoMeetingCliente = ultimoMeetingPerCliente(meetingTutti.filter((m) => m.sentiment.trim() !== ""));
 
   const items: SaluteClienteItem[] = clienti
     .filter((c) => c.attivo)
@@ -95,6 +101,7 @@ export default async function DashboardHomePage() {
         investimento: sediValutate.reduce((somma, s) => somma + s.investimento, 0),
         numeroLead: sediValutate.reduce((somma, s) => somma + s.numeroLead, 0),
         attivitaInRitardo: attivitaInRitardo(attivitaPerCliente.get(cliente.clienteId) ?? []),
+        sentimentCritico: sentimentCritico(ultimoMeetingCliente.get(cliente.clienteId)?.sentiment ?? ""),
       };
     });
   const itemsOrdinati = ordinaPerPriorita(items);

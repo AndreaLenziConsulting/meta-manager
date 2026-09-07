@@ -200,6 +200,8 @@ export async function getClienti(): Promise<Cliente[]> {
       colorePrimario: asText(r[14]),
       coloreSecondario: asText(r[15]),
       fontPersonalizzato: asText(r[16]),
+      driveFolderUrl: asText(r[17]),
+      landingPageUrl: asText(r[18]),
     }));
 }
 
@@ -216,6 +218,8 @@ export type NuovoClienteInput = {
   colorePrimario?: string;
   coloreSecondario?: string;
   fontPersonalizzato?: string;
+  driveFolderUrl?: string;
+  landingPageUrl?: string;
 };
 
 /** Crea un nuovo cliente (sempre attivo). Rifiuta esplicitamente un clienteId già in uso. */
@@ -243,6 +247,8 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
       input.colorePrimario ?? "",
       input.coloreSecondario ?? "",
       input.fontPersonalizzato ?? "",
+      input.driveFolderUrl ?? "",
+      input.landingPageUrl ?? "",
     ],
   ]);
 }
@@ -258,6 +264,8 @@ export type AggiornaClienteInput = {
   colorePrimario?: string;
   coloreSecondario?: string;
   fontPersonalizzato?: string;
+  driveFolderUrl?: string;
+  landingPageUrl?: string;
 };
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
@@ -274,7 +282,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.clienti}!A2:Q`,
+    range: `${TAB.clienti}!A2:S`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -296,6 +304,8 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   if (input.colorePrimario !== undefined) set("O", input.colorePrimario);
   if (input.coloreSecondario !== undefined) set("P", input.coloreSecondario);
   if (input.fontPersonalizzato !== undefined) set("Q", input.fontPersonalizzato);
+  if (input.driveFolderUrl !== undefined) set("R", input.driveFolderUrl);
+  if (input.landingPageUrl !== undefined) set("S", input.landingPageUrl);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

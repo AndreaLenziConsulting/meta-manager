@@ -32,6 +32,8 @@ type Body = {
   colorePrimario?: string;
   coloreSecondario?: string;
   fontPersonalizzato?: string;
+  driveFolderUrl?: string;
+  landingPageUrl?: string;
 };
 
 type CampiPersonalizzazione = {
@@ -39,6 +41,11 @@ type CampiPersonalizzazione = {
   colorePrimario?: string;
   coloreSecondario?: string;
   fontPersonalizzato?: string;
+};
+
+type LinkRapidi = {
+  driveFolderUrl?: string;
+  landingPageUrl?: string;
 };
 
 /** Validazione comune ai 4 campi di personalizzazione, POST e PATCH — stringa vuota sempre
@@ -55,6 +62,18 @@ function erroreCampiPersonalizzazione(body: CampiPersonalizzazione): string | nu
   }
   if (body.fontPersonalizzato && !isFontClienteValido(body.fontPersonalizzato.trim())) {
     return `Font non disponibile: "${body.fontPersonalizzato}"`;
+  }
+  return null;
+}
+
+/** Stessa regola "vuoto sempre ammesso, altrimenti http(s)" di sopra, ma per i 2 link rapidi
+ * mostrati in ClienteHeader (cartella Drive, landing page) — anagrafici, non personalizzazione. */
+function erroreLinkRapidi(body: LinkRapidi): string | null {
+  if (body.driveFolderUrl && !/^https?:\/\//.test(body.driveFolderUrl.trim())) {
+    return "URL cartella Drive non valido: deve iniziare con http:// o https://";
+  }
+  if (body.landingPageUrl && !/^https?:\/\//.test(body.landingPageUrl.trim())) {
+    return "URL landing page non valido: deve iniziare con http:// o https://";
   }
   return null;
 }
@@ -96,7 +115,7 @@ export async function POST(req: NextRequest) {
   if (prodottoId && !dataInizioProgetto) {
     return NextResponse.json({ error: "Data inizio progetto obbligatoria se scegli un prodotto" }, { status: 400 });
   }
-  const erroreValidazione = erroreCampiPersonalizzazione(body);
+  const erroreValidazione = erroreCampiPersonalizzazione(body) ?? erroreLinkRapidi(body);
   if (erroreValidazione) {
     return NextResponse.json({ error: erroreValidazione }, { status: 400 });
   }
@@ -134,6 +153,8 @@ export async function POST(req: NextRequest) {
       colorePrimario: body.colorePrimario?.trim(),
       coloreSecondario: body.coloreSecondario?.trim(),
       fontPersonalizzato: body.fontPersonalizzato?.trim(),
+      driveFolderUrl: body.driveFolderUrl?.trim(),
+      landingPageUrl: body.landingPageUrl?.trim(),
     });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 409 });
@@ -187,6 +208,8 @@ type BodyPatch = {
   colorePrimario?: string;
   coloreSecondario?: string;
   fontPersonalizzato?: string;
+  driveFolderUrl?: string;
+  landingPageUrl?: string;
 };
 
 /**
@@ -214,7 +237,7 @@ export async function PATCH(req: NextRequest) {
   if (nome !== undefined && !nome) {
     return NextResponse.json({ error: "Nome obbligatorio" }, { status: 400 });
   }
-  const erroreValidazione = erroreCampiPersonalizzazione(body);
+  const erroreValidazione = erroreCampiPersonalizzazione(body) ?? erroreLinkRapidi(body);
   if (erroreValidazione) {
     return NextResponse.json({ error: erroreValidazione }, { status: 400 });
   }
@@ -243,6 +266,8 @@ export async function PATCH(req: NextRequest) {
       colorePrimario: body.colorePrimario !== undefined ? body.colorePrimario.trim() : undefined,
       coloreSecondario: body.coloreSecondario !== undefined ? body.coloreSecondario.trim() : undefined,
       fontPersonalizzato: body.fontPersonalizzato !== undefined ? body.fontPersonalizzato.trim() : undefined,
+      driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
+      landingPageUrl: body.landingPageUrl !== undefined ? body.landingPageUrl.trim() : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -9,6 +9,7 @@ import {
   raggruppaPerFase,
   raggruppaPerStato,
   rangeProgetto,
+  settimanaCorrente,
 } from "./roadmap";
 import type { AttivitaClienteRow, TemplateTask } from "@/types/kpi";
 
@@ -28,6 +29,30 @@ describe("dataInizioSettimana / dataFineSettimana", () => {
     const inizioFineAnno = "2026-12-21"; // lunedì
     expect(dataInizioSettimana(inizioFineAnno, 2)).toBe("2026-12-28");
     expect(dataFineSettimana(inizioFineAnno, 2)).toBe("2027-01-03");
+  });
+});
+
+describe("settimanaCorrente", () => {
+  const inizio = "2026-08-10"; // lunedì
+
+  it("il giorno stesso di inizio progetto è la settimana 1", () => {
+    expect(settimanaCorrente(inizio, "2026-08-10")).toBe(1);
+  });
+
+  it("resta settimana 1 fino al giorno prima del cambio settimana", () => {
+    expect(settimanaCorrente(inizio, "2026-08-16")).toBe(1);
+  });
+
+  it("passa a settimana 2 esattamente 7 giorni dopo l'inizio", () => {
+    expect(settimanaCorrente(inizio, "2026-08-17")).toBe(2);
+  });
+
+  it("settimana 15 a 14 settimane esatte dall'inizio", () => {
+    expect(settimanaCorrente(inizio, "2026-11-16")).toBe(15);
+  });
+
+  it("clamp a 1 se il progetto non è ancora iniziato (data futura rispetto a oggi)", () => {
+    expect(settimanaCorrente(inizio, "2026-08-01")).toBe(1);
   });
 });
 
