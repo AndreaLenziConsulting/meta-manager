@@ -40,17 +40,25 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
 }
 
 /**
- * Blocco 6b — "Costo per Risultato": Spesa (asse sinistro) + Costo per Appuntamento e CAC (asse
- * destro, €/unità), per settimana. UNICO grafico dell'app con doppio asse — scelta consapevole
- * dell'utente nonostante l'anti-pattern (vedi skill dataviz e commento in TrendChart.tsx, che
- * resta l'unico posto dove "mai doppio asse" vale senza eccezioni): qui il punto è leggere
- * l'andamento nel tempo di CIASCUNA linea per conto proprio, mai confrontarne le altezze fra loro
- * — didascalia fissa sotto la legenda lo dice esplicitamente, non solo nel tooltip.
+ * Blocco 6b — "Costo per Risultato": Spesa (asse sinistro) + Costo per Lead, Costo per Appuntamento
+ * e CAC (asse destro, €/unità), per settimana. UNICO grafico dell'app con doppio asse — scelta
+ * consapevole dell'utente nonostante l'anti-pattern (vedi skill dataviz e commento in
+ * TrendChart.tsx, che resta l'unico posto dove "mai doppio asse" vale senza eccezioni): qui il
+ * punto è leggere l'andamento nel tempo di CIASCUNA linea per conto proprio, mai confrontarne le
+ * altezze fra loro — didascalia fissa sotto la legenda lo dice esplicitamente, non solo nel
+ * tooltip. Costo per Lead in --series-3, la stessa identità "lead" già usata altrove nell'app
+ * (tessere KPI, funnel) — colore che segue l'entità, non un colore nuovo inventato qui.
  */
 export function CostoPerRisultatoChart({
   serieSettimanale,
 }: {
-  serieSettimanale: { settimana: string; investimento: number; appuntamentiFissati: number | null; numeroVendite: number | null }[];
+  serieSettimanale: {
+    settimana: string;
+    investimento: number;
+    numeroLead: number;
+    appuntamentiFissati: number | null;
+    numeroVendite: number | null;
+  }[];
 }) {
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
@@ -68,7 +76,7 @@ export function CostoPerRisultatoChart({
   const xFor = (i: number) => PAD_LEFT + (punti.length === 1 ? plotW / 2 : (i / (punti.length - 1)) * plotW);
 
   const maxSpesa = Math.max(1, ...punti.map((p) => p.spesa)) * 1.15;
-  const maxUnitario = Math.max(1, ...punti.map((p) => Math.max(p.costoPerAppuntamento ?? 0, p.costoPerVendita ?? 0))) * 1.15;
+  const maxUnitario = Math.max(1, ...punti.map((p) => Math.max(p.costoPerLead ?? 0, p.costoPerAppuntamento ?? 0, p.costoPerVendita ?? 0))) * 1.15;
   const yForSpesa = (v: number) => HEIGHT - (v / maxSpesa) * HEIGHT;
   const yForUnitario = (v: number) => HEIGHT - (v / maxUnitario) * HEIGHT;
 
@@ -108,6 +116,10 @@ export function CostoPerRisultatoChart({
             Spesa pubblicitaria (asse sx)
           </li>
           <li className="flex items-center gap-1.5">
+            <span className="inline-block w-3 h-0.5 rounded" style={{ background: "var(--series-3)" }} />
+            Costo per Lead (asse dx)
+          </li>
+          <li className="flex items-center gap-1.5">
             <span className="inline-block w-3 h-0.5 rounded" style={{ background: "var(--series-4)" }} />
             Costo per Appuntamento (asse dx)
           </li>
@@ -127,7 +139,7 @@ export function CostoPerRisultatoChart({
           viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Costo per risultato per settimana: spesa pubblicitaria, costo per appuntamento e CAC"
+          aria-label="Costo per risultato per settimana: spesa pubblicitaria, costo per lead, costo per appuntamento e CAC"
         >
         <g transform={`translate(0, ${PAD_TOP})`}>
           {yTicksSpesa.map((tick) => (
@@ -145,12 +157,16 @@ export function CostoPerRisultatoChart({
           ))}
 
           <path d={pathFor((i) => punti[i].spesa, yForSpesa)} fill="none" stroke="var(--series-1)" strokeOpacity={0.85} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+          <path d={pathFor((i) => punti[i].costoPerLead, yForUnitario)} fill="none" stroke="var(--series-3)" strokeOpacity={0.85} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           <path d={pathFor((i) => punti[i].costoPerAppuntamento, yForUnitario)} fill="none" stroke="var(--series-4)" strokeOpacity={0.85} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           <path d={pathFor((i) => punti[i].costoPerVendita, yForUnitario)} fill="none" stroke="var(--series-7)" strokeOpacity={0.85} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
 
           {punti.map((p, i) => (
             <g key={p.settimana}>
               <circle cx={xFor(i)} cy={yForSpesa(p.spesa)} r={3} fill="var(--series-1)" stroke="var(--surface-1)" strokeWidth={1.5} />
+              {p.costoPerLead !== null && (
+                <circle cx={xFor(i)} cy={yForUnitario(p.costoPerLead)} r={3} fill="var(--series-3)" stroke="var(--surface-1)" strokeWidth={1.5} />
+              )}
               {p.costoPerAppuntamento !== null && (
                 <circle cx={xFor(i)} cy={yForUnitario(p.costoPerAppuntamento)} r={3} fill="var(--series-4)" stroke="var(--surface-1)" strokeWidth={1.5} />
               )}
@@ -194,6 +210,10 @@ export function CostoPerRisultatoChart({
             <p className="flex items-center gap-1.5 text-ink-900">
               <span className="inline-block w-2.5 h-0.5" style={{ background: "var(--series-1)" }} />
               <strong>{formatEuro(active.spesa)}</strong> <span className="text-ink-500">spesa (asse sx)</span>
+            </p>
+            <p className="flex items-center gap-1.5 text-ink-900">
+              <span className="inline-block w-2.5 h-0.5" style={{ background: "var(--series-3)" }} />
+              <strong>{formatEuro(active.costoPerLead)}</strong> <span className="text-ink-500">costo/lead (asse dx)</span>
             </p>
             <p className="flex items-center gap-1.5 text-ink-900">
               <span className="inline-block w-2.5 h-0.5" style={{ background: "var(--series-4)" }} />

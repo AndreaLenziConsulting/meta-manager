@@ -10,8 +10,8 @@ type TipoGrafico = "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoApp
 
 const OPZIONI: { id: TipoGrafico; label: string; descrizione: string }[] = [
   { id: "funnel", label: "Funnel di conversione", descrizione: "Lead → appuntamenti fissati → effettuati → vendite" },
-  { id: "costoPerRisultato", label: "Costo per Risultato", descrizione: "Spesa, costo/appuntamento e CAC per settimana" },
-  { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Fatturato meno investimento, nel periodo selezionato" },
+  { id: "costoPerRisultato", label: "Costo per Risultato", descrizione: "Spesa, costo/lead, costo/appuntamento e CAC per settimana" },
+  { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Contrattualizzato meno investimento, nel periodo selezionato" },
   { id: "andamentoAppuntamenti", label: "Andamento appuntamenti", descrizione: "Fissati vs effettuati per settimana" },
 ];
 
@@ -19,6 +19,7 @@ type SerieSettimanaleOverlay = {
   settimana: string;
   investimento: number;
   fatturato: number | null;
+  numeroLead: number;
   appuntamentiFissati: number | null;
   appuntamentiEffettuati: number | null;
   numeroVendite: number | null;

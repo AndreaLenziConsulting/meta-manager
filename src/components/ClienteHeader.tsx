@@ -1,14 +1,22 @@
-import Link from "next/link";
+"use client";
+
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Folder, ExternalLink } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
 
 /**
  * Prima cosa visibile sulla scheda di un cliente: il nome (o il suo logo, se personalizzato — vedi
- * temaCliente.ts) e la via per tornare al menù di selezione clienti. Usa le prop passate da
- * page.tsx (risolte lato server, note subito) — non aspetta la risposta di /api/kpi come faceva
- * `dati.cliente.nome` in precedenza, così compare prima di qualunque fetch. Mai sul link pubblico
- * (`code`): quella pagina (src/app/report/[code]/page.tsx) ha già il proprio header col nome/logo
- * del cliente sopra SchedaCliente — qui comparirebbe raddoppiato.
+ * temaCliente.ts) e la via per tornare indietro. Usa le prop passate da page.tsx (risolte lato
+ * server, note subito) — non aspetta la risposta di /api/kpi come faceva `dati.cliente.nome` in
+ * precedenza, così compare prima di qualunque fetch. Mai sul link pubblico (`code`): quella pagina
+ * (src/app/report/[code]/page.tsx) ha già il proprio header col nome/logo del cliente sopra
+ * SchedaCliente — qui comparirebbe raddoppiato.
+ *
+ * "Torna indietro" usa router.back() (cronologia del browser), non più un link fisso a
+ * /dashboard/clienti: si arriva a una scheda cliente sia dalla pagina Clienti sia dalla Dashboard
+ * Amministratore (le card di SaluteClienti.tsx), e "indietro" deve tornare a quella di partenza,
+ * non sempre alla stessa. Fallback a /dashboard/clienti solo se non c'è cronologia (arrivo diretto
+ * via URL, link pubblico incluso raro ma possibile).
  *
  * `settimanaProgetto`/`driveFolderUrl`/`landingPageUrl` sono le stesse aggiunte "anagrafiche" del
  * cliente (mai sul link pubblico, stesso motivo del resto dell'header) — link rapidi e contesto
@@ -27,16 +35,29 @@ export function ClienteHeader({
   driveFolderUrl?: string;
   landingPageUrl?: string;
 }) {
+  const router = useRouter();
+
+  function tornaIndietro() {
+    // history.length === 1 -> questa scheda era la prima voce di cronologia della sessione (arrivo
+    // diretto via URL/bookmark): router.back() non avrebbe nessun posto dove tornare.
+    if (typeof window !== "undefined" && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push("/dashboard/clienti");
+    }
+  }
+
   return (
     <div className="flex items-center gap-3 flex-wrap">
-      <Link
-        href="/dashboard/clienti"
-        aria-label="Torna ai clienti"
-        title="Torna ai clienti"
-        className="flex items-center justify-center w-9 h-9 rounded-xl border border-ink-300 bg-surface-card text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0"
+      <button
+        type="button"
+        onClick={tornaIndietro}
+        aria-label="Torna indietro"
+        title="Torna indietro"
+        className="flex items-center justify-center w-9 h-9 rounded-xl border border-ink-300 bg-surface-card text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0 cursor-pointer"
       >
         <ArrowLeft size={18} />
-      </Link>
+      </button>
       <h1>
         <LogoONomeCliente
           nome={clienteNome}

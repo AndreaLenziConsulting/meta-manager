@@ -83,8 +83,11 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
 }
 
 /**
- * Blocco 6c — "Saldo netto cumulato": UNA sola linea (fatturato cumulato − investimento cumulato)
- * invece delle due linee separate di TrendChart.tsx (non toccato). Copre il PERIODO SELEZIONATO nei
+ * Blocco 6c — "Saldo netto cumulato": UNA sola linea (contrattualizzato cumulato − investimento
+ * cumulato) invece delle due linee separate di TrendChart.tsx (non toccato). "Contrattualizzato",
+ * mai "fatturato", in ogni testo visibile di questo grafico — stessa cifra condivisa a monte
+ * (`fatturato` in trendSettimanale, vedi kpi.ts), ma il nome giusto per come la usa questo grafico
+ * (valore dei contratti firmati, non l'incassato). Copre il PERIODO SELEZIONATO nei
  * filtri del blocco 3 (non più tutta la storia della sede, come nella prima versione) — il saldo
  * riparte sempre da zero all'inizio di quel periodo: `calcolaSaldoNettoCumulato` cumula da zero
  * qualunque serie riceva, quindi qui basta passargli le settimane del periodo scelto (stesso
@@ -100,6 +103,10 @@ function useLarghezzaContenitore(fallback: number): [React.RefObject<HTMLDivElem
 export function SaldoNettoCumulatoChart({
   serieSettimanale,
 }: {
+  // Chiave ancora "fatturato": è la stessa forma condivisa a monte (SerieSettimanaleOverlay in
+  // BoxGrafici.tsx, alimentata da trendSettimanale in kpi.ts) usata anche dagli altri 2 grafici del
+  // blocco 6 — non è di competenza di questo componente rinominarla lì. Rimappata subito sotto
+  // ("contrattualizzato") prima di qualunque calcolo/testo: da qui in poi "fatturato" non compare più.
   serieSettimanale: { settimana: string; investimento: number; fatturato: number | null }[];
 }) {
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
@@ -110,10 +117,10 @@ export function SaldoNettoCumulatoChart({
   // anticipato fra due Hook.
   const clipId = useId();
 
-  const punti: (PuntoSaldoNetto & { etichetta: string })[] = useMemo(
-    () => calcolaSaldoNettoCumulato(serieSettimanale).map((p) => ({ ...p, etichetta: formatSettimana(p.settimana) })),
-    [serieSettimanale]
-  );
+  const punti: (PuntoSaldoNetto & { etichetta: string })[] = useMemo(() => {
+    const serie = serieSettimanale.map((s) => ({ settimana: s.settimana, investimento: s.investimento, contrattualizzato: s.fatturato }));
+    return calcolaSaldoNettoCumulato(serie).map((p) => ({ ...p, etichetta: formatSettimana(p.settimana) }));
+  }, [serieSettimanale]);
 
   if (punti.length === 0) {
     return <p className="text-sm text-ink-500">Nessun dato nel periodo selezionato.</p>;
@@ -156,7 +163,7 @@ export function SaldoNettoCumulatoChart({
       <ul className="flex gap-4 text-xs text-ink-500 mb-2">
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--pos)" }} />
-          In attivo (fatturato &gt; investimento nel periodo)
+          In attivo (contrattualizzato &gt; investimento nel periodo)
         </li>
         <li className="flex items-center gap-1.5">
           <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ background: "var(--neg)" }} />
@@ -169,7 +176,7 @@ export function SaldoNettoCumulatoChart({
           viewBox={`0 0 ${WIDTH} ${PAD_TOP + HEIGHT + HEIGHT_ETICHETTE}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Saldo netto cumulato per settimana nel periodo selezionato: fatturato cumulato meno investimento cumulato"
+          aria-label="Saldo netto cumulato per settimana nel periodo selezionato: contrattualizzato cumulato meno investimento cumulato"
         >
         <g transform={`translate(0, ${PAD_TOP})`}>
           <defs>
@@ -254,7 +261,7 @@ export function SaldoNettoCumulatoChart({
               <strong style={{ color: active.saldoNetto >= 0 ? "var(--pos)" : "var(--neg)" }}>{formatEuro(active.saldoNetto)}</strong>
             </p>
             <p className="text-ink-500">Investimento cumulato: {formatEuro(active.investimentoCumulato)}</p>
-            <p className="text-ink-500">Fatturato cumulato: {formatEuro(active.fatturatoCumulato)}</p>
+            <p className="text-ink-500">Contrattualizzato cumulato: {formatEuro(active.contrattualizzatoCumulato)}</p>
           </div>
         )}
       </div>

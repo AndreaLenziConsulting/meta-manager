@@ -3,6 +3,7 @@ import { divideOrNull } from "@/lib/kpi";
 export type PuntoCostoPerRisultato = {
   settimana: string;
   spesa: number;
+  costoPerLead: number | null;
   costoPerAppuntamento: number | null;
   // CAC (Customer Acquisition Cost) = investimento/vendite di quella settimana — chiamato
   // "costoPerVendita" qui per coerenza col resto del dominio (costoPerLead, costoPerClic,
@@ -18,23 +19,29 @@ function divideOrNullNullable(numeratore: number, denominatore: number | null): 
 }
 
 /**
- * Blocco 6b del redesign KPI — "Costo per Risultato": Spesa (asse sinistro) + Costo per
- * Appuntamento e CAC (asse destro, €/unità) per settimana. Unico grafico dell'app con doppio asse
- * — scelta consapevole dell'utente nonostante l'anti-pattern (vedi skill dataviz e il commento in
- * TrendChart.tsx, che resta l'unico posto dove "mai doppio asse" vale senza eccezioni): qui le due
- * scale (€ totali vs €/unità) sono volutamente diverse, il punto è leggere l'andamento di ciascuna
- * linea nel tempo, non confrontarne le altezze fra loro.
+ * Blocco 6b del redesign KPI — "Costo per Risultato": Spesa (asse sinistro) + Costo per Lead,
+ * Costo per Appuntamento e CAC (asse destro, €/unità) per settimana. Unico grafico dell'app con
+ * doppio asse — scelta consapevole dell'utente nonostante l'anti-pattern (vedi skill dataviz e il
+ * commento in TrendChart.tsx, che resta l'unico posto dove "mai doppio asse" vale senza eccezioni):
+ * qui le due scale (€ totali vs €/unità) sono volutamente diverse, il punto è leggere l'andamento
+ * di ciascuna linea nel tempo, non confrontarne le altezze fra loro.
+ *
+ * `numeroLead` (a differenza di appuntamentiFissati/numeroVendite) non è mai nullable: arriva da
+ * Meta, non dal Funnel/GHL — nessuna settimana "senza dato", al più 0 lead. `costoPerLead` diventa
+ * null solo con 0 lead in quella settimana (divideOrNullNullable tratta 0 come "nessun risultato
+ * da dividere", stesso trattamento di divideOrNull altrove nel dominio).
  *
  * `serie` è già la vista overlay-GHL-aware costruita dal chiamante per appuntamentiFissati/
  * numeroVendite (stessa fonte di trendSettimanaleConOverlay già in uso da TrendChart.tsx) — questa
  * funzione resta pura, non sa nulla di GHL/Funnel, solo aritmetica.
  */
 export function calcolaCostoPerRisultatoSettimanale(
-  serie: { settimana: string; investimento: number; appuntamentiFissati: number | null; numeroVendite: number | null }[]
+  serie: { settimana: string; investimento: number; numeroLead: number; appuntamentiFissati: number | null; numeroVendite: number | null }[]
 ): PuntoCostoPerRisultato[] {
   return serie.map((s) => ({
     settimana: s.settimana,
     spesa: s.investimento,
+    costoPerLead: divideOrNullNullable(s.investimento, s.numeroLead),
     costoPerAppuntamento: divideOrNullNullable(s.investimento, s.appuntamentiFissati),
     costoPerVendita: divideOrNullNullable(s.investimento, s.numeroVendite),
   }));
