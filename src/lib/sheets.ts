@@ -1111,6 +1111,7 @@ export async function getProspect(): Promise<Prospect[]> {
       targetFatturatoMensile: toNumberOrNull(r[15]),
       targetMargineVenditaPct: toNumberOrNull(r[16]),
       clienteId: asText(r[17]),
+      consulenteSuggeritoId: asText(r[18]),
     }));
 }
 
@@ -1163,6 +1164,7 @@ export type AggiornaProspectInput = {
   targetFatturatoMensile?: number | null;
   targetMargineVenditaPct?: number | null;
   clienteId?: string;
+  consulenteSuggeritoId?: string;
 };
 
 /**
@@ -1177,7 +1179,7 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.prospect}!A2:R`,
+    range: `${TAB.prospect}!A2:S`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -1205,6 +1207,7 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   if (input.targetFatturatoMensile !== undefined) set("P", input.targetFatturatoMensile ?? "");
   if (input.targetMargineVenditaPct !== undefined) set("Q", input.targetMargineVenditaPct ?? "");
   if (input.clienteId !== undefined) set("R", input.clienteId);
+  if (input.consulenteSuggeritoId !== undefined) set("S", input.consulenteSuggeritoId);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

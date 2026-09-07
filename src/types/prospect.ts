@@ -59,6 +59,13 @@ export type Prospect = {
   // prima ancora di poter vedere il badge "Convertito in cliente" o riconsultare i vecchi report —
   // resta quindi visibile come ogni altro prospect, solo marcato.
   clienteId: string;
+
+  // Proposta di conversione: il commerciale segna un prospect vinto e suggerisce (facoltativo, può
+  // restare vuoto) un consulente — solo admin esegue davvero POST /api/prospect/converti (stesso
+  // motivo per cui solo admin crea un Cliente in generale). Vuoto = nessuna proposta in corso.
+  // Sopravvive alla conversione (non viene ripulito): resta come nota storica di chi era stato
+  // suggerito, ClienteId sopra è il segnale definitivo di "già convertito".
+  consulenteSuggeritoId: string;
 };
 
 export type ScenarioRoi = {

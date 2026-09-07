@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, CheckCircle2 } from "lucide-react";
+import { Pencil, CheckCircle2, Send } from "lucide-react";
 import type { Prospect } from "@/types/prospect";
 import { formatEuro, formatNumero } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
-import { Input } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ConvertiProspectModal } from "@/components/ConvertiProspectModal";
 
@@ -42,25 +42,31 @@ function formatPct(value: number | null): string {
 export function ProspectDatiCommerciali({
   prospect,
   ruoloAdmin,
+  ruoloCommerciale,
   consulenti,
   prodotti,
 }: {
   prospect: Prospect;
-  // Hand-off commerciale→consulente: solo l'admin può convertire (vedi POST /api/prospect/converti,
-  // stesso gate di POST /api/clienti). Assenti = nessuna delle due liste è stata caricata (es. per
-  // un commerciale, a cui non serve mai vederle) — in quel caso il bottone non compare comunque.
+  // Hand-off commerciale→consulente in due passi: il commerciale propone (sceglie un consulente da
+  // suggerire), solo l'admin esegue davvero la conversione (vedi POST /api/prospect/converti, stesso
+  // gate di POST /api/clienti). `consulenti` assente = niente da mostrare a nessuno dei due ruoli;
+  // `prodotti` serve solo alla conversione vera, quindi solo all'admin.
   ruoloAdmin?: boolean;
+  ruoloCommerciale?: boolean;
   consulenti?: { consulenteId: string; nome: string }[];
   prodotti?: { prodottoId: string; nome: string }[];
 }) {
   const router = useRouter();
   const [modificaAperta, setModificaAperta] = useState(false);
   const [conversioneAperta, setConversioneAperta] = useState(false);
+  const [propostaAperta, setPropostaAperta] = useState(false);
   const convertito = Boolean(prospect.clienteId);
+  const proposto = !convertito && Boolean(prospect.consulenteSuggeritoId);
+  const nomeConsulenteSuggerito = consulenti?.find((c) => c.consulenteId === prospect.consulenteSuggeritoId)?.nome;
 
   return (
     <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-semibold text-ink-900">Dati commerciali</p>
         <div className="flex items-center gap-3">
           {convertito ? (
@@ -71,13 +77,26 @@ export function ProspectDatiCommerciali({
               <CheckCircle2 size={14} /> Convertito in cliente
             </Link>
           ) : (
-            ruoloAdmin &&
-            consulenti &&
-            prodotti && (
-              <Button type="button" size="sm" variant="ghost" onClick={() => setConversioneAperta(true)}>
-                Converti in cliente
-              </Button>
-            )
+            <>
+              {proposto && (
+                <span className="text-xs font-semibold text-brand flex items-center gap-1.5">
+                  <Send size={13} />
+                  {ruoloAdmin
+                    ? `Proposto${nomeConsulenteSuggerito ? ` — consulente suggerito: ${nomeConsulenteSuggerito}` : ""}`
+                    : "In attesa di conversione da parte dell'admin"}
+                </span>
+              )}
+              {ruoloAdmin && consulenti && prodotti && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setConversioneAperta(true)}>
+                  Converti in cliente
+                </Button>
+              )}
+              {ruoloCommerciale && consulenti && (
+                <Button type="button" size="sm" variant="ghost" onClick={() => setPropostaAperta(true)}>
+                  {proposto ? "Modifica proposta" : "Segnala come vinto"}
+                </Button>
+              )}
+            </>
           )}
           <button
             type="button"
@@ -136,7 +155,96 @@ export function ProspectDatiCommerciali({
           onClose={() => setConversioneAperta(false)}
         />
       )}
+
+      {propostaAperta && consulenti && (
+        <ProponiConversioneModal
+          prospect={prospect}
+          consulenti={consulenti}
+          onClose={() => setPropostaAperta(false)}
+          onSalvato={() => {
+            setPropostaAperta(false);
+            router.refresh();
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/**
+ * Il commerciale segna un prospect come vinto e suggerisce (facoltativo) un consulente — solo un
+ * PATCH /api/prospect su un campo in più (stesso endpoint già usato per i dati commerciali sopra),
+ * non crea nulla: la conversione vera resta all'admin (ConvertiProspectModal sopra).
+ */
+function ProponiConversioneModal({
+  prospect,
+  consulenti,
+  onClose,
+  onSalvato,
+}: {
+  prospect: Prospect;
+  consulenti: { consulenteId: string; nome: string }[];
+  onClose: () => void;
+  onSalvato: () => void;
+}) {
+  const [consulenteSuggeritoId, setConsulenteSuggeritoId] = useState(prospect.consulenteSuggeritoId);
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const giaProposto = Boolean(prospect.consulenteSuggeritoId);
+
+  async function salva(nuovoValore: string) {
+    setErrore(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/prospect", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prospectId: prospect.prospectId, consulenteSuggeritoId: nuovoValore }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      onSalvato();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <Modal title="Segnala come vinto" subtitle={prospect.ragioneSociale} onClose={onClose} maxWidth="max-w-md">
+      <div className="space-y-4">
+        <p className="text-xs text-ink-500">
+          Segnala all&apos;amministratore che questo prospect è pronto per diventare cliente. Il consulente è solo un
+          suggerimento — la scelta finale resta all&apos;admin in fase di conversione.
+        </p>
+        <Field label="Consulente suggerito (opzionale)">
+          <Select value={consulenteSuggeritoId} onChange={(e) => setConsulenteSuggeritoId(e.target.value)}>
+            <option value="">Nessuno in particolare</option>
+            {consulenti.map((c) => (
+              <option key={c.consulenteId} value={c.consulenteId}>
+                {c.nome}
+              </option>
+            ))}
+          </Select>
+        </Field>
+
+        {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+
+        <div className="flex gap-2 pt-2 border-t border-ink-300/60">
+          <Button type="button" disabled={salvando} onClick={() => salva(consulenteSuggeritoId)}>
+            {salvando ? "Salvataggio…" : "Segnala all'admin"}
+          </Button>
+          {giaProposto && (
+            <Button type="button" variant="ghost" disabled={salvando} onClick={() => salva("")}>
+              Ritira proposta
+            </Button>
+          )}
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Annulla
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

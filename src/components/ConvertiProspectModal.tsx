@@ -29,7 +29,9 @@ export function ConvertiProspectModal({
 }) {
   const [nome, setNome] = useState(prospect.ragioneSociale);
   const [email, setEmail] = useState(prospect.email);
-  const [consulenteId, setConsulenteId] = useState("");
+  // Precompilato dal suggerimento del commerciale, se c'è (vedi Prospect.consulenteSuggeritoId) —
+  // resta comunque una scelta libera, l'admin può cambiarla prima di confermare.
+  const [consulenteId, setConsulenteId] = useState(prospect.consulenteSuggeritoId);
   const [prodottoId, setProdottoId] = useState("");
   const [dataInizioProgetto, setDataInizioProgetto] = useState("");
   const [adAccountId, setAdAccountId] = useState("");

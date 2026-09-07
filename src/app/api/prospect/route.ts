@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaProspect, creaProspect, getCommerciali, getProspect } from "@/lib/sheets";
+import { aggiornaProspect, creaProspect, getCommerciali, getConsulenti, getProspect } from "@/lib/sheets";
 import { generaProspectId } from "@/lib/accessCode";
 import { puoVedereProspect } from "@/lib/authz";
 import { assicuraCartelleProspect } from "@/lib/drive";
@@ -100,6 +100,10 @@ type BodyPatch = {
   targetAppuntamentiSettimana?: number | null;
   targetFatturatoMensile?: number | null;
   targetMargineVenditaPct?: number | null;
+  // Proposta di conversione (vedi Prospect.consulenteSuggeritoId) — un commerciale la imposta sui
+  // propri prospect, "" per ritirarla. Non basta a creare il Cliente: solo un suggerimento, la
+  // conversione vera resta un'azione admin (POST /api/prospect/converti).
+  consulenteSuggeritoId?: string;
 };
 
 const CAMPI_NUMERICI = [
@@ -147,6 +151,13 @@ export async function PATCH(req: NextRequest) {
   if (body.targetMargineVenditaPct != null && (body.targetMargineVenditaPct < 0 || body.targetMargineVenditaPct > 100)) {
     return NextResponse.json({ error: "targetMargineVenditaPct deve essere tra 0 e 100" }, { status: 400 });
   }
+  const consulenteSuggeritoId = body.consulenteSuggeritoId !== undefined ? body.consulenteSuggeritoId.trim() : undefined;
+  if (consulenteSuggeritoId) {
+    const consulenti = await getConsulenti();
+    if (!consulenti.some((c) => c.consulenteId === consulenteSuggeritoId && c.attivo)) {
+      return NextResponse.json({ error: "Consulente suggerito non valido" }, { status: 400 });
+    }
+  }
 
   try {
     await aggiornaProspect({
@@ -159,6 +170,7 @@ export async function PATCH(req: NextRequest) {
       targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,
       targetFatturatoMensile: body.targetFatturatoMensile,
       targetMargineVenditaPct: body.targetMargineVenditaPct,
+      consulenteSuggeritoId,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -21,11 +21,15 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
   }
   const p = prospect.find((x) => x.prospectId === prospectId)!;
 
-  // Hand-off commerciale→consulente ("Converti in cliente" in ProspectDatiCommerciali): solo
-  // l'admin la vede/completa (stesso gate di POST /api/clienti) — nessun fetch in più per un
-  // commerciale, che non arriverebbe mai a usarle.
+  // Hand-off commerciale→consulente ("Proponi conversione"/"Converti in cliente" in
+  // ProspectDatiCommerciali): il commerciale propone (sceglie un consulente da suggerire, serve la
+  // lista), solo l'admin esegue davvero la conversione (stesso gate di POST /api/clienti, serve
+  // anche prodotti). Nessun fetch in più per un consulente, che non arriva mai a questa pagina
+  // (redirect sopra).
   const ruoloAdmin = sessione.ruolo === "admin";
-  const [consulenti, prodotti] = ruoloAdmin ? await Promise.all([getConsulenti(), getProdotti()]) : [null, null];
+  const ruoloCommerciale = sessione.ruolo === "commerciale";
+  const consulenti = ruoloAdmin || ruoloCommerciale ? await getConsulenti() : null;
+  const prodotti = ruoloAdmin ? await getProdotti() : null;
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
@@ -38,6 +42,7 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
       <ProspectDatiCommerciali
         prospect={p}
         ruoloAdmin={ruoloAdmin}
+        ruoloCommerciale={ruoloCommerciale}
         consulenti={consulenti?.filter((c) => c.attivo).map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))}
         prodotti={prodotti?.filter((pr) => pr.attivo).map((pr) => ({ prodottoId: pr.prodottoId, nome: pr.nome }))}
       />
