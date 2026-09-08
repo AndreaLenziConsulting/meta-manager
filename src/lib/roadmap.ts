@@ -1,4 +1,4 @@
-import type { AttivitaClienteRow, StatoAttivita, TemplateTask } from "@/types/kpi";
+import type { AttivitaClienteRow, FaseCompletataRow, StatoAttivita, TemplateTask } from "@/types/kpi";
 
 export function aggiungiGiorni(dataIso: string, giorni: number): string {
   const d = new Date(`${dataIso}T00:00:00Z`);
@@ -148,4 +148,36 @@ export function raggruppaAttivitaPerCliente(attivita: AttivitaClienteRow[]): Map
     mappa.set(a.clienteId, lista);
   }
   return mappa;
+}
+
+/**
+ * Una fase è "completata" quando TUTTE le sue attività sono "done" — una fase senza attività non
+ * è mai completata (non ha senso raggiungere una tappa vuota). Usata da POST /api/attivita/stato
+ * per rilevare la transizione "non completa -> completa" (confrontando lo stesso filtro fase/fase
+ * prima e dopo l'aggiornamento) e da lì scrivere una riga in FasiCompletate — vedi FaseCompletataRow.
+ */
+export function faseCompletata(attivitaFase: AttivitaClienteRow[]): boolean {
+  return attivitaFase.length > 0 && attivitaFase.every((a) => a.stato === "done");
+}
+
+// Finestra di "recente" per il banner di fase completata (team in AttivitaTab, cliente in
+// KpiSection) — oltre questa soglia la tappa resta comunque nel Gantt (barra piena), semplicemente
+// smette di comparire come notifica. 14 giorni: abbastanza da intercettare anche chi non apre la
+// dashboard tutti i giorni, abbastanza poco da restare "una notizia fresca" e non un avviso stantio.
+const FINESTRA_FASE_COMPLETATA_GIORNI = 14;
+
+/**
+ * Fasi completate di recente per un cliente, più recenti prima — sorgente unica per il banner
+ * "🎉 Fase completata" mostrato sia al team (AttivitaTab) sia al cliente (KpiSection, versione
+ * minimale solo fase+data). Filtra sia per cliente sia per finestra temporale: senza il secondo
+ * filtro il banner non sparirebbe mai, restando un falso "appena successo" per sempre.
+ */
+export function fasiCompletateRecenti(
+  fasi: FaseCompletataRow[],
+  clienteId: string,
+  oggi: string = oggiIso()
+): FaseCompletataRow[] {
+  return fasi
+    .filter((f) => f.clienteId === clienteId && giorniTra(f.completataIl, oggi) <= FINESTRA_FASE_COMPLETATA_GIORNI)
+    .sort((a, b) => (a.completataIl < b.completataIl ? 1 : a.completataIl > b.completataIl ? -1 : 0));
 }

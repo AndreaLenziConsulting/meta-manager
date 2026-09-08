@@ -245,3 +245,17 @@ export type AttivitaClienteRow = {
   notaTeam: string;
   ordine: number;
 };
+
+/**
+ * Una riga per ogni fase della roadmap di un cliente che è passata TUTTA a "done" — scritta una
+ * sola volta da POST /api/attivita/stato quando rileva la transizione (vedi src/lib/roadmap.ts,
+ * faseCompletata) — mai riscritta/aggiornata dopo: è un registro di eventi (una tappa raggiunta),
+ * non uno stato corrente. Alimenta la "notifica" di roadmap (Fase 1, vista milestone) sia per il
+ * team (banner nel tab Attività) sia per il cliente (banner minimale nel tab KPI, solo fase+data,
+ * mai il dettaglio delle attività — quello resta riservato al team, vedi SchedaCliente.tsx).
+ */
+export type FaseCompletataRow = {
+  clienteId: string;
+  fase: string;
+  completataIl: string; // YYYY-MM-DD, data del salvataggio che ha completato la fase
+};

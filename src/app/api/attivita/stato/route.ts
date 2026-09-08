@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaStatoAttivita, getAttivitaCliente, getClienti } from "@/lib/sheets";
+import { aggiornaStatoAttivita, getAttivitaCliente, getClienti, registraFaseCompletata } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
+import { faseCompletata, oggiIso } from "@/lib/roadmap";
 import type { StatoAttivita } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -45,10 +46,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Attività non trovata per questo cliente" }, { status: 404 });
   }
 
+  // Stato della fase PRIMA dell'aggiornamento — serve solo a rilevare la transizione "non
+  // completa -> completa" più sotto, calcolata sui dati già in memoria (nessuna rilettura extra).
+  const stessaFasePrima = attivita.filter((a) => a.clienteId === clienteId && a.fase === riga.fase);
+  const completataPrima = faseCompletata(stessaFasePrima);
+
   try {
     await aggiornaStatoAttivita(attivitaId, stato as StatoAttivita, notaTeam?.trim());
-    return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore sconosciuto" }, { status: 502 });
   }
+
+  // "Tappa raggiunta" (vista milestone, Fase 1 roadmap): solo sulla transizione, mai su ogni save
+  // — simula lo stato dopo l'aggiornamento senza rileggere il foglio (stessa lista, un solo campo
+  // sostituito). Non bloccante: un errore qui non deve far fallire l'aggiornamento dello stato,
+  // che è già andato a buon fine sopra — stesso principio di appendReportOperativita.
+  const stessaFaseDopo = stessaFasePrima.map((a) => (a.attivitaId === attivitaId ? { ...a, stato: stato as StatoAttivita } : a));
+  if (!completataPrima && faseCompletata(stessaFaseDopo)) {
+    try {
+      await registraFaseCompletata(clienteId, riga.fase, oggiIso());
+    } catch {
+      // Non bloccante: la fase resta comunque completata anche se la notifica fallisce a registrarsi.
+    }
+  }
+
+  return NextResponse.json({ ok: true });
 }

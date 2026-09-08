@@ -10,6 +10,7 @@ import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
 import { SintesiTessere } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
+import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
 import { PlaceholderTab } from "@/components/PlaceholderTab";
 import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
@@ -82,6 +83,12 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // Solo per la vista interna (clienteId) — mai richiesto/mostrato sul link pubblico (code), vedi
   // il richiamo "solo per il team" più sotto e src/app/api/attivita/route.ts (già riservata al team).
   const [attivitaInRitardoCount, setAttivitaInRitardoCount] = useState(0);
+  // Banner "tappa raggiunta" (vista milestone, Fase 1 roadmap) — a differenza di AvvisiOperativi
+  // sotto, QUESTO va anche sul link pubblico `code`: è l'unica superficie che il cliente finale ha
+  // sul progresso del progetto (il tab Attività resta riservato al team, vedi SchedaCliente.tsx),
+  // quindi /api/fasi-completate ha un ramo `code` dedicato — a differenza di /api/attivita. Risposta
+  // volutamente minimale (solo fase+data): vedi FaseCompletataBanner.tsx.
+  const [fasiCompletate, setFasiCompletate] = useState<{ fase: string; completataIl: string }[]>([]);
   // Sostituisce (non affianca) le tessere Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati con i
   // dati letti in diretta da GHL quando il cliente ha una connessione attiva — vedi
   // kpiGhlOverlay.ts per il perché di quali tessere sì e quali no. null = nessun dato GHL
@@ -199,6 +206,25 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       });
     return () => controller.abort();
   }, [clienteId]);
+
+  // Fasi completate di recente (vedi commento sopra su fasiCompletate) — indipendente dal periodo
+  // scelto per i KPI, stesso motivo di attivitaInRitardoCount: le tappe di roadmap non hanno
+  // stagionalità. Gated su code||clienteId (a differenza dell'effect sopra, gated solo su clienteId):
+  // qui il ramo pubblico esiste davvero, vedi /api/fasi-completate.
+  useEffect(() => {
+    if (!code && !clienteId) return;
+    const controller = new AbortController();
+    const params = new URLSearchParams();
+    if (code) params.set("code", code);
+    if (clienteId) params.set("clienteId", clienteId);
+    fetch(`/api/fasi-completate?${params.toString()}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { fasi: { fase: string; completataIl: string }[] } | null) => setFasiCompletate(body?.fasi ?? []))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, [code, clienteId]);
 
   // Dati GHL per l'overlay delle tessere KPI (vedi kpiGhlOverlay.ts) — fetch separato dal
   // /api/kpi principale sopra, stesso motivo di attivitaInRitardoCount: /api/ghl può essere lento
@@ -471,6 +497,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
+          {/* Vista milestone (Fase 1 roadmap) — buona notizia, quindi per prima cosa, prima
+              dell'eventuale avviso ad account sotto. Visibile anche sul link pubblico `code`. */}
+          <FaseCompletataBanner fasi={fasiCompletate} />
+
           {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
               nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
               clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe

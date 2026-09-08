@@ -6,6 +6,7 @@ import type {
   Campagna,
   Cliente,
   Consulente,
+  FaseCompletataRow,
   FunnelRow,
   MetaDailyRow,
   Prodotto,
@@ -33,6 +34,7 @@ const TAB = {
   prospect: "Prospect",
   reportCommerciale: "ReportCommerciale",
   ghlConnessioni: "GhlConnessioni",
+  fasiCompletate: "FasiCompletate",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -1017,6 +1019,27 @@ export async function eliminaAttivita(attivitaId: string): Promise<void> {
     },
   });
   invalidateTabCache(TAB.attivitaCliente);
+}
+
+export async function getFasiCompletate(): Promise<FaseCompletataRow[]> {
+  const rows = await readTab(TAB.fasiCompletate);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({ clienteId: asText(r[0]), fase: asText(r[1]), completataIl: normalizeData(r[2]) }));
+}
+
+/**
+ * Registra che una fase è appena stata completata — chiamata da POST /api/attivita/stato solo
+ * sulla transizione "non completa -> completa" (vedi faseCompletata in roadmap.ts), mai su ogni
+ * salvataggio. Idempotente per costruzione (stesso schema di creaAttivitaPerCliente): se esiste
+ * già una riga per questo cliente+fase non ne scrive una seconda — protegge da un doppio
+ * "completata" se qualcuno cicla un'attività done->todo->done dopo che la fase era già segnata.
+ */
+export async function registraFaseCompletata(clienteId: string, fase: string, completataIl: string): Promise<void> {
+  const esistenti = await getFasiCompletate();
+  const giaRegistrata = esistenti.some((f) => f.clienteId === clienteId && f.fase === fase);
+  if (giaRegistrata) return;
+  await appendRows(TAB.fasiCompletate, [[clienteId, fase, completataIl]]);
 }
 
 export async function getMeetingCliente(): Promise<MeetingClienteRow[]> {

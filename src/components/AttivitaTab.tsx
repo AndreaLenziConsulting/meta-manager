@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { RoadmapGantt } from "@/components/RoadmapGantt";
 import { AttivitaLista } from "@/components/AttivitaLista";
+import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
 import { Tabs } from "@/components/Tabs";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
@@ -25,6 +26,23 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
   const [refreshTick, setRefreshTick] = useState(0);
   const [vista, setVista] = useState<Vista>("lista");
   const [responsabileFiltro, setResponsabileFiltro] = useState(RESPONSABILE_TUTTI);
+  // Banner "tappa raggiunta" (vista milestone, Fase 1 roadmap) — vedi FaseCompletataBanner.tsx.
+  // Fetch separato dalla roadmap sopra: /api/fasi-completate risponde solo fase+data, non l'intera
+  // roadmap. fasiTick (a parte da refreshTick) si incrementa solo dopo un cambio di stato RIUSCITO
+  // (vedi handleCambiaStato sotto) — un fallimento non può aver completato nessuna fase davvero.
+  const [fasiCompletate, setFasiCompletate] = useState<{ fase: string; completataIl: string }[]>([]);
+  const [fasiTick, setFasiTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/fasi-completate?clienteId=${encodeURIComponent(clienteId)}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { fasi: { fase: string; completataIl: string }[] } | null) => setFasiCompletate(body?.fasi ?? []))
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, [clienteId, fasiTick]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,6 +114,9 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || "Aggiornamento stato non riuscito");
       }
+      // Questo salvataggio potrebbe aver appena completato una fase (vedi POST /api/attivita/stato,
+      // che lo rileva e lo registra da sé) — ricarica il banner per mostrarlo senza refresh manuale.
+      setFasiTick((t) => t + 1);
     } catch (err) {
       setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
       setRefreshTick((t) => t + 1); // ricarica i dati veri dal server invece di tenere l'ottimistico non confermato
@@ -210,6 +231,8 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
   return (
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
+
+      <FaseCompletataBanner fasi={fasiCompletate} />
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex gap-1 bg-surface p-1 rounded-xl w-fit">

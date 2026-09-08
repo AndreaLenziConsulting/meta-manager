@@ -12,7 +12,7 @@ Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lea
 
 ### 1. Google Sheet centrale
 
-Crea uno spreadsheet Google con **16 tab** (5 di supporto — `Commerciali`, `Prospect`, `ReportCommerciale`, `GhlConnessioni` e `Sedi` sotto — più le 11 già presenti prima del modulo commerciale/GHL), ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione). In pratica non serve crearle a mano: la prima volta bastano `Clienti`/`Consulenti` (vedi sotto), le altre le crea l'app scrivendoci — ma se parti da zero, la struttura è questa:
+Crea uno spreadsheet Google con **17 tab** (6 di supporto — `Commerciali`, `Prospect`, `ReportCommerciale`, `GhlConnessioni`, `FasiCompletate` e `Sedi` sotto — più le 11 già presenti prima del modulo commerciale/GHL), ognuna con la riga 1 come intestazione (i nomi delle colonne sono liberi, l'app legge per posizione). In pratica non serve crearle a mano: la prima volta bastano `Clienti`/`Consulenti` (vedi sotto), le altre le crea l'app scrivendoci — ma se parti da zero, la struttura è questa:
 
 **Clienti** — un cliente si può creare anche dalla UI (`+ Nuovo cliente`, nella home admin o nella pagina Clienti), che genera `cliente_id`/`access_code` da sola; questa tabella resta comunque editabile a mano.
 | A cliente_id | B nome | C ad_account_id | D access_code | E attivo | F consulente_id | G target_cpa | H target_cpl | I mostra_tab_extra | J prodotto_id | K data_inizio_progetto | L tipo_conversione_lead | M email | N logo_url | O colore_primario | P colore_secondario | Q font_personalizzato | R drive_folder_url | S landing_page_url |
@@ -71,6 +71,11 @@ Colonna K aggiunta dopo il redesign KPI di fine agosto 2026 (blocco 7) — righe
 | A attivita_id | B cliente_id | C prodotto_id | D task_id | E blocco | F fase | G descrizione | H responsabile | I tipo | J data_inizio | K data_fine | L stato | M nota_team | N ordine |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `${cliente_id}::${task_id}` | | | | | | | | | `YYYY-MM-DD` | `YYYY-MM-DD` | `todo`/`wip`/`done`/`blocked` | | |
+
+**FasiCompletate** — scritta SOLO da `POST /api/attivita/stato`, non modificare a mano. Una riga per ogni fase della roadmap di un cliente che è passata TUTTA a "done" (mai più di una riga per la stessa coppia cliente+fase — idempotente per costruzione, vedi `registraFaseCompletata` in `src/lib/sheets.ts`), è il registro degli eventi "tappa raggiunta" (Fase 1 roadmap, vista milestone) dietro il banner "🎉 Fase completata" mostrato sia al team (tab Attività, entro 14 giorni dalla data) sia al cliente finale (tab KPI, stessa finestra — solo fase+data, mai il dettaglio delle attività).
+| A cliente_id | B fase | C completata_il |
+|---|---|---|
+| | etichetta di fase, stessa colonna D di TemplateAttivita | `YYYY-MM-DD` |
 
 **MeetingCliente** — scritta dal tab Meeting (estrazione + salvataggio). Colonne stabili minime + `dati_json` con tutto il resto (partecipanti, riassunto, action item, campi discorsivi, ecc.), per non dover mai migrare lo schema quando cambia il template di estrazione.
 | A meeting_id | B cliente_id | C data | D titolo | E sentiment | F aggiornato_il | G dati_json |

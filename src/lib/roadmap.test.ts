@@ -3,6 +3,8 @@ import {
   attivitaInRitardo,
   dataFineSettimana,
   dataInizioSettimana,
+  faseCompletata,
+  fasiCompletateRecenti,
   generaAttivitaPerCliente,
   prossimoStato,
   raggruppaAttivitaPerCliente,
@@ -11,7 +13,7 @@ import {
   rangeProgetto,
   settimanaCorrente,
 } from "./roadmap";
-import type { AttivitaClienteRow, TemplateTask } from "@/types/kpi";
+import type { AttivitaClienteRow, FaseCompletataRow, TemplateTask } from "@/types/kpi";
 
 describe("dataInizioSettimana / dataFineSettimana", () => {
   const inizio = "2026-08-10"; // lunedì
@@ -246,5 +248,58 @@ describe("raggruppaAttivitaPerCliente", () => {
 
   it("array vuoto -> mappa vuota", () => {
     expect(raggruppaAttivitaPerCliente([]).size).toBe(0);
+  });
+});
+
+describe("faseCompletata", () => {
+  it("true se tutte le attività della fase sono done", () => {
+    const attivita = [riga({ taskId: "a", stato: "done" }), riga({ taskId: "b", stato: "done" })];
+    expect(faseCompletata(attivita)).toBe(true);
+  });
+
+  it("false se anche una sola attività non è done", () => {
+    const attivita = [riga({ taskId: "a", stato: "done" }), riga({ taskId: "b", stato: "wip" })];
+    expect(faseCompletata(attivita)).toBe(false);
+  });
+
+  it("fase vuota -> false (non ha senso completare una fase senza attività)", () => {
+    expect(faseCompletata([])).toBe(false);
+  });
+});
+
+function faseRiga(over: Partial<FaseCompletataRow>): FaseCompletataRow {
+  return { clienteId: "alc-07", fase: "Fase 1", completataIl: "2026-09-01", ...over };
+}
+
+describe("fasiCompletateRecenti", () => {
+  const oggi = "2026-09-08";
+
+  it("include solo le fasi del cliente richiesto", () => {
+    const fasi = [faseRiga({ clienteId: "alc-07" }), faseRiga({ clienteId: "altro-cliente" })];
+    expect(fasiCompletateRecenti(fasi, "alc-07", oggi)).toHaveLength(1);
+  });
+
+  it("esclude le fasi completate oltre la finestra di 14 giorni", () => {
+    const fasi = [faseRiga({ fase: "Recente", completataIl: "2026-09-01" }), faseRiga({ fase: "Vecchia", completataIl: "2026-08-01" })];
+    const risultato = fasiCompletateRecenti(fasi, "alc-07", oggi);
+    expect(risultato.map((f) => f.fase)).toEqual(["Recente"]);
+  });
+
+  it("include il bordo esatto della finestra (14 giorni fa compreso)", () => {
+    const fasi = [faseRiga({ completataIl: "2026-08-25" })]; // esattamente 14 giorni prima di oggi
+    expect(fasiCompletateRecenti(fasi, "alc-07", oggi)).toHaveLength(1);
+  });
+
+  it("ordina per data decrescente (più recente prima)", () => {
+    const fasi = [
+      faseRiga({ fase: "Prima", completataIl: "2026-09-01" }),
+      faseRiga({ fase: "Ultima", completataIl: "2026-09-07" }),
+      faseRiga({ fase: "Mezzo", completataIl: "2026-09-04" }),
+    ];
+    expect(fasiCompletateRecenti(fasi, "alc-07", oggi).map((f) => f.fase)).toEqual(["Ultima", "Mezzo", "Prima"]);
+  });
+
+  it("nessuna fase completata di recente -> array vuoto", () => {
+    expect(fasiCompletateRecenti([], "alc-07", oggi)).toEqual([]);
   });
 });
