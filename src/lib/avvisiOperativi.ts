@@ -1,5 +1,7 @@
 import type { ValutazioneSalute } from "@/lib/salute";
 import type { MeseSenzaFunnel } from "@/lib/kpiQualita";
+import type { InserzioneOutlier } from "@/lib/inserzioniOutlier";
+import { SOGLIA_OUTLIER_CPL } from "@/lib/inserzioniOutlier";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 import { formatEuro, formatMese } from "@/lib/format";
 
@@ -28,6 +30,7 @@ export function generaAvvisiOperativi(input: {
   meseSenzaFunnel: MeseSenzaFunnel[];
   ghl: GhlRiepilogoResponse | null;
   campagneFrequenzaAlta: { nomeCampagna: string; frequenza: number }[];
+  inserzioniOutlier: InserzioneOutlier[];
 }): AvvisoOperativo[] {
   const avvisi: AvvisoOperativo[] = [];
   const { valutazioneSalute: v } = input;
@@ -65,6 +68,24 @@ export function generaAvvisiOperativi(input: {
       tono: "attenzione",
       titolo: "Frequenza alta",
       messaggio: `${nomi.join(", ")}${suffisso} — creatività da rinnovare.`,
+    });
+  }
+
+  // Controllo qualità richiesto esplicitamente dall'utente: il CPL medio di campagna può essere
+  // nella norma pur nascondendo una singola inserzione outlier che sta bruciando budget — vedi
+  // trovaInserzioniOutlier in inserzioniOutlier.ts (già filtrate: solo ACTIVE, solo con spesa).
+  if (input.inserzioniOutlier.length > 0) {
+    const nomi = input.inserzioniOutlier.slice(0, 3).map((i) => {
+      const cpl = Number.isFinite(i.costoPerLead) ? formatEuro(i.costoPerLead) : "nessun lead";
+      return `${i.adName} (${cpl})`;
+    });
+    const restanti = input.inserzioniOutlier.length - nomi.length;
+    const suffisso = restanti > 0 ? ` e altre ${restanti}` : "";
+    avvisi.push({
+      id: "inserzioni-outlier",
+      tono: "attenzione",
+      titolo: "Inserzioni outlier",
+      messaggio: `${nomi.join(", ")}${suffisso} — costo per lead oltre ${SOGLIA_OUTLIER_CPL}× il target, valuta di spegnerle.`,
     });
   }
 

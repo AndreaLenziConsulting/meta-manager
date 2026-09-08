@@ -15,6 +15,7 @@ import { PlaceholderTab } from "@/components/PlaceholderTab";
 import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
+import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
 import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
@@ -102,6 +103,9 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // lib/meta.ts). Mappa vuota finché non arriva o se la chiamata fallisce: quella campagna mostra
   // "dato non disponibile" e non contribuisce al pallino, mai un falso verde.
   const [frequenzaPerCampagna, setFrequenzaPerCampagna] = useState<Record<string, number>>({});
+  // Inserzioni (ad) per il controllo qualità "outlier CPL" (blocco 4) — vedi il fetch dedicato più
+  // sotto e inserzioniOutlier.ts. Array vuoto finché non arriva o se non c'è nulla da leggere.
+  const [inserzioni, setInserzioni] = useState<InserzioneConStato[]>([]);
 
   // Contesto = quale cliente/codice sto guardando, indipendente dalla sede: cambia solo quando si
   // naviga verso un cliente diverso, non quando si cambia sede all'interno dello stesso cliente.
@@ -306,6 +310,29 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return () => controller.abort();
   }, [clienteId, sedeGhl, da, a, refreshTick]);
 
+  // Inserzioni (blocco 4, controllo qualità) — stesso ciclo di vita del fetch frequenza sopra:
+  // dati grezzi per inserzione (spesa/lead/stato), la soglia di outlier si applica lato client
+  // in inserzioniOutlier sotto (stesso schema "dati qui, soglia là" di campagneFrequenzaAlta).
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        if (!clienteId || !sedeGhl) {
+          setInserzioni([]);
+          return undefined;
+        }
+        const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
+        return fetch(`/api/meta-inserzioni?${params.toString()}`, { signal: controller.signal })
+          .then((res) => (res.ok ? res.json() : null))
+          .then((body: { inserzioni: InserzioneConStato[] } | null) => setInserzioni(body?.inserzioni ?? []));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setInserzioni([]);
+      });
+    return () => controller.abort();
+  }, [clienteId, sedeGhl, da, a, refreshTick]);
+
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
   // filtro campagne attivo), altrimenti dal Funnel come sempre — vedi kpiGhlOverlay.ts per il
   // dettaglio di quali tessere e perché non tutte.
@@ -424,6 +451,15 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       .filter((c): c is { nomeCampagna: string; frequenza: number } => c.frequenza !== null && c.frequenza > SOGLIA_FREQUENZA);
   }, [dati, frequenzaPerCampagna]);
 
+  // Inserzioni outlier (blocco 4, controllo qualità) — il CPL medio di campagna può essere nella
+  // norma pur nascondendo una singola inserzione che sta bruciando budget, vedi
+  // trovaInserzioniOutlier in inserzioniOutlier.ts. Target CPL della sede corrente, come il resto
+  // dei giudizi CPL già in uso (valutazioneCampagna.ts).
+  const inserzioniOutlier = useMemo(
+    () => trovaInserzioniOutlier(inserzioni, dati?.sede.targetCpl ?? null),
+    [inserzioni, dati]
+  );
+
   // Blocco 4 — Avvisi operativi: si ricalcola da solo quando cambiano periodo/campagne/sede, dato
   // che tutti gli input (dati, ghlDati, frequenzaPerCampagna, attivitaInRitardoCount) sono già
   // scoped a quel contesto. Gated su Boolean(clienteId) dal chiamante sotto — mai sul link pubblico
@@ -436,8 +472,9 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       meseSenzaFunnel: dati.meseSenzaFunnel ?? [],
       ghl: ghlDati,
       campagneFrequenzaAlta,
+      inserzioniOutlier,
     });
-  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta]);
+  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta, inserzioniOutlier]);
 
   return (
     <div className="viz-root space-y-6">

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { generaAvvisiOperativi } from "./avvisiOperativi";
 import type { ValutazioneSalute } from "./salute";
+import type { InserzioneOutlier } from "./inserzioniOutlier";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 import { formatEuro, formatMese } from "./format";
 
@@ -13,7 +14,12 @@ const INPUT_VUOTO = {
   meseSenzaFunnel: [],
   ghl: null,
   campagneFrequenzaAlta: [],
+  inserzioniOutlier: [],
 };
+
+function inserzioneOutlier(over: Partial<InserzioneOutlier>): InserzioneOutlier {
+  return { adId: "ad1", adName: "Inserzione 1", campaignId: "c1", nomeCampagna: "Campagna 1", spesa: 300, lead: 10, costoPerLead: 30, rapportoTarget: 3, ...over };
+}
 
 describe("generaAvvisiOperativi", () => {
   it("nessun avviso quando tutto è a posto", () => {
@@ -200,7 +206,40 @@ describe("generaAvvisiOperativi", () => {
       meseSenzaFunnel: [],
       ghl, // calendari non configurati -> da-sistemare, calendari falliti -> da-sapere
       campagneFrequenzaAlta: [{ nomeCampagna: "A", frequenza: 3 }], // attenzione
+      inserzioniOutlier: [],
     });
     expect(avvisi.map((a) => a.tono)).toEqual(["attenzione", "da-sistemare", "da-sapere"]);
+  });
+
+  it("inserzioni outlier elencano le prime 3 con CPL, poi riassumono il resto", () => {
+    const poche = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      inserzioniOutlier: [inserzioneOutlier({ adName: "Video A", costoPerLead: 30 })],
+    });
+    expect(poche[0]).toEqual({
+      id: "inserzioni-outlier",
+      tono: "attenzione",
+      titolo: "Inserzioni outlier",
+      messaggio: `Video A (${formatEuro(30)}) — costo per lead oltre 2.5× il target, valuta di spegnerle.`,
+    });
+
+    const molte = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      inserzioniOutlier: [
+        inserzioneOutlier({ adId: "a", adName: "A" }),
+        inserzioneOutlier({ adId: "b", adName: "B" }),
+        inserzioneOutlier({ adId: "c", adName: "C" }),
+        inserzioneOutlier({ adId: "d", adName: "D" }),
+      ],
+    });
+    expect(molte[0].messaggio).toBe(`A (${formatEuro(30)}), B (${formatEuro(30)}), C (${formatEuro(30)}) e altre 1 — costo per lead oltre 2.5× il target, valuta di spegnerle.`);
+  });
+
+  it("inserzione outlier senza lead (CPL Infinity) mostra 'nessun lead' invece di un numero", () => {
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      inserzioniOutlier: [inserzioneOutlier({ adName: "Senza lead", lead: 0, costoPerLead: Infinity })],
+    });
+    expect(avvisi[0].messaggio).toContain("Senza lead (nessun lead)");
   });
 });

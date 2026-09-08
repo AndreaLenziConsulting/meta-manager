@@ -160,6 +160,76 @@ export async function fetchStatoCampagne(adAccountId: string): Promise<Map<strin
   return stati;
 }
 
+type MetaAdInsightRow = {
+  ad_id: string;
+  ad_name: string;
+  campaign_id: string;
+  campaign_name: string;
+  spend?: string;
+  actions?: MetaAction[];
+};
+
+export type InserzioneAggregata = {
+  adId: string;
+  adName: string;
+  campaignId: string;
+  nomeCampagna: string;
+  spesa: number;
+  lead: number;
+};
+
+/**
+ * Spesa+lead per SINGOLA inserzione (ad), aggregati sull'intero periodo `since`/`until` — mai
+ * sincronizzata/salvata nel foglio (stesso principio "letta live" di fetchFrequenzaPerCampagna
+ * sopra): un'inserzione nasce e muore in continuazione, tracciarne uno storico richiederebbe uno
+ * schema e una manutenzione che non servono allo scopo di questo controllo (trovare le inserzioni
+ * outlier ORA — vedi trovaInserzioniOutlier in lib/inserzioniOutlier.ts — non seguirne l'andamento
+ * nel tempo). Nessun `time_increment`: un'unica chiamata aggregata, stesso principio "pacchetto
+ * unico" di fetchStatoCampagne/fetchFrequenzaPerCampagna.
+ */
+export async function fetchInserzioniPerCampagna(
+  adAccountId: string,
+  since: string,
+  until: string,
+  tipoConversioneLead?: string
+): Promise<InserzioneAggregata[]> {
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
+  url.searchParams.set("level", "ad");
+  url.searchParams.set("fields", "ad_id,ad_name,campaign_id,campaign_name,spend,actions");
+  url.searchParams.set("time_range", JSON.stringify({ since, until }));
+  url.searchParams.set("access_token", metaToken());
+  url.searchParams.set("limit", "500");
+
+  const items = await fetchTutteLePagine<MetaAdInsightRow>(url);
+
+  return items.map((item) => ({
+    adId: item.ad_id,
+    adName: item.ad_name,
+    campaignId: item.campaign_id,
+    nomeCampagna: item.campaign_name,
+    spesa: Number(item.spend || 0),
+    lead: extractLeads(item.actions, tipoConversioneLead),
+  }));
+}
+
+type MetaAdStatus = { id: string; effective_status?: string };
+
+/** Stato corrente (ACTIVE/PAUSED/...) di tutte le inserzioni di un ad account, per ad_id — mirror di fetchStatoCampagne. */
+export async function fetchStatoInserzioni(adAccountId: string): Promise<Map<string, string>> {
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/ads`);
+  url.searchParams.set("fields", "id,effective_status");
+  url.searchParams.set("access_token", metaToken());
+  url.searchParams.set("limit", "500");
+
+  const items = await fetchTutteLePagine<MetaAdStatus>(url);
+
+  const stati = new Map<string, string>();
+  for (const item of items) {
+    if (item.effective_status) stati.set(item.id, item.effective_status);
+  }
+  return stati;
+}
+
 type MetaFrequenzaRow = { campaign_id: string; frequency?: string };
 
 /**
