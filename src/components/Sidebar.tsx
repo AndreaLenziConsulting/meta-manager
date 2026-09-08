@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   BookOpen,
   Building2,
+  CalendarClock,
   ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
@@ -60,6 +61,14 @@ const NAV_ITEMS: NavItem[] = [
     // Niente commerciale: dominio cliente/roadmap prodotto, non prospect.
     ruoli: ["admin", "consulente"],
     attiva: (p) => p.startsWith("/dashboard/attivita"),
+  },
+  {
+    href: "/dashboard/meeting",
+    label: "Meeting",
+    icon: CalendarClock,
+    // Niente commerciale: stesso dominio cliente/roadmap di "Attività", non prospect.
+    ruoli: ["admin", "consulente"],
+    attiva: (p) => p.startsWith("/dashboard/meeting"),
   },
   {
     href: "/dashboard/guida",
