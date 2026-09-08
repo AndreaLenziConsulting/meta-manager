@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, Folder, ExternalLink } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
@@ -20,22 +21,48 @@ import { LogoONomeCliente } from "@/components/LogoONomeCliente";
  *
  * `settimanaProgetto`/`driveFolderUrl`/`landingPageUrl` sono le stesse aggiunte "anagrafiche" del
  * cliente (mai sul link pubblico, stesso motivo del resto dell'header) — link rapidi e contesto
- * temporale che il consulente vuole avere sotto mano senza aprire "Modifica cliente".
+ * temporale che il consulente vuole avere sotto mano senza aprire "Modifica cliente". Se un link
+ * non è ancora impostato, l'admin può aggiungerlo qui stesso (LinkRapido sotto, mini-form inline,
+ * stesso pattern di "+ Aggiungi ad account" in KpiSection.tsx) invece di dover aprire l'intero
+ * modale — richiesta esplicita dell'utente ("non c'è modo di arrivarci se non dalla modifica").
  */
 export function ClienteHeader({
+  clienteId,
   clienteNome,
   clienteLogoUrl,
   settimanaProgetto,
   driveFolderUrl,
   landingPageUrl,
+  ruoloAdmin,
 }: {
+  clienteId: string;
   clienteNome: string;
   clienteLogoUrl?: string;
   settimanaProgetto?: number | null;
   driveFolderUrl?: string;
   landingPageUrl?: string;
+  ruoloAdmin?: boolean;
 }) {
   const router = useRouter();
+
+  // Override ottimistico dopo un salvataggio riuscito, scoped al clienteId corrente — stesso
+  // pattern "contesto" di sedeScelta/filtroCampagne in KpiSection.tsx: senza questo confronto, se
+  // il componente non si smonta passando a un altro cliente (transizione client-side), l'override
+  // del cliente precedente resterebbe visibile su quello nuovo.
+  const [linkSalvati, setLinkSalvati] = useState<{ clienteId: string; driveFolderUrl?: string; landingPageUrl?: string }>({ clienteId });
+  const driveFolderUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.driveFolderUrl : undefined) ?? driveFolderUrl;
+  const landingPageUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.landingPageUrl : undefined) ?? landingPageUrl;
+
+  async function salvaLinkRapido(campo: "driveFolderUrl" | "landingPageUrl", valore: string) {
+    const res = await fetch("/api/clienti", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clienteId, [campo]: valore }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+    setLinkSalvati((prev) => ({ ...(prev.clienteId === clienteId ? prev : { clienteId }), [campo]: valore }));
+  }
 
   function tornaIndietro() {
     // history.length === 1 -> questa scheda era la prima voce di cronologia della sessione (arrivo
@@ -73,29 +100,131 @@ export function ClienteHeader({
       )}
 
       <div className="flex items-center gap-2 ml-auto">
-        {driveFolderUrl && (
-          <a
-            href={driveFolderUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Apri la cartella Drive del cliente"
-            className="flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition"
-          >
-            <Folder size={14} /> Drive
-          </a>
-        )}
-        {landingPageUrl && (
-          <a
-            href={landingPageUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            title="Apri la landing page del cliente"
-            className="flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition"
-          >
-            <ExternalLink size={14} /> Landing page
-          </a>
-        )}
+        <LinkRapido
+          label="Drive"
+          icona={Folder}
+          url={driveFolderUrlEffettivo}
+          titleApri="Apri la cartella Drive del cliente"
+          placeholder="https://drive.google.com/…"
+          puoModificare={Boolean(ruoloAdmin)}
+          onSalva={(valore) => salvaLinkRapido("driveFolderUrl", valore)}
+        />
+        <LinkRapido
+          label="Landing page"
+          icona={ExternalLink}
+          url={landingPageUrlEffettivo}
+          titleApri="Apri la landing page del cliente"
+          placeholder="https://…"
+          puoModificare={Boolean(ruoloAdmin)}
+          onSalva={(valore) => salvaLinkRapido("landingPageUrl", valore)}
+        />
       </div>
+    </div>
+  );
+}
+
+const classePillo =
+  "flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer";
+
+/**
+ * Un link rapido dell'header (Drive/Landing page): pillola che apre il link se impostato, altrimenti
+ * — solo per chi può modificare il cliente — una pillola "+ <label>" che apre un mini-form inline
+ * per aggiungerlo, senza dover passare da "Modifica cliente". Chi non può modificare (consulente,
+ * link pubblico) semplicemente non vede nulla quando il link manca — comportamento invariato.
+ */
+function LinkRapido({
+  label,
+  icona: Icona,
+  url,
+  titleApri,
+  placeholder,
+  puoModificare,
+  onSalva,
+}: {
+  label: string;
+  icona: typeof Folder;
+  url: string | undefined;
+  titleApri: string;
+  placeholder: string;
+  puoModificare: boolean;
+  onSalva: (valore: string) => Promise<void>;
+}) {
+  const [aperto, setAperto] = useState(false);
+  const [bozza, setBozza] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  if (url) {
+    return (
+      <a href={url} target="_blank" rel="noopener noreferrer" title={titleApri} className={classePillo}>
+        <Icona size={14} /> {label}
+      </a>
+    );
+  }
+
+  if (!puoModificare) return null;
+
+  if (!aperto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAperto(true)}
+        title={`Aggiungi il link ${label}`}
+        className="flex items-center gap-1.5 text-xs font-semibold text-ink-500 bg-surface-card border border-dashed border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer"
+      >
+        <Icona size={14} /> + {label}
+      </button>
+    );
+  }
+
+  async function handleSalva() {
+    const valore = bozza.trim();
+    if (!/^https?:\/\//.test(valore)) {
+      setErrore("Deve iniziare con http:// o https://");
+      return;
+    }
+    setSalvando(true);
+    setErrore(null);
+    try {
+      await onSalva(valore);
+      setAperto(false);
+      setBozza("");
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <input
+        type="text"
+        value={bozza}
+        onChange={(e) => setBozza(e.target.value)}
+        placeholder={placeholder}
+        autoFocus
+        className="rounded-lg border border-ink-300 bg-surface-card px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-brand/30 w-56"
+      />
+      <button
+        type="button"
+        onClick={handleSalva}
+        disabled={salvando}
+        className="rounded-lg bg-cta hover:bg-cta-dark disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+      >
+        {salvando ? "Salvataggio…" : "Salva"}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          setAperto(false);
+          setErrore(null);
+        }}
+        className="text-ink-500 hover:text-ink-700 text-xs font-medium px-1 cursor-pointer"
+      >
+        Annulla
+      </button>
+      {errore && <span className="text-red-600 text-[11px]">{errore}</span>}
     </div>
   );
 }

@@ -100,11 +100,13 @@ export function SchedaCliente({
           SchedaCliente (src/app/report/[code]/page.tsx) — qui comparirebbe raddoppiato. */}
       {clienteId && clienteNome && (
         <ClienteHeader
+          clienteId={clienteId}
           clienteNome={clienteNome}
           clienteLogoUrl={clienteLogoUrl}
           settimanaProgetto={settimanaProgetto}
           driveFolderUrl={driveFolderUrl}
           landingPageUrl={landingPageUrl}
+          ruoloAdmin={ruoloAdmin}
         />
       )}
 
