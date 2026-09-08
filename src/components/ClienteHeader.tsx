@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Folder, ExternalLink } from "lucide-react";
+import { ArrowLeft, ClipboardList, Folder, ExternalLink } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
 
 /**
@@ -25,6 +25,13 @@ import { LogoONomeCliente } from "@/components/LogoONomeCliente";
  * non è ancora impostato, l'admin può aggiungerlo qui stesso (LinkRapido sotto, mini-form inline,
  * stesso pattern di "+ Aggiungi ad account" in KpiSection.tsx) invece di dover aprire l'intero
  * modale — richiesta esplicita dell'utente ("non c'è modo di arrivarci se non dalla modifica").
+ *
+ * `appuntamentiFileUrl` invece non è mai impostato a mano (nessun LinkRapido "+ Appuntamenti"): è
+ * un get-or-create automatico dentro driveFolderUrl (vedi /api/clienti/file-appuntamenti +
+ * src/lib/appuntamentiFile.ts), gated su `!haConnessioneGhl` — decisione esplicita dell'utente
+ * (08/09/2026): un cliente con GHL connesso ha gli appuntamenti letti in diretta, non ha senso
+ * chiedergli di compilarli a mano. Se manca driveFolderUrl (prerequisito: serve una cartella dove
+ * creare il file) l'errore è mostrato solo all'admin, unico ruolo che può risolverlo.
  */
 export function ClienteHeader({
   clienteId,
@@ -33,6 +40,8 @@ export function ClienteHeader({
   settimanaProgetto,
   driveFolderUrl,
   landingPageUrl,
+  appuntamentiFileUrl,
+  haConnessioneGhl,
   ruoloAdmin,
 }: {
   clienteId: string;
@@ -41,6 +50,8 @@ export function ClienteHeader({
   settimanaProgetto?: number | null;
   driveFolderUrl?: string;
   landingPageUrl?: string;
+  appuntamentiFileUrl?: string;
+  haConnessioneGhl?: boolean;
   ruoloAdmin?: boolean;
 }) {
   const router = useRouter();
@@ -52,6 +63,35 @@ export function ClienteHeader({
   const [linkSalvati, setLinkSalvati] = useState<{ clienteId: string; driveFolderUrl?: string; landingPageUrl?: string }>({ clienteId });
   const driveFolderUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.driveFolderUrl : undefined) ?? driveFolderUrl;
   const landingPageUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.landingPageUrl : undefined) ?? landingPageUrl;
+
+  // Stato del get-or-create automatico del file appuntamenti — stesso schema "contesto" di
+  // linkSalvati sopra, ma qui la fonte è un fetch automatico, non un salvataggio dell'utente.
+  const [statoFile, setStatoFile] = useState<{ clienteId: string; url?: string; errore?: string }>({ clienteId });
+  const appuntamentiFileUrlEffettivo = (statoFile.clienteId === clienteId ? statoFile.url : undefined) ?? appuntamentiFileUrl;
+  const erroreFile = statoFile.clienteId === clienteId ? statoFile.errore : undefined;
+
+  useEffect(() => {
+    // Niente da fare: GHL connesso (nessuna compilazione manuale ha senso) o il link esiste già
+    // (creato in una visita precedente, arrivato via prop da Cliente.appuntamentiFileUrl).
+    if (haConnessioneGhl || appuntamentiFileUrl) return;
+    const controller = new AbortController();
+    fetch("/api/clienti/file-appuntamenti", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ clienteId }),
+      signal: controller.signal,
+    })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Errore sconosciuto");
+        setStatoFile({ clienteId, url: body.url });
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setStatoFile({ clienteId, errore: err instanceof Error ? err.message : "Errore sconosciuto" });
+      });
+    return () => controller.abort();
+  }, [clienteId, haConnessioneGhl, appuntamentiFileUrl]);
 
   async function salvaLinkRapido(campo: "driveFolderUrl" | "landingPageUrl", valore: string) {
     const res = await fetch("/api/clienti", {
@@ -118,6 +158,28 @@ export function ClienteHeader({
           puoModificare={Boolean(ruoloAdmin)}
           onSalva={(valore) => salvaLinkRapido("landingPageUrl", valore)}
         />
+        {!haConnessioneGhl && appuntamentiFileUrlEffettivo && (
+          <a
+            href={appuntamentiFileUrlEffettivo}
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Apri il file dove compilare gli appuntamenti del cliente"
+            className={classePillo}
+          >
+            <ClipboardList size={14} /> Appuntamenti
+          </a>
+        )}
+        {/* Errore visibile solo all'admin: è l'unico ruolo che può risolverlo (collegando la
+            cartella Drive, vedi il commento sopra sull'effect) — un consulente non ci può fare
+            nulla, mostrarglielo sarebbe solo rumore. */}
+        {!haConnessioneGhl && !appuntamentiFileUrlEffettivo && erroreFile && ruoloAdmin && (
+          <span
+            title={erroreFile}
+            className="flex items-center gap-1.5 text-xs font-semibold text-yellow-800 bg-yellow-50 border border-yellow-100 rounded-full px-3 py-1.5 cursor-help"
+          >
+            <ClipboardList size={14} /> Appuntamenti — errore
+          </span>
+        )}
       </div>
     </div>
   );

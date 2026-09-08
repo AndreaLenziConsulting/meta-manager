@@ -12,7 +12,7 @@ function cliente(over: Partial<Cliente>): Cliente {
     consulenteId: "cons-1", mostraTabExtra: false,
     prodottoId: "", dataInizioProgetto: null, email: "",
     logoUrl: "", colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "",
-    driveFolderUrl: "", landingPageUrl: "", ...over,
+    driveFolderUrl: "", landingPageUrl: "", appuntamentiFileUrl: "", ...over,
   };
 }
 

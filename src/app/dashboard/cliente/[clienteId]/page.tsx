@@ -46,6 +46,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         settimanaProgetto={settimanaProgetto}
         driveFolderUrl={cliente?.driveFolderUrl}
         landingPageUrl={cliente?.landingPageUrl}
+        appuntamentiFileUrl={cliente?.appuntamentiFileUrl}
         tuttiITab
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={sessione.ruolo === "admin"}

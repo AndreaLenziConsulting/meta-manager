@@ -27,6 +27,12 @@ export type Cliente = {
   // Colonne R/S del tab Clienti, aggiunte dopo le Q colonne di personalizzazione sopra.
   driveFolderUrl: string;
   landingPageUrl: string;
+  // Colonna T — file di compilazione appuntamenti (Mese/Richieste/Appuntamenti fissati/effettuati/
+  // Vendite/Fatturato), creato in automatico dentro driveFolderUrl al primo bisogno e poi
+  // persistito qui (vedi src/lib/appuntamentiFile.ts + /api/clienti/file-appuntamenti). Mostrato
+  // in ClienteHeader SOLO per sedi senza connessione GHL attiva — un cliente GHL non deve
+  // compilare a mano ciò che l'app già legge in diretta. Vuoto finché non è mai stato generato.
+  appuntamentiFileUrl: string;
 };
 
 /**

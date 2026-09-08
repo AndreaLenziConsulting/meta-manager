@@ -184,6 +184,9 @@ export function toNumberOrNull(value: CellValue): number | null {
 // personalizzazione visiva per-cliente (vedi src/lib/temaCliente.ts) — righe create prima le
 // leggono vuote, comportamento invariato (nessuna personalizzazione, brand ALC standard).
 //
+// Colonna T (appuntamentiFileUrl) — get-or-create automatico dentro driveFolderUrl, mai scritta a
+// mano dall'admin (a differenza di R/S) — vedi src/lib/appuntamentiFile.ts.
+//
 // Le colonne C (adAccountId), G/H (targetCpa/targetCpl) ed L (tipoConversioneLead) restano
 // fisicamente sulla tab Clienti (niente shift su un foglio che il team guarda/modifica a mano) ma
 // sono vestigiali: da quando esiste Sede, questi valori vivono lì (uno per sede, non per cliente).
@@ -207,6 +210,7 @@ export async function getClienti(): Promise<Cliente[]> {
       fontPersonalizzato: asText(r[16]),
       driveFolderUrl: asText(r[17]),
       landingPageUrl: asText(r[18]),
+      appuntamentiFileUrl: asText(r[19]),
     }));
 }
 
@@ -225,6 +229,7 @@ export type NuovoClienteInput = {
   fontPersonalizzato?: string;
   driveFolderUrl?: string;
   landingPageUrl?: string;
+  appuntamentiFileUrl?: string;
 };
 
 /** Crea un nuovo cliente (sempre attivo). Rifiuta esplicitamente un clienteId già in uso. */
@@ -254,6 +259,7 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
       input.fontPersonalizzato ?? "",
       input.driveFolderUrl ?? "",
       input.landingPageUrl ?? "",
+      input.appuntamentiFileUrl ?? "",
     ],
   ]);
 }
@@ -271,6 +277,7 @@ export type AggiornaClienteInput = {
   fontPersonalizzato?: string;
   driveFolderUrl?: string;
   landingPageUrl?: string;
+  appuntamentiFileUrl?: string;
 };
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
@@ -287,7 +294,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.clienti}!A2:S`,
+    range: `${TAB.clienti}!A2:T`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -311,6 +318,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   if (input.fontPersonalizzato !== undefined) set("Q", input.fontPersonalizzato);
   if (input.driveFolderUrl !== undefined) set("R", input.driveFolderUrl);
   if (input.landingPageUrl !== undefined) set("S", input.landingPageUrl);
+  if (input.appuntamentiFileUrl !== undefined) set("T", input.appuntamentiFileUrl);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({
