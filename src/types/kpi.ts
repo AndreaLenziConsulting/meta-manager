@@ -48,6 +48,15 @@ export type Sede = {
   // in src/lib/meta.ts) — comportamento invariato per tutte le sedi esistenti.
   tipoConversioneLead: string;
   attivo: boolean;
+  // Target commerciali concordati col cliente (Fase 1 roadmap) — controllati contro l'andamento
+  // reale del periodo selezionato negli avvisi operativi (vedi src/lib/targetCommerciali.ts),
+  // stesso ruolo di targetCpa/targetCpl sopra ma su volumi/fatturato invece che su costo. Utile
+  // medio (per vendita/mensile) deliberatamente fuori scope: nessun dato di profitto reale
+  // tracciato in app oggi, richiesta esplicita dell'utente di ignorarlo per ora.
+  targetBudgetMensile: number | null;
+  targetLeadSettimana: number | null;
+  targetAppuntamentiSettimana: number | null;
+  targetFatturatoMensile: number | null;
 };
 
 export type Consulente = {
@@ -172,7 +181,20 @@ export type KpiResponse = {
   // adAccountId, come targetCpa/targetCpl, presente solo nella richiesta interna — su `code` un
   // avviso "ad account non collegato" non avrebbe senso mostrato al cliente finale, è un'azione da
   // team. "" = non ancora collegato (opzionale alla creazione, vedi /api/clienti e /api/sedi).
-  sede: { sedeId: string; nome: string; targetCpa?: number | null; targetCpl?: number | null; adAccountId?: string };
+  // Target commerciali (Fase 1 roadmap), stessa regola "solo nella richiesta interna" di
+  // targetCpa/targetCpl sopra — controllati contro il reale negli avvisi operativi
+  // (src/lib/targetCommerciali.ts), mai esposti al cliente pubblico.
+  sede: {
+    sedeId: string;
+    nome: string;
+    targetCpa?: number | null;
+    targetCpl?: number | null;
+    adAccountId?: string;
+    targetBudgetMensile?: number | null;
+    targetLeadSettimana?: number | null;
+    targetAppuntamentiSettimana?: number | null;
+    targetFatturatoMensile?: number | null;
+  };
   // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
   sediDisponibili: { sedeId: string; nome: string }[];
   periodo: { da: string; a: string };

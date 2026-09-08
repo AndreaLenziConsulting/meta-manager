@@ -12,6 +12,10 @@ type BodyPost = {
   targetCpa?: number | null;
   targetCpl?: number | null;
   tipoConversioneLead?: string;
+  targetBudgetMensile?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
 };
 
 /** Aggiunge una sede a un cliente esistente (dalla sezione "Sedi" di ModificaClienteModal). Solo admin. */
@@ -56,6 +60,10 @@ export async function POST(req: NextRequest) {
       targetCpa: body.targetCpa ?? null,
       targetCpl: body.targetCpl ?? null,
       tipoConversioneLead: body.tipoConversioneLead,
+      targetBudgetMensile: body.targetBudgetMensile ?? null,
+      targetLeadSettimana: body.targetLeadSettimana ?? null,
+      targetAppuntamentiSettimana: body.targetAppuntamentiSettimana ?? null,
+      targetFatturatoMensile: body.targetFatturatoMensile ?? null,
     });
     return NextResponse.json({ sedeId }, { status: 201 });
   } catch (err) {
@@ -71,6 +79,10 @@ type BodyPatch = {
   targetCpl?: number | null;
   tipoConversioneLead?: string;
   attivo?: boolean;
+  targetBudgetMensile?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
 };
 
 /**
@@ -120,6 +132,10 @@ export async function PATCH(req: NextRequest) {
       targetCpl: body.targetCpl,
       tipoConversioneLead: body.tipoConversioneLead,
       attivo: body.attivo,
+      targetBudgetMensile: body.targetBudgetMensile,
+      targetLeadSettimana: body.targetLeadSettimana,
+      targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,
+      targetFatturatoMensile: body.targetFatturatoMensile,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

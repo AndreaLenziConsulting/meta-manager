@@ -16,6 +16,7 @@ import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
 import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
+import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
 import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
@@ -350,12 +351,18 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     : null;
   // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello del
   // Funnel (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
-  // sulla stessa pagina. Vedi applicaOverlayGhlTrend in kpiGhlOverlay.ts.
-  const trendSettimanaleConOverlay = dati
-    ? applicaOverlayGhlTrend(dati.trendSettimanale, campagneSelezionate ? null : ghlDati, {
-        filtroCampagneAttivo: campagneSelezionate !== null,
-      })
-    : [];
+  // sulla stessa pagina. Vedi applicaOverlayGhlTrend in kpiGhlOverlay.ts. Memoizzato (non un valore
+  // derivato diretto come sopra): serve anche come dipendenza di confrontoTarget più sotto, dove un
+  // nuovo array a ogni render vanificherebbe la memoizzazione di quel useMemo.
+  const trendSettimanaleConOverlay = useMemo(
+    () =>
+      dati
+        ? applicaOverlayGhlTrend(dati.trendSettimanale, campagneSelezionate ? null : ghlDati, {
+            filtroCampagneAttivo: campagneSelezionate !== null,
+          })
+        : [],
+    [dati, ghlDati, campagneSelezionate]
+  );
 
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
   // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
@@ -460,6 +467,24 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     [inserzioni, dati]
   );
 
+  // Target commerciali (Fase 1 roadmap, blocco 4) — confronta i 4 target di sede con l'andamento
+  // reale del periodo selezionato, vedi confrontaTargetCommerciali in targetCommerciali.ts. Stessa
+  // fonte fatturato di SintesiTessere (overlayGhl se connesso, altrimenti il Funnel) — mai un
+  // confronto contro un fatturato diverso da quello già mostrato nelle tessere sopra.
+  const confrontoTarget = useMemo(() => {
+    if (!dati) return { budgetMensile: null, leadSettimana: null, appuntamentiSettimana: null, fatturatoMensile: null };
+    return confrontaTargetCommerciali({
+      targetBudgetMensile: dati.sede.targetBudgetMensile ?? null,
+      targetLeadSettimana: dati.sede.targetLeadSettimana ?? null,
+      targetAppuntamentiSettimana: dati.sede.targetAppuntamentiSettimana ?? null,
+      targetFatturatoMensile: dati.sede.targetFatturatoMensile ?? null,
+      investimentoPeriodo: dati.totale.investimento,
+      fatturatoPeriodo: overlayGhl?.fatturato.valore ?? dati.totale.fatturato,
+      numeroMesiPeriodo: contaMesiPeriodo(da, a),
+      serieSettimanale: trendSettimanaleConOverlay.map((s) => ({ numeroLead: s.numeroLead, appuntamentiFissati: s.appuntamentiFissati })),
+    });
+  }, [dati, overlayGhl, da, a, trendSettimanaleConOverlay]);
+
   // Blocco 4 — Avvisi operativi: si ricalcola da solo quando cambiano periodo/campagne/sede, dato
   // che tutti gli input (dati, ghlDati, frequenzaPerCampagna, attivitaInRitardoCount) sono già
   // scoped a quel contesto. Gated su Boolean(clienteId) dal chiamante sotto — mai sul link pubblico
@@ -473,8 +498,9 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       ghl: ghlDati,
       campagneFrequenzaAlta,
       inserzioniOutlier,
+      confrontoTarget,
     });
-  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta, inserzioniOutlier]);
+  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta, inserzioniOutlier, confrontoTarget]);
 
   return (
     <div className="viz-root space-y-6">

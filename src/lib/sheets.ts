@@ -332,6 +332,10 @@ export async function getSedi(): Promise<Sede[]> {
       targetCpl: toNumberOrNull(r[5]),
       tipoConversioneLead: asText(r[6]),
       attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
+      targetBudgetMensile: toNumberOrNull(r[8]),
+      targetLeadSettimana: toNumberOrNull(r[9]),
+      targetAppuntamentiSettimana: toNumberOrNull(r[10]),
+      targetFatturatoMensile: toNumberOrNull(r[11]),
     }));
 }
 
@@ -343,6 +347,10 @@ export type NuovaSedeInput = {
   targetCpa: number | null;
   targetCpl: number | null;
   tipoConversioneLead?: string;
+  targetBudgetMensile?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
 };
 
 /** Crea una nuova sede (sempre attiva). Rifiuta esplicitamente un sedeId già in uso. */
@@ -361,6 +369,10 @@ export async function creaSede(input: NuovaSedeInput): Promise<void> {
       input.targetCpl ?? "",
       input.tipoConversioneLead ?? "",
       "TRUE",
+      input.targetBudgetMensile ?? "",
+      input.targetLeadSettimana ?? "",
+      input.targetAppuntamentiSettimana ?? "",
+      input.targetFatturatoMensile ?? "",
     ],
   ]);
 }
@@ -373,6 +385,10 @@ export type AggiornaSedeInput = {
   targetCpl?: number | null;
   tipoConversioneLead?: string;
   attivo?: boolean;
+  targetBudgetMensile?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
+  targetFatturatoMensile?: number | null;
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di una sede esistente. */
@@ -380,7 +396,7 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.sedi}!A2:H`,
+    range: `${TAB.sedi}!A2:L`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -399,6 +415,10 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
   if (input.targetCpl !== undefined) set("F", input.targetCpl ?? "");
   if (input.tipoConversioneLead !== undefined) set("G", input.tipoConversioneLead);
   if (input.attivo !== undefined) set("H", input.attivo ? "TRUE" : "FALSE");
+  if (input.targetBudgetMensile !== undefined) set("I", input.targetBudgetMensile ?? "");
+  if (input.targetLeadSettimana !== undefined) set("J", input.targetLeadSettimana ?? "");
+  if (input.targetAppuntamentiSettimana !== undefined) set("K", input.targetAppuntamentiSettimana ?? "");
+  if (input.targetFatturatoMensile !== undefined) set("L", input.targetFatturatoMensile ?? "");
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

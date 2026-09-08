@@ -123,7 +123,17 @@ export async function GET(req: NextRequest) {
   const response: KpiResponse = {
     cliente: { clienteId, nome: nomeCliente },
     sede: internal
-      ? { sedeId: sede.sedeId, nome: sede.nome, targetCpa: sede.targetCpa, targetCpl: sede.targetCpl, adAccountId: sede.adAccountId }
+      ? {
+          sedeId: sede.sedeId,
+          nome: sede.nome,
+          targetCpa: sede.targetCpa,
+          targetCpl: sede.targetCpl,
+          adAccountId: sede.adAccountId,
+          targetBudgetMensile: sede.targetBudgetMensile,
+          targetLeadSettimana: sede.targetLeadSettimana,
+          targetAppuntamentiSettimana: sede.targetAppuntamentiSettimana,
+          targetFatturatoMensile: sede.targetFatturatoMensile,
+        }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),
     periodo: { da, a },

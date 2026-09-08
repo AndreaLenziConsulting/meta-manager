@@ -8,6 +8,8 @@ import { formatEuro, formatMese } from "./format";
 const SALUTE_OK: ValutazioneSalute = { stato: "mantieni", metricaUsata: "vendita", valoreAttuale: 100, targetUsato: 100 };
 const SALUTE_INTERVENI: ValutazioneSalute = { stato: "interveni", metricaUsata: "vendita", valoreAttuale: 150, targetUsato: 100 };
 
+const CONFRONTO_TARGET_VUOTO = { budgetMensile: null, leadSettimana: null, appuntamentiSettimana: null, fatturatoMensile: null };
+
 const INPUT_VUOTO = {
   valutazioneSalute: SALUTE_OK,
   attivitaInRitardoCount: 0,
@@ -15,6 +17,7 @@ const INPUT_VUOTO = {
   ghl: null,
   campagneFrequenzaAlta: [],
   inserzioniOutlier: [],
+  confrontoTarget: CONFRONTO_TARGET_VUOTO,
 };
 
 function inserzioneOutlier(over: Partial<InserzioneOutlier>): InserzioneOutlier {
@@ -207,6 +210,7 @@ describe("generaAvvisiOperativi", () => {
       ghl, // calendari non configurati -> da-sistemare, calendari falliti -> da-sapere
       campagneFrequenzaAlta: [{ nomeCampagna: "A", frequenza: 3 }], // attenzione
       inserzioniOutlier: [],
+      confrontoTarget: CONFRONTO_TARGET_VUOTO,
     });
     expect(avvisi.map((a) => a.tono)).toEqual(["attenzione", "da-sistemare", "da-sapere"]);
   });
@@ -241,5 +245,59 @@ describe("generaAvvisiOperativi", () => {
       inserzioniOutlier: [inserzioneOutlier({ adName: "Senza lead", lead: 0, costoPerLead: Infinity })],
     });
     expect(avvisi[0].messaggio).toContain("Senza lead (nessun lead)");
+  });
+
+  it("nessun avviso quando i target commerciali sono entro banda", () => {
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      confrontoTarget: {
+        budgetMensile: { atteso: 1000, effettivo: 1000 },
+        leadSettimana: { atteso: 10, effettivo: 10 },
+        appuntamentiSettimana: { atteso: 5, effettivo: 5 },
+        fatturatoMensile: { atteso: 5000, effettivo: 5000 },
+      },
+    });
+    expect(avvisi).toEqual([]);
+  });
+
+  it("lead/appuntamenti/fatturato sotto l'80% del target -> avviso attenzione, sopra target mai un avviso", () => {
+    const sotto = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      confrontoTarget: {
+        ...CONFRONTO_TARGET_VUOTO,
+        leadSettimana: { atteso: 10, effettivo: 7 }, // 0.7x, sotto 0.8x
+        appuntamentiSettimana: { atteso: 5, effettivo: 3 },
+        fatturatoMensile: { atteso: 5000, effettivo: 3000 },
+      },
+    });
+    expect(sotto.map((a) => a.id).sort()).toEqual(["target-appuntamenti-settimana", "target-fatturato-mensile", "target-lead-settimana"]);
+    expect(sotto.find((a) => a.id === "target-lead-settimana")?.messaggio).toBe(
+      "7 lead/settimana in media, sotto il target concordato di 10/settimana."
+    );
+
+    const sopra = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      confrontoTarget: { ...CONFRONTO_TARGET_VUOTO, leadSettimana: { atteso: 10, effettivo: 50 } },
+    });
+    expect(sopra).toEqual([]);
+  });
+
+  it("budget: segnala sia sotto lo 0,8x sia sopra l'1,2x del concordato (unico simmetrico)", () => {
+    const sotto = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      confrontoTarget: { ...CONFRONTO_TARGET_VUOTO, budgetMensile: { atteso: 1000, effettivo: 700 } },
+    });
+    expect(sotto[0]).toEqual({
+      id: "target-budget",
+      tono: "attenzione",
+      titolo: "Budget fuori dal concordato",
+      messaggio: `Investimento medio mensile a ${formatEuro(700)}, sotto il budget concordato di ${formatEuro(1000)}.`,
+    });
+
+    const sopra = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      confrontoTarget: { ...CONFRONTO_TARGET_VUOTO, budgetMensile: { atteso: 1000, effettivo: 1500 } },
+    });
+    expect(sopra[0].messaggio).toContain("sopra il budget concordato");
   });
 });

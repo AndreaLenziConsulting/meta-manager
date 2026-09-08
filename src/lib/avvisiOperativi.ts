@@ -2,8 +2,9 @@ import type { ValutazioneSalute } from "@/lib/salute";
 import type { MeseSenzaFunnel } from "@/lib/kpiQualita";
 import type { InserzioneOutlier } from "@/lib/inserzioniOutlier";
 import { SOGLIA_OUTLIER_CPL } from "@/lib/inserzioniOutlier";
+import type { ConfrontoTarget, ConfrontoTargetCommerciali } from "@/lib/targetCommerciali";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
-import { formatEuro, formatMese } from "@/lib/format";
+import { formatEuro, formatMese, formatNumero } from "@/lib/format";
 
 export type TonoAvviso = "attenzione" | "da-sistemare" | "da-sapere";
 export type AvvisoOperativo = { id: string; tono: TonoAvviso; titolo: string; messaggio: string };
@@ -12,6 +13,26 @@ export type AvvisoOperativo = { id: string; tono: TonoAvviso; titolo: string; me
 // idioma di ORDINE_SEVERITA in salute.ts/valutazioneCampagna.ts: chi ha più bisogno di attenzione
 // va letto per primo.
 const ORDINE_TONO: Record<TonoAvviso, number> = { attenzione: 0, "da-sistemare": 1, "da-sapere": 2 };
+
+// Tolleranza sui target commerciali (budget/lead/appuntamenti/fatturato, Fase 1 roadmap) — stesso
+// multiplo 0,8×/1,2× già usato per le soglie "scala"/"interveni" di salute.ts (coerenza di soglia
+// in tutta l'app, non un nuovo numero inventato qui). Lead/appuntamenti/fatturato segnalano solo se
+// SOTTO l'80% del concordato (superare il target non è mai un problema per questi tre). Il budget è
+// l'unico simmetrico: spendere molto più del concordato (oltre il 120%) è a sua volta un segnale da
+// guardare, non solo spendere meno.
+const SOGLIA_TARGET_BASSA = 0.8;
+const SOGLIA_TARGET_ALTA = 1.2;
+
+function sottoTarget(confronto: ConfrontoTarget): boolean {
+  return confronto.atteso > 0 && confronto.effettivo < confronto.atteso * SOGLIA_TARGET_BASSA;
+}
+
+function fuoriBandaBudget(confronto: ConfrontoTarget): boolean {
+  return (
+    confronto.atteso > 0 &&
+    (confronto.effettivo < confronto.atteso * SOGLIA_TARGET_BASSA || confronto.effettivo > confronto.atteso * SOGLIA_TARGET_ALTA)
+  );
+}
 
 /**
  * Blocco 4 del redesign KPI — genera gli avvisi operativi automatici per il pannello visibile solo
@@ -31,6 +52,7 @@ export function generaAvvisiOperativi(input: {
   ghl: GhlRiepilogoResponse | null;
   campagneFrequenzaAlta: { nomeCampagna: string; frequenza: number }[];
   inserzioniOutlier: InserzioneOutlier[];
+  confrontoTarget: ConfrontoTargetCommerciali;
 }): AvvisoOperativo[] {
   const avvisi: AvvisoOperativo[] = [];
   const { valutazioneSalute: v } = input;
@@ -86,6 +108,48 @@ export function generaAvvisiOperativi(input: {
       tono: "attenzione",
       titolo: "Inserzioni outlier",
       messaggio: `${nomi.join(", ")}${suffisso} — costo per lead oltre ${SOGLIA_OUTLIER_CPL}× il target, valuta di spegnerle.`,
+    });
+  }
+
+  // Target commerciali concordati col cliente (Fase 1 roadmap) — vedi confrontaTargetCommerciali
+  // in targetCommerciali.ts per come si calcola l'effettivo. Un avviso per dimensione, non uno
+  // combinato: sono segnali indipendenti, un consulente deve poterli leggere separatamente.
+  const { budgetMensile, leadSettimana, appuntamentiSettimana, fatturatoMensile } = input.confrontoTarget;
+
+  if (budgetMensile && fuoriBandaBudget(budgetMensile)) {
+    const sopra = budgetMensile.effettivo > budgetMensile.atteso;
+    avvisi.push({
+      id: "target-budget",
+      tono: "attenzione",
+      titolo: "Budget fuori dal concordato",
+      messaggio: `Investimento medio mensile a ${formatEuro(budgetMensile.effettivo)}, ${sopra ? "sopra" : "sotto"} il budget concordato di ${formatEuro(budgetMensile.atteso)}.`,
+    });
+  }
+
+  if (leadSettimana && sottoTarget(leadSettimana)) {
+    avvisi.push({
+      id: "target-lead-settimana",
+      tono: "attenzione",
+      titolo: "Lead sotto target",
+      messaggio: `${formatNumero(leadSettimana.effettivo)} lead/settimana in media, sotto il target concordato di ${formatNumero(leadSettimana.atteso)}/settimana.`,
+    });
+  }
+
+  if (appuntamentiSettimana && sottoTarget(appuntamentiSettimana)) {
+    avvisi.push({
+      id: "target-appuntamenti-settimana",
+      tono: "attenzione",
+      titolo: "Appuntamenti sotto target",
+      messaggio: `${formatNumero(appuntamentiSettimana.effettivo)} appuntamenti/settimana in media, sotto il target concordato di ${formatNumero(appuntamentiSettimana.atteso)}/settimana.`,
+    });
+  }
+
+  if (fatturatoMensile && sottoTarget(fatturatoMensile)) {
+    avvisi.push({
+      id: "target-fatturato-mensile",
+      tono: "attenzione",
+      titolo: "Fatturato sotto target",
+      messaggio: `${formatEuro(fatturatoMensile.effettivo)}/mese in media, sotto il target concordato di ${formatEuro(fatturatoMensile.atteso)}/mese.`,
     });
   }
 

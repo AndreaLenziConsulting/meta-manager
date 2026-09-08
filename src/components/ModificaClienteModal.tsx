@@ -216,6 +216,17 @@ function SedeRow({
   const [targetCpl, setTargetCpl] = useState(sede.targetCpl !== null ? String(sede.targetCpl) : "");
   const [tipoConversioneLead, setTipoConversioneLead] = useState(sede.tipoConversioneLead);
   const [attivo, setAttivo] = useState(sede.attivo);
+  // Target commerciali concordati col cliente (Fase 1 roadmap) — stesso trattamento di
+  // targetCpa/targetCpl sopra, ma su volumi/fatturato invece che su costo. Controllati contro il
+  // reale del periodo negli avvisi operativi (vedi src/lib/targetCommerciali.ts).
+  const [targetBudgetMensile, setTargetBudgetMensile] = useState(sede.targetBudgetMensile !== null ? String(sede.targetBudgetMensile) : "");
+  const [targetLeadSettimana, setTargetLeadSettimana] = useState(sede.targetLeadSettimana !== null ? String(sede.targetLeadSettimana) : "");
+  const [targetAppuntamentiSettimana, setTargetAppuntamentiSettimana] = useState(
+    sede.targetAppuntamentiSettimana !== null ? String(sede.targetAppuntamentiSettimana) : ""
+  );
+  const [targetFatturatoMensile, setTargetFatturatoMensile] = useState(
+    sede.targetFatturatoMensile !== null ? String(sede.targetFatturatoMensile) : ""
+  );
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [salvato, setSalvato] = useState(false);
@@ -241,6 +252,10 @@ function SedeRow({
           targetCpl: targetCpl ? Number(targetCpl) : null,
           tipoConversioneLead,
           attivo,
+          targetBudgetMensile: targetBudgetMensile ? Number(targetBudgetMensile) : null,
+          targetLeadSettimana: targetLeadSettimana ? Number(targetLeadSettimana) : null,
+          targetAppuntamentiSettimana: targetAppuntamentiSettimana ? Number(targetAppuntamentiSettimana) : null,
+          targetFatturatoMensile: targetFatturatoMensile ? Number(targetFatturatoMensile) : null,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -274,6 +289,20 @@ function SedeRow({
         </Field>
         <Field label="Target CPL (€, opzionale)">
           <Input type="number" step="0.01" value={targetCpl} onChange={(e) => setTargetCpl(e.target.value)} />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        <Field label="Budget mensile (€, opz.)">
+          <Input type="number" step="0.01" value={targetBudgetMensile} onChange={(e) => setTargetBudgetMensile(e.target.value)} />
+        </Field>
+        <Field label="Lead/settimana (opz.)">
+          <Input type="number" step="1" value={targetLeadSettimana} onChange={(e) => setTargetLeadSettimana(e.target.value)} />
+        </Field>
+        <Field label="Appuntamenti/sett. (opz.)">
+          <Input type="number" step="1" value={targetAppuntamentiSettimana} onChange={(e) => setTargetAppuntamentiSettimana(e.target.value)} />
+        </Field>
+        <Field label="Fatturato mensile (€, opz.)">
+          <Input type="number" step="0.01" value={targetFatturatoMensile} onChange={(e) => setTargetFatturatoMensile(e.target.value)} />
         </Field>
       </div>
       <Field
