@@ -104,6 +104,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 0,
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const avvisi = generaAvvisiOperativi({
       ...INPUT_VUOTO,
@@ -122,6 +124,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 0,
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const avvisi = generaAvvisiOperativi({
       ...INPUT_VUOTO,
@@ -140,6 +144,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 0,
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const avvisi = generaAvvisiOperativi({ ...INPUT_VUOTO, ghl });
     expect(avvisi[0]).toEqual({
@@ -159,6 +165,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 0,
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const avvisi = generaAvvisiOperativi({ ...INPUT_VUOTO, ghl });
     expect(avvisi).toEqual([]);
@@ -178,6 +186,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 1,
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const uno = generaAvvisiOperativi({ ...INPUT_VUOTO, ghl: base });
     expect(uno[0]).toEqual({
@@ -202,6 +212,8 @@ describe("generaAvvisiOperativi", () => {
       fatturatoPerSettimana: [],
       appuntamentiPerSettimana: [],
       calendariFalliti: 1, // da-sapere
+      perCampagna: {},
+      campagneAttribuibili: false,
     };
     const avvisi = generaAvvisiOperativi({
       valutazioneSalute: SALUTE_OK,

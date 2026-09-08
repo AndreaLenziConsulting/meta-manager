@@ -72,16 +72,24 @@ function soloRisultatiCommerciali(t: TotaleRisultatiCommerciali): KpiConOverlayG
  * commerciale deve quindi annullare attivamente chi non si presenta, altrimenti resta conteggiato
  * come avvenuto.
  *
- * Con un filtro campagne attivo l'overlay si sospende del tutto: GHL non sa a quale tipo di
- * campagna appartiene un'opportunità/appuntamento, quindi un investimento filtrato affiancato a un
- * fatturato non filtrato produrrebbe ROAS/CPA senza senso.
+ * Con un filtro campagne attivo, l'overlay resta attivo SOLO se questa sede ha almeno una campagna
+ * attribuibile (`ghl.campagneAttribuibili`, vedi mappaCampagnaPerContatto in lib/ghl.ts) — in quel
+ * caso `ghl` arriva già scoped alle campagne selezionate (route.ts applica il filtro `campagne`
+ * prima di rispondere), quindi investimento (da Meta, filtrato da /api/kpi) e fatturato/vendite/
+ * appuntamenti (da GHL, filtrato qui) sono coerenti fra loro. Se invece questa sede non ha ancora
+ * nessuna attribuzione campagna disponibile (traffico non tracciato/non da Meta), un "0" scoped
+ * sarebbe un falso zero, non un dato vero — si torna a RisultatiCommerciali, stesso comportamento
+ * di prima di questa feature.
  */
 export function applicaOverlayGhl(
   totaleRisultatiCommerciali: TotaleRisultatiCommerciali,
   ghl: GhlRiepilogoResponse | null,
   opzioni: { filtroCampagneAttivo: boolean } = { filtroCampagneAttivo: false }
 ): KpiConOverlayGhl {
-  if (opzioni.filtroCampagneAttivo || !ghl || !ghl.connesso) {
+  if (!ghl || !ghl.connesso) {
+    return soloRisultatiCommerciali(totaleRisultatiCommerciali);
+  }
+  if (opzioni.filtroCampagneAttivo && !ghl.campagneAttribuibili) {
     return soloRisultatiCommerciali(totaleRisultatiCommerciali);
   }
 
@@ -134,16 +142,20 @@ export function applicaOverlayGhl(
  * una volta connesso, l'intera linea segue una sola fonte, mai un patchwork settimana per settimana.
  *
  * Due regole diverse, stesso principio di applicaOverlayGhl sopra: fatturato/vendite non dipendono
- * dai calendari (bastano "connesso" + nessun filtro campagne attivo), mentre appuntamenti fissati/
- * effettuati restano su RisultatiCommerciali finché l'admin non sceglie i calendari (senza, GHL
- * risponderebbe comunque con appuntamentiPerSettimana vuoto — un falso zero, non un dato vero).
+ * dai calendari (bastano "connesso" + campagneAttribuibili se un filtro è attivo, vedi
+ * applicaOverlayGhl), mentre appuntamenti fissati/effettuati restano su RisultatiCommerciali finché
+ * l'admin non sceglie i calendari (senza, GHL risponderebbe comunque con appuntamentiPerSettimana
+ * vuoto — un falso zero, non un dato vero).
  */
 export function applicaOverlayGhlTrend(
   trendSettimanale: KpiResponse["trendSettimanale"],
   ghl: GhlRiepilogoResponse | null,
   opzioni: { filtroCampagneAttivo: boolean } = { filtroCampagneAttivo: false }
 ): KpiResponse["trendSettimanale"] {
-  if (opzioni.filtroCampagneAttivo || !ghl || !ghl.connesso) {
+  if (!ghl || !ghl.connesso) {
+    return trendSettimanale;
+  }
+  if (opzioni.filtroCampagneAttivo && !ghl.campagneAttribuibili) {
     return trendSettimanale;
   }
   const fatturatoPerSettimana = new Map(ghl.fatturatoPerSettimana.map((s) => [s.settimana, s.fatturato]));

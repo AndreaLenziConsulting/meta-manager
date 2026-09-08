@@ -1,6 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { appuntamentiGhlPerSettimana, fatturatoGhlPerSettimana, riepilogoAppuntamenti, riepilogoOpportunita } from "./ghl";
-import type { GhlAppuntamento, GhlOpportunita } from "@/types/ghl";
+import {
+  appuntamentiGhlPerSettimana,
+  breakdownGhlPerCampagna,
+  estraiCampaignIdAttribuzione,
+  fatturatoGhlPerSettimana,
+  mappaCampagnaPerContatto,
+  primoAppuntamentoPerContatto,
+  riepilogoAppuntamenti,
+  riepilogoOpportunita,
+} from "./ghl";
+import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
   return {
@@ -208,5 +217,152 @@ describe("appuntamentiGhlPerSettimana", () => {
     expect(appuntamentiGhlPerSettimana(lista, GIU_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([
       { settimana: "2026-08-31", fissati: 1, effettuati: 0 },
     ]);
+  });
+});
+
+function attribuzione(overrides: Partial<GhlAttribuzione> = {}): GhlAttribuzione {
+  return { utmCampaignId: "120251065290330588", utmCampaign: "Nome leggibile campagna", isFirst: true, ...overrides };
+}
+
+describe("primoAppuntamentoPerContatto", () => {
+  it("nessun appuntamento -> lista vuota", () => {
+    expect(primoAppuntamentoPerContatto([])).toEqual([]);
+  });
+
+  it("un contatto con più appuntamenti -> tiene solo quello con startTime più basso (il vero primo)", () => {
+    const lista = [
+      appuntamento({ id: "1", contactId: "ct1", startTime: "2026-03-01T10:00:00Z" }),
+      appuntamento({ id: "2", contactId: "ct1", startTime: "2026-01-01T10:00:00Z" }), // il vero primo
+      appuntamento({ id: "3", contactId: "ct1", startTime: "2026-05-01T10:00:00Z" }),
+    ];
+    const risultato = primoAppuntamentoPerContatto(lista);
+    expect(risultato).toHaveLength(1);
+    expect(risultato[0].id).toBe("2");
+  });
+
+  it("contatti diversi -> un appuntamento ciascuno, tutti tenuti", () => {
+    const lista = [
+      appuntamento({ id: "1", contactId: "ct1" }),
+      appuntamento({ id: "2", contactId: "ct2" }),
+    ];
+    expect(primoAppuntamentoPerContatto(lista).map((a) => a.id).sort()).toEqual(["1", "2"]);
+  });
+
+  it("esclude gli appuntamenti eliminati, anche se sarebbero il primo per data", () => {
+    const lista = [
+      appuntamento({ id: "1", contactId: "ct1", startTime: "2026-01-01T10:00:00Z", deleted: true }),
+      appuntamento({ id: "2", contactId: "ct1", startTime: "2026-03-01T10:00:00Z", deleted: false }),
+    ];
+    const risultato = primoAppuntamentoPerContatto(lista);
+    expect(risultato).toHaveLength(1);
+    expect(risultato[0].id).toBe("2");
+  });
+});
+
+describe("estraiCampaignIdAttribuzione", () => {
+  it("nessuna attribuzione -> null", () => {
+    expect(estraiCampaignIdAttribuzione(opportunita({ attributions: [] }))).toBeNull();
+    expect(estraiCampaignIdAttribuzione(opportunita({ attributions: undefined }))).toBeNull();
+  });
+
+  it("utmCampaignId numerico presente -> usa quello (pattern 'Lead Ads' nativo)", () => {
+    const o = opportunita({ attributions: [attribuzione({ utmCampaignId: "120251065290330588", utmCampaign: "Nome leggibile" })] });
+    expect(estraiCampaignIdAttribuzione(o)).toBe("120251065290330588");
+  });
+
+  it("nessun utmCampaignId ma utmCampaign è numerico -> usa quello (pattern UTM dinamici Meta su sito esterno)", () => {
+    const o = opportunita({ attributions: [attribuzione({ utmCampaignId: undefined, utmCampaign: "120245888846110249" })] });
+    expect(estraiCampaignIdAttribuzione(o)).toBe("120245888846110249");
+  });
+
+  it("utmCampaign è un nome leggibile (non numerico) e nessun utmCampaignId -> null, mai un nome scambiato per un id", () => {
+    const o = opportunita({ attributions: [attribuzione({ utmCampaignId: undefined, utmCampaign: "Campagna Lead Ads Settembre" })] });
+    expect(estraiCampaignIdAttribuzione(o)).toBeNull();
+  });
+
+  it("più touchpoint -> usa quello isFirst, anche se non è il primo dell'array", () => {
+    const o = opportunita({
+      attributions: [
+        attribuzione({ utmCampaignId: "111", isFirst: undefined, isLast: true }),
+        attribuzione({ utmCampaignId: "222", isFirst: true, isLast: undefined }),
+      ],
+    });
+    expect(estraiCampaignIdAttribuzione(o)).toBe("222");
+  });
+
+  it("nessun touchpoint marcato isFirst -> usa il primo dell'array", () => {
+    const o = opportunita({
+      attributions: [
+        attribuzione({ utmCampaignId: "333", isFirst: undefined }),
+        attribuzione({ utmCampaignId: "444", isFirst: undefined }),
+      ],
+    });
+    expect(estraiCampaignIdAttribuzione(o)).toBe("333");
+  });
+});
+
+describe("mappaCampagnaPerContatto", () => {
+  it("un'opportunità attribuibile per contatto -> mappa diretta", () => {
+    const lista = [
+      opportunita({ contactId: "ct1", createdAt: "2026-01-01T00:00:00Z", attributions: [attribuzione({ utmCampaignId: "111" })] }),
+      opportunita({ contactId: "ct2", createdAt: "2026-01-01T00:00:00Z", attributions: [attribuzione({ utmCampaignId: "222" })] }),
+    ];
+    const mappa = mappaCampagnaPerContatto(lista);
+    expect(mappa.get("ct1")).toBe("111");
+    expect(mappa.get("ct2")).toBe("222");
+  });
+
+  it("contatto con più opportunità -> usa quella con createdAt più basso fra quelle risolvibili", () => {
+    const lista = [
+      opportunita({ id: "o1", contactId: "ct1", createdAt: "2026-06-01T00:00:00Z", attributions: [attribuzione({ utmCampaignId: "999" })] }),
+      opportunita({ id: "o2", contactId: "ct1", createdAt: "2026-01-01T00:00:00Z", attributions: [attribuzione({ utmCampaignId: "111" })] }),
+    ];
+    expect(mappaCampagnaPerContatto(lista).get("ct1")).toBe("111");
+  });
+
+  it("opportunità senza attribuzione risolvibile ignorate a favore di una successiva risolvibile", () => {
+    const lista = [
+      opportunita({ id: "o1", contactId: "ct1", createdAt: "2026-01-01T00:00:00Z", attributions: [] }),
+      opportunita({ id: "o2", contactId: "ct1", createdAt: "2026-02-01T00:00:00Z", attributions: [attribuzione({ utmCampaignId: "111" })] }),
+    ];
+    expect(mappaCampagnaPerContatto(lista).get("ct1")).toBe("111");
+  });
+
+  it("nessuna opportunità risolvibile per nessun contatto -> mappa vuota", () => {
+    const lista = [opportunita({ contactId: "ct1", attributions: [] })];
+    expect(mappaCampagnaPerContatto(lista).size).toBe(0);
+  });
+});
+
+describe("breakdownGhlPerCampagna", () => {
+  it("raggruppa appuntamenti/opportunità per campagna via la mappa contatto->campagna", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "ct1", dateAdded: "2026-08-05T00:00:00Z" }),
+      appuntamento({ id: "a2", contactId: "ct2", dateAdded: "2026-08-06T00:00:00Z" }),
+    ];
+    const opportunitaVinte = [
+      opportunita({ id: "o1", contactId: "ct1", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+    ];
+    const mappa = new Map([
+      ["ct1", "111"],
+      ["ct2", "222"],
+    ]);
+    const risultato = breakdownGhlPerCampagna(appuntamenti, opportunitaVinte, mappa, AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(Object.keys(risultato).sort()).toEqual(["111", "222"]);
+    expect(risultato["111"].appuntamenti.totali).toBe(1);
+    expect(risultato["111"].opportunita.vendite).toBe(1);
+    expect(risultato["111"].opportunita.fatturato).toBe(500);
+    expect(risultato["222"].appuntamenti.totali).toBe(1);
+    expect(risultato["222"].opportunita.vendite).toBe(0);
+  });
+
+  it("contatti non presenti nella mappa (nessuna attribuzione) non compaiono in nessuna chiave", () => {
+    const appuntamenti = [appuntamento({ id: "a1", contactId: "ct-non-attribuito" })];
+    const risultato = breakdownGhlPerCampagna(appuntamenti, [], new Map(), AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(Object.keys(risultato)).toEqual([]);
+  });
+
+  it("nessuna campagna nella mappa -> oggetto vuoto", () => {
+    expect(breakdownGhlPerCampagna([], [], new Map(), AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual({});
   });
 });

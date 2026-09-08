@@ -1,5 +1,5 @@
 import { settimanaDiData } from "@/lib/kpi";
-import type { GhlAppuntamento, GhlCalendario, GhlOpportunita } from "@/types/ghl";
+import type { GhlAppuntamento, GhlBreakdownCampagna, GhlCalendario, GhlOpportunita } from "@/types/ghl";
 
 /**
  * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
@@ -140,6 +140,31 @@ export async function fetchAppuntamenti(
 }
 
 /**
+ * Riduce la lista al PRIMO appuntamento per contatto (startTime più basso) — un lead che riprenota
+ * (rinvio, consulenza di follow-up, secondo giro di vendita) non deve gonfiare il conteggio
+ * "appuntamenti generati dal marketing": solo il primo vero contatto commerciale conta, decisione
+ * esplicita dell'utente (08/09/2026). Applicata SEMPRE prima di riepilogoAppuntamenti/
+ * appuntamentiGhlPerSettimana/breakdownGhlPerCampagna — non un filtro opzionale, corregge una
+ * sovrastima esistente. `deleted` escluso a monte, stessa regola di riepilogoAppuntamenti.
+ *
+ * Limite onesto: "primo" è relativo alla finestra scaricata da fetchAppuntamenti (±1 anno oltre il
+ * periodo richiesto, vedi MARGINE_RICERCA_MS) — un contatto il cui vero primo appuntamento è più
+ * vecchio di un anno rispetto a quella finestra non è visibile qui, stesso compromesso pragmatico
+ * già scelto per MARGINE_RICERCA_MS (evitare una query illimitata).
+ */
+export function primoAppuntamentoPerContatto(appuntamenti: GhlAppuntamento[]): GhlAppuntamento[] {
+  const primoPer = new Map<string, GhlAppuntamento>();
+  for (const a of appuntamenti) {
+    if (a.deleted) continue;
+    const esistente = primoPer.get(a.contactId);
+    if (!esistente || new Date(a.startTime).getTime() < new Date(esistente.startTime).getTime()) {
+      primoPer.set(a.contactId, a);
+    }
+  }
+  return Array.from(primoPer.values());
+}
+
+/**
  * GET /opportunities/search — due dettagli verificati con chiamate reali, non dai doc pubblici
  * (sbagliati su entrambi): il parametro è location_id in snake_case (non locationId), e
  * date/endDate vogliono epoch millisecondi come startTime/endTime di /calendars/events — una data
@@ -179,6 +204,50 @@ export async function fetchOpportunita(locationId: string, token: string, opts: 
   }
 
   return risultato;
+}
+
+/**
+ * Id di campagna Meta (stesso formato di Campagna.campaignId) dal PRIMO touchpoint pubblicitario
+ * di un'opportunità GHL — verificato con chiamate reali su 3 account: il numero arriva in punti
+ * diversi secondo come il cliente porta il traffico Meta dentro GHL (vedi GhlAttribuzione in
+ * types/ghl.ts). Non fidarsi di un solo campo: si provano `utmCampaignId` poi `utmCampaign` in
+ * ordine, si accetta solo un valore puramente numerico (un id Meta reale, mai un nome di campagna
+ * testuale finito per errore in utmCampaign). Torna null se nessuno dei due risolve — traffico non
+ * da Meta o non tracciato (organico, referral, form senza UTM), mai un dato inventato.
+ */
+export function estraiCampaignIdAttribuzione(o: GhlOpportunita): string | null {
+  const touchpoint = o.attributions?.find((a) => a.isFirst) ?? o.attributions?.[0];
+  if (!touchpoint) return null;
+  for (const candidato of [touchpoint.utmCampaignId, touchpoint.utmCampaign]) {
+    if (candidato && /^\d+$/.test(candidato)) return candidato;
+  }
+  return null;
+}
+
+/**
+ * Per ogni contatto con almeno un'opportunità attribuibile a una campagna Meta, la campagna del
+ * SUO primo contatto commerciale in assoluto (l'opportunità con `createdAt` più basso fra quelle
+ * risolvibili) — un contatto con più opportunità nel tempo (nuova trattativa, riacquisto) resta
+ * legato alla campagna che l'ha generato la prima volta, stessa filosofia "primo touch" di
+ * primoAppuntamentoPerContatto sopra. Usata per attribuire gli APPUNTAMENTI a una campagna: un
+ * appuntamento non porta attribuzione propria, solo `contactId` — il collegamento passa sempre da
+ * qui (join contatto->opportunità->attributions).
+ */
+export function mappaCampagnaPerContatto(opportunita: GhlOpportunita[]): Map<string, string> {
+  const primaPer = new Map<string, GhlOpportunita>();
+  for (const o of opportunita) {
+    if (estraiCampaignIdAttribuzione(o) === null) continue;
+    const esistente = primaPer.get(o.contactId);
+    if (!esistente || new Date(o.createdAt).getTime() < new Date(esistente.createdAt).getTime()) {
+      primaPer.set(o.contactId, o);
+    }
+  }
+  const mappa = new Map<string, string>();
+  for (const [contactId, o] of primaPer) {
+    const campaignId = estraiCampaignIdAttribuzione(o);
+    if (campaignId) mappa.set(contactId, campaignId);
+  }
+  return mappa;
 }
 
 /**
@@ -312,4 +381,39 @@ export function appuntamentiGhlPerSettimana(
   return Array.from(perSettimana.entries())
     .map(([settimana, v]) => ({ settimana, ...v }))
     .sort((a, b) => a.settimana.localeCompare(b.settimana));
+}
+
+/**
+ * Riepilogo appuntamenti/opportunità per singola campagna Meta reale (blocco 7, tabella Dettaglio
+ * "per singola campagna") — join `contactId` -> campagna via `mappaCampagna` (vedi
+ * mappaCampagnaPerContatto sopra): un appuntamento non porta attribuzione propria, un'opportunità
+ * la porterebbe anche da sola (estraiCampaignIdAttribuzione) ma qui si usa sempre la mappa per
+ * CONTATTO, non l'attribuzione della singola opportunità — stessa filosofia "primo touch" ovunque:
+ * tutte le opportunità/appuntamenti dello stesso contatto restano legati alla campagna che l'ha
+ * generato la prima volta, anche se una trattativa successiva porta un'attribuzione diversa.
+ *
+ * `appuntamentiPrimi` è atteso già ridotto con primoAppuntamentoPerContatto, `opportunitaVinte`
+ * già filtrato a status="won" — questa funzione non applica di nuovo quei filtri, solo il
+ * raggruppamento per campagna. Solo le campagne con almeno un contatto attribuito compaiono nella
+ * mappa risultato: l'assenza di una chiave è "nessun dato", non un implicito zero.
+ */
+export function breakdownGhlPerCampagna(
+  appuntamentiPrimi: GhlAppuntamento[],
+  opportunitaVinte: GhlOpportunita[],
+  mappaCampagna: Map<string, string>,
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): Record<string, GhlBreakdownCampagna> {
+  const campagne = new Set(mappaCampagna.values());
+  const risultato: Record<string, GhlBreakdownCampagna> = {};
+  for (const campaignId of campagne) {
+    const appuntamentiCampagna = appuntamentiPrimi.filter((a) => mappaCampagna.get(a.contactId) === campaignId);
+    const opportunitaCampagna = opportunitaVinte.filter((o) => mappaCampagna.get(o.contactId) === campaignId);
+    risultato[campaignId] = {
+      appuntamenti: riepilogoAppuntamenti(appuntamentiCampagna, startMs, endMs, oraAttualeMs),
+      opportunita: riepilogoOpportunita(opportunitaCampagna, startMs, endMs),
+    };
+  }
+  return risultato;
 }

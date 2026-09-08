@@ -2,19 +2,24 @@
 
 import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
+import type { GhlBreakdownCampagna } from "@/types/ghl";
 import { valutaCampagna } from "@/lib/valutazioneCampagna";
 import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { PallinoStato } from "@/components/ui/PallinoStato";
+import { DatoNonDisponibile } from "@/components/DatoNonDisponibile";
 
 // Solo metriche pubblicitarie Meta Ads (blocco 7 del redesign KPI) — le vecchie colonne
-// RisultatiCommerciali/GHL (Richieste, Appuntamenti, Vendite, Tasso chiusura, Fatturato, ROAS, CPA) sono state
-// tolte su richiesta esplicita: questa tabella ora parla solo di performance pubblicitaria, non
-// più del funnel commerciale a valle (quello resta nelle tessere di sintesi sopra). Investimento,
-// Impression, Clic e Lead non sono MAI overlay-GHL (GHL non ha questi concetti), quindi non serve
-// più nessun overlayGhl qui — a differenza della vecchia KpiTable.tsx.
+// RisultatiCommerciali/GHL (Richieste, Appuntamenti, Vendite, Tasso chiusura, Fatturato, ROAS, CPA) erano state
+// tolte perché prima erano solo una stima per TIPO di campagna, non un dato reale per singola
+// campagna. Da quando GHL attribuisce appuntamenti/vendite alla campagna Meta reale (join
+// contatto->opportunità->attributions, vedi mappaCampagnaPerContatto in lib/ghl.ts), sono state
+// reintrodotte SOLO nella vista "per singola campagna" sotto (mai in "per tipo": GHL non è
+// attribuibile per tipo di campagna, resta un dato reale solo a livello di singola campagna) — vedi
+// COLONNE_GHL. Investimento, Impression, Clic e Lead restano invece MAI overlay-GHL (GHL non ha
+// questi concetti).
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string; evidenzia?: boolean }[] = [
   { key: "investimento", label: "Investimento", format: formatEuro },
   { key: "impressions", label: "Impression", format: formatNumero },
@@ -38,6 +43,7 @@ export function DettaglioCampagneEsteso({
   frequenzaPerCampagna,
   targetCpl,
   mostraValutazione,
+  ghlPerCampagna,
 }: {
   gruppi: KpiGroup[];
   totale: KpiGroup;
@@ -51,6 +57,12 @@ export function DettaglioCampagneEsteso({
   // Pallino + colonna Frequenza solo per consulente/admin (gated su Boolean(clienteId) dal
   // chiamante, mai sul link pubblico "code" — stesso principio del banner "Solo per te").
   mostraValutazione: boolean;
+  // null = GHL non connesso per questa sede (colonne GHL nascoste del tutto, comportamento
+  // identico a prima di questa feature) — un oggetto (anche vuoto, {}) = connesso: ogni campagna
+  // assente dalla mappa mostra "non disponibile" (DatoNonDisponibile), mai uno zero silenzioso,
+  // vedi il commento su GhlRiepilogoResponse.perCampagna in types/ghl.ts. Mai sul link pubblico
+  // "code" (il chiamante passa null lì, GHL è già team-only per costruzione).
+  ghlPerCampagna: Record<string, GhlBreakdownCampagna> | null;
 }) {
   const [vista, setVista] = useState<"tipo" | "campagna">("tipo");
 
@@ -70,6 +82,27 @@ export function DettaglioCampagneEsteso({
       ctrClicLink: impressions ? clicLink / impressions : null,
     };
   }, [campagne]);
+
+  // Somma GHL delle sole campagne mostrate in questa tabella — campagne senza voce in
+  // ghlPerCampagna (nessun contatto attribuito) contribuiscono 0, coerente con "non disponibile"
+  // sulla singola riga: la somma è comunque un vero totale di ciò che SI SA, non un valore inventato
+  // per le righe mancanti.
+  const totaleGhlCampagne = useMemo(() => {
+    if (!ghlPerCampagna) return null;
+    let appuntamentiFissati = 0;
+    let appuntamentiEffettuati = 0;
+    let vendite = 0;
+    let fatturato = 0;
+    for (const c of campagne) {
+      const b = ghlPerCampagna[c.campaignId];
+      if (!b) continue;
+      appuntamentiFissati += b.appuntamenti.totali;
+      appuntamentiEffettuati += b.appuntamenti.effettuati;
+      vendite += b.opportunita.vendite;
+      fatturato += b.opportunita.fatturato;
+    }
+    return { appuntamentiFissati, appuntamentiEffettuati, vendite, fatturato };
+  }, [campagne, ghlPerCampagna]);
 
   return (
     <Card padding="none" className="overflow-hidden">
@@ -126,7 +159,7 @@ export function DettaglioCampagneEsteso({
         </div>
       ) : (
         <div className="overflow-x-auto mt-3">
-          <table className="w-full text-xs border-collapse min-w-[1100px]">
+          <table className={`w-full text-xs border-collapse ${ghlPerCampagna ? "min-w-[1450px]" : "min-w-[1100px]"}`}>
             <thead>
               <tr className="border-b border-ink-300/60">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Campagna</th>
@@ -140,6 +173,14 @@ export function DettaglioCampagneEsteso({
                 {mostraValutazione && <th className="text-right font-medium px-4 py-3 text-ink-500">Frequenza</th>}
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Lead</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Costo/Lead</th>
+                {ghlPerCampagna && (
+                  <>
+                    <th className="text-right font-medium px-4 py-3 text-ink-500">App. fissati</th>
+                    <th className="text-right font-medium px-4 py-3 text-ink-500">App. effettuati</th>
+                    <th className="text-right font-medium px-4 py-3 text-ink-500">Vendite</th>
+                    <th className="text-right font-medium px-4 py-3 text-ink-500">Fatturato</th>
+                  </>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -197,12 +238,38 @@ export function DettaglioCampagneEsteso({
                     )}
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums font-bold text-brand">{formatNumero(c.numeroLead)}</td>
                     <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(c.costoPerLead)}</td>
+                    {ghlPerCampagna && (() => {
+                      const b = ghlPerCampagna[c.campaignId];
+                      return b ? (
+                        <>
+                          <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(b.appuntamenti.totali)}</td>
+                          <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(b.appuntamenti.effettuati)}</td>
+                          <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatNumero(b.opportunita.vendite)}</td>
+                          <td className="text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700">{formatEuro(b.opportunita.fatturato)}</td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="text-right px-4 py-3">
+                            <DatoNonDisponibile motivo="Nessun contatto attribuito a questa campagna" className="ml-auto" />
+                          </td>
+                          <td className="text-right px-4 py-3">
+                            <DatoNonDisponibile motivo="Nessun contatto attribuito a questa campagna" className="ml-auto" />
+                          </td>
+                          <td className="text-right px-4 py-3">
+                            <DatoNonDisponibile motivo="Nessun contatto attribuito a questa campagna" className="ml-auto" />
+                          </td>
+                          <td className="text-right px-4 py-3">
+                            <DatoNonDisponibile motivo="Nessun contatto attribuito a questa campagna" className="ml-auto" />
+                          </td>
+                        </>
+                      );
+                    })()}
                   </tr>
                 );
               })}
               {campagne.length === 0 && (
                 <tr>
-                  <td colSpan={mostraValutazione ? 11 : 10} className="px-5 py-6 text-center text-ink-500">
+                  <td colSpan={(mostraValutazione ? 11 : 10) + (ghlPerCampagna ? 4 : 0)} className="px-5 py-6 text-center text-ink-500">
                     Nessuna campagna nel periodo selezionato.
                   </td>
                 </tr>
@@ -236,6 +303,22 @@ export function DettaglioCampagneEsteso({
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {formatEuro(totaleCampagne.costoPerLead)}
                   </td>
+                  {totaleGhlCampagne && (
+                    <>
+                      <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                        {formatNumero(totaleGhlCampagne.appuntamentiFissati)}
+                      </td>
+                      <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                        {formatNumero(totaleGhlCampagne.appuntamentiEffettuati)}
+                      </td>
+                      <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                        {formatNumero(totaleGhlCampagne.vendite)}
+                      </td>
+                      <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
+                        {formatEuro(totaleGhlCampagne.fatturato)}
+                      </td>
+                    </>
+                  )}
                 </tr>
               )}
             </tbody>

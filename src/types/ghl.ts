@@ -56,6 +56,29 @@ export type GhlAppuntamento = {
   deleted: boolean;
 };
 
+/**
+ * Un touchpoint di attribuzione marketing su un'opportunità GHL, com'è restituito da
+ * /opportunities/search — verificato con chiamate reali su 3 account, NON dai doc pubblici
+ * (qui ancora meno affidabili che altrove: il campo che porta l'id di campagna Meta cambia
+ * posizione secondo come il cliente porta il traffico dentro GHL). Due pattern osservati:
+ * - form "Lead Ads" nativo GHL↔Meta: `utmCampaignId` porta l'id numerico, `utmCampaign` il nome
+ *   leggibile della campagna (i due sono distinti).
+ * - sito/funnel esterno con gli UTM dinamici di Meta nell'URL dell'annuncio: nessun
+ *   `utmCampaignId` — l'id numerico arriva DIRETTAMENTE in `utmCampaign` (Meta genera
+ *   `?utm_campaign={{campaign.id}}`, il cliente non lo rinomina).
+ * Vedi estraiCampaignIdAttribuzione in src/lib/ghl.ts, che prova entrambi in ordine. `isFirst`/
+ * `isLast` marcano il primo/ultimo touchpoint della sessione quando l'array ne ha più di uno —
+ * per l'attribuzione a campagna si usa sempre il primo (il canale che ha davvero generato il
+ * lead), mai l'ultimo.
+ */
+export type GhlAttribuzione = {
+  utmCampaignId?: string;
+  utmCampaign?: string;
+  utmSource?: string;
+  isFirst?: boolean;
+  isLast?: boolean;
+};
+
 export type GhlOpportunita = {
   id: string;
   name: string;
@@ -70,6 +93,17 @@ export type GhlOpportunita = {
   // trattativa aperta mesi fa e chiusa questo mese va contata come vendita di questo mese, non
   // persa perché creata prima — vedi riepilogoOpportunita in src/lib/ghl.ts.
   lastStatusChangeAt: string;
+  // Assente/vuoto per un'opportunità senza sessione tracciata (es. creata a mano dal team, non da
+  // un form/funnel) — mai un dato inventato in quel caso, vedi estraiCampaignIdAttribuzione.
+  attributions?: GhlAttribuzione[];
+};
+
+/** Riepilogo appuntamenti/opportunità attribuiti a UNA campagna Meta (vedi breakdownGhlPerCampagna
+ * in src/lib/ghl.ts) — stessa forma di GhlRiepilogoResponse.appuntamenti/opportunita, per campagna
+ * invece che totale sede. */
+export type GhlBreakdownCampagna = {
+  appuntamenti: { totali: number; confermati: number; annullati: number; effettuati: number };
+  opportunita: { vendite: number; fatturato: number };
 };
 
 /** Riepilogo aggregato per un periodo — deliberatamente NON compatibile con KpiGroup, vedi kpi.ts. */
@@ -81,7 +115,13 @@ export type GhlRiepilogoResponse =
       // appuntamenti restano a zero finché l'admin non sceglie quali calendari includere, invece
       // di includerli tutti in automatico (vedi GhlConnessione.calendarIds).
       calendariConfigurati: boolean;
+      // Solo il PRIMO appuntamento per contatto (vedi primoAppuntamentoPerContatto in lib/ghl.ts):
+      // un lead che riprenota (rinvii, consulenze di follow-up) non deve gonfiare il conteggio
+      // "appuntamenti generati dal marketing" — non un filtro opzionale, applicato sempre. Se in
+      // query è presente `campagne` (stessi campaignId del filtro campagne di /api/kpi), scoped
+      // ai soli contatti attribuiti a quelle campagne — altrimenti il totale di tutta la sede.
       appuntamenti: { totali: number; confermati: number; annullati: number; effettuati: number };
+      // Stesso scoping di `appuntamenti` sopra quando `campagne` è in query.
       opportunita: { vendite: number; fatturato: number };
       // Stessi fatturato/vendite di `opportunita`, ma spezzati per settimana (lastStatusChangeAt) —
       // alimentano i grafici "Investimento vs Fatturato" e "Saldo netto cumulato" del tab KPI,
@@ -95,4 +135,14 @@ export type GhlRiepilogoResponse =
       // >0 se uno o più calendari erano irraggiungibili al momento della richiesta (dopo un
       // retry) — il conteggio appuntamenti è quindi parziale, non un vero zero. Vedi fetchAppuntamenti.
       calendariFalliti: number;
+      // Riepilogo per singola campagna Meta reale (join contatto->opportunità->attributions, vedi
+      // breakdownGhlPerCampagna) — chiavi = campaignId, solo le campagne per cui esiste almeno un
+      // contatto attribuito. Assente per una campagna = "nessun dato attribuito", da mostrare come
+      // non disponibile, mai come zero silenzioso (vedi DettaglioCampagneEsteso.tsx).
+      perCampagna: Record<string, GhlBreakdownCampagna>;
+      // true se questa location ha ALMENO un'opportunità con un campaignId Meta risolvibile —
+      // distingue "il filtro campagne selezionato ha davvero zero risultati" da "questa sede non
+      // ha ancora nessuna attribuzione campagna disponibile" (traffico non tracciato/non da Meta):
+      // nel secondo caso un conteggio scoped-a-zero sarebbe un falso zero, vedi kpiGhlOverlay.ts.
+      campagneAttribuibili: boolean;
     };

@@ -31,6 +31,11 @@ function ghlConnesso(overrides: Partial<Extract<GhlRiepilogoResponse, { connesso
       { settimana: "2026-08-03", fissati: 20, effettuati: 15 },
     ],
     calendariFalliti: 0,
+    // Default true: la maggior parte dei test qui non riguarda l'attribuzione campagna, solo la
+    // sua assenza (campagneAttribuibili: false) deve essere impostata esplicitamente dal test che
+    // la esercita — vedi il describe dedicato sotto.
+    perCampagna: {},
+    campagneAttribuibili: true,
     ...overrides,
   };
 }
@@ -59,14 +64,31 @@ describe("applicaOverlayGhl", () => {
     expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("manuale");
   });
 
-  it("connesso + filtro campagne attivo -> tutto da RisultatiCommerciali, mai dati GHL mischiati con un investimento filtrato", () => {
+  it("connesso + filtro campagne attivo + campagneAttribuibili -> usa comunque GHL (route.ts l'ha già scoped alle campagne selezionate)", () => {
     const r = applicaOverlayGhl(TOTALE_RISULTATI_COMMERCIALI, ghlConnesso(), { filtroCampagneAttivo: true });
+    expect(r.fatturato.fonte).toBe("ghl");
+    expect(r.numeroVendite.fonte).toBe("ghl");
+    expect(r.appuntamentiFissati.fonte).toBe("ghl");
+    expect(r.appuntamentiEffettuati.fonte).toBe("ghl");
+    expect(r.costoPerAppuntamentoFissato.fonte).toBe("ghl");
+    expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("ghl");
+  });
+
+  it("connesso + filtro campagne attivo ma SENZA attribuzione disponibile -> tutto da RisultatiCommerciali, un 'zero' scoped sarebbe un falso zero", () => {
+    const r = applicaOverlayGhl(TOTALE_RISULTATI_COMMERCIALI, ghlConnesso({ campagneAttribuibili: false }), {
+      filtroCampagneAttivo: true,
+    });
     expect(r.fatturato.fonte).toBe("manuale");
     expect(r.numeroVendite.fonte).toBe("manuale");
     expect(r.appuntamentiFissati.fonte).toBe("manuale");
     expect(r.appuntamentiEffettuati.fonte).toBe("manuale");
     expect(r.costoPerAppuntamentoFissato.fonte).toBe("manuale");
     expect(r.costoPerAppuntamentoEffettuato.fonte).toBe("manuale");
+  });
+
+  it("campagneAttribuibili:false ma nessun filtro campagne attivo -> usa comunque GHL, la limitazione riguarda solo il filtro", () => {
+    const r = applicaOverlayGhl(TOTALE_RISULTATI_COMMERCIALI, ghlConnesso({ campagneAttribuibili: false }));
+    expect(r.fatturato.fonte).toBe("ghl");
   });
 
   it("connesso, calendari configurati -> tutte le tessere (incluse effettuati/%/costo/tasso) da GHL", () => {
@@ -137,8 +159,13 @@ describe("applicaOverlayGhlTrend", () => {
     expect(applicaOverlayGhlTrend(TREND, null)).toEqual(TREND);
   });
 
-  it("filtro campagne attivo -> il trend resta quello di RisultatiCommerciali, invariato", () => {
-    expect(applicaOverlayGhlTrend(TREND, ghlConnesso(), { filtroCampagneAttivo: true })).toEqual(TREND);
+  it("filtro campagne attivo + campagneAttribuibili -> il trend usa comunque GHL, già scoped da route.ts", () => {
+    const r = applicaOverlayGhlTrend(TREND, ghlConnesso(), { filtroCampagneAttivo: true });
+    expect(r.find((s) => s.settimana === "2026-06-01")?.fatturato).toBe(5000);
+  });
+
+  it("filtro campagne attivo ma SENZA attribuzione disponibile -> il trend resta quello di RisultatiCommerciali, invariato", () => {
+    expect(applicaOverlayGhlTrend(TREND, ghlConnesso({ campagneAttribuibili: false }), { filtroCampagneAttivo: true })).toEqual(TREND);
   });
 
   it("connesso -> ogni settimana prende il proprio fatturato GHL, per settimana non per mese", () => {

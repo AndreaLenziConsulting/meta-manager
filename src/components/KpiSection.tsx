@@ -238,6 +238,11 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // sedeGhl legge la sede RISOLTA dal server (dati?.sede?.sedeId), non lo stato locale sedeId: se
   // sedeId è ancora null (default non ancora scelto) partirebbe un fetch senza sapere su quale sede,
   // stesso motivo per cui handleAggiornaKpi sotto usa dati?.sede?.sedeId e non sedeId.
+  //
+  // Il filtro campagne NON blocca più questo fetch (a differenza di prima della feature
+  // "appuntamenti per campagna", 08/09/2026): si passa `campagne` a /api/ghl, che restringe
+  // appuntamenti/opportunità ai soli contatti attribuiti a quelle campagne — vedi kpiGhlOverlay.ts
+  // per cosa succede quando questa sede non ha ancora nessuna attribuzione disponibile.
   const sedeGhl = dati?.sede?.sedeId;
   useEffect(() => {
     const controller = new AbortController();
@@ -246,11 +251,12 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     // react-hooks/set-state-in-effect — niente setState sincrono nel corpo di un effect).
     Promise.resolve()
       .then(() => {
-        if (!clienteId || !haConnessioneGhl || !sedeGhl || campagneSelezionate) {
+        if (!clienteId || !haConnessioneGhl || !sedeGhl) {
           setGhlDati(null);
           return undefined;
         }
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
+        if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
           .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
@@ -270,11 +276,12 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     const controller = new AbortController();
     Promise.resolve()
       .then(() => {
-        if (!clienteId || !haConnessioneGhl || !sedeGhl || campagneSelezionate) {
+        if (!clienteId || !haConnessioneGhl || !sedeGhl) {
           setGhlDatiPrecedenti(null);
           return undefined;
         }
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da: daPrecedente, a: aPrecedente });
+        if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
           .then((body: GhlRiepilogoResponse | null) => setGhlDatiPrecedenti(body));
@@ -334,20 +341,19 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return () => controller.abort();
   }, [clienteId, sedeGhl, da, a, refreshTick]);
 
-  // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
-  // filtro campagne attivo), altrimenti da RisultatiCommerciali come sempre — vedi kpiGhlOverlay.ts per il
-  // dettaglio di quali tessere e perché non tutte.
+  // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (scoped
+  // alle campagne selezionate quando quella sede ha attribuzione disponibile), altrimenti da
+  // RisultatiCommerciali come sempre — vedi kpiGhlOverlay.ts per il dettaglio di quali tessere e
+  // perché non tutte. `ghlDati` non va più forzato a null quando un filtro campagne è attivo (a
+  // differenza di prima della feature "appuntamenti per campagna"): è già scoped da /api/ghl
+  // stesso (vedi il fetch sopra), applicaOverlayGhl decide da sola se è affidabile.
   const overlayGhl = dati
-    ? applicaOverlayGhl(dati.totale, campagneSelezionate ? null : ghlDati, {
-        filtroCampagneAttivo: campagneSelezionate !== null,
-      })
+    ? applicaOverlayGhl(dati.totale, ghlDati, { filtroCampagneAttivo: campagneSelezionate !== null })
     : null;
   // Stesso overlay ma sul periodo precedente — per il confronto sotto alle tessere di sintesi,
   // vedi il commento sul fetch GHL precedente sopra per il perché.
   const overlayGhlPrecedente = datiPrecedenti
-    ? applicaOverlayGhl(datiPrecedenti.totale, campagneSelezionate ? null : ghlDatiPrecedenti, {
-        filtroCampagneAttivo: campagneSelezionate !== null,
-      })
+    ? applicaOverlayGhl(datiPrecedenti.totale, ghlDatiPrecedenti, { filtroCampagneAttivo: campagneSelezionate !== null })
     : null;
   // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello di
   // RisultatiCommerciali (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
@@ -357,9 +363,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const trendSettimanaleConOverlay = useMemo(
     () =>
       dati
-        ? applicaOverlayGhlTrend(dati.trendSettimanale, campagneSelezionate ? null : ghlDati, {
-            filtroCampagneAttivo: campagneSelezionate !== null,
-          })
+        ? applicaOverlayGhlTrend(dati.trendSettimanale, ghlDati, { filtroCampagneAttivo: campagneSelezionate !== null })
         : [],
     [dati, ghlDati, campagneSelezionate]
   );
@@ -647,6 +651,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             frequenzaPerCampagna={frequenzaPerCampagna}
             targetCpl={dati.sede.targetCpl ?? null}
             mostraValutazione={Boolean(clienteId)}
+            ghlPerCampagna={ghlDati?.connesso ? ghlDati.perCampagna : null}
           />
 
           {/* Blocco 8 — solo un segnaposto per ora, nessuna funzionalità (richiesta esplicita).
