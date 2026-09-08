@@ -5,7 +5,7 @@ import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
 import { aggregaValutazioniSedi, calcolaSalute } from "@/lib/salute";
 import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
-import { sentimentCritico, ultimoMeetingPerCliente } from "@/lib/sentimentCliente";
+import { andamentoSentiment, raggruppaMeetingPerCliente } from "@/lib/sentimentCliente";
 import {
   calcolaRiepilogo,
   ordinaPerPriorita,
@@ -61,10 +61,10 @@ export default async function DashboardHomePage() {
     getMeetingCliente(),
   ]);
   const attivitaPerCliente = raggruppaAttivitaPerCliente(attivitaTutte);
-  // Solo i meeting con un sentiment davvero compilato: l'ultimo meeting in assoluto a volte non è
-  // ancora stato revisionato (sentiment vuoto) e non deve mascherare un segnale negativo precedente
-  // ancora valido — vedi caso reale osservato: ultimo meeting vuoto, penultimo "Negativo".
-  const ultimoMeetingCliente = ultimoMeetingPerCliente(meetingTutti.filter((m) => m.sentiment.trim() !== ""));
+  // Solo i meeting con un sentiment davvero compilato: un meeting recente a volte non è ancora
+  // stato revisionato (sentiment vuoto) e non deve interrompere una serie di segnali precedenti
+  // ancora validi — vedi caso reale osservato: ultimo meeting vuoto, penultimo "Negativo".
+  const meetingConSentimentPerCliente = raggruppaMeetingPerCliente(meetingTutti.filter((m) => m.sentiment.trim() !== ""));
 
   const items: SaluteClienteItem[] = clienti
     .filter((c) => c.attivo)
@@ -101,7 +101,7 @@ export default async function DashboardHomePage() {
         investimento: sediValutate.reduce((somma, s) => somma + s.investimento, 0),
         numeroLead: sediValutate.reduce((somma, s) => somma + s.numeroLead, 0),
         attivitaInRitardo: attivitaInRitardo(attivitaPerCliente.get(cliente.clienteId) ?? []),
-        sentimentCritico: sentimentCritico(ultimoMeetingCliente.get(cliente.clienteId)?.sentiment ?? ""),
+        sentimentCritico: andamentoSentiment(meetingConSentimentPerCliente.get(cliente.clienteId) ?? []).aRischio,
       };
     });
   const itemsOrdinati = ordinaPerPriorita(items);

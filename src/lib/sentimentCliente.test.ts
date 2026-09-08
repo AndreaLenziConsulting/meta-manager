@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sentimentCritico, ultimoMeetingPerCliente } from "./sentimentCliente";
+import { andamentoSentiment, classificaSentiment, raggruppaMeetingPerCliente, sentimentCritico } from "./sentimentCliente";
 import type { MeetingClienteRow } from "@/types/meeting";
 
 function meeting(over: Partial<MeetingClienteRow>): MeetingClienteRow {
@@ -9,45 +9,81 @@ function meeting(over: Partial<MeetingClienteRow>): MeetingClienteRow {
   };
 }
 
-describe("sentimentCritico", () => {
-  it("riconosce 'Negativo' seguito da una giustificazione", () => {
-    expect(sentimentCritico("Negativo — il cliente si aspettava risultati migliori")).toBe(true);
+describe("classificaSentiment", () => {
+  it("riconosce i tre stati attesi, case insensitive e con spazi iniziali", () => {
+    expect(classificaSentiment("Positivo — cliente molto contento")).toBe("positivo");
+    expect(classificaSentiment("  neutro, nessuna criticità")).toBe("neutro");
+    expect(classificaSentiment("NEGATIVO — insoddisfatto")).toBe("negativo");
   });
 
-  it("case insensitive e con spazi iniziali", () => {
-    expect(sentimentCritico("  negativo, cliente preoccupato")).toBe(true);
-  });
-
-  it("non scambia 'positivo'/'neutro' per negativo", () => {
-    expect(sentimentCritico("Positivo — cliente molto contento")).toBe(false);
-    expect(sentimentCritico("Neutro, nessuna criticità particolare")).toBe(false);
-  });
-
-  it("stringa vuota o senza il pattern atteso -> non critico (falso negativo preferibile)", () => {
-    expect(sentimentCritico("")).toBe(false);
-    expect(sentimentCritico("Il cliente ha menzionato che il budget è negativo quest'anno")).toBe(false);
+  it("stringa vuota o senza il pattern atteso -> sconosciuto, mai indovinato", () => {
+    expect(classificaSentiment("")).toBe("sconosciuto");
+    expect(classificaSentiment("Il cliente ha menzionato che il budget è negativo quest'anno")).toBe("sconosciuto");
   });
 });
 
-describe("ultimoMeetingPerCliente", () => {
-  it("prende il meeting più recente per data, per ciascun cliente", () => {
-    const meetings = [
-      meeting({ clienteId: "a", data: "2026-08-01", sentiment: "Positivo" }),
-      meeting({ clienteId: "a", data: "2026-09-01", sentiment: "Negativo — insoddisfatto" }),
-      meeting({ clienteId: "b", data: "2026-09-05", sentiment: "Neutro" }),
-    ];
-    const ultimo = ultimoMeetingPerCliente(meetings);
-    expect(ultimo.get("a")?.data).toBe("2026-09-01");
-    expect(ultimo.get("a")?.sentiment).toBe("Negativo — insoddisfatto");
-    expect(ultimo.get("b")?.data).toBe("2026-09-05");
+describe("sentimentCritico", () => {
+  it("true solo per 'negativo'", () => {
+    expect(sentimentCritico("Negativo — il cliente si aspettava risultati migliori")).toBe(true);
+    expect(sentimentCritico("Positivo — cliente molto contento")).toBe(false);
+    expect(sentimentCritico("")).toBe(false);
+  });
+});
+
+describe("raggruppaMeetingPerCliente", () => {
+  it("raggruppa i meeting di più clienti mescolati", () => {
+    const mappa = raggruppaMeetingPerCliente([
+      meeting({ meetingId: "a", clienteId: "cliente-1" }),
+      meeting({ meetingId: "b", clienteId: "cliente-2" }),
+      meeting({ meetingId: "c", clienteId: "cliente-1" }),
+    ]);
+    expect(mappa.get("cliente-1")?.map((m) => m.meetingId)).toEqual(["a", "c"]);
+    expect(mappa.get("cliente-2")?.map((m) => m.meetingId)).toEqual(["b"]);
   });
 
-  it("array vuoto -> mappa vuota, mai un errore", () => {
-    expect(ultimoMeetingPerCliente([]).size).toBe(0);
+  it("array vuoto -> mappa vuota", () => {
+    expect(raggruppaMeetingPerCliente([]).size).toBe(0);
+  });
+});
+
+describe("andamentoSentiment", () => {
+  it("serie in ordine cronologico (più vecchio prima), indipendentemente dall'ordine di input", () => {
+    const risultato = andamentoSentiment([
+      meeting({ meetingId: "recente", data: "2026-09-01", sentiment: "Positivo" }),
+      meeting({ meetingId: "vecchio", data: "2026-07-01", sentiment: "Neutro" }),
+    ]);
+    expect(risultato.serie.map((p) => p.meetingId)).toEqual(["vecchio", "recente"]);
+    expect(risultato.serie.map((p) => p.stato)).toEqual(["neutro", "positivo"]);
   });
 
-  it("clienti diversi restano indipendenti", () => {
-    const ultimo = ultimoMeetingPerCliente([meeting({ clienteId: "x" }), meeting({ clienteId: "y" })]);
-    expect(ultimo.size).toBe(2);
+  it("un solo meeting negativo in tutto lo storico -> a rischio (unico segnale disponibile)", () => {
+    expect(andamentoSentiment([meeting({ sentiment: "Negativo — insoddisfatto" })]).aRischio).toBe(true);
+  });
+
+  it("un solo meeting positivo/neutro -> non a rischio", () => {
+    expect(andamentoSentiment([meeting({ sentiment: "Positivo" })]).aRischio).toBe(false);
+  });
+
+  it("ultimi 2 meeting entrambi negativi -> a rischio, anche con storico più vecchio positivo", () => {
+    const risultato = andamentoSentiment([
+      meeting({ meetingId: "1", data: "2026-07-01", sentiment: "Positivo" }),
+      meeting({ meetingId: "2", data: "2026-08-01", sentiment: "Negativo" }),
+      meeting({ meetingId: "3", data: "2026-09-01", sentiment: "Negativo" }),
+    ]);
+    expect(risultato.aRischio).toBe(true);
+  });
+
+  it("un solo negativo tra gli ultimi due -> NON a rischio (evita di segnalare un singolo giudizio isolato come tendenza)", () => {
+    const risultato = andamentoSentiment([
+      meeting({ meetingId: "1", data: "2026-08-01", sentiment: "Negativo" }),
+      meeting({ meetingId: "2", data: "2026-09-01", sentiment: "Positivo" }),
+    ]);
+    expect(risultato.aRischio).toBe(false);
+  });
+
+  it("nessun meeting -> serie vuota, non a rischio", () => {
+    const risultato = andamentoSentiment([]);
+    expect(risultato.serie).toEqual([]);
+    expect(risultato.aRischio).toBe(false);
   });
 });

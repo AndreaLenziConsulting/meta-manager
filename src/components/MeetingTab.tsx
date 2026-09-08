@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, AlertCircle, FileDown, Mail, Pencil } from "lucide-react";
 import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
+import { andamentoSentiment } from "@/lib/sentimentCliente";
 import { MeetingReportView } from "@/components/MeetingReportView";
+import { AndamentoSentiment } from "@/components/AndamentoSentiment";
 import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
@@ -156,6 +158,15 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
   const [errore, setErrore] = useState<string | null>(null);
   const [meetingTeam, setMeetingTeam] = useState<MeetingClienteRow[] | null>(null);
   const [meetingPubblico, setMeetingPubblico] = useState<MeetingCampiPubblici[] | null>(null);
+  // Andamento sentiment nel tempo (Fase 1 roadmap) — solo dai dati già in memoria (meetingTeam),
+  // nessun fetch in più. Stesso filtro "solo sentiment davvero compilato" già in uso nella Dashboard
+  // Amministratore (dashboard/page.tsx): un meeting non ancora revisionato non deve interrompere la
+  // serie. Mai calcolato su meetingPubblico: quella vista non ha comunque mai il campo sentiment
+  // (MeetingCampiPubblici, whitelist positiva) e il componente sotto è gated su clienteId.
+  const andamento = useMemo(
+    () => andamentoSentiment((meetingTeam ?? []).filter((m) => m.sentiment.trim() !== "")),
+    [meetingTeam]
+  );
   const [espanso, setEspanso] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
   // Tiene traccia dell'ultimo meetingIdEvidenziato "consumato", per aprire quel meeting solo
@@ -493,6 +504,10 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
           </div>
         </div>
       )}
+
+      {/* Team-only per costruzione: clienteId è l'unico ramo che passa mai una lista non vuota qui,
+          il ramo `code` (link pubblico) non arriva mai ad avere sentiment nei dati che riceve. */}
+      {clienteId && <AndamentoSentiment andamento={andamento} />}
 
       {listaVuota && !anteprima && (
         <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">

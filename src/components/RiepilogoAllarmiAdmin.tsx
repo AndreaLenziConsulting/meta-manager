@@ -50,7 +50,7 @@ export function RiepilogoAllarmiAdmin({ riepilogo }: { riepilogo: RiepilogoDashb
             <div>
               <p className="text-2xl font-bold text-ink-900 leading-none">{clientiSentimentNegativo}</p>
               <p className="text-xs text-ink-700 mt-1">
-                {clientiSentimentNegativo === 1 ? "cliente con sentiment negativo nell'ultimo meeting" : "clienti con sentiment negativo nell'ultimo meeting"}
+                {clientiSentimentNegativo === 1 ? "cliente con sentiment negativo di recente" : "clienti con sentiment negativo di recente"}
               </p>
             </div>
           </div>

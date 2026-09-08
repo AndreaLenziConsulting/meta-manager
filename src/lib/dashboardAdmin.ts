@@ -23,9 +23,11 @@ export type SaluteClienteItem = {
   investimento: number; // somma delle sedi
   numeroLead: number; // somma delle sedi
   attivitaInRitardo: AttivitaClienteRow[];
-  // Sentiment "negativo" dell'ultimo meeting registrato (vedi src/lib/sentimentCliente.ts) — solo
-  // un segnale aggiuntivo mostrato in card, NON entra in ordinaPerPriorita: quella logica di
-  // priorità ads/attività è già testata e in produzione, non la tocchiamo per aggiungere questo.
+  // "Cliente a rischio" secondo l'andamento del sentiment nel tempo, non solo l'ultimo meeting
+  // isolato (vedi andamentoSentiment in src/lib/sentimentCliente.ts — Fase 1 roadmap, monitoraggio
+  // sentiment) — solo un segnale aggiuntivo mostrato in card, NON entra in ordinaPerPriorita:
+  // quella logica di priorità ads/attività è già testata e in produzione, non la tocchiamo per
+  // aggiungere questo.
   sentimentCritico: boolean;
 };
 
