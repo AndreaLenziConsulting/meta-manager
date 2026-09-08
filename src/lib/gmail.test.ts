@@ -20,6 +20,11 @@ describe("costruisciOpzioniEmail", () => {
     expect(opts.text).toBe("Ciao,\n\ngrazie per il confronto di oggi.");
   });
 
+  it("mette sempre in bcc l'indirizzo condiviso dell'agenzia, su ogni report automatico", () => {
+    const opts = costruisciOpzioniEmail(INPUT_TEST);
+    expect(opts.bcc).toBe("info@andrealenziconsulting.com");
+  });
+
   it("allega il PDF con nome file e content-type corretti", () => {
     const opts = costruisciOpzioniEmail(INPUT_TEST);
     expect(opts.attachments).toHaveLength(1);
