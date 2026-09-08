@@ -184,7 +184,7 @@ export async function fetchOpportunita(locationId: string, token: string, opts: 
 /**
  * Riepilogo appuntamenti nel periodo [startMs, endMs] — filtrato su dateAdded (quando la
  * prenotazione è stata fatta), non su startTime (quando si tiene l'incontro): coerente con
- * appuntamentiFissati del Funnel esistente, un conteggio di attività del mese, non un'agenda
+ * appuntamentiFissati di RisultatiCommerciali esistente, un conteggio di attività del mese, non un'agenda
  * futura — vedi il commento su GhlAppuntamento.dateAdded.
  *
  * `effettuati` — standard operativo deciso dall'utente (27/08/2026), non un vero segnale di

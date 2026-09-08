@@ -2,7 +2,7 @@ import { divideOrNull } from "@/lib/kpi";
 
 /**
  * Blocco di calcolo per la tessera "settimana corrente + confronto + sparkline" della tab "KPI
- * (nuovo)" — vive separato da kpi.ts perché non tocca l'aggregazione MetaDaily/Funnel esistente,
+ * (nuovo)" — vive separato da kpi.ts perché non tocca l'aggregazione MetaDaily/RisultatiCommerciali esistente,
  * lavora solo sulla serie settimanale già calcolata altrove (trendSettimanale di kpi.ts, o una
  * serie equivalente costruita da GHL/altro).
  */

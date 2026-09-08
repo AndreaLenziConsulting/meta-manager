@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   calcolaRigaMedia,
-  funnelPerMese,
+  risultatiCommercialiPerMese,
   serieCostoMensileRipetutaPerSettimana,
   trovaSediMigliori,
   type RigaConfrontoSede,
 } from "./kpiConfronto";
-import type { FunnelRow } from "@/types/kpi";
+import type { RisultatoCommercialeRow } from "@/types/kpi";
 
 describe("calcolaRigaMedia", () => {
   it("volumi come media aritmetica semplice, rapporti come totale-su-totale (diverso dalla media ingenua dei rapporti-per-sede)", () => {
@@ -101,8 +101,8 @@ describe("trovaSediMigliori", () => {
   });
 });
 
-describe("funnelPerMese", () => {
-  const FUNNEL: FunnelRow[] = [
+describe("risultatiCommercialiPerMese", () => {
+  const RISULTATI_COMMERCIALI: RisultatoCommercialeRow[] = [
     { mese: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 10, appuntamentiFissati: 5, appuntamentiEffettuati: 3, vendite: 1, fatturato: 100 },
     { mese: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "B", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
     // altra sede dello stesso cliente nello stesso mese -> deve essere ignorata
@@ -113,8 +113,8 @@ describe("funnelPerMese", () => {
     { mese: "2026-06", clienteId: "c2", sedeId: "s1", tipoCampagna: "A", richieste: 50, appuntamentiFissati: 50, appuntamentiEffettuati: 50, vendite: 50, fatturato: 5000 },
   ];
 
-  it("somma più righe Funnel dello stesso mese/sede (tipoCampagna diversi) e ignora altre sedi/clienti", () => {
-    const mappa = funnelPerMese("c1", "s1", FUNNEL);
+  it("somma più righe RisultatiCommerciali dello stesso mese/sede (tipoCampagna diversi) e ignora altre sedi/clienti", () => {
+    const mappa = risultatiCommercialiPerMese("c1", "s1", RISULTATI_COMMERCIALI);
 
     expect(mappa.size).toBe(2);
     expect(mappa.get("2026-06")).toEqual({ appuntamentiFissati: 7, appuntamentiEffettuati: 4, numeroVendite: 1 });
@@ -123,28 +123,28 @@ describe("funnelPerMese", () => {
 });
 
 describe("serieCostoMensileRipetutaPerSettimana", () => {
-  it("null per un mese senza riga Funnel (anche se il mese esiste in trendMensile); valore mensile ripetuto identico su ogni settimana quando il Funnel c'è; null anche se il mese manca da trendMensile", () => {
+  it("null per un mese senza riga RisultatiCommerciali (anche se il mese esiste in trendMensile); valore mensile ripetuto identico su ogni settimana quando il dato c'è; null anche se il mese manca da trendMensile", () => {
     const trendSettimanale = [
       { settimana: "2026-06-01", mese: "2026-06" },
       { settimana: "2026-06-08", mese: "2026-06" },
-      { settimana: "2026-07-06", mese: "2026-07" }, // "2026-07" non ha riga Funnel
-      { settimana: "2026-08-03", mese: "2026-08" }, // "2026-08" ha Funnel ma non è in trendMensile
+      { settimana: "2026-07-06", mese: "2026-07" }, // "2026-07" non ha riga RisultatiCommerciali
+      { settimana: "2026-08-03", mese: "2026-08" }, // "2026-08" ha RisultatiCommerciali ma non è in trendMensile
     ];
     const trendMensile = [
       { mese: "2026-06", investimento: 400 },
       { mese: "2026-07", investimento: 100 },
     ];
-    const funnelPerMeseMap = new Map([
+    const risultatiPerMeseMap = new Map([
       ["2026-06", { appuntamentiFissati: 8, appuntamentiEffettuati: 4, numeroVendite: 2 }],
       ["2026-08", { appuntamentiFissati: 10, appuntamentiEffettuati: 5, numeroVendite: 3 }],
     ]);
 
-    const serie = serieCostoMensileRipetutaPerSettimana(trendSettimanale, trendMensile, funnelPerMeseMap, "appuntamentiFissati");
+    const serie = serieCostoMensileRipetutaPerSettimana(trendSettimanale, trendMensile, risultatiPerMeseMap, "appuntamentiFissati");
 
     expect(serie).toEqual([
       { settimana: "2026-06-01", valore: 50 }, // 400/8
       { settimana: "2026-06-08", valore: 50 }, // stesso valore mensile ripetuto
-      { settimana: "2026-07-06", valore: null }, // "2026-07" non ha riga Funnel
+      { settimana: "2026-07-06", valore: null }, // "2026-07" non ha riga RisultatiCommerciali
       { settimana: "2026-08-03", valore: null }, // "2026-08" non ha investimento in trendMensile
     ]);
   });

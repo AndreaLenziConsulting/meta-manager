@@ -1,5 +1,5 @@
 import type { ValutazioneSalute } from "@/lib/salute";
-import type { MeseSenzaFunnel } from "@/lib/kpiQualita";
+import type { MeseSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import type { InserzioneOutlier } from "@/lib/inserzioniOutlier";
 import { SOGLIA_OUTLIER_CPL } from "@/lib/inserzioniOutlier";
 import type { ConfrontoTarget, ConfrontoTargetCommerciali } from "@/lib/targetCommerciali";
@@ -48,7 +48,7 @@ function fuoriBandaBudget(confronto: ConfrontoTarget): boolean {
 export function generaAvvisiOperativi(input: {
   valutazioneSalute: ValutazioneSalute;
   attivitaInRitardoCount: number;
-  meseSenzaFunnel: MeseSenzaFunnel[];
+  meseSenzaRisultatiCommerciali: MeseSenzaRisultatiCommerciali[];
   ghl: GhlRiepilogoResponse | null;
   campagneFrequenzaAlta: { nomeCampagna: string; frequenza: number }[];
   inserzioniOutlier: InserzioneOutlier[];
@@ -154,18 +154,18 @@ export function generaAvvisiOperativi(input: {
   }
 
   // Una sede connessa a GHL con calendari configurati compila appuntamenti/effettuati/vendite/
-  // fatturato in automatico dall'overlay (vedi applicaOverlayGhl in kpiGhlOverlay.ts) — un Funnel
+  // fatturato in automatico dall'overlay (vedi applicaOverlayGhl in kpiGhlOverlay.ts) — RisultatiCommerciali
   // vuoto in quel caso è atteso, non un gap da segnalare: il team lavora con GHL, non a mano sul
-  // foglio Funnel. Senza questo controllo l'avviso era un falso positivo per ogni cliente GHL
-  // pienamente configurato (bug segnalato dal vivo su un cliente reale).
+  // foglio RisultatiCommerciali. Senza questo controllo l'avviso era un falso positivo per ogni
+  // cliente GHL pienamente configurato (bug segnalato dal vivo su un cliente reale).
   const ghlCompilaAutomaticamente = Boolean(input.ghl && input.ghl.connesso && input.ghl.calendariConfigurati);
-  if (input.meseSenzaFunnel.length > 0 && !ghlCompilaAutomaticamente) {
-    const mesi = input.meseSenzaFunnel.map((m) => formatMese(m.mese)).join(", ");
+  if (input.meseSenzaRisultatiCommerciali.length > 0 && !ghlCompilaAutomaticamente) {
+    const mesi = input.meseSenzaRisultatiCommerciali.map((m) => formatMese(m.mese)).join(", ");
     avvisi.push({
-      id: "funnel-mancante",
+      id: "risultati-commerciali-mancanti",
       tono: "da-sistemare",
-      titolo: "Funnel non compilato",
-      messaggio: `Spesa pubblicitaria registrata ma nessun dato Funnel per ${mesi}.`,
+      titolo: "Risultati commerciali non compilati",
+      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${mesi}.`,
     });
   }
 
@@ -174,7 +174,7 @@ export function generaAvvisiOperativi(input: {
       id: "ghl-calendari-non-configurati",
       tono: "da-sistemare",
       titolo: "Calendari GHL da collegare",
-      messaggio: "La sede è connessa a GHL ma nessun calendario è stato scelto: appuntamenti ed effettuati restano dal Funnel finché non li colleghi.",
+      messaggio: "La sede è connessa a GHL ma nessun calendario è stato scelto: appuntamenti ed effettuati restano da Risultati Commerciali finché non li colleghi.",
     });
   }
 

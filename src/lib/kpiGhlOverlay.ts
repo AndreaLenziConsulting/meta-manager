@@ -2,7 +2,11 @@ import { divideOrNull } from "@/lib/kpi";
 import type { KpiGroup, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
-export type CampoConFonte<T> = { valore: T; fonte: "ghl" | "funnel" };
+// "manuale" = dato letto da RisultatiCommerciali (inserito a mano dal team), non "funnel" — stesso
+// rinominamento della tab, richiesta esplicita dell'utente. Nessun componente legge oggi `.fonte`
+// (verificato: solo kpiGhlOverlay.test.ts lo controlla) — campo scritto per un uso futuro (badge
+// "dato manuale vs live GHL"), non ancora consumato in UI.
+export type CampoConFonte<T> = { valore: T; fonte: "ghl" | "manuale" };
 
 export type KpiConOverlayGhl = {
   fatturato: CampoConFonte<number>;
@@ -21,7 +25,7 @@ export type KpiConOverlayGhl = {
   parziale: boolean;
 };
 
-type TotaleFunnel = Pick<
+type TotaleRisultatiCommerciali = Pick<
   KpiGroup,
   | "investimento"
   | "fatturato"
@@ -36,29 +40,29 @@ type TotaleFunnel = Pick<
   | "tassoDiChiusura"
 >;
 
-function soloFunnel(t: TotaleFunnel): KpiConOverlayGhl {
+function soloRisultatiCommerciali(t: TotaleRisultatiCommerciali): KpiConOverlayGhl {
   return {
-    fatturato: { valore: t.fatturato, fonte: "funnel" },
-    numeroVendite: { valore: t.numeroVendite, fonte: "funnel" },
-    roas: { valore: t.roas, fonte: "funnel" },
-    cpa: { valore: t.cpa, fonte: "funnel" },
-    appuntamentiFissati: { valore: t.appuntamentiFissati, fonte: "funnel" },
-    appuntamentiEffettuati: { valore: t.appuntamentiEffettuati, fonte: "funnel" },
-    percentualeEffettuatiSuFissati: { valore: t.percentualeEffettuatiSuFissati, fonte: "funnel" },
-    costoPerAppuntamentoFissato: { valore: t.costoPerAppuntamentoFissato, fonte: "funnel" },
-    costoPerAppuntamentoEffettuato: { valore: t.costoPerAppuntamentoEffettuato, fonte: "funnel" },
-    tassoDiChiusura: { valore: t.tassoDiChiusura, fonte: "funnel" },
+    fatturato: { valore: t.fatturato, fonte: "manuale" },
+    numeroVendite: { valore: t.numeroVendite, fonte: "manuale" },
+    roas: { valore: t.roas, fonte: "manuale" },
+    cpa: { valore: t.cpa, fonte: "manuale" },
+    appuntamentiFissati: { valore: t.appuntamentiFissati, fonte: "manuale" },
+    appuntamentiEffettuati: { valore: t.appuntamentiEffettuati, fonte: "manuale" },
+    percentualeEffettuatiSuFissati: { valore: t.percentualeEffettuatiSuFissati, fonte: "manuale" },
+    costoPerAppuntamentoFissato: { valore: t.costoPerAppuntamentoFissato, fonte: "manuale" },
+    costoPerAppuntamentoEffettuato: { valore: t.costoPerAppuntamentoEffettuato, fonte: "manuale" },
+    tassoDiChiusura: { valore: t.tassoDiChiusura, fonte: "manuale" },
     parziale: false,
   };
 }
 
 /**
- * Per un cliente con connessione GHL attiva, sostituisce le tessere KPI lette oggi dal Funnel
- * (inserito a mano) con i numeri letti in diretta da GHL — su richiesta esplicita dell'utente, che
- * ha confermato di voler sostituire le tessere esistenti invece di tenerle in un pannello a parte
- * (rimosso, vedi GhlPanel.tsx nella cronologia git). Riusato anche per la riga "Totale" della
- * tabella Dettaglio (KpiTable.tsx) — le righe per tipo campagna restano invece 100% Funnel, GHL non
- * è attribuibile per tipo di campagna.
+ * Per un cliente con connessione GHL attiva, sostituisce le tessere KPI lette oggi da
+ * RisultatiCommerciali (inserito a mano) con i numeri letti in diretta da GHL — su richiesta
+ * esplicita dell'utente, che ha confermato di voler sostituire le tessere esistenti invece di
+ * tenerle in un pannello a parte (rimosso, vedi GhlPanel.tsx nella cronologia git). Riusato anche
+ * per la riga "Totale" della tabella Dettaglio (KpiTable.tsx) — le righe per tipo campagna restano
+ * invece 100% RisultatiCommerciali, GHL non è attribuibile per tipo di campagna.
  *
  * "Appuntamenti effettuati" (e tutto ciò che ne deriva: % effettuati su fissati, Costo/App.
  * effettuato, Tasso di chiusura) segue uno STANDARD OPERATIVO deciso dall'utente il 27/08/2026, non
@@ -73,12 +77,12 @@ function soloFunnel(t: TotaleFunnel): KpiConOverlayGhl {
  * fatturato non filtrato produrrebbe ROAS/CPA senza senso.
  */
 export function applicaOverlayGhl(
-  totaleFunnel: TotaleFunnel,
+  totaleRisultatiCommerciali: TotaleRisultatiCommerciali,
   ghl: GhlRiepilogoResponse | null,
   opzioni: { filtroCampagneAttivo: boolean } = { filtroCampagneAttivo: false }
 ): KpiConOverlayGhl {
   if (opzioni.filtroCampagneAttivo || !ghl || !ghl.connesso) {
-    return soloFunnel(totaleFunnel);
+    return soloRisultatiCommerciali(totaleRisultatiCommerciali);
   }
 
   const fatturato = ghl.opportunita.fatturato;
@@ -86,17 +90,17 @@ export function applicaOverlayGhl(
   const risultato: KpiConOverlayGhl = {
     fatturato: { valore: fatturato, fonte: "ghl" },
     numeroVendite: { valore: numeroVendite, fonte: "ghl" },
-    roas: { valore: divideOrNull(fatturato, totaleFunnel.investimento), fonte: "ghl" },
-    cpa: { valore: divideOrNull(totaleFunnel.investimento, numeroVendite), fonte: "ghl" },
+    roas: { valore: divideOrNull(fatturato, totaleRisultatiCommerciali.investimento), fonte: "ghl" },
+    cpa: { valore: divideOrNull(totaleRisultatiCommerciali.investimento, numeroVendite), fonte: "ghl" },
     // Senza calendari configurati l'API GHL restituisce comunque 0 appuntamenti — non un dato
     // vero, lo stesso motivo per cui GhlPanel.tsx (rimosso) mostrava un avviso in quel caso. Si
-    // resta sul Funnel per tutto ciò che dipende dai calendari finché l'admin non li sceglie.
-    appuntamentiFissati: { valore: totaleFunnel.appuntamentiFissati, fonte: "funnel" },
-    appuntamentiEffettuati: { valore: totaleFunnel.appuntamentiEffettuati, fonte: "funnel" },
-    percentualeEffettuatiSuFissati: { valore: totaleFunnel.percentualeEffettuatiSuFissati, fonte: "funnel" },
-    costoPerAppuntamentoFissato: { valore: totaleFunnel.costoPerAppuntamentoFissato, fonte: "funnel" },
-    costoPerAppuntamentoEffettuato: { valore: totaleFunnel.costoPerAppuntamentoEffettuato, fonte: "funnel" },
-    tassoDiChiusura: { valore: totaleFunnel.tassoDiChiusura, fonte: "funnel" },
+    // resta su RisultatiCommerciali per tutto ciò che dipende dai calendari finché l'admin non li sceglie.
+    appuntamentiFissati: { valore: totaleRisultatiCommerciali.appuntamentiFissati, fonte: "manuale" },
+    appuntamentiEffettuati: { valore: totaleRisultatiCommerciali.appuntamentiEffettuati, fonte: "manuale" },
+    percentualeEffettuatiSuFissati: { valore: totaleRisultatiCommerciali.percentualeEffettuatiSuFissati, fonte: "manuale" },
+    costoPerAppuntamentoFissato: { valore: totaleRisultatiCommerciali.costoPerAppuntamentoFissato, fonte: "manuale" },
+    costoPerAppuntamentoEffettuato: { valore: totaleRisultatiCommerciali.costoPerAppuntamentoEffettuato, fonte: "manuale" },
+    tassoDiChiusura: { valore: totaleRisultatiCommerciali.tassoDiChiusura, fonte: "manuale" },
     parziale: false,
   };
 
@@ -108,11 +112,12 @@ export function applicaOverlayGhl(
     risultato.percentualeEffettuatiSuFissati = { valore: divideOrNull(effettuati, fissati), fonte: "ghl" };
     // investimento resta sempre da Meta Ads (GHL non ha questo concetto) — solo il denominatore
     // (fissati/effettuati) cambia fonte, stesso schema di percentualeEffettuatiSuFissati sopra.
-    risultato.costoPerAppuntamentoFissato = { valore: divideOrNull(totaleFunnel.investimento, fissati), fonte: "ghl" };
-    risultato.costoPerAppuntamentoEffettuato = { valore: divideOrNull(totaleFunnel.investimento, effettuati), fonte: "ghl" };
+    risultato.costoPerAppuntamentoFissato = { valore: divideOrNull(totaleRisultatiCommerciali.investimento, fissati), fonte: "ghl" };
+    risultato.costoPerAppuntamentoEffettuato = { valore: divideOrNull(totaleRisultatiCommerciali.investimento, effettuati), fonte: "ghl" };
     // Numeratore (vendite) e denominatore (effettuati) sono entrambi GHL qui — a differenza del
     // caso senza calendari configurati, dove mescolare un numeratore GHL con un denominatore
-    // Funnel produrrebbe un tasso senza senso (per questo lì resta 100% Funnel, mai un mix).
+    // manuale (RisultatiCommerciali) produrrebbe un tasso senza senso (per questo lì resta 100%
+    // manuale, mai un mix).
     risultato.tassoDiChiusura = { valore: divideOrNull(numeroVendite, effettuati), fonte: "ghl" };
     risultato.parziale = ghl.calendariFalliti > 0;
   }
@@ -125,13 +130,13 @@ export function applicaOverlayGhl(
  * (TrendChart.tsx, e i nuovi grafici "Andamento appuntamenti"/"Saldo netto cumulato") — join
  * diretto sulla chiave `settimana` (stessa griglia lunedì-domenica di trendSettimanale, vedi
  * kpi.ts/ghl.ts), non un valore mensile ripetuto: ogni settimana ha il proprio dato reale. Se GHL
- * non ha nessun dato in quella settimana il valore diventa 0, non il Funnel: una volta connesso,
- * l'intera linea segue una sola fonte, mai un patchwork settimana per settimana.
+ * non ha nessun dato in quella settimana il valore diventa 0, non il dato di RisultatiCommerciali:
+ * una volta connesso, l'intera linea segue una sola fonte, mai un patchwork settimana per settimana.
  *
  * Due regole diverse, stesso principio di applicaOverlayGhl sopra: fatturato/vendite non dipendono
  * dai calendari (bastano "connesso" + nessun filtro campagne attivo), mentre appuntamenti fissati/
- * effettuati restano sul Funnel finché l'admin non sceglie i calendari (senza, GHL risponderebbe
- * comunque con appuntamentiPerSettimana vuoto — un falso zero, non un dato vero).
+ * effettuati restano su RisultatiCommerciali finché l'admin non sceglie i calendari (senza, GHL
+ * risponderebbe comunque con appuntamentiPerSettimana vuoto — un falso zero, non un dato vero).
  */
 export function applicaOverlayGhlTrend(
   trendSettimanale: KpiResponse["trendSettimanale"],

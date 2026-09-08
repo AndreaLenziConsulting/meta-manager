@@ -11,7 +11,7 @@ export type PuntoCostoPerRisultato = {
   costoPerVendita: number | null;
 };
 
-/** Come divideOrNull ma accetta un denominatore null (mese senza dato Funnel per quella settimana,
+/** Come divideOrNull ma accetta un denominatore null (mese senza dato RisultatiCommerciali per quella settimana,
  * vedi trendSettimanale in kpi.ts) — null propaga a null, non tenta 0 come denominatore. */
 function divideOrNullNullable(numeratore: number, denominatore: number | null): number | null {
   if (denominatore === null) return null;
@@ -27,13 +27,13 @@ function divideOrNullNullable(numeratore: number, denominatore: number | null): 
  * di ciascuna linea nel tempo, non confrontarne le altezze fra loro.
  *
  * `numeroLead` (a differenza di appuntamentiFissati/numeroVendite) non è mai nullable: arriva da
- * Meta, non dal Funnel/GHL — nessuna settimana "senza dato", al più 0 lead. `costoPerLead` diventa
+ * Meta, non da RisultatiCommerciali/GHL — nessuna settimana "senza dato", al più 0 lead. `costoPerLead` diventa
  * null solo con 0 lead in quella settimana (divideOrNullNullable tratta 0 come "nessun risultato
  * da dividere", stesso trattamento di divideOrNull altrove nel dominio).
  *
  * `serie` è già la vista overlay-GHL-aware costruita dal chiamante per appuntamentiFissati/
  * numeroVendite (stessa fonte di trendSettimanaleConOverlay già in uso da TrendChart.tsx) — questa
- * funzione resta pura, non sa nulla di GHL/Funnel, solo aritmetica.
+ * funzione resta pura, non sa nulla di GHL/RisultatiCommerciali, solo aritmetica.
  */
 export function calcolaCostoPerRisultatoSettimanale(
   serie: { settimana: string; investimento: number; numeroLead: number; appuntamentiFissati: number | null; numeroVendite: number | null }[]

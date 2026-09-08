@@ -1,7 +1,7 @@
 /**
  * Tipi per l'integrazione Go High Level / Squadd (white-label italiano, stessa API sotto il
  * cofano) — Fase 1: pannello di sola lettura "vendite e appuntamenti" per sede, mai scritto nel
- * Funnel esistente (vedi src/lib/kpi.ts, dato 100% manuale e testato — non toccato da questa
+ * RisultatiCommerciali esistente (vedi src/lib/kpi.ts, dato 100% manuale e testato — non toccato da questa
  * feature). Un GhlConnessione vive per sedeId (non clienteId): il "locationId" di GHL è
  * concettualmente la stessa unità di una Sede — un cliente con più sedi fisiche può avere più
  * location GHL separate, stesso motivo per cui adAccountId vive già su Sede e non su Cliente.
@@ -50,7 +50,7 @@ export type GhlAppuntamento = {
   endTime: string;
   // Quando la prenotazione è stata FATTA — usata per il periodo invece di startTime: un
   // appuntamento fissato ad agosto per un incontro a ottobre resta "fissato ad agosto" anche se
-  // poi riprogrammato, coerente con appuntamentiFissati del Funnel esistente (attività del mese,
+  // poi riprogrammato, coerente con appuntamentiFissati di RisultatiCommerciali esistente (attività del mese,
   // non agenda futura) — vedi riepilogoAppuntamenti in src/lib/ghl.ts.
   dateAdded: string;
   deleted: boolean;

@@ -19,7 +19,7 @@ export function GuidaCollegareGhl() {
         <p>
           Collegare Go High Level (GHL/Squadd) a una sede permette al tab <strong>KPI</strong>{" "}
           di leggere in diretta appuntamenti fissati/effettuati e vendite direttamente dal calendario e dalla
-          pipeline del cliente su GHL, invece di doverli inserire a mano ogni mese nel foglio Funnel.
+          pipeline del cliente su GHL, invece di doverli inserire a mano ogni mese nel foglio Risultati Commerciali.
         </p>
         <p className="text-ink-500">
           Il collegamento è <strong>di sola lettura</strong>: l&apos;app legge calendari, eventi e opportunità, non

@@ -39,7 +39,7 @@ function simboloVariazione(direzione: DirezioneVariazione): string {
  *
  * Sotto al numero primario, un indicatore di variazione vs il periodo precedente di pari durata
  * (vedi confrontoPeriodo.ts e il calcolo di da/aPrecedente in KpiSection.tsx) — anch'esso
- * overlay-GHL aware: mai confrontare un valore GHL "oggi" con un valore Funnel "ieri", sarebbe
+ * overlay-GHL aware: mai confrontare un valore GHL "oggi" con un valore RisultatiCommerciali "ieri", sarebbe
  * un confronto fra fonti diverse spacciato per un trend reale (stessa regola generale già
  * applicata altrove nell'app). `totalePrecedente`/`overlayGhlPrecedente` null finché il fetch
  * del periodo precedente non è arrivato, o se non c'è un periodo precedente comparabile — in

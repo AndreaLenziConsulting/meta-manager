@@ -7,7 +7,7 @@ export type ConfrontoTargetCommerciali = {
   fatturatoMensile: ConfrontoTarget | null;
 };
 
-/** Media di una serie che può avere buchi (mese senza dato Funnel) — ignora i null invece di
+/** Media di una serie che può avere buchi (mese senza dato RisultatiCommerciali) — ignora i null invece di
  * propagarli: un mese mancante non deve far sparire l'intero confronto, solo ridurre il campione. */
 function mediaIgnorandoNulli(valori: (number | null)[]): number | null {
   const validi = valori.filter((v): v is number => v !== null);

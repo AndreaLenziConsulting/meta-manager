@@ -5,7 +5,7 @@ import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/f
 import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
 import {
   calcolaRigaMedia,
-  funnelPerMese,
+  risultatiCommercialiPerMese,
   METRICHE_COMPETITIVE,
   serieCostoMensileRipetutaPerSettimana,
   trovaSediMigliori,
@@ -16,7 +16,7 @@ import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { FunnelStepChart } from "@/components/FunnelStepChart";
 import { SmallMultiplesCosto } from "@/components/SmallMultiplesCosto";
-import type { FunnelRow, KpiResponse } from "@/types/kpi";
+import type { RisultatoCommercialeRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 type Props = {
@@ -31,7 +31,7 @@ type RisultatoSede = {
   sedeId: string;
   nome: string;
   riga: RigaConfrontoSede;
-  numeroRichieste: number; // primo stadio del funnel (mai overlay-aware, resta 100% Funnel — vedi FunnelStepChart)
+  numeroRichieste: number; // primo stadio del funnel di conversione (mai overlay-aware, resta 100% dato RisultatiCommerciali — vedi FunnelStepChart)
   costoPerLeadSerie: PuntoSettimanale[];
   costoAppuntamentoSerie: PuntoSettimanale[];
   costoAppuntamentoEffettuatoSerie: PuntoSettimanale[];
@@ -71,7 +71,7 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
     // Una sede sola per volta: KPI (con eventuale filtro campagne) + GHL, in parallelo. Un fallimento
     // di uno dei due non deve far perdere l'altro; un fallimento del KPI scarta l'intera sede dal
     // confronto (senza il totale non c'è riga da costruire), un fallimento del GHL degrada
-    // silenziosamente a "solo Funnel" (applicaOverlayGhl gestisce già ghl=null).
+    // silenziosamente a "solo RisultatiCommerciali" (applicaOverlayGhl gestisce già ghl=null).
     async function caricaSede(sede: { sedeId: string; nome: string }): Promise<RisultatoSede | null> {
       const paramsKpi = new URLSearchParams({ clienteId, sedeId: sede.sedeId, da, a });
       if (campagneSelezionate) paramsKpi.set("campagne", Array.from(campagneSelezionate).join(","));
@@ -121,14 +121,14 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
         cpa: overlay.cpa.valore,
       };
 
-      // /api/kpi non espone mai le righe Funnel grezze (solo `totale`, aggregato sull'intero
-      // periodo da-a), quindi non c'è modo di popolare funnelPerMese con dati mensili reali lato
-      // client. Si costruisce una riga sintetica per ogni mese presente in trend, con lo stesso
-      // aggregato ripetuto — stesso spirito del valore mensile ripetuto su ogni settimana in
-      // serieCostoMensileRipetutaPerSettimana, un livello più in alto (qui manca la granularità
-      // mensile stessa, non solo quella settimanale all'interno del mese).
+      // /api/kpi non espone mai le righe RisultatiCommerciali grezze (solo `totale`, aggregato
+      // sull'intero periodo da-a), quindi non c'è modo di popolare risultatiCommercialiPerMese con
+      // dati mensili reali lato client. Si costruisce una riga sintetica per ogni mese presente in
+      // trend, con lo stesso aggregato ripetuto — stesso spirito del valore mensile ripetuto su
+      // ogni settimana in serieCostoMensileRipetutaPerSettimana, un livello più in alto (qui manca
+      // la granularità mensile stessa, non solo quella settimanale all'interno del mese).
       const mesiTrend = Array.from(new Set(kpiResponse.trend.map((t) => t.mese)));
-      const funnelSintetico: FunnelRow[] = mesiTrend.map((mese) => ({
+      const risultatiSintetici: RisultatoCommercialeRow[] = mesiTrend.map((mese) => ({
         mese,
         clienteId,
         sedeId: sede.sedeId,
@@ -139,7 +139,7 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
         vendite: overlay.numeroVendite.valore,
         fatturato: overlay.fatturato.valore,
       }));
-      const funnelPerMeseMap = funnelPerMese(clienteId, sede.sedeId, funnelSintetico);
+      const risultatiPerMeseMap = risultatiCommercialiPerMese(clienteId, sede.sedeId, risultatiSintetici);
 
       return {
         sedeId: sede.sedeId,
@@ -150,19 +150,19 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
         costoAppuntamentoSerie: serieCostoMensileRipetutaPerSettimana(
           kpiResponse.trendSettimanale,
           kpiResponse.trend,
-          funnelPerMeseMap,
+          risultatiPerMeseMap,
           "appuntamentiFissati"
         ),
         costoAppuntamentoEffettuatoSerie: serieCostoMensileRipetutaPerSettimana(
           kpiResponse.trendSettimanale,
           kpiResponse.trend,
-          funnelPerMeseMap,
+          risultatiPerMeseMap,
           "appuntamentiEffettuati"
         ),
         cpaSerie: serieCostoMensileRipetutaPerSettimana(
           kpiResponse.trendSettimanale,
           kpiResponse.trend,
-          funnelPerMeseMap,
+          risultatiPerMeseMap,
           "numeroVendite"
         ),
       };

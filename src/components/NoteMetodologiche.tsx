@@ -16,7 +16,7 @@ export function NoteMetodologiche({ ghlConnesso, calendariConfigurati }: { ghlCo
 
       <ul className="space-y-2.5 text-[13px] text-ink-500 leading-relaxed list-disc pl-5">
         <li>
-          Il Funnel (dati inseriti a mano) è mensile: quando compare in una vista settimanale, il valore del mese si ripete
+          Risultati Commerciali (dati inseriti a mano) è mensile: quando compare in una vista settimanale, il valore del mese si ripete
           identico su ogni settimana di quel mese — non è un vero andamento settimana per settimana.
         </li>
 
@@ -24,7 +24,7 @@ export function NoteMetodologiche({ ghlConnesso, calendariConfigurati }: { ghlCo
           <>
             <li>
               Questa sede è connessa a GHL: quando nessun filtro campagne è attivo, Fatturato, Vendite, ROAS e CPA vengono
-              letti in diretta da GHL al posto del Funnel.
+              letti in diretta da GHL al posto di Risultati Commerciali.
             </li>
             {calendariConfigurati ? (
               <li>
@@ -33,7 +33,7 @@ export function NoteMetodologiche({ ghlConnesso, calendariConfigurati }: { ghlCo
               </li>
             ) : (
               <li>
-                Appuntamenti fissati/effettuati restano invece dal Funnel: i calendari GHL non sono ancora configurati su
+                Appuntamenti fissati/effettuati restano invece da Risultati Commerciali: i calendari GHL non sono ancora configurati su
                 questa connessione (senza calendari configurati l&apos;API restituirebbe sempre 0, un dato non vero).
               </li>
             )}
@@ -45,8 +45,8 @@ export function NoteMetodologiche({ ghlConnesso, calendariConfigurati }: { ghlCo
           </>
         ) : (
           <li>
-            Questa sede non è connessa a GHL: tutti i dati (Fatturato, Vendite, ROAS, CPA, Appuntamenti) provengono dal
-            Funnel inserito a mano.
+            Questa sede non è connessa a GHL: tutti i dati (Fatturato, Vendite, ROAS, CPA, Appuntamenti) provengono da
+            Risultati Commerciali inserito a mano.
           </li>
         )}
       </ul>

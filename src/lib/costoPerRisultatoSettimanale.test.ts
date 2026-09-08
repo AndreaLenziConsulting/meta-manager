@@ -9,7 +9,7 @@ describe("calcolaCostoPerRisultatoSettimanale", () => {
     expect(punti).toEqual([{ settimana: "2026-06-01", spesa: 400, costoPerLead: 50, costoPerAppuntamento: 100, costoPerVendita: 200 }]);
   });
 
-  it("denominatore a 0 -> null (mai una divisione per zero), non un dato Funnel mancante", () => {
+  it("denominatore a 0 -> null (mai una divisione per zero), non un dato RisultatiCommerciali mancante", () => {
     const punti = calcolaCostoPerRisultatoSettimanale([
       { settimana: "2026-06-01", investimento: 400, numeroLead: 0, appuntamentiFissati: 0, numeroVendite: 0 },
     ]);
@@ -18,7 +18,7 @@ describe("calcolaCostoPerRisultatoSettimanale", () => {
     expect(punti[0].costoPerVendita).toBeNull();
   });
 
-  it("denominatore null (mese senza dato Funnel per quella settimana) -> null, non tratta null come 0", () => {
+  it("denominatore null (mese senza dato RisultatiCommerciali per quella settimana) -> null, non tratta null come 0", () => {
     const punti = calcolaCostoPerRisultatoSettimanale([
       { settimana: "2026-06-01", investimento: 400, numeroLead: 5, appuntamentiFissati: null, numeroVendite: null },
     ]);
@@ -26,7 +26,7 @@ describe("calcolaCostoPerRisultatoSettimanale", () => {
     expect(punti[0].costoPerVendita).toBeNull();
   });
 
-  it("numeroLead non è mai nullable (arriva da Meta, non dal Funnel): sempre un numero, mai un buco", () => {
+  it("numeroLead non è mai nullable (arriva da Meta, non da RisultatiCommerciali): sempre un numero, mai un buco", () => {
     const punti = calcolaCostoPerRisultatoSettimanale([
       { settimana: "2026-06-01", investimento: 300, numeroLead: 3, appuntamentiFissati: null, numeroVendite: null },
     ]);

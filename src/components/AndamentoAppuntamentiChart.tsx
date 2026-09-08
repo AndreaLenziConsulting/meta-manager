@@ -62,7 +62,7 @@ function segmentoPath(x: number, yTop: number, larghezza: number, yBase: number,
  * quando si aggiungerà un confronto per commerciale, una barra impilata regge un numero crescente di
  * segmenti molto meglio di barre affiancate, che si affollano rapidamente.
  *
- * Se i dati (inseriti a mano nel Funnel) danno per una settimana Effettuati > Fissati — non
+ * Se i dati (inseriti a mano in RisultatiCommerciali) danno per una settimana Effettuati > Fissati — non
  * dovrebbe succedere in teoria, ma capita con dati non perfettamente allineati fra loro, stesso
  * caso già visto nel funnel di conversione — la barra mostra comunque l'altezza reale di Effettuati
  * (mai troncata), semplicemente senza il segmento "non ancora effettuati" sopra: un'anomalia nei

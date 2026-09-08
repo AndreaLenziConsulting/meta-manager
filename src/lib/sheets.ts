@@ -7,7 +7,7 @@ import type {
   Cliente,
   Consulente,
   FaseCompletataRow,
-  FunnelRow,
+  RisultatoCommercialeRow,
   MetaDailyRow,
   Prodotto,
   Sede,
@@ -23,7 +23,10 @@ const TAB = {
   sedi: "Sedi",
   campagne: "Campagne",
   metaDaily: "MetaDaily",
-  funnel: "Funnel",
+  // Rinominata da "Funnel" — richiesta esplicita dell'utente, il nome precedente confondeva con
+  // "Funnel di conversione" (FunnelConversioneChart.tsx, un vero imbuto — questa tab invece sono
+  // solo risultati commerciali reali inseriti a mano, nessuna forma a imbuto).
+  risultatiCommerciali: "RisultatiCommerciali",
   consulenti: "Consulenti",
   storicoStato: "StoricoStatoCampagne",
   prodotti: "Prodotti",
@@ -529,14 +532,15 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
 export type RisultatoMigrazioneSedi = {
   sedeCreatePerCliente: string[]; // clienteId per cui è stata creata una sede "Principale"
   campagneBackfillate: number;
-  funnelBackfillate: number;
+  risultatiCommercialiBackfillate: number;
 };
 
 /**
  * Migrazione una tantum, idempotente: per ogni cliente che non ha ancora nessuna sede, crea una
  * sede "Principale" con i valori ancora presenti (vestigiali) sulle colonne C/G/H/L di Clienti,
- * poi backfilla sedeId sulle righe di Campagne/Funnel di quel cliente che ne sono ancora prive.
- * Sicura da rilanciare: salta i clienti che hanno già almeno una sede e le righe già backfillate.
+ * poi backfilla sedeId sulle righe di Campagne/RisultatiCommerciali di quel cliente che ne sono
+ * ancora prive. Sicura da rilanciare: salta i clienti che hanno già almeno una sede e le righe già
+ * backfillate.
  */
 export async function migraSediEsistenti(): Promise<RisultatoMigrazioneSedi> {
   const { sheets, sheetId } = getSheetsClient();
@@ -583,31 +587,35 @@ export async function migraSediEsistenti(): Promise<RisultatoMigrazioneSedi> {
     });
   }
 
-  const funnelRes = await sheets.spreadsheets.values.get({
+  const risultatiRes = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.funnel}!A2:I`,
+    range: `${TAB.risultatiCommerciali}!A2:I`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
-  const funnelRighe = (funnelRes.data.values as CellValue[][]) ?? [];
-  const funnelUpdate: { range: string; values: string[][] }[] = [];
-  funnelRighe.forEach((r, i) => {
+  const risultatiRighe = (risultatiRes.data.values as CellValue[][]) ?? [];
+  const risultatiUpdate: { range: string; values: string[][] }[] = [];
+  risultatiRighe.forEach((r, i) => {
     if (!r[0] || asText(r[8])) return;
     const sedeId = sedePerCliente.get(asText(r[1]));
     if (!sedeId) return;
-    funnelUpdate.push({ range: `${TAB.funnel}!I${i + 2}`, values: [[sedeId]] });
+    risultatiUpdate.push({ range: `${TAB.risultatiCommerciali}!I${i + 2}`, values: [[sedeId]] });
   });
-  if (funnelUpdate.length > 0) {
+  if (risultatiUpdate.length > 0) {
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: sheetId,
-      requestBody: { valueInputOption: "USER_ENTERED", data: funnelUpdate },
+      requestBody: { valueInputOption: "USER_ENTERED", data: risultatiUpdate },
     });
   }
 
   invalidateTabCache(TAB.sedi);
   invalidateTabCache(TAB.campagne);
-  invalidateTabCache(TAB.funnel);
+  invalidateTabCache(TAB.risultatiCommerciali);
 
-  return { sedeCreatePerCliente, campagneBackfillate: campagneUpdate.length, funnelBackfillate: funnelUpdate.length };
+  return {
+    sedeCreatePerCliente,
+    campagneBackfillate: campagneUpdate.length,
+    risultatiCommercialiBackfillate: risultatiUpdate.length,
+  };
 }
 
 export async function getConsulenti(): Promise<Consulente[]> {
@@ -836,8 +844,8 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
   await appendRows(TAB.metaDaily, daAggiungere);
 }
 
-export async function getFunnel(): Promise<FunnelRow[]> {
-  const rows = await readTab(TAB.funnel);
+export async function getRisultatiCommerciali(): Promise<RisultatoCommercialeRow[]> {
+  const rows = await readTab(TAB.risultatiCommerciali);
   return rows
     .filter((r) => r[0])
     .map((r) => ({

@@ -16,7 +16,7 @@ export type PuntoSaldoNetto = {
  *
  * Deliberatamente "contrattualizzato", non "fatturato": qui conta il valore dei contratti firmati,
  * non l'incassato — stessa cifra del campo `fatturato` condiviso a monte (vedi trendSettimanale in
- * kpi.ts, alimentato dal Funnel), ma il nome giusto per come la usa questo grafico. Il parametro
+ * kpi.ts, alimentato da RisultatiCommerciali), ma il nome giusto per come la usa questo grafico. Il parametro
  * `serie` in ingresso mantiene comunque la chiave `fatturato` finché arriva così dal chiamante
  * (SaldoNettoCumulatoChart.tsx la rimappa subito) — qui, da questo punto in poi, è sempre e solo
  * "contrattualizzato".
@@ -25,7 +25,7 @@ export type PuntoSaldoNetto = {
  * 6, copre l'intera storia della sede da `primaData` (vedi il fetch dedicato con `cumulato=1` in
  * KpiSection.tsx) — non il periodo scelto nel filtro blocco 3: filtrare per periodo azzererebbe
  * quasi sempre il grafico a un pareggio falso, la domanda che risponde è "da sempre", non "in
- * questo periodo". Un contrattualizzato null (mese senza dato Funnel per quella settimana, vedi
+ * questo periodo". Un contrattualizzato null (mese senza dato RisultatiCommerciali per quella settimana, vedi
  * trendSettimanale in kpi.ts) vale 0 nel cumulo: non c'è un valore migliore da sommare, e trattarlo
  * come 0 lascia la linea continua invece di un buco senza senso in un cumulativo.
  */

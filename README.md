@@ -1,6 +1,6 @@
 # Meta Manager ALC
 
-Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lead di Meta Ads (tirati automaticamente) con il funnel post-lead (richieste, appuntamenti, vendite, fatturato) tracciato a mano dal team.
+Dashboard KPI multi-cliente per **Andrea Lenzi Consulting** che unisce spesa/lead di Meta Ads (tirati automaticamente) con i risultati commerciali post-lead (richieste, appuntamenti, vendite, fatturato) tracciati a mano dal team.
 
 ## Stack
 
@@ -25,7 +25,7 @@ Colonne C/G/H/L **vestigiali**: `ad_account_id`/`target_cpa`/`target_cpl`/`tipo_
 
 **Colonne R/S, link rapidi** — impostabili dalla stessa UI, entrambe opzionali: mostrate come pulsanti in cima alla scheda cliente (`ClienteHeader.tsx`), mai sul link pubblico. Nessuna validazione di formato oltre al prefisso `http(s)://`.
 
-**Sedi** — un cliente ha sempre almeno una sede ("Principale", creata insieme al cliente); sedi aggiuntive si aggiungono dalla modale "Modifica cliente" (home admin o pagina Clienti). Ogni sede ha il proprio account pubblicitario Meta e i propri target: ads e funnel restano separati tra sedi diverse dello stesso cliente.
+**Sedi** — un cliente ha sempre almeno una sede ("Principale", creata insieme al cliente); sedi aggiuntive si aggiungono dalla modale "Modifica cliente" (home admin o pagina Clienti). Ogni sede ha il proprio account pubblicitario Meta e i propri target: ads e risultati commerciali restano separati tra sedi diverse dello stesso cliente.
 | A sede_id | B cliente_id | C nome | D ad_account_id | E target_cpa | F target_cpl | G tipo_conversione_lead | H attivo | I target_budget_mensile | J target_lead_settimana | K target_appuntamenti_settimana | L target_fatturato_mensile |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | es. `alc-01::principale` | | Es. "Milano", "Principale" | ID ad account Meta (senza `act_`), opzionale | € costo per vendita obiettivo (opzionale) | € costo per lead obiettivo (opzionale) | opzionale, vuoto per la maggior parte delle sedi (vedi sotto, stessa logica della colonna L vestigiale di Clienti) | `TRUE`/`FALSE` | € budget ads mensile concordato (opzionale) | lead/settimana concordati (opzionale) | appuntamenti fissati/settimana concordati (opzionale) | € fatturato mensile concordato (opzionale) |
@@ -44,7 +44,7 @@ Colonne I→L (target commerciali concordati col cliente, Fase 1 roadmap) aggiun
 
 **Convenzione di naming su Meta Ads Manager, per farsi classificare `tipo_campagna` da sole**: dai alla campagna un nome che inizia con `[Tipo]` tra parentesi quadre — es. `[Mobilieri] Lead Ads - Dal 20 Luglio`. Al primo sync, `guessTipoCampagnaFromNome` (`src/lib/sheets.ts`) legge il prefisso tra `[` e `]` e lo scrive in `tipo_campagna` (Title Case) automaticamente — zero lavoro manuale, sempre che il nome segua la convenzione. **Importante**: la deduzione avviene **solo la prima volta** che la campagna viene scoperta (mai più dopo, `tipo_campagna` resta editabile a mano senza essere sovrascritto ai sync successivi) — rinominare una campagna già presente in questa tab non la riclassifica da sola, va corretto a mano il valore in colonna D.
 
-Per clienti con **più edizioni dello stesso tipo di funnel** (es. webinar/eventi ricorrenti, un cliente diverso ogni poche settimane) — il Funnel (sotto) è tracciato per mese + `tipo_campagna`, quindi se più edizioni cadono nello stesso mese finirebbero sommate insieme sotto un unico tipo generico. Includi anche la data nel prefisso per tenerle distinte: `[Presentazione 20.08] Studente Felice - LAL`, `[Presentazione 27.08] Studente Felice - BROAD`, `[Challenge 3-7.08] Studente Felice - LAL` — così ogni edizione ha il proprio `tipo_campagna` e resta tracciabile separatamente nel Funnel, anche a distanza di pochi giorni nello stesso mese.
+Per clienti con **più edizioni dello stesso tipo di funnel** (es. webinar/eventi ricorrenti, un cliente diverso ogni poche settimane) — RisultatiCommerciali (sotto) è tracciata per mese + `tipo_campagna`, quindi se più edizioni cadono nello stesso mese finirebbero sommate insieme sotto un unico tipo generico. Includi anche la data nel prefisso per tenerle distinte: `[Presentazione 20.08] Studente Felice - LAL`, `[Presentazione 27.08] Studente Felice - BROAD`, `[Challenge 3-7.08] Studente Felice - LAL` — così ogni edizione ha il proprio `tipo_campagna` e resta tracciabile separatamente in RisultatiCommerciali, anche a distanza di pochi giorni nello stesso mese.
 
 **MetaDaily** — scritta SOLO dal cron, non modificare a mano.
 | A data | B cliente_id | C campaign_id | D spesa | E impressions | F clicks | G ctr | H cpc | I cpm | J lead | K clic_link |
@@ -54,9 +54,10 @@ Colonna K aggiunta dopo il redesign KPI di fine agosto 2026 (blocco 7) — righe
 
 **Inserzioni outlier** (controllo qualità, blocco 4) — stesso principio "mai persistito": spesa+lead+stato per SINGOLA inserzione (ad), lette live su tutto il periodo richiesto via `/api/meta-inserzioni` (mai una colonna in MetaDaily, che resta a livello campagna). Il CPL medio di una campagna può essere nella norma pur nascondendo un'inserzione outlier che sta bruciando budget — `trovaInserzioniOutlier` (`src/lib/inserzioniOutlier.ts`) segnala le inserzioni ATTIVE il cui costo per lead supera 2,5× il target CPL della sede, un avviso "attenzione" nel pannello Avvisi operativi.
 
-**Funnel** — aggiornata a mano da Andrea/team, una riga per mese+cliente+tipo campagna.
-| A mese (YYYY-MM) | B cliente_id | C tipo_campagna | D richieste | E appuntamenti_fissati | F appuntamenti_effettuati | G vendite | H fatturato |
-|---|---|---|---|---|---|---|---|
+**RisultatiCommerciali** — rinominata da "Funnel" (richiesta esplicita dell'utente: nessuna forma a imbuto qui, solo risultati commerciali reali — non confondere con "Funnel di conversione", il vero imbuto, blocco 6a del tab KPI, invariato). Aggiornata a mano da Andrea/team, una riga per mese+cliente+tipo campagna.
+| A mese (YYYY-MM) | B cliente_id | C tipo_campagna | D richieste | E appuntamenti_fissati | F appuntamenti_effettuati | G vendite | H fatturato | I sede_id |
+|---|---|---|---|---|---|---|---|---|
+| | | | | | | | | inserito a mano insieme al resto della riga — non derivabile da nient'altro, stesso ruolo di `sede_id` in Campagne |
 
 **StoricoStatoCampagne** — scritta SOLO dal sync, non modificare a mano. Una riga per ogni transizione di stato rilevata (non una riga per sync): se lo stato non cambia da un sync all'altro non si scrive nulla. La prima volta che una campagna viene sincronizzata genera comunque una riga con `stato_precedente` vuoto (prima rilevazione, non un vero cambiamento). `data_ora` è il momento in cui il sync se n'è accorto, non necessariamente l'istante esatto del cambio su Meta Ads (dipende da finestra rolling e cadenza del cron). Usata per mostrare "dal 5 ago 2026" sotto il badge di stato nella tabella "per singola campagna".
 | A data_ora (ISO) | B campaign_id | C cliente_id | D nome_campagna | E stato_precedente | F stato_nuovo |

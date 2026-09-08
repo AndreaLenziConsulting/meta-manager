@@ -1,4 +1,4 @@
-import type { Campagna, FunnelRow, KpiGroup, MetaDailyRow, RigaCampagna } from "@/types/kpi";
+import type { Campagna, RisultatoCommercialeRow, KpiGroup, MetaDailyRow, RigaCampagna } from "@/types/kpi";
 
 const NON_CLASSIFICATA = "Non classificata";
 
@@ -90,16 +90,16 @@ export type KpiComputationResult = {
   gruppi: KpiGroup[];
   totale: KpiGroup;
   trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
-  // fatturato qui è SEMPRE quello del mese a cui la settimana appartiene (il Funnel è tracciato
-  // solo a livello mensile, non esiste un vero "fatturato della settimana") — null solo se quel
-  // mese non ha proprio un'entrata in trendMap (caso limite, non dovrebbe verificarsi dato che la
-  // settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso mese).
-  // `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante può avere un
-  // fatturato mensile alternativo da sovrapporre a questa settimana (vedi kpiGhlOverlay.ts).
+  // fatturato qui è SEMPRE quello del mese a cui la settimana appartiene (i RisultatiCommerciali
+  // sono tracciati solo a livello mensile, non esiste un vero "fatturato della settimana") — null
+  // solo se quel mese non ha proprio un'entrata in trendMap (caso limite, non dovrebbe verificarsi
+  // dato che la settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso
+  // mese). `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante può
+  // avere un fatturato mensile alternativo da sovrapporre a questa settimana (vedi kpiGhlOverlay.ts).
   // appuntamentiFissati/appuntamentiEffettuati/numeroVendite seguono ESATTAMENTE lo stesso
-  // trattamento di fatturato sopra (Funnel mensile ripetuto su ogni settimana del mese proprietario)
-  // — servono al blocco 6 del redesign KPI (grafici "Andamento appuntamenti" e "Saldo netto
-  // cumulato"), null nello stesso identico caso limite di fatturato.
+  // trattamento di fatturato sopra (RisultatiCommerciali mensili ripetuti su ogni settimana del
+  // mese proprietario) — servono al blocco 6 del redesign KPI (grafici "Andamento appuntamenti" e
+  // "Saldo netto cumulato"), null nello stesso identico caso limite di fatturato.
   trendSettimanale: {
     settimana: string;
     investimento: number;
@@ -113,12 +113,14 @@ export type KpiComputationResult = {
 };
 
 /**
- * Aggrega MetaDaily (spesa/lead, via mapping campagna -> tipo_campagna) e Funnel (richieste/appuntamenti/vendite/fatturato)
- * per una singola sede di un cliente, nella finestra [daMese, aMese] inclusiva, raggruppando per tipo_campagna.
+ * Aggrega MetaDaily (spesa/lead, via mapping campagna -> tipo_campagna) e RisultatiCommerciali
+ * (richieste/appuntamenti/vendite/fatturato) per una singola sede di un cliente, nella finestra
+ * [daMese, aMese] inclusiva, raggruppando per tipo_campagna.
  *
- * Se `campagneSelezionate` è passato, filtra le righe MetaDaily a quelle campagne; un tipo_campagna lato Funnel
- * resta incluso per intero finché almeno una delle sue campagne è nel set (il Funnel non è tracciato per
- * singola campagna, quindi non è divisibile ulteriormente).
+ * Se `campagneSelezionate` è passato, filtra le righe MetaDaily a quelle campagne; un tipo_campagna
+ * lato RisultatiCommerciali resta incluso per intero finché almeno una delle sue campagne è nel set
+ * (i risultati commerciali non sono tracciati per singola campagna, quindi non sono divisibili
+ * ulteriormente).
  */
 export function computeKpi(
   clienteId: string,
@@ -127,7 +129,7 @@ export function computeKpi(
   aMese: string,
   metaDaily: MetaDailyRow[],
   campagne: Campagna[],
-  funnel: FunnelRow[],
+  risultatiCommerciali: RisultatoCommercialeRow[],
   campagneSelezionate?: Set<string>
 ): KpiComputationResult {
   const campagneCliente = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
@@ -197,7 +199,7 @@ export function computeKpi(
     trendSettimanaleMap.set(settimana, settimanaEntry);
   }
 
-  for (const row of funnel) {
+  for (const row of risultatiCommerciali) {
     if (row.clienteId !== clienteId) continue;
     if (row.sedeId !== sedeId) continue;
     if (!nelPeriodo(row.mese)) continue;
@@ -261,10 +263,11 @@ export function computeKpi(
         settimana,
         investimento: v.investimento,
         numeroLead: v.numeroLead,
-        // il Funnel è tracciato solo a livello mensile: il fatturato mostrato per una settimana è
-        // quello del mese con più spesa in quella settimana (vedi nota sopra su spesaPerMese).
+        // i RisultatiCommerciali sono tracciati solo a livello mensile: il fatturato mostrato per
+        // una settimana è quello del mese con più spesa in quella settimana (vedi nota sopra su
+        // spesaPerMese).
         fatturato: trendMap.get(meseProprietario)?.fatturato ?? null,
-        // Stesso trattamento di fatturato sopra — mensile Funnel ripetuto sul mese proprietario
+        // Stesso trattamento di fatturato sopra — dato mensile ripetuto sul mese proprietario
         // della settimana (vedi tipo KpiComputationResult per il perché).
         appuntamentiFissati: trendMap.get(meseProprietario)?.appuntamentiFissati ?? null,
         appuntamentiEffettuati: trendMap.get(meseProprietario)?.appuntamentiEffettuati ?? null,
@@ -282,7 +285,8 @@ export function computeKpi(
 
 /**
  * Spesa/lead per singola campagna (non aggregati per tipo) — solo le metriche derivate da Meta Ads,
- * dato che il Funnel (vendite, fatturato, ecc.) è tracciato solo per tipo_campagna, non per campagna.
+ * dato che i RisultatiCommerciali (vendite, fatturato, ecc.) sono tracciati solo per tipo_campagna,
+ * non per campagna.
  */
 export function computeKpiPerCampagna(
   clienteId: string,
@@ -348,9 +352,10 @@ export function computeKpiPerCampagna(
 
 /**
  * Spesa e lead di una sede su una finestra di date reali (non mesi interi) — usata per la vista
- * "salute clienti" a 7 giorni. Le vendite del Funnel sono tracciate solo a livello mensile, quindi
- * su una finestra sub-mensile non sono attendibili: qui il segnale è sempre il costo per lead.
- * MetaDaily non porta sedeId: si passa da campagne (campaignId -> sede) come nelle altre funzioni.
+ * "salute clienti" a 7 giorni. Le vendite dei RisultatiCommerciali sono tracciate solo a livello
+ * mensile, quindi su una finestra sub-mensile non sono attendibili: qui il segnale è sempre il
+ * costo per lead. MetaDaily non porta sedeId: si passa da campagne (campaignId -> sede) come nelle
+ * altre funzioni.
  */
 export function computeSpesaLeadPeriodo(
   clienteId: string,

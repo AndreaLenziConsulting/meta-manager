@@ -4,14 +4,14 @@ import {
   getCampagne,
   getClienteByAccessCode,
   getClienti,
-  getFunnel,
+  getRisultatiCommerciali,
   getMetaDaily,
   getSedi,
   getUltimoCambioPerCampagna,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
-import { mesiConSpesaSenzaFunnel } from "@/lib/kpiQualita";
+import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import type { CampagnaDisponibile, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -70,10 +70,10 @@ export async function GET(req: NextRequest) {
   }
   const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
-  const [metaDaily, campagne, funnel, ultimoCambioPerCampagna] = await Promise.all([
+  const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna] = await Promise.all([
     getMetaDaily(),
     getCampagne(),
-    getFunnel(),
+    getRisultatiCommerciali(),
     getUltimoCambioPerCampagna(),
   ]);
 
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     a,
     metaDaily,
     campagne,
-    funnel,
+    risultatiCommerciali,
     campagneSelezionate
   );
   const righeCampagne = computeKpiPerCampagna(
@@ -146,16 +146,20 @@ export async function GET(req: NextRequest) {
   };
 
   // Additivo, solo ramo interno (stesso motivo di targetCpa/targetCpl sopra) — riusa
-  // metaDaily/campagne/funnel già in memoria per questa richiesta, nessuna lettura in più.
-  // mesiConSpesaSenzaFunnel guarda tutta la storia della sede per costruzione (vedi kpiQualita.ts):
-  // filtrato qui al periodo `da`/`a` scelto, per restare scoped come il resto del pannello Avvisi
-  // operativi (blocco 4) — non filtrato per campagna selezionata: il Funnel è tracciato per
-  // tipo_campagna in aggregato, non per singola campagna, "mese senza Funnel per queste campagne"
-  // non sarebbe una domanda ben posta.
+  // metaDaily/campagne/risultatiCommerciali già in memoria per questa richiesta, nessuna lettura in
+  // più. mesiConSpesaSenzaRisultatiCommerciali guarda tutta la storia della sede per costruzione
+  // (vedi kpiQualita.ts): filtrato qui al periodo `da`/`a` scelto, per restare scoped come il resto
+  // del pannello Avvisi operativi (blocco 4) — non filtrato per campagna selezionata: i risultati
+  // commerciali sono tracciati per tipo_campagna in aggregato, non per singola campagna, "mese
+  // senza risultati per queste campagne" non sarebbe una domanda ben posta.
   if (internal) {
-    response.meseSenzaFunnel = mesiConSpesaSenzaFunnel(clienteId, sede.sedeId, metaDaily, campagne, funnel).filter(
-      (m) => m.mese >= da && m.mese <= a
-    );
+    response.meseSenzaRisultatiCommerciali = mesiConSpesaSenzaRisultatiCommerciali(
+      clienteId,
+      sede.sedeId,
+      metaDaily,
+      campagne,
+      risultatiCommerciali
+    ).filter((m) => m.mese >= da && m.mese <= a);
   }
 
   return NextResponse.json(response);

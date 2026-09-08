@@ -26,7 +26,7 @@ describe("calcolaSaldoNettoCumulato", () => {
     expect(punti[2].saldoNetto).toBeGreaterThan(0);
   });
 
-  it("un contrattualizzato null (mese senza dato Funnel per quella settimana) vale 0 nel cumulo, non spezza la serie", () => {
+  it("un contrattualizzato null (mese senza dato RisultatiCommerciali per quella settimana) vale 0 nel cumulo, non spezza la serie", () => {
     const punti = calcolaSaldoNettoCumulato([
       { settimana: "2026-06-01", investimento: 100, contrattualizzato: null },
       { settimana: "2026-06-08", investimento: 100, contrattualizzato: 300 },

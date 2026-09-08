@@ -264,7 +264,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
   // Stesso fetch GHL di sopra ma sul periodo precedente — serve perché il confronto sotto alle
   // tessere non deve mai mettere a confronto un valore "oggi" letto da GHL con un valore "ieri"
-  // letto dal Funnel: sarebbe un confronto fra fonti diverse spacciato per un trend reale (stessa
+  // letto da RisultatiCommerciali: sarebbe un confronto fra fonti diverse spacciato per un trend reale (stessa
   // regola di non-mescolare-provenienza già seguita altrove in questo file).
   useEffect(() => {
     const controller = new AbortController();
@@ -335,7 +335,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   }, [clienteId, sedeGhl, da, a, refreshTick]);
 
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (e nessun
-  // filtro campagne attivo), altrimenti dal Funnel come sempre — vedi kpiGhlOverlay.ts per il
+  // filtro campagne attivo), altrimenti da RisultatiCommerciali come sempre — vedi kpiGhlOverlay.ts per il
   // dettaglio di quali tessere e perché non tutte.
   const overlayGhl = dati
     ? applicaOverlayGhl(dati.totale, campagneSelezionate ? null : ghlDati, {
@@ -349,8 +349,8 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         filtroCampagneAttivo: campagneSelezionate !== null,
       })
     : null;
-  // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello del
-  // Funnel (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
+  // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello di
+  // RisultatiCommerciali (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
   // sulla stessa pagina. Vedi applicaOverlayGhlTrend in kpiGhlOverlay.ts. Memoizzato (non un valore
   // derivato diretto come sopra): serve anche come dipendenza di confrontoTarget più sotto, dove un
   // nuovo array a ogni render vanificherebbe la memoizzazione di quel useMemo.
@@ -469,7 +469,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
   // Target commerciali (Fase 1 roadmap, blocco 4) — confronta i 4 target di sede con l'andamento
   // reale del periodo selezionato, vedi confrontaTargetCommerciali in targetCommerciali.ts. Stessa
-  // fonte fatturato di SintesiTessere (overlayGhl se connesso, altrimenti il Funnel) — mai un
+  // fonte fatturato di SintesiTessere (overlayGhl se connesso, altrimenti RisultatiCommerciali) — mai un
   // confronto contro un fatturato diverso da quello già mostrato nelle tessere sopra.
   const confrontoTarget = useMemo(() => {
     if (!dati) return { budgetMensile: null, leadSettimana: null, appuntamentiSettimana: null, fatturatoMensile: null };
@@ -494,7 +494,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return generaAvvisiOperativi({
       valutazioneSalute: calcolaSalute(dati.totale, dati.sede.targetCpa ?? null, dati.sede.targetCpl ?? null),
       attivitaInRitardoCount,
-      meseSenzaFunnel: dati.meseSenzaFunnel ?? [],
+      meseSenzaRisultatiCommerciali: dati.meseSenzaRisultatiCommerciali ?? [],
       ghl: ghlDati,
       campagneFrequenzaAlta,
       inserzioniOutlier,

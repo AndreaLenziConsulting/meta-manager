@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/Badge";
 import { PallinoStato } from "@/components/ui/PallinoStato";
 
 // Solo metriche pubblicitarie Meta Ads (blocco 7 del redesign KPI) — le vecchie colonne
-// Funnel/GHL (Richieste, Appuntamenti, Vendite, Tasso chiusura, Fatturato, ROAS, CPA) sono state
+// RisultatiCommerciali/GHL (Richieste, Appuntamenti, Vendite, Tasso chiusura, Fatturato, ROAS, CPA) sono state
 // tolte su richiesta esplicita: questa tabella ora parla solo di performance pubblicitaria, non
 // più del funnel commerciale a valle (quello resta nelle tessere di sintesi sopra). Investimento,
 // Impression, Clic e Lead non sono MAI overlay-GHL (GHL non ha questi concetti), quindi non serve

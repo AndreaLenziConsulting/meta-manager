@@ -112,7 +112,11 @@ export type MetaDailyRow = {
   clicLink: number;
 };
 
-export type FunnelRow = {
+// "RisultatiCommerciali" — deliberatamente non "Funnel": qui non c'è nessuna forma a imbuto, solo
+// i risultati commerciali reali (richieste/appuntamenti/vendite/fatturato) inseriti a mano ogni
+// mese, il nome precedente confondeva con "Funnel di conversione" (quello sì un vero imbuto,
+// FunnelConversioneChart.tsx, non toccato da questo rinominamento) — richiesta esplicita dell'utente.
+export type RisultatoCommercialeRow = {
   mese: string; // YYYY-MM
   clienteId: string;
   sedeId: string; // inserito a mano insieme al resto della riga — non derivabile da nient'altro
@@ -204,7 +208,7 @@ export type KpiResponse = {
   // `mese` = mese di appartenenza già risolto da computeKpi (vedi kpi.ts) — esposto perché
   // KpiSection.tsx lo usa per sapere quale fatturato mensile GHL sovrapporre a questa settimana
   // quando la sede è connessa, vedi kpiGhlOverlay.ts. appuntamentiFissati/appuntamentiEffettuati/
-  // numeroVendite seguono lo stesso trattamento di fatturato (mensile Funnel ripetuto sulla
+  // numeroVendite seguono lo stesso trattamento di fatturato (dato mensile ripetuto sulla
   // settimana) — alimentano i grafici "Andamento appuntamenti" e "Saldo netto cumulato" (blocco 6).
   trendSettimanale: {
     settimana: string;
@@ -219,9 +223,9 @@ export type KpiResponse = {
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
   // Presente solo nella richiesta interna (stesso motivo di targetCpa/targetCpl sopra) — alimenta
-  // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi mesiConSpesaSenzaFunnel
-  // in lib/kpiQualita.ts.
-  meseSenzaFunnel?: { mese: string; investimento: number }[];
+  // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi
+  // mesiConSpesaSenzaRisultatiCommerciali in lib/kpiQualita.ts.
+  meseSenzaRisultatiCommerciali?: { mese: string; investimento: number }[];
 };
 
 export type Prodotto = {

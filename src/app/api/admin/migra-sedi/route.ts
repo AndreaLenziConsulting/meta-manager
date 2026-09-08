@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 /**
  * Migrazione una tantum al modello Sede: per ogni cliente senza ancora una sede, ne crea una
  * "Principale" con i valori ancora presenti (vestigiali) su Clienti, poi backfilla sedeId su
- * Campagne/Funnel. Idempotente — sicura da richiamare più volte, salta chi è già a posto. Solo
+ * Campagne/RisultatiCommerciali. Idempotente — sicura da richiamare più volte, salta chi è già a posto. Solo
  * admin, nessun parametro: da lanciare una volta sola dopo il deploy del modello Sede.
  */
 export async function POST() {

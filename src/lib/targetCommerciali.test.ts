@@ -54,13 +54,13 @@ describe("confrontaTargetCommerciali", () => {
     expect(risultato.leadSettimana).toEqual({ atteso: 10, effettivo: 10 });
   });
 
-  it("appuntamenti a settimana: ignora le settimane senza dato Funnel (null) invece di annullare tutto", () => {
+  it("appuntamenti a settimana: ignora le settimane senza dato RisultatiCommerciali (null) invece di annullare tutto", () => {
     const risultato = confrontaTargetCommerciali({
       ...INPUT_BASE,
       targetAppuntamentiSettimana: 5,
       serieSettimanale: [
         { numeroLead: 0, appuntamentiFissati: 4 },
-        { numeroLead: 0, appuntamentiFissati: null }, // mese senza Funnel
+        { numeroLead: 0, appuntamentiFissati: null }, // mese senza RisultatiCommerciali
         { numeroLead: 0, appuntamentiFissati: 6 },
       ],
     });

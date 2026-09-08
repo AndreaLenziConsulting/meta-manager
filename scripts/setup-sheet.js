@@ -28,7 +28,7 @@ const TABS = [
     headers: ["data", "cliente_id", "campaign_id", "spesa", "impressions", "clicks", "ctr", "cpc", "cpm", "lead"],
   },
   {
-    title: "Funnel",
+    title: "RisultatiCommerciali",
     headers: [
       "mese",
       "cliente_id",

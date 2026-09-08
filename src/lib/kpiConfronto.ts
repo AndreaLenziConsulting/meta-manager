@@ -1,12 +1,12 @@
 import { divideOrNull } from "@/lib/kpi";
 import type { PuntoSettimanale } from "@/lib/kpiSettimanale";
-import type { FunnelRow } from "@/types/kpi";
+import type { RisultatoCommercialeRow } from "@/types/kpi";
 
 /**
  * Blocco di calcolo per la tab "confronto sedi" della tab "KPI (nuovo)" — una riga per sede più una
  * riga "Media", con evidenza di quali sedi vincono su ciascuna metrica competitiva. Vive separato da
  * kpi.ts perché lavora su righe già aggregate per sede (una computeKpi/totale per sede), non
- * sull'aggregazione MetaDaily/Funnel grezza.
+ * sull'aggregazione MetaDaily/RisultatiCommerciali grezza.
  */
 export type RigaConfrontoSede = {
   sedeId: string;
@@ -101,16 +101,16 @@ export function trovaSediMigliori(righe: { sedeId: string; valore: number | null
 
 /**
  * Appuntamenti fissati/effettuati e vendite per mese di una sede — stessa attribuzione diretta
- * clienteId+sedeId usata da computeKpi in kpi.ts. Un cliente+sede+mese può avere più righe Funnel (una
- * per tipoCampagna): tutte vengono sommate nell'entry di quel mese.
+ * clienteId+sedeId usata da computeKpi in kpi.ts. Un cliente+sede+mese può avere più righe
+ * RisultatiCommerciali (una per tipoCampagna): tutte vengono sommate nell'entry di quel mese.
  */
-export function funnelPerMese(
+export function risultatiCommercialiPerMese(
   clienteId: string,
   sedeId: string,
-  funnel: FunnelRow[]
+  risultatiCommerciali: RisultatoCommercialeRow[]
 ): Map<string, { appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }> {
   const mappa = new Map<string, { appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }>();
-  for (const row of funnel) {
+  for (const row of risultatiCommerciali) {
     if (row.clienteId !== clienteId) continue;
     if (row.sedeId !== sedeId) continue;
 
@@ -125,27 +125,27 @@ export function funnelPerMese(
 
 /**
  * Serie settimanale del "costo per X" (X = appuntamenti fissati/effettuati o vendite), calcolata a
- * livello mensile (investimento del mese / conteggio Funnel del mese) e ripetuta identica su ogni
- * settimana di quel mese — stessa convenzione già usata da TrendChart.tsx per il fatturato Funnel: il
- * Funnel è tracciato solo a livello mensile, non esiste un vero dato settimanale, quindi ogni settimana
- * del mese mostra lo stesso valore mensile (comportamento voluto, non un bug). Se il mese della
- * settimana non ha un'entry in trendMensile o in funnelPerMeseMap, il valore è null (dato non
- * disponibile), mai 0.
+ * livello mensile (investimento del mese / conteggio RisultatiCommerciali del mese) e ripetuta
+ * identica su ogni settimana di quel mese — stessa convenzione già usata da TrendChart.tsx per il
+ * fatturato: RisultatiCommerciali è tracciato solo a livello mensile, non esiste un vero dato
+ * settimanale, quindi ogni settimana del mese mostra lo stesso valore mensile (comportamento
+ * voluto, non un bug). Se il mese della settimana non ha un'entry in trendMensile o in
+ * risultatiPerMeseMap, il valore è null (dato non disponibile), mai 0.
  */
 export function serieCostoMensileRipetutaPerSettimana(
   trendSettimanale: { settimana: string; mese: string }[],
   trendMensile: { mese: string; investimento: number }[],
-  funnelPerMeseMap: ReturnType<typeof funnelPerMese>,
+  risultatiPerMeseMap: ReturnType<typeof risultatiCommercialiPerMese>,
   campo: "appuntamentiFissati" | "appuntamentiEffettuati" | "numeroVendite"
 ): PuntoSettimanale[] {
   const investimentoPerMese = new Map(trendMensile.map((t) => [t.mese, t.investimento]));
 
   return trendSettimanale.map((s) => {
     const investimentoMese = investimentoPerMese.get(s.mese);
-    const funnelMese = funnelPerMeseMap.get(s.mese);
-    if (investimentoMese === undefined || funnelMese === undefined) {
+    const risultatiMese = risultatiPerMeseMap.get(s.mese);
+    if (investimentoMese === undefined || risultatiMese === undefined) {
       return { settimana: s.settimana, valore: null };
     }
-    return { settimana: s.settimana, valore: divideOrNull(investimentoMese, funnelMese[campo]) };
+    return { settimana: s.settimana, valore: divideOrNull(investimentoMese, risultatiMese[campo]) };
   });
 }

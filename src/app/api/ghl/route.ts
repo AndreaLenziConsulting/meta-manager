@@ -21,7 +21,7 @@ function meseCorrente(): string {
 /**
  * Riepilogo "vendite e appuntamenti" da GHL/Squadd per una sede — Fase 1, sola lettura. Mai sul
  * link pubblico cliente (nessun ramo `code`, a differenza di /api/kpi): dato non ancora validato
- * quanto il Funnel, resta un pannello solo per il team — vedi src/lib/ghl.ts. Se la sede non ha
+ * quanto RisultatiCommerciali, resta un pannello solo per il team — vedi src/lib/ghl.ts. Se la sede non ha
  * una GhlConnessione attiva, torna { connesso: false } con status 200 (non è un errore, è lo
  * stato normale finché nessuno l'ha collegata).
  */

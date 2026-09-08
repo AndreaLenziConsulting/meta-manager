@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo } from "./kpi";
-import type { Campagna, FunnelRow, MetaDailyRow } from "@/types/kpi";
+import type { Campagna, RisultatoCommercialeRow, MetaDailyRow } from "@/types/kpi";
 
 const SEDE = "s1";
 
@@ -22,14 +22,14 @@ const META_DAILY: MetaDailyRow[] = [
   { data: "2026-06-15", clienteId: "altro-cliente", campaignId: "c9", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicLink: 0 },
 ];
 
-const FUNNEL: FunnelRow[] = [
+const RISULTATI_COMMERCIALI: RisultatoCommercialeRow[] = [
   { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
   { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Retargeting", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
 ];
 
 describe("computeKpi", () => {
   it("aggrega investimento/lead per tipo_campagna nel periodo richiesto", () => {
-    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
     const retargeting = gruppi.find((g) => g.tipoCampagna === "Retargeting")!;
 
@@ -66,13 +66,13 @@ describe("computeKpi", () => {
   });
 
   it("esclude righe fuori dal range di mesi e di altri clienti", () => {
-    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     // 999 (maggio) e 500 (altro cliente) non devono contribuire.
     expect(totale.investimento).toBe(350);
   });
 
-  it("unisce i dati Funnel (richieste/appuntamenti/vendite/fatturato) allo stesso tipo_campagna", () => {
-    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+  it("unisce i dati RisultatiCommerciali (richieste/appuntamenti/vendite/fatturato) allo stesso tipo_campagna", () => {
+    const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
     expect(prospecting.numeroRichieste).toBe(10);
     expect(prospecting.numeroVendite).toBe(2);
@@ -80,30 +80,30 @@ describe("computeKpi", () => {
   });
 
   it("calcola le formule derivate correttamente, incluso il caso divisione per zero -> null", () => {
-    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     expect(totale.costoPerLead).toBeCloseTo(350 / 15, 5);
     expect(totale.cpa).toBeCloseTo(350 / 2, 5); // 2 vendite in totale
 
-    const vuoto = computeKpi("alc-01", SEDE, "2099-01", "2099-01", META_DAILY, CAMPAGNE, FUNNEL);
+    const vuoto = computeKpi("alc-01", SEDE, "2099-01", "2099-01", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     expect(vuoto.totale.costoPerLead).toBeNull();
     expect(vuoto.totale.roas).toBeNull();
     expect(vuoto.totale.cpa).toBeNull();
   });
 
   it("un periodo di più mesi copre correttamente l'intervallo inclusivo", () => {
-    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
+    const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     expect(totale.investimento).toBe(380); // 350 di giugno + 30 di luglio
   });
 
-  it("il trend mensile somma investimento (da MetaDaily) e fatturato (da Funnel) per mese", () => {
-    const { trend } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, FUNNEL);
+  it("il trend mensile somma investimento (da MetaDaily) e fatturato (da RisultatiCommerciali) per mese", () => {
+    const { trend } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     const giugno = trend.find((t) => t.mese === "2026-06")!;
     const luglio = trend.find((t) => t.mese === "2026-07")!;
     expect(giugno.investimento).toBe(350);
     expect(giugno.fatturato).toBe(4000);
     expect(giugno.numeroLead).toBe(15); // 5 (c1) + 2 (c2) + 8 (c3)
     expect(luglio.investimento).toBe(30);
-    expect(luglio.fatturato).toBe(0); // nessuna riga Funnel per luglio nel fixture
+    expect(luglio.fatturato).toBe(0); // nessuna riga RisultatiCommerciali per luglio nel fixture
     expect(luglio.numeroLead).toBe(1);
   });
 
@@ -111,9 +111,9 @@ describe("computeKpi", () => {
     // 2026-06-01 è un lunedì -> la griglia di giugno 2026 è esattamente 5 lunedì (01/08/15/22/29).
     // 2026-06-15 è un lunedì; 2026-06-16 martedì della stessa settimana; 2026-06-20 sabato, stessa settimana:
     // solo quella settimana ha investimento/lead reali, le altre 4 sono placeholder (0, ma fatturato comunque
-    // presente: il Funnel è mensile, si ripete per ogni settimana del mese).
-    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL);
-    // FUNNEL di giugno: Prospecting (fissati 6, effettuati 4, vendite 2) + Retargeting (fissati 2,
+    // presente: RisultatiCommerciali è mensile, si ripete per ogni settimana del mese).
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
+    // RISULTATI_COMMERCIALI di giugno: Prospecting (fissati 6, effettuati 4, vendite 2) + Retargeting (fissati 2,
     // effettuati 1, vendite 0) = 8/5/2 in totale, ripetuti su ogni settimana come il fatturato.
     expect(trendSettimanale).toEqual([
       { settimana: "2026-06-01", investimento: 0, fatturato: 4000, numeroLead: 0, appuntamentiFissati: 8, appuntamentiEffettuati: 5, numeroVendite: 2, mese: "2026-06" },
@@ -131,11 +131,11 @@ describe("computeKpi", () => {
       { data: "2026-06-29", clienteId: "alc-01", campaignId: "c1", spesa: 10, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicLink: 0 },
       { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9, clicLink: 0 },
     ];
-    const funnel: FunnelRow[] = [
+    const risultatiCommerciali: RisultatoCommercialeRow[] = [
       { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
       { mese: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
     ];
-    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", metaDaily, CAMPAGNE, funnel);
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", metaDaily, CAMPAGNE, risultatiCommerciali);
 
     const settimana = trendSettimanale.find((t) => t.settimana === "2026-06-29")!;
     expect(settimana.investimento).toBe(100);
@@ -161,10 +161,10 @@ describe("computeKpi", () => {
     });
   });
 
-  it("un periodo senza nessuna riga MetaDaily/Funnel produce comunque una griglia completa di settimane, fatturato null", () => {
+  it("un periodo senza nessuna riga MetaDaily/RisultatiCommerciali produce comunque una griglia completa di settimane, fatturato null", () => {
     // Riproduce esattamente il bug segnalato ("agosto un solo punto"): prima di questo fix, un mese
     // senza nessuna riga MetaDaily reale avrebbe restituito un array vuoto, non una griglia completa.
-    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-08", "2026-08", META_DAILY, CAMPAGNE, FUNNEL);
+    const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-08", "2026-08", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI);
     expect(trendSettimanale).toEqual([
       { settimana: "2026-07-27", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-07" },
       { settimana: "2026-08-03", investimento: 0, fatturato: null, numeroLead: 0, appuntamentiFissati: null, appuntamentiEffettuati: null, numeroVendite: null, mese: "2026-08" },
@@ -177,29 +177,30 @@ describe("computeKpi", () => {
 
   describe("filtro campagneSelezionate", () => {
     it("limita MetaDaily alle sole campagne selezionate", () => {
-      const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c1"]));
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI, new Set(["c1"]));
       expect(totale.investimento).toBe(100); // solo c1 di giugno
     });
 
-    it("un tipo_campagna con ALMENO una campagna selezionata mantiene INTERO il suo Funnel (non è divisibile per campagna)", () => {
-      // Seleziono solo c2 (Prospecting): Funnel di Prospecting deve restare intero (10 richieste),
-      // anche se c1 (anch'essa Prospecting) è esclusa dal filtro.
-      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c2"]));
+    it("un tipo_campagna con ALMENO una campagna selezionata mantiene INTERO il suo RisultatiCommerciali (non è divisibile per campagna)", () => {
+      // Seleziono solo c2 (Prospecting): RisultatiCommerciali di Prospecting deve restare intero
+      // (10 richieste), anche se c1 (anch'essa Prospecting) è esclusa dal filtro.
+      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI, new Set(["c2"]));
       const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
       expect(prospecting.investimento).toBe(50); // solo c2
-      expect(prospecting.numeroRichieste).toBe(10); // Funnel intero comunque
+      expect(prospecting.numeroRichieste).toBe(10); // RisultatiCommerciali intero comunque
     });
 
-    it("un tipo_campagna con NESSUNA campagna selezionata non porta il suo Funnel", () => {
-      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, FUNNEL, new Set(["c3"]));
+    it("un tipo_campagna con NESSUNA campagna selezionata non porta il suo RisultatiCommerciali", () => {
+      const { gruppi } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, RISULTATI_COMMERCIALI, new Set(["c3"]));
       const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting");
       expect(prospecting).toBeUndefined();
     });
   });
 
   describe("isolamento tra sedi dello stesso cliente", () => {
-    // Stesso clienteId, due sedi con account (quindi campagne) diversi: spesa/lead/funnel di una
-    // sede non devono mai comparire nei numeri dell'altra — il caso critico introdotto con Sede.
+    // Stesso clienteId, due sedi con account (quindi campagne) diversi: spesa/lead/risultati
+    // commerciali di una sede non devono mai comparire nei numeri dell'altra — il caso critico
+    // introdotto con Sede.
     const campagneDueSedi: Campagna[] = [
       { campaignId: "s1-c1", clienteId: "multi", sedeId: "sede-1", nomeCampagna: "Sede 1", tipoCampagna: "Prospecting", stato: "ACTIVE" },
       { campaignId: "s2-c1", clienteId: "multi", sedeId: "sede-2", nomeCampagna: "Sede 2", tipoCampagna: "Prospecting", stato: "ACTIVE" },
@@ -208,14 +209,14 @@ describe("computeKpi", () => {
       { data: "2026-06-10", clienteId: "multi", campaignId: "s1-c1", spesa: 100, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 10, clicLink: 0 },
       { data: "2026-06-10", clienteId: "multi", campaignId: "s2-c1", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicLink: 0 },
     ];
-    const funnelDueSedi: FunnelRow[] = [
+    const risultatiCommercialiDueSedi: RisultatoCommercialeRow[] = [
       { mese: "2026-06", clienteId: "multi", sedeId: "sede-1", tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
       { mese: "2026-06", clienteId: "multi", sedeId: "sede-2", tipoCampagna: "Prospecting", richieste: 9, appuntamentiFissati: 9, appuntamentiEffettuati: 9, vendite: 9, fatturato: 9000 },
     ];
 
-    it("computeKpi vede solo la spesa/lead/funnel della sede richiesta", () => {
-      const sede1 = computeKpi("multi", "sede-1", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, funnelDueSedi);
-      const sede2 = computeKpi("multi", "sede-2", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, funnelDueSedi);
+    it("computeKpi vede solo la spesa/lead/risultati commerciali della sede richiesta", () => {
+      const sede1 = computeKpi("multi", "sede-1", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, risultatiCommercialiDueSedi);
+      const sede2 = computeKpi("multi", "sede-2", "2026-06", "2026-06", metaDailyDueSedi, campagneDueSedi, risultatiCommercialiDueSedi);
 
       expect(sede1.totale.investimento).toBe(100);
       expect(sede1.totale.numeroLead).toBe(10);
@@ -229,7 +230,7 @@ describe("computeKpi", () => {
 });
 
 describe("computeKpiPerCampagna", () => {
-  it("produce una riga per campagna con le sole metriche Meta (non Funnel)", () => {
+  it("produce una riga per campagna con le sole metriche Meta (non RisultatiCommerciali)", () => {
     const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE);
     const c1 = righe.find((r) => r.campaignId === "c1")!;
     expect(c1.investimento).toBe(100);

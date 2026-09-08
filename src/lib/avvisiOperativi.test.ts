@@ -13,7 +13,7 @@ const CONFRONTO_TARGET_VUOTO = { budgetMensile: null, leadSettimana: null, appun
 const INPUT_VUOTO = {
   valutazioneSalute: SALUTE_OK,
   attivitaInRitardoCount: 0,
-  meseSenzaFunnel: [],
+  meseSenzaRisultatiCommerciali: [],
   ghl: null,
   campagneFrequenzaAlta: [],
   inserzioniOutlier: [],
@@ -79,23 +79,23 @@ describe("generaAvvisiOperativi", () => {
     expect(molte[0].messaggio).toBe("A (2.80), B (3.10), C (2.60) e altre 2 — creatività da rinnovare.");
   });
 
-  it("mese senza Funnel elenca i mesi coinvolti", () => {
+  it("mese senza RisultatiCommerciali elenca i mesi coinvolti", () => {
     const avvisi = generaAvvisiOperativi({
       ...INPUT_VUOTO,
-      meseSenzaFunnel: [
+      meseSenzaRisultatiCommerciali: [
         { mese: "2026-06", investimento: 100 },
         { mese: "2026-07", investimento: 50 },
       ],
     });
     expect(avvisi[0]).toEqual({
-      id: "funnel-mancante",
+      id: "risultati-commerciali-mancanti",
       tono: "da-sistemare",
-      titolo: "Funnel non compilato",
-      messaggio: `Spesa pubblicitaria registrata ma nessun dato Funnel per ${formatMese("2026-06")}, ${formatMese("2026-07")}.`,
+      titolo: "Risultati commerciali non compilati",
+      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${formatMese("2026-06")}, ${formatMese("2026-07")}.`,
     });
   });
 
-  it("mese senza Funnel NON genera l'avviso se GHL è connesso con calendari configurati — la compilazione è automatica (bug reale corretto)", () => {
+  it("mese senza RisultatiCommerciali NON genera l'avviso se GHL è connesso con calendari configurati — la compilazione è automatica (bug reale corretto)", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,
       calendariConfigurati: true,
@@ -107,13 +107,13 @@ describe("generaAvvisiOperativi", () => {
     };
     const avvisi = generaAvvisiOperativi({
       ...INPUT_VUOTO,
-      meseSenzaFunnel: [{ mese: "2026-06", investimento: 100 }],
+      meseSenzaRisultatiCommerciali: [{ mese: "2026-06", investimento: 100 }],
       ghl,
     });
-    expect(avvisi.find((a) => a.id === "funnel-mancante")).toBeUndefined();
+    expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeUndefined();
   });
 
-  it("mese senza Funnel genera comunque l'avviso se GHL è connesso ma SENZA calendari configurati — appuntamenti non sono automatici in quel caso", () => {
+  it("mese senza RisultatiCommerciali genera comunque l'avviso se GHL è connesso ma SENZA calendari configurati — appuntamenti non sono automatici in quel caso", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,
       calendariConfigurati: false,
@@ -125,10 +125,10 @@ describe("generaAvvisiOperativi", () => {
     };
     const avvisi = generaAvvisiOperativi({
       ...INPUT_VUOTO,
-      meseSenzaFunnel: [{ mese: "2026-06", investimento: 100 }],
+      meseSenzaRisultatiCommerciali: [{ mese: "2026-06", investimento: 100 }],
       ghl,
     });
-    expect(avvisi.find((a) => a.id === "funnel-mancante")).toBeDefined();
+    expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeDefined();
   });
 
   it("GHL connesso senza calendari configurati -> da-sistemare", () => {
@@ -146,7 +146,7 @@ describe("generaAvvisiOperativi", () => {
       id: "ghl-calendari-non-configurati",
       tono: "da-sistemare",
       titolo: "Calendari GHL da collegare",
-      messaggio: "La sede è connessa a GHL ma nessun calendario è stato scelto: appuntamenti ed effettuati restano dal Funnel finché non li colleghi.",
+      messaggio: "La sede è connessa a GHL ma nessun calendario è stato scelto: appuntamenti ed effettuati restano da Risultati Commerciali finché non li colleghi.",
     });
   });
 
@@ -194,7 +194,7 @@ describe("generaAvvisiOperativi", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,
       // false (non true): calendari non configurati genera da solo il "da-sistemare" di questo
-      // test — con true, il Funnel vuoto sotto sarebbe compilato automaticamente da GHL e non
+      // test — con true, RisultatiCommerciali vuoto sotto sarebbe compilato automaticamente da GHL e non
       // genererebbe più nessun avviso "da-sistemare" (vedi il test dedicato sopra).
       calendariConfigurati: false,
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
@@ -206,7 +206,7 @@ describe("generaAvvisiOperativi", () => {
     const avvisi = generaAvvisiOperativi({
       valutazioneSalute: SALUTE_OK,
       attivitaInRitardoCount: 0,
-      meseSenzaFunnel: [],
+      meseSenzaRisultatiCommerciali: [],
       ghl, // calendari non configurati -> da-sistemare, calendari falliti -> da-sapere
       campagneFrequenzaAlta: [{ nomeCampagna: "A", frequenza: 3 }], // attenzione
       inserzioniOutlier: [],

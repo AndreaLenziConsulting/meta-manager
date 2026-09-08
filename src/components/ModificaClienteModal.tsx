@@ -182,7 +182,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
         <div>
           <p className="text-sm font-semibold text-ink-900">Sedi</p>
           <p className="text-xs text-ink-500 mt-0.5">
-            Ogni sede ha il proprio account pubblicitario e il proprio target — ads e funnel restano separati tra sedi diverse.
+            Ogni sede ha il proprio account pubblicitario e il proprio target — ads e risultati commerciali restano separati tra sedi diverse.
           </p>
         </div>
         <div className="space-y-3">
