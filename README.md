@@ -71,7 +71,7 @@ Colonna K aggiunta dopo il redesign KPI di fine agosto 2026 (blocco 7) — righe
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `gtm` | id univoco nel prodotto, es. `S01` | testo libero, es. `setup`/`gestione` | etichetta di fase, es. "Sett. 1 - Strategia & analisi" | descrizione attività | testo libero | sigla per colore/tooltip, es. `PM`/`CS`/`CL`/`MIL` (milestone) | settimana di inizio (1 = settimana di avvio progetto) | settimana di fine | solo display, es. "gg 1-3" | nota libera | ordine di visualizzazione, esplicito |
 
-**AttivitaCliente** — generata automaticamente alla creazione del cliente (o da "Genera roadmap" nel tab Attività); stato e nota_team sono poi editabili dal team dalla UI. Non modificare le altre colonne a mano: sono uno snapshot del template al momento della generazione, una correzione futura al template non si propaga qui.
+**AttivitaCliente** — generata automaticamente alla creazione del cliente (o da "Genera roadmap" nel tab Attività), da un action item di meeting, oppure aggiunta a mano una riga alla volta ("+ Nuova attività" nel tab Attività, `POST /api/attivita/crea` — non admin-only, come stato/scadenza/eliminazione: già un'azione di gestione quotidiana della roadmap); stato e nota_team sono poi editabili dal team dalla UI. Non modificare le altre colonne a mano: sono uno snapshot del template (o della compilazione) al momento della creazione, una correzione futura al template non si propaga qui.
 | A attivita_id | B cliente_id | C prodotto_id | D task_id | E blocco | F fase | G descrizione | H responsabile | I tipo | J data_inizio | K data_fine | L stato | M nota_team | N ordine |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `${cliente_id}::${task_id}` | | | | | | | | | `YYYY-MM-DD` | `YYYY-MM-DD` | `todo`/`wip`/`done`/`blocked` | | |
@@ -163,6 +163,8 @@ Team/consulente/admin vedono sempre 3 tab: **KPI** (quello di sempre), **Attivit
 ### Roadmap prodotto (tab Attività)
 
 Alla creazione di un cliente con un prodotto assegnato, la roadmap si genera automaticamente copiando `TemplateAttivita` del prodotto scelto, con le scadenze calcolate da `data_inizio_progetto` + `settimana_inizio`/`settimana_fine` di ogni riga template. Il tab mostra un Gantt raggruppato per fase (collassabili, solo la fase in corso è aperta di default); un click su un'attività cicla lo stato **Da fare → In corso → Fatto → Da fare**; "Bloccato" si imposta da un'azione dedicata e richiede sempre un motivo. Un cliente senza `prodotto_id`/`data_inizio_progetto` mostra un invito a assegnarli; un cliente con prodotto ma senza roadmap (es. generazione fallita) mostra un bottone "Genera roadmap" (equivalente a `POST /api/attivita/genera`, idempotente — richiamabile in sicurezza più volte).
+
+Il pulsante **"+ Nuova attività"** (sempre visibile in cima al tab, anche prima che esista una roadmap) aggiunge una singola attività a mano: descrizione, fase (testo libero, con suggerimenti dalle fasi già presenti — può essere una fase in corso o una nuova), responsabile opzionale ("Da assegnare" se lasciato vuoto, come i task da meeting), data inizio (default oggi) e scadenza. `taskId` è uno slug leggibile della descrizione (`generaTaskIdManuale` in `src/lib/accessCode.ts`), `prodotto_id`/`blocco` = `"manuale"` per distinguerle da template e meeting a colpo d'occhio nel foglio.
 
 ### Meeting — storico + task automatici (tab Meeting)
 

@@ -48,3 +48,20 @@ export function generaSedeId(clienteId: string, nomeSede: string, esistenti: Set
   while (esistenti.has(`${base}-${n}`)) n++;
   return `${base}-${n}`;
 }
+
+/**
+ * Genera un taskId leggibile dallo slug della descrizione, per un'attività aggiunta manualmente
+ * (non da template prodotto né da meeting, che hanno i propri schemi opachi — vedi
+ * generaAttivitaPerCliente/generaAttivitaDaMeeting) — stesso schema slug+suffisso di
+ * generaClienteId/generaProspectId sopra, troncato a 40 caratteri (una descrizione può essere una
+ * frase intera) e senza trattino residuo al taglio. `esistenti` è l'insieme dei taskId già in uso
+ * per QUEL cliente (attivitaId = `${clienteId}::${taskId}`): la stessa base può ripetersi su
+ * clienti diversi senza collidere davvero, il chiamante passa solo i taskId del cliente in corso.
+ */
+export function generaTaskIdManuale(descrizione: string, esistenti: Set<string>): string {
+  const base = slugify(descrizione).slice(0, 40).replace(/-+$/, "") || "attivita";
+  if (!esistenti.has(base)) return base;
+  let n = 2;
+  while (esistenti.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
