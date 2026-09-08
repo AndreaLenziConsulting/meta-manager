@@ -111,7 +111,9 @@ function ClienteCard({
   );
 }
 
-function ClienteRiga({
+/** Esportata: riusata da ClientiPerConsulente.tsx (toggle "Per consulente" della pagina Clienti
+ * unificata) — stessa riga compatta, per non duplicare markup tra le due viste. */
+export function ClienteRiga({
   item,
   nomeConsulente,
   onModifica,

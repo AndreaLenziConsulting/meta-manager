@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { calcolaRiepilogo, ordinaPerPriorita, type SaluteClienteItem } from "./dashboardAdmin";
-import type { AttivitaClienteRow, Cliente } from "@/types/kpi";
+import { calcolaRiepilogo, ordinaPerPriorita, raggruppaPerConsulente, type SaluteClienteItem } from "./dashboardAdmin";
+import type { AttivitaClienteRow, Cliente, Consulente } from "@/types/kpi";
+
+function consulente(over: Partial<Consulente>): Consulente {
+  return { consulenteId: "cons-1", nome: "Consulente", password: "x", attivo: true, email: "", ...over };
+}
 
 function cliente(over: Partial<Cliente>): Cliente {
   return {
@@ -89,5 +93,46 @@ describe("ordinaPerPriorita", () => {
     const input = [a, b];
     ordinaPerPriorita(input);
     expect(input).toEqual([a, b]); // ordine originale intatto
+  });
+});
+
+describe("raggruppaPerConsulente", () => {
+  it("raggruppa gli item per consulente assegnato", () => {
+    const consulenti = [consulente({ consulenteId: "mario" }), consulente({ consulenteId: "luca", nome: "Luca" })];
+    const items = [
+      item({ cliente: cliente({ clienteId: "a", consulenteId: "mario" }) }),
+      item({ cliente: cliente({ clienteId: "b", consulenteId: "luca" }) }),
+      item({ cliente: cliente({ clienteId: "c", consulenteId: "mario" }) }),
+    ];
+    const { gruppi } = raggruppaPerConsulente(items, consulenti);
+    // Mario ha 2 clienti (carico maggiore) -> primo, anche se "Consulente" > "Luca" alfabeticamente
+    expect(gruppi.map((g) => g.consulente.consulenteId)).toEqual(["mario", "luca"]);
+    expect(gruppi[0].items.map((i) => i.cliente.clienteId)).toEqual(["a", "c"]);
+  });
+
+  it("un consulente attivo senza clienti compare comunque, con items vuoto (roster completo)", () => {
+    const consulenti = [consulente({ consulenteId: "senza-clienti", nome: "Senza Clienti" })];
+    const { gruppi } = raggruppaPerConsulente([], consulenti);
+    expect(gruppi).toHaveLength(1);
+    expect(gruppi[0].items).toEqual([]);
+  });
+
+  it("un consulente disattivato non genera un proprio gruppo", () => {
+    const consulenti = [consulente({ consulenteId: "disattivato", attivo: false })];
+    const { gruppi } = raggruppaPerConsulente([], consulenti);
+    expect(gruppi).toEqual([]);
+  });
+
+  it("item il cui consulenteId non corrisponde a nessun consulente attivo finisce in nonAssegnati, non perso", () => {
+    const items = [item({ cliente: cliente({ clienteId: "orfano", consulenteId: "non-esiste" }) })];
+    const { gruppi, nonAssegnati } = raggruppaPerConsulente(items, []);
+    expect(gruppi).toEqual([]);
+    expect(nonAssegnati.map((i) => i.cliente.clienteId)).toEqual(["orfano"]);
+  });
+
+  it("a parità di carico ordina per nome consulente", () => {
+    const consulenti = [consulente({ consulenteId: "z", nome: "Zeta" }), consulente({ consulenteId: "a", nome: "Alfa" })];
+    const { gruppi } = raggruppaPerConsulente([], consulenti);
+    expect(gruppi.map((g) => g.consulente.nome)).toEqual(["Alfa", "Zeta"]);
   });
 });

@@ -1,4 +1,4 @@
-import type { AttivitaClienteRow, Cliente, Sede } from "@/types/kpi";
+import type { AttivitaClienteRow, Cliente, Consulente, Sede } from "@/types/kpi";
 import type { ValutazioneSalute } from "@/lib/salute";
 
 /** Salute ads di una singola sede — un cliente ne aggrega una o più, vedi SaluteClienteItem sotto. */
@@ -88,4 +88,40 @@ export function ordinaPerPriorita(items: SaluteClienteItem[]): SaluteClienteItem
     if (bucketA === 2) return b.attivitaInRitardo.length - a.attivitaInRitardo.length;
     return ORDINE_STATO_ADS[a.valutazione.stato] - ORDINE_STATO_ADS[b.valutazione.stato];
   });
+}
+
+export type GruppoConsulente = { consulente: Consulente; items: SaluteClienteItem[] };
+export type RaggruppamentoConsulenti = { gruppi: GruppoConsulente[]; nonAssegnati: SaluteClienteItem[] };
+
+/**
+ * Raggruppa gli item per consulente assegnato — la vista "roster" della pagina Clienti unificata
+ * (toggle "Per priorità"/"Per consulente" in DashboardClienti.tsx, solo admin: il consulente vede
+ * sempre e solo i propri, raggruppare per consulente non aggiungerebbe nulla). Sostituisce
+ * GruppiPerConsulente, che viveva come logica di pagina in dashboard/clienti/page.tsx (pagina
+ * eliminata, unificata in dashboard/page.tsx) — stessa idea ma su SaluteClienteItem invece che su
+ * Cliente grezzo, per riusare le stesse card con salute/attività/sentiment già calcolate.
+ *
+ * Un consulente attivo compare sempre, anche con `items: []` (roster completo — "chi è in arrivo",
+ * non solo chi ha già qualcosa assegnato). Ordinati per carico decrescente, a parità di conteggio
+ * per nome. `nonAssegnati` è un secchio a parte (non un altro GruppoConsulente): item il cui
+ * consulenteId non corrisponde a nessun consulente attivo (dato orfano: consulente disattivato/
+ * rimosso senza riassegnare i suoi clienti) — non vanno persi dalla vista.
+ */
+export function raggruppaPerConsulente(items: SaluteClienteItem[], consulenti: Consulente[]): RaggruppamentoConsulenti {
+  const idAttivi = new Set(consulenti.filter((c) => c.attivo).map((c) => c.consulenteId));
+  const perConsulente = new Map<string, SaluteClienteItem[]>();
+  for (const item of items) {
+    const lista = perConsulente.get(item.cliente.consulenteId) ?? [];
+    lista.push(item);
+    perConsulente.set(item.cliente.consulenteId, lista);
+  }
+
+  const gruppi = consulenti
+    .filter((c) => c.attivo)
+    .map((consulente) => ({ consulente, items: perConsulente.get(consulente.consulenteId) ?? [] }))
+    .sort((a, b) => b.items.length - a.items.length || a.consulente.nome.localeCompare(b.consulente.nome));
+
+  const nonAssegnati = items.filter((i) => !idAttivi.has(i.cliente.consulenteId));
+
+  return { gruppi, nonAssegnati };
 }

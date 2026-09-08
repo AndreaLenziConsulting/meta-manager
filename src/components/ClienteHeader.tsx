@@ -13,11 +13,11 @@ import { LogoONomeCliente } from "@/components/LogoONomeCliente";
  * (src/app/report/[code]/page.tsx) ha già il proprio header col nome/logo del cliente sopra
  * SchedaCliente — qui comparirebbe raddoppiato.
  *
- * "Torna indietro" usa router.back() (cronologia del browser), non più un link fisso a
- * /dashboard/clienti: si arriva a una scheda cliente sia dalla pagina Clienti sia dalla Dashboard
- * Amministratore (le card di SaluteClienti.tsx), e "indietro" deve tornare a quella di partenza,
- * non sempre alla stessa. Fallback a /dashboard/clienti solo se non c'è cronologia (arrivo diretto
- * via URL, link pubblico incluso raro ma possibile).
+ * "Torna indietro" usa router.back() (cronologia del browser), non più un link fisso: si arriva a
+ * una scheda cliente sia dalla vista priorità sia da quella per consulente (entrambe dentro
+ * /dashboard, vedi DashboardClienti.tsx), e "indietro" deve tornare a quella di partenza, non
+ * sempre alla stessa. Fallback a /dashboard solo se non c'è cronologia (arrivo diretto via URL,
+ * link pubblico incluso raro ma possibile).
  *
  * `settimanaProgetto`/`driveFolderUrl`/`landingPageUrl` sono le stesse aggiunte "anagrafiche" del
  * cliente (mai sul link pubblico, stesso motivo del resto dell'header) — link rapidi e contesto
@@ -70,7 +70,7 @@ export function ClienteHeader({
     if (typeof window !== "undefined" && window.history.length > 1) {
       router.back();
     } else {
-      router.push("/dashboard/clienti");
+      router.push("/dashboard");
     }
   }
 

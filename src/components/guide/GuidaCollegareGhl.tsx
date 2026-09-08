@@ -74,7 +74,7 @@ export function GuidaCollegareGhl() {
         <h3 className="font-heading font-bold text-ink-900 text-base">3. Collegalo nell&apos;app</h3>
         <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-brand">
           <li>
-            Apri <strong>Clienti</strong> → il cliente → icona di modifica (matita), oppure dalla Dashboard Amministratore.
+            Apri <strong>Clienti</strong> → il cliente → icona di modifica (matita).
           </li>
           <li>
             Nella modale &ldquo;Modifica cliente&rdquo;, scorri fino alla sezione <strong>Sedi</strong>{" "}

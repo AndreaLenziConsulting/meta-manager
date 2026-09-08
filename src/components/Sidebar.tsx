@@ -5,7 +5,6 @@ import Link from "next/link";
 import {
   BookOpen,
   Building2,
-  LayoutDashboard,
   ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
@@ -34,10 +33,18 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   {
     href: "/dashboard",
-    label: "Dashboard Amministratore",
-    icon: LayoutDashboard,
-    ruoli: ["admin"],
-    attiva: (p) => p === "/dashboard" || p.startsWith("/dashboard/nuovo-cliente"),
+    label: "Clienti",
+    icon: Building2,
+    // Unifica le vecchie "Dashboard Amministratore" (solo admin) e "Clienti" (admin+consulente) in
+    // un'unica voce — richiesta esplicita dell'utente, avere entrambe era ridondante. Sempre
+    // visibile per il consulente anche con 0 clienti assegnati: porta comunque a una pagina reale
+    // (con stato vuoto), meglio di nessuna voce di navigazione.
+    ruoli: ["admin", "consulente"],
+    attiva: (p) =>
+      p === "/dashboard" ||
+      p.startsWith("/dashboard/clienti") ||
+      p.startsWith("/dashboard/cliente/") ||
+      p.startsWith("/dashboard/nuovo-cliente"),
   },
   {
     href: "/dashboard/commerciale",
@@ -45,15 +52,6 @@ const NAV_ITEMS: NavItem[] = [
     icon: Users,
     ruoli: ["admin", "commerciale"],
     attiva: (p) => p.startsWith("/dashboard/commerciale"),
-  },
-  {
-    href: "/dashboard/clienti",
-    label: "Clienti",
-    icon: Building2,
-    // Sempre visibile per il consulente anche con 0 clienti assegnati: porta comunque a una pagina
-    // reale (con stato vuoto), meglio di nessuna voce di navigazione com'era prima.
-    ruoli: ["admin", "consulente"],
-    attiva: (p) => p.startsWith("/dashboard/clienti") || p.startsWith("/dashboard/cliente/"),
   },
   {
     href: "/dashboard/attivita",

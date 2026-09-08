@@ -182,7 +182,7 @@ Richiede Google Workspace e va fatto una tantum dall'amministratore del dominio:
 2. Sul service account, abilita **"domain-wide delegation"** e annota il suo **Client ID** (numerico).
 3. **Google Workspace Admin Console** → Sicurezza → Controllo API → **Delega a livello di dominio** → aggiungi il Client ID del service account con lo scope `https://www.googleapis.com/auth/gmail.send`.
 4. Scarica la **chiave JSON** del service account e imposta `GMAIL_SERVICE_ACCOUNT_EMAIL` (il campo `client_email` del JSON) e `GMAIL_SERVICE_ACCOUNT_PRIVATE_KEY` (il campo `private_key`, su una riga con `\n` letterali) nelle variabili d'ambiente.
-5. Imposta l'**email** di ogni consulente che deve poter inviare (colonna E della tab "Consulenti", a mano — nessuna UI dedicata) e l'**email** di ogni cliente destinatario (dalla Dashboard Amministratore → "✎ Modifica", o alla creazione del cliente).
+5. Imposta l'**email** di ogni consulente che deve poter inviare (colonna E della tab "Consulenti", a mano — nessuna UI dedicata) e l'**email** di ogni cliente destinatario (dalla pagina Clienti → "✎ Modifica", o alla creazione del cliente).
 
 Finché questa configurazione non è completa, la checkbox resta disponibile ma l'invio fallisce in modo pulito (non bloccante) — la feature è quindi distribuibile e verificabile anche prima che le credenziali reali esistano.
 
