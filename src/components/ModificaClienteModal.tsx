@@ -9,6 +9,7 @@ import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneModal";
+import { ConfermaEliminazioneNomeModal } from "@/components/ui/ConfermaEliminazioneNomeModal";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
@@ -50,6 +51,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const [confermaEliminaClienteAperta, setConfermaEliminaClienteAperta] = useState(false);
 
   // Fase 1 integrazione GHL/Squadd: connessioni indicizzate per sedeId, caricate a parte (Sede
   // non le porta con sé — vedi src/types/ghl.ts) e ricaricate dopo ogni creazione/modifica.
@@ -204,6 +206,45 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         </div>
         <NuovaSedeForm clienteId={cliente.clienteId} />
       </div>
+
+      {ruoloAdmin && (
+        <div className="pt-4 mt-4 border-t border-ink-300/60 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-red-600">Zona pericolosa</p>
+            <p className="text-xs text-ink-500 mt-0.5">Elimina questo cliente e tutti i suoi dati collegati per sempre.</p>
+          </div>
+          <Button type="button" variant="danger" onClick={() => setConfermaEliminaClienteAperta(true)}>
+            Elimina cliente
+          </Button>
+        </div>
+      )}
+
+      {confermaEliminaClienteAperta && (
+        <ConfermaEliminazioneNomeModal
+          titolo="Eliminare questo cliente per sempre?"
+          nomeDaConfermare={cliente.nome}
+          messaggio={
+            <>
+              Cancella per sempre: anagrafica, tutte le sedi e le loro connessioni GHL, attività,
+              meeting, fasi completate e risultati commerciali. Lo storico ads Meta (campagne e dati
+              giornalieri) resta nel foglio ma non sarà più visibile da nessuna parte dell&apos;app.
+              Azione irreversibile.
+            </>
+          }
+          onClose={() => setConfermaEliminaClienteAperta(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/clienti/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ clienteId: cliente.clienteId, nomeConferma: cliente.nome }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            setConfermaEliminaClienteAperta(false);
+            onSalvato();
+          }}
+        />
+      )}
     </Modal>
   );
 }

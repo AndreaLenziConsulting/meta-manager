@@ -427,6 +427,46 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   invalidateTabCache(TAB.clienti);
 }
 
+/**
+ * Elimina definitivamente un cliente — cascade completo su Sedi, le Connessioni GHL di quelle
+ * sedi, AttivitaCliente, MeetingCliente, FasiCompletate e RisultatiCommerciali (tutte per
+ * clienteId, tranne GhlConnessioni che è per sedeId). ESCLUSI DELIBERATAMENTE: Campagne, MetaDaily,
+ * StoricoStatoCampagne — storico ads Meta, resta nel foglio ma orfano, invisibile ovunque nell'app
+ * (decisione utente 09/09/2026, stessa filosofia già applicata a eliminaSede). Un solo batchUpdate
+ * per l'intera cascata (vedi eliminaRigheBatch): 7 letture in parallelo, poi tutte le
+ * deleteDimension insieme — o va via tutto o niente resta a metà.
+ */
+export async function eliminaCliente(clienteId: string): Promise<void> {
+  const [righeSedi, righeGhl, righeAttivita, righeMeeting, righeFasi, righeRisultati, righeClienti] = await Promise.all([
+    readTab(TAB.sedi, { noCache: true }),
+    readTab(TAB.ghlConnessioni, { noCache: true }),
+    readTab(TAB.attivitaCliente, { noCache: true }),
+    readTab(TAB.meetingCliente, { noCache: true }),
+    readTab(TAB.fasiCompletate, { noCache: true }),
+    readTab(TAB.risultatiCommerciali, { noCache: true }),
+    readTab(TAB.clienti, { noCache: true }),
+  ]);
+
+  const sediIdDelCliente = new Set(
+    righeSedi.filter((r) => asText(r[1]) === clienteId).map((r) => asText(r[0]))
+  );
+
+  const numeroRigaCliente = trovaIndiceRiga(righeClienti, clienteId);
+  if (numeroRigaCliente === null) {
+    throw new Error(`Cliente non trovato: ${clienteId}`);
+  }
+
+  await eliminaRigheBatch([
+    { tab: TAB.sedi, numeriRiga: trovaTuttiIndiciRiga(righeSedi, (r) => asText(r[1]) === clienteId) },
+    { tab: TAB.ghlConnessioni, numeriRiga: trovaTuttiIndiciRiga(righeGhl, (r) => sediIdDelCliente.has(asText(r[1]))) },
+    { tab: TAB.attivitaCliente, numeriRiga: trovaTuttiIndiciRiga(righeAttivita, (r) => asText(r[1]) === clienteId) },
+    { tab: TAB.meetingCliente, numeriRiga: trovaTuttiIndiciRiga(righeMeeting, (r) => asText(r[1]) === clienteId) },
+    { tab: TAB.fasiCompletate, numeriRiga: trovaTuttiIndiciRiga(righeFasi, (r) => asText(r[0]) === clienteId) },
+    { tab: TAB.risultatiCommerciali, numeriRiga: trovaTuttiIndiciRiga(righeRisultati, (r) => asText(r[1]) === clienteId) },
+    { tab: TAB.clienti, numeriRiga: [numeroRigaCliente] },
+  ]);
+}
+
 // Tab Sedi, colonne A→H: sedeId, clienteId, nome, adAccountId, targetCpa, targetCpl,
 // tipoConversioneLead, attivo. Un cliente ha sempre almeno una sede (vedi migraSediEsistenti).
 export async function getSedi(): Promise<Sede[]> {
