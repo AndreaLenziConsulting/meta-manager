@@ -4,6 +4,7 @@ import type { ActionItem, MeetingCampiPubblici, MeetingDataLoose } from "@/types
 import { aggiungiGiorni } from "@/lib/roadmap";
 import { formatDataBreve } from "@/lib/format";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
+import { normalizzaAssegnatari } from "@/lib/assegnatari";
 
 /**
  * Parsing di righe di testo libero in ActionItem — vive qui (non in estrazione.ts, dove queste due
@@ -133,7 +134,7 @@ export function generaAttivitaDaMeeting(
       blocco: "meeting",
       fase,
       descrizione: item.text,
-      responsabile: item.assignee || "Da assegnare",
+      assegnatari: normalizzaAssegnatari(item.assignee ?? ""),
       tipo: "",
       dataInizio: dataMeetingIso,
       dataFine: scadenzaTask(dataMeetingIso),
@@ -154,7 +155,7 @@ export function generaAttivitaDaMeeting(
       blocco: "meeting",
       fase,
       descrizione: item.text,
-      responsabile: item.assignee || "Da assegnare",
+      assegnatari: normalizzaAssegnatari(item.assignee ?? ""),
       tipo: "",
       dataInizio: dataMeetingIso,
       dataFine: scadenzaFineMese(dataMeetingIso),

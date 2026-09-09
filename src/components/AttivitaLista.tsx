@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, ChevronsUpDown, MoreVertical } from "lucide-react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import { raggruppaPerStato } from "@/lib/roadmap";
-import { formatStatoAttivita, iniziali } from "@/lib/format";
+import { descrizioneScadenza, formatStatoAttivita, iniziali } from "@/lib/format";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
+import {
+  classificaAssegnatario,
+  ETICHETTA_CLIENTE,
+  RUOLI_INTERNI,
+  SENTINELLA_NON_ASSEGNATO,
+} from "@/lib/assegnatari";
+import { UndoToast } from "@/components/ui/UndoToast";
 
 const STATI_MENU: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
 const COL_RESPONSABILE = "w-[130px]";
-const COL_SCADENZA = "w-[112px]";
-const COL_STATO = "w-[92px]";
+const COL_SCADENZA = "w-[120px]";
+const COL_STATO = "w-14";
 const COL_AZIONI = "w-6";
 
 /** Colonne ordinabili cliccando l'intestazione — "Stato" è escluso: è già l'asse di
@@ -20,6 +27,7 @@ type StatoSort = { colonna: ColonnaSort; direzione: "asc" | "desc" };
 
 function confrontaPerColonna(a: AttivitaClienteRow, b: AttivitaClienteRow, colonna: ColonnaSort): number {
   if (colonna === "dataFine") return a.dataFine.localeCompare(b.dataFine); // YYYY-MM-DD: ordine lessicografico = ordine cronologico
+  if (colonna === "responsabile") return a.assegnatari.join(", ").localeCompare(b.assegnatari.join(", "), "it", { sensitivity: "base" });
   return a[colonna].localeCompare(b[colonna], "it", { sensitivity: "base" });
 }
 
@@ -35,11 +43,17 @@ type Props = {
   attivita: AttivitaClienteRow[];
   onCambiaStato: (attivitaId: string, nuovoStato: StatoAttivita, notaTeam?: string) => void;
   onCambiaScadenza: (attivitaId: string, nuovaDataFine: string) => void;
+  onCambiaAssegnatari: (attivitaId: string, assegnatari: string[]) => void;
   onElimina: (attivitaId: string) => void;
   onVaiAMeeting?: (meetingId: string) => void;
   // clienteId -> nome, solo nella vista aggregata multi-cliente (AttivitaGlobali.tsx). Assente nel
   // tab per-cliente esistente (AttivitaTab.tsx): lì il cliente è già il contesto della pagina.
   nomeClientePer?: Map<string, string>;
+  // Identità note per il popover di editing assegnatari (consulenti reali + i 2 ruoli interni +
+  // "Cliente") — un assegnatario già presente ma non in questa lista (una persona lato cliente,
+  // es. "Andrea") resta comunque selezionabile/deselezionabile, solo non compare come suggerimento
+  // per un task che non l'ha ancora. Array vuoto = solo ruoli/Cliente/testo libero, mai un crash.
+  consulenti?: { consulenteId: string; nome: string }[];
 };
 
 /**
@@ -47,31 +61,54 @@ type Props = {
  * invece che per fase, ispirata a una board ClickUp. Il cambio stato avviene da un piccolo menu
  * sulla riga (non drag-and-drop, nessuna nuova dipendenza) — "Bloccato" richiede sempre una nota,
  * stesso vincolo già imposto da POST /api/attivita/stato. Pattern dei popover (nota-blocco,
- * conferma-eliminazione) duplicato deliberatamente da RoadmapGantt (non estratto in comune) per
- * non toccare quel componente, già in produzione e verificato.
+ * assegnatari) duplicato deliberatamente da RoadmapGantt (non estratto in comune) per non toccare
+ * quel componente, già in produzione e verificato.
+ *
+ * Redesign UX 08/09/2026 (critica strutturata dell'utente, verificata contro i dati reali prima di
+ * disegnare la soluzione — vedi il piano): ordine di default per scadenza (scadute in cima per
+ * costruzione, nessuna logica speciale), checkbox rapida per "fatto", pill di stato ridotto al
+ * solo controllo (il gruppo porta già l'etichetta), scadenze scadute in rosso con testo esplicito,
+ * date sempre in italiano (date-picker nativo reso invisibile sotto un'etichetta formattata, mai
+ * sostituito: resta accessibile), cestino spostato in un menu "⋯" con eliminazione posticipata e
+ * annullabile (UndoToast), assegnatari multipli mostrati come stack di avatar distinti per
+ * persona/ruolo/cliente/non-assegnato.
  *
  * Nota sul contenitore dei gruppi: niente `overflow-hidden` sulla card (a differenza di una prima
  * versione) — tagliava i menu a tendina delle ultime righe di ogni gruppo. Gli angoli arrotondati
  * dell'header colorato si ottengono con `rounded-t-2xl` esplicito sull'header stesso, non più
  * per ritaglio del genitore.
  */
-export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onElimina, onVaiAMeeting, nomeClientePer }: Props) {
-  const gruppi = raggruppaPerStato(attivita);
-
+export function AttivitaLista({
+  attivita,
+  onCambiaStato,
+  onCambiaScadenza,
+  onCambiaAssegnatari,
+  onElimina,
+  onVaiAMeeting,
+  nomeClientePer,
+  consulenti = [],
+}: Props) {
   const [menuApertoPer, setMenuApertoPer] = useState<string | null>(null);
   const [popoverBloccoPer, setPopoverBloccoPer] = useState<string | null>(null);
   const [notaBozza, setNotaBozza] = useState("");
-  const [confermaEliminaPer, setConfermaEliminaPer] = useState<string | null>(null);
-  // null = ordine naturale (per ordine crescente, già quello di raggruppaPerStato sopra). Un clic
+  const [popoverAssegnatariPer, setPopoverAssegnatariPer] = useState<string | null>(null);
+  const [menuKebabPer, setMenuKebabPer] = useState<string | null>(null);
+  // Id delle attività in attesa di eliminazione reale: nascoste subito dalla lista, l'API DELETE
+  // vera parte solo se il rispettivo UndoToast scade senza essere annullato — vedi handleEliminaRiga
+  // sotto. Un Set (non una singola stringa) perché più eliminazioni possono restare in sospeso
+  // insieme (righe diverse, click ravvicinati).
+  const [inSospesoPerEliminazione, setInSospesoPerEliminazione] = useState<Set<string>>(new Set());
+  // Default: scadenza crescente — le scadute (date più vecchie) risultano già in cima per
+  // costruzione, nessuna logica "scadute in cima" separata dall'ordinamento stesso. Un clic
   // sull'intestazione ordina DENTRO ciascun gruppo-stato, senza mescolare i gruppi tra loro — sono
   // già la struttura portante della vista (board-like), un sort globale li romperebbe.
-  const [sort, setSort] = useState<StatoSort | null>(null);
+  const [sort, setSort] = useState<StatoSort | null>({ colonna: "dataFine", direzione: "asc" });
 
   function handleClickColonna(colonna: ColonnaSort) {
     setSort((prev) => {
       if (!prev || prev.colonna !== colonna) return { colonna, direzione: "asc" };
       if (prev.direzione === "asc") return { colonna, direzione: "desc" };
-      return null; // terzo clic sulla stessa colonna -> torna all'ordine naturale
+      return null; // terzo clic sulla stessa colonna -> torna all'ordine naturale (per `ordine`)
     });
   }
 
@@ -91,72 +128,112 @@ export function AttivitaLista({ attivita, onCambiaStato, onCambiaScadenza, onEli
     setPopoverBloccoPer(null);
   }
 
-  function confermaElimina(attivitaId: string) {
-    onElimina(attivitaId);
-    setConfermaEliminaPer(null);
+  function handleEliminaRiga(attivitaId: string) {
+    setMenuKebabPer(null);
+    setInSospesoPerEliminazione((prev) => new Set(prev).add(attivitaId));
   }
 
-  if (gruppi.length === 0) {
-    return (
-      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
-        <p className="text-sm text-ink-500">Nessuna attività.</p>
-      </div>
-    );
+  function annullaEliminazione(attivitaId: string) {
+    setInSospesoPerEliminazione((prev) => {
+      const next = new Set(prev);
+      next.delete(attivitaId);
+      return next;
+    });
   }
+
+  function scadenzaEliminazione(attivitaId: string) {
+    annullaEliminazione(attivitaId); // smonta il toast
+    onElimina(attivitaId); // solo ora parte davvero la chiamata DELETE
+  }
+
+  const attivitaVisibile = attivita.filter((a) => !inSospesoPerEliminazione.has(a.attivitaId));
+  const gruppi = raggruppaPerStato(attivitaVisibile);
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-        <IntestazioneOrdinabile colonna="descrizione" sort={sort} onClick={handleClickColonna} className="flex-1 text-left">
-          Task
-        </IntestazioneOrdinabile>
-        <IntestazioneOrdinabile colonna="responsabile" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_RESPONSABILE} text-left`}>
-          Responsabile
-        </IntestazioneOrdinabile>
-        <IntestazioneOrdinabile colonna="dataFine" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_SCADENZA} text-left`}>
-          Scadenza
-        </IntestazioneOrdinabile>
-        <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
-        <span className={`flex-shrink-0 ${COL_AZIONI}`} />
-      </div>
-
-      {gruppi.map((gruppo) => {
-        const info = formatStatoAttivita(gruppo.stato);
-        const righe = sort ? [...gruppo.attivita].sort((a, b) => confrontaPerColonna(a, b, sort.colonna) * (sort.direzione === "asc" ? 1 : -1)) : gruppo.attivita;
-        return (
-          <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
-            <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
-              <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
-              <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
-            </div>
-
-            <div>
-              {righe.map((a) => (
-                <RigaAttivita
-                  key={a.attivitaId}
-                  attivita={a}
-                  menuAperto={menuApertoPer === a.attivitaId}
-                  popoverBloccoAperto={popoverBloccoPer === a.attivitaId}
-                  confermaEliminaAperto={confermaEliminaPer === a.attivitaId}
-                  notaBozza={notaBozza}
-                  onApriMenu={() => setMenuApertoPer(a.attivitaId)}
-                  onChiudiMenu={() => setMenuApertoPer(null)}
-                  onSceltaStato={(s) => handleScegliStato(a, s)}
-                  onNotaBozzaChange={setNotaBozza}
-                  onChiudiBlocco={() => setPopoverBloccoPer(null)}
-                  onConfermaBlocco={() => confermaBlocco(a.attivitaId)}
-                  onCambiaScadenza={(v) => onCambiaScadenza(a.attivitaId, v)}
-                  onApriElimina={() => setConfermaEliminaPer(a.attivitaId)}
-                  onChiudiElimina={() => setConfermaEliminaPer(null)}
-                  onConfermaElimina={() => confermaElimina(a.attivitaId)}
-                  onVaiAMeeting={onVaiAMeeting}
-                  nomeCliente={nomeClientePer?.get(a.clienteId)}
-                />
-              ))}
-            </div>
+      {gruppi.length === 0 ? (
+        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+          <p className="text-sm text-ink-500">Nessuna attività.</p>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+            <span className="w-4 flex-shrink-0" /> {/* colonna checkbox */}
+            <IntestazioneOrdinabile colonna="descrizione" sort={sort} onClick={handleClickColonna} className="flex-1 text-left">
+              Task
+            </IntestazioneOrdinabile>
+            <IntestazioneOrdinabile colonna="responsabile" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_RESPONSABILE} text-left`}>
+              Assegnatari
+            </IntestazioneOrdinabile>
+            <IntestazioneOrdinabile colonna="dataFine" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_SCADENZA} text-left`}>
+              Scadenza
+            </IntestazioneOrdinabile>
+            <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
+            <span className={`flex-shrink-0 ${COL_AZIONI}`} />
           </div>
-        );
-      })}
+
+          {gruppi.map((gruppo) => {
+            const info = formatStatoAttivita(gruppo.stato);
+            const righe = sort ? [...gruppo.attivita].sort((a, b) => confrontaPerColonna(a, b, sort.colonna) * (sort.direzione === "asc" ? 1 : -1)) : gruppo.attivita;
+            return (
+              <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
+                <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
+                  <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
+                  <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
+                </div>
+
+                <div>
+                  {righe.map((a) => (
+                    <RigaAttivita
+                      key={a.attivitaId}
+                      attivita={a}
+                      menuAperto={menuApertoPer === a.attivitaId}
+                      popoverBloccoAperto={popoverBloccoPer === a.attivitaId}
+                      popoverAssegnatariAperto={popoverAssegnatariPer === a.attivitaId}
+                      menuKebabAperto={menuKebabPer === a.attivitaId}
+                      notaBozza={notaBozza}
+                      consulenti={consulenti}
+                      onApriMenu={() => setMenuApertoPer(a.attivitaId)}
+                      onChiudiMenu={() => setMenuApertoPer(null)}
+                      onSceltaStato={(s) => handleScegliStato(a, s)}
+                      onNotaBozzaChange={setNotaBozza}
+                      onChiudiBlocco={() => setPopoverBloccoPer(null)}
+                      onConfermaBlocco={() => confermaBlocco(a.attivitaId)}
+                      onCambiaScadenza={(v) => onCambiaScadenza(a.attivitaId, v)}
+                      onApriPopoverAssegnatari={() => setPopoverAssegnatariPer(a.attivitaId)}
+                      onChiudiPopoverAssegnatari={() => setPopoverAssegnatariPer(null)}
+                      onSalvaAssegnatari={(nuovi) => {
+                        setPopoverAssegnatariPer(null);
+                        onCambiaAssegnatari(a.attivitaId, nuovi);
+                      }}
+                      onApriKebab={() => setMenuKebabPer(a.attivitaId)}
+                      onChiudiKebab={() => setMenuKebabPer(null)}
+                      onElimina={() => handleEliminaRiga(a.attivitaId)}
+                      onVaiAMeeting={onVaiAMeeting}
+                      nomeCliente={nomeClientePer?.get(a.clienteId)}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+
+      {/* Stack di toast "eliminata — Annulla", uno per eliminazione in sospeso — vedi il commento
+          su inSospesoPerEliminazione sopra. Fixed in basso, sopra ogni altro contenuto della pagina. */}
+      {inSospesoPerEliminazione.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2">
+          {Array.from(inSospesoPerEliminazione).map((attivitaId) => (
+            <UndoToast
+              key={attivitaId}
+              messaggio="Attività eliminata."
+              onAnnulla={() => annullaEliminazione(attivitaId)}
+              onScadenza={() => scadenzaEliminazione(attivitaId)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -189,12 +266,166 @@ function IntestazioneOrdinabile({
   );
 }
 
+/** Un avatar per un singolo assegnatario — stile diverso per tipo (persona/ruolo/cliente/non-
+ * assegnato), mai lo stesso trattamento pieno per un ruolo scoperto che per una persona vera:
+ * quello era esattamente il problema segnalato ("Project Manager" con avatar "PM" sembrava un
+ * assegnatario reale). Tooltip individuale (non solo quello dell'intero stack): per un ruolo dice
+ * esplicitamente "Da assegnare: <ruolo>", per il sentinella solo "Da assegnare". */
+function AvatarAssegnatario({ nome }: { nome: string }) {
+  const tipo = classificaAssegnatario(nome);
+  if (tipo === "persona") {
+    return (
+      <span
+        title={nome}
+        className="w-6 h-6 rounded-full bg-brand/10 text-brand text-[10px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+      >
+        {iniziali(nome)}
+      </span>
+    );
+  }
+  if (tipo === "cliente") {
+    return (
+      <span
+        title="Cliente"
+        className="w-6 h-6 rounded-full bg-ink-900 text-white text-[9px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+      >
+        CL
+      </span>
+    );
+  }
+  // ruolo o non-assegnato: mai lo stesso pieno di una persona vera — tratteggiato, nessun'iniziale.
+  return (
+    <span
+      title={tipo === "ruolo" ? `Da assegnare: ${nome}` : SENTINELLA_NON_ASSEGNATO}
+      className="w-6 h-6 rounded-full border-2 border-dashed border-ink-300 text-ink-400 text-[10px] flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+    >
+      ?
+    </span>
+  );
+}
+
+function StackAssegnatari({ assegnatari, onClick }: { assegnatari: string[]; onClick: () => void }) {
+  const visibili = assegnatari.slice(0, 3);
+  const extra = assegnatari.length - visibili.length;
+  return (
+    <button type="button" onClick={onClick} title="Cambia assegnatari" className="flex items-center -space-x-1.5 cursor-pointer flex-shrink-0">
+      {visibili.map((nome, i) => (
+        <AvatarAssegnatario key={i} nome={nome} />
+      ))}
+      {extra > 0 && (
+        <span className="w-6 h-6 rounded-full bg-ink-300/60 text-ink-700 text-[10px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card">
+          +{extra}
+        </span>
+      )}
+    </button>
+  );
+}
+
+/** Popover di editing assegnatari — stesso pattern dei popover già in questo file (nota-blocco):
+ * checkbox per ogni identità nota (consulenti reali + i 2 ruoli interni + "Cliente") più un campo
+ * testo libero per una persona lato cliente non in elenco (es. "Andrea"/"Sherdil" — mai in
+ * Consulenti, sono persone del cliente stesso, non del team ALC). Un assegnatario già presente sul
+ * task ma non altrimenti noto resta comunque nell'elenco (già selezionato), mai perso al primo
+ * render del popover. */
+function PopoverAssegnatari({
+  assegnatariCorrenti,
+  consulenti,
+  onSalva,
+  onChiudi,
+}: {
+  assegnatariCorrenti: string[];
+  consulenti: { consulenteId: string; nome: string }[];
+  onSalva: (nuovi: string[]) => void;
+  onChiudi: () => void;
+}) {
+  const [selezionati, setSelezionati] = useState<Set<string>>(new Set(assegnatariCorrenti));
+  const [nuovoNome, setNuovoNome] = useState("");
+
+  const opzioniNote = [...consulenti.map((c) => c.nome), ...RUOLI_INTERNI, ETICHETTA_CLIENTE];
+  const tutteLeOpzioni = Array.from(new Set([...opzioniNote, ...assegnatariCorrenti]));
+
+  function toggle(nome: string) {
+    setSelezionati((prev) => {
+      const next = new Set(prev);
+      if (next.has(nome)) next.delete(nome);
+      else next.add(nome);
+      return next;
+    });
+  }
+
+  function aggiungiLibero() {
+    const nome = nuovoNome.trim();
+    if (!nome) return;
+    setSelezionati((prev) => new Set(prev).add(nome));
+    setNuovoNome("");
+  }
+
+  function salva() {
+    const lista = Array.from(selezionati);
+    onSalva(lista.length > 0 ? lista : [SENTINELLA_NON_ASSEGNATO]);
+  }
+
+  return (
+    <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2.5">
+      <p className="text-xs font-semibold text-ink-900">Assegnatari</p>
+      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+        {tutteLeOpzioni.map((nome) => (
+          <label key={nome} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={selezionati.has(nome)}
+              onChange={() => toggle(nome)}
+              className="accent-current text-brand flex-shrink-0"
+            />
+            <span className="truncate">{nome}</span>
+          </label>
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        <input
+          value={nuovoNome}
+          onChange={(e) => setNuovoNome(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              aggiungiLibero();
+            }
+          }}
+          placeholder="Aggiungi un nome…"
+          className="flex-1 min-w-0 rounded-lg border border-ink-300 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+        />
+        <button
+          type="button"
+          onClick={aggiungiLibero}
+          className="rounded-lg border border-ink-300 text-xs font-semibold px-2 text-ink-700 hover:bg-surface transition cursor-pointer flex-shrink-0"
+        >
+          +
+        </button>
+      </div>
+      <div className="flex justify-end gap-2 pt-1 border-t border-ink-300/40">
+        <button type="button" onClick={onChiudi} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
+          Annulla
+        </button>
+        <button
+          type="button"
+          onClick={salva}
+          className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-cta hover:bg-cta-dark text-white cursor-pointer"
+        >
+          Salva
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function RigaAttivita({
   attivita,
   menuAperto,
   popoverBloccoAperto,
-  confermaEliminaAperto,
+  popoverAssegnatariAperto,
+  menuKebabAperto,
   notaBozza,
+  consulenti,
   onApriMenu,
   onChiudiMenu,
   onSceltaStato,
@@ -202,17 +433,22 @@ function RigaAttivita({
   onChiudiBlocco,
   onConfermaBlocco,
   onCambiaScadenza,
-  onApriElimina,
-  onChiudiElimina,
-  onConfermaElimina,
+  onApriPopoverAssegnatari,
+  onChiudiPopoverAssegnatari,
+  onSalvaAssegnatari,
+  onApriKebab,
+  onChiudiKebab,
+  onElimina,
   onVaiAMeeting,
   nomeCliente,
 }: {
   attivita: AttivitaClienteRow;
   menuAperto: boolean;
   popoverBloccoAperto: boolean;
-  confermaEliminaAperto: boolean;
+  popoverAssegnatariAperto: boolean;
+  menuKebabAperto: boolean;
   notaBozza: string;
+  consulenti: { consulenteId: string; nome: string }[];
   onApriMenu: () => void;
   onChiudiMenu: () => void;
   onSceltaStato: (s: StatoAttivita) => void;
@@ -220,18 +456,30 @@ function RigaAttivita({
   onChiudiBlocco: () => void;
   onConfermaBlocco: () => void;
   onCambiaScadenza: (v: string) => void;
-  onApriElimina: () => void;
-  onChiudiElimina: () => void;
-  onConfermaElimina: () => void;
+  onApriPopoverAssegnatari: () => void;
+  onChiudiPopoverAssegnatari: () => void;
+  onSalvaAssegnatari: (nuovi: string[]) => void;
+  onApriKebab: () => void;
+  onChiudiKebab: () => void;
+  onElimina: () => void;
   onVaiAMeeting?: (meetingId: string) => void;
   nomeCliente?: string;
 }) {
   const info = formatStatoAttivita(attivita.stato);
   const isMeeting = attivita.blocco === "meeting";
   const meetingId = isMeeting ? estraiMeetingIdDaTaskId(attivita.taskId) : null;
+  const scadenza = descrizioneScadenza(attivita.dataFine, attivita.stato);
 
   return (
-    <div className="flex items-start gap-3 px-5 py-3 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0">
+    <div className="group flex items-start gap-3 px-5 py-3 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0">
+      <input
+        type="checkbox"
+        checked={attivita.stato === "done"}
+        onChange={(e) => onSceltaStato(e.target.checked ? "done" : "todo")}
+        title={attivita.stato === "done" ? "Segna come da fare" : "Segna come fatta"}
+        className="w-4 h-4 mt-1 rounded border-ink-300 text-brand focus:ring-2 focus:ring-brand/30 cursor-pointer flex-shrink-0"
+      />
+
       <div className="min-w-0 flex-1">
         <p className="text-base text-ink-900">{attivita.descrizione}</p>
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
@@ -280,29 +528,48 @@ function RigaAttivita({
         </div>
       </div>
 
-      <div className={`flex items-center gap-1.5 flex-shrink-0 ${COL_RESPONSABILE}`} title={attivita.responsabile}>
-        <span className="w-6 h-6 rounded-full bg-brand/10 text-brand text-[10px] font-semibold flex items-center justify-center flex-shrink-0">
-          {iniziali(attivita.responsabile || "?")}
-        </span>
-        <span className="text-xs text-ink-500 hidden sm:inline truncate">{attivita.responsabile}</span>
+      <div className={`relative flex-shrink-0 ${COL_RESPONSABILE}`}>
+        <StackAssegnatari assegnatari={attivita.assegnatari} onClick={onApriPopoverAssegnatari} />
+        {popoverAssegnatariAperto && (
+          <PopoverAssegnatari
+            assegnatariCorrenti={attivita.assegnatari}
+            consulenti={consulenti}
+            onSalva={onSalvaAssegnatari}
+            onChiudi={onChiudiPopoverAssegnatari}
+          />
+        )}
       </div>
 
-      <div className={`flex-shrink-0 ${COL_SCADENZA}`}>
+      <div className={`relative flex-shrink-0 ${COL_SCADENZA}`}>
+        {/* Date-picker nativo reso invisibile (mai sostituito: resta accessibile/apribile con un
+            click ovunque nella cella) sotto un'etichetta sempre in italiano — "08/14/2026" era il
+            problema, non il calendario stesso. Rosso + testo esplicito se scaduta (stesso rosso di
+            STILE_LIVELLO.critico, mai un colore inventato qui). */}
         <input
           type="date"
           value={attivita.dataFine}
           onChange={(e) => e.target.value && onCambiaScadenza(e.target.value)}
-          className="text-xs text-ink-500 bg-transparent border border-transparent hover:border-ink-300 focus:border-brand focus:ring-2 focus:ring-brand/30 rounded-md px-1 py-0.5 outline-none cursor-pointer transition-colors w-full"
+          aria-label="Cambia scadenza"
+          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />
+        <span
+          className={`pointer-events-none block text-xs px-1 py-0.5 rounded-md truncate ${
+            scadenza.scaduta ? "text-red-600 font-semibold" : "text-ink-500"
+          }`}
+        >
+          {scadenza.testo}
+        </span>
       </div>
 
       <div className={`relative flex-shrink-0 ${COL_STATO} flex justify-end`}>
         <button
           type="button"
           onClick={menuAperto ? onChiudiMenu : onApriMenu}
-          className={`cursor-pointer text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-lg border ${info.classe}`}
+          title={`Stato: ${info.label} — clicca per cambiare`}
+          className={`cursor-pointer flex items-center gap-0.5 px-1.5 py-1 rounded-lg border ${info.classe}`}
         >
-          {info.label}
+          <span className={`w-2 h-2 rounded-full ${info.puntino}`} />
+          <ChevronDown size={12} className="opacity-60" />
         </button>
 
         {menuAperto && (
@@ -353,46 +620,29 @@ function RigaAttivita({
       </div>
 
       <div className={`relative flex-shrink-0 ${COL_AZIONI} flex justify-end`}>
+        {/* Visibile on-hover su desktop (sm:), sempre visibile su touch/viewport piccoli — niente
+            affordance nascosta senza un modo di scoprirla su schermi piccoli. */}
         <button
           type="button"
-          onClick={confermaEliminaAperto ? onChiudiElimina : onApriElimina}
-          title="Elimina attività"
-          className="text-ink-300 hover:text-red-500 transition-colors cursor-pointer"
+          onClick={menuKebabAperto ? onChiudiKebab : onApriKebab}
+          title="Altre azioni"
+          className="text-ink-300 hover:text-ink-700 transition-colors cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
         >
-          <EliminaIcon />
+          <MoreVertical size={16} />
         </button>
 
-        {confermaEliminaAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-56 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-ink-900">Eliminare questa attività?</p>
-            <p className="text-[11px] text-ink-500">Non si può annullare.</p>
-            <div className="flex justify-end gap-2">
-              <button type="button" onClick={onChiudiElimina} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
-                Annulla
-              </button>
-              <button
-                type="button"
-                onClick={onConfermaElimina}
-                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 text-white cursor-pointer"
-              >
-                Elimina
-              </button>
-            </div>
+        {menuKebabAperto && (
+          <div className="absolute right-0 top-full mt-1 z-30 w-40 rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1">
+            <button
+              type="button"
+              onClick={onElimina}
+              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 cursor-pointer"
+            >
+              Elimina
+            </button>
           </div>
         )}
       </div>
     </div>
-  );
-}
-
-function EliminaIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="3 6 5 6 21 6" />
-      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
-      <path d="M10 11v6" />
-      <path d="M14 11v6" />
-      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-    </svg>
   );
 }

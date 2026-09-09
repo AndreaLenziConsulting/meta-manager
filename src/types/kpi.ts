@@ -249,7 +249,9 @@ export type TemplateTask = {
   blocco: string; // testo libero, es. "setup" / "gestione" — stesso spirito di tipo_campagna
   fase: string; // etichetta leggibile della fase, es. "Sett. 1 - Strategia & analisi"
   descrizione: string;
-  responsabile: string;
+  // Uno o più assegnatari — persone reali, ruoli interni ("Project Manager"/"Consulente Senior"),
+  // "Cliente", o il sentinella "Da assegnare". Vedi src/lib/assegnatari.ts per la classificazione.
+  assegnatari: string[];
   tipo: string; // sigla per il colore/tooltip, es. "PM" / "CS" / "CL" / "MIL" (milestone)
   settimanaInizio: number;
   settimanaFine: number;
@@ -269,7 +271,8 @@ export type AttivitaClienteRow = {
   blocco: string;
   fase: string;
   descrizione: string;
-  responsabile: string;
+  // Uno o più assegnatari — stesso schema di TemplateTask.assegnatari, vedi src/lib/assegnatari.ts.
+  assegnatari: string[];
   tipo: string;
   dataInizio: string; // YYYY-MM-DD
   dataFine: string; // YYYY-MM-DD

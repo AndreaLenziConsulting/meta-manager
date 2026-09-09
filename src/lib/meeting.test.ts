@@ -99,7 +99,7 @@ describe("generaAttivitaDaMeeting", () => {
     expect(righe[0].clienteId).toBe("alc-01");
     expect(righe[0].prodottoId).toBe("meeting");
     expect(righe[0].descrizione).toBe("Inviare il catalogo aggiornato");
-    expect(righe[0].responsabile).toBe("Mario Rossi");
+    expect(righe[0].assegnatari).toEqual(["Mario Rossi"]);
     expect(righe[0].dataInizio).toBe("2026-08-11");
     expect(righe[0].dataFine).toBe("2026-08-18");
     expect(righe[0].stato).toBe("todo");
@@ -108,7 +108,7 @@ describe("generaAttivitaDaMeeting", () => {
 
   it("assignee mancante -> 'Da assegnare', mai una stringa vuota", () => {
     const righe = generaAttivitaDaMeeting("alc-01", "m1", "2026-08-11", "Call", actionItems);
-    expect(righe[1].responsabile).toBe("Da assegnare");
+    expect(righe[1].assegnatari).toEqual(["Da assegnare"]);
   });
 
   it("ordine cronologico crescente con l'indice, sempre più grande di un template prodotto", () => {
@@ -153,14 +153,14 @@ describe("generaAttivitaDaMeeting", () => {
       expect(rigaMese1.taskId).toBe("tm-m1-0");
       expect(rigaMese1.attivitaId).toBe("alc-01::tm-m1-0");
       expect(rigaMese1.descrizione).toBe("lanciare la nuova offerta");
-      expect(rigaMese1.responsabile).toBe("Marco"); // pattern "Nome: testo" riconosciuto
+      expect(rigaMese1.assegnatari).toEqual(["Marco"]); // pattern "Nome: testo" riconosciuto
       expect(rigaMese1.dataFine).toBe("2026-08-31"); // fine mese, non 2026-08-18 come i task settimana
       expect(rigaMese1.blocco).toBe("meeting");
       expect(rigaMese1.fase).toBe(righe[0].fase); // stessa corsia del meeting
 
       const rigaMese2 = righe[3];
       expect(rigaMese2.descrizione).toBe("Mantenere attive le campagne ad agosto");
-      expect(rigaMese2.responsabile).toBe("Da assegnare"); // nessun pattern "Nome:" riconoscibile
+      expect(rigaMese2.assegnatari).toEqual(["Da assegnare"]); // nessun pattern "Nome:" riconoscibile
     });
 
     it("attivitaId non collide mai con quelli generati dagli action item (prefissi diversi)", () => {

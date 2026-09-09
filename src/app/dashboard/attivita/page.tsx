@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
+import { getConsulenti } from "@/lib/sheets";
 import { AttivitaGlobali } from "@/components/AttivitaGlobali";
 
 /**
@@ -18,6 +19,8 @@ export default async function AttivitaGlobaliPage() {
     redirect("/dashboard");
   }
 
+  const consulenti = await getConsulenti();
+
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <div>
@@ -26,7 +29,7 @@ export default async function AttivitaGlobaliPage() {
           {sessione.ruolo === "admin" ? "Tutte le attività di tutti i clienti." : "Tutte le attività dei tuoi clienti."}
         </p>
       </div>
-      <AttivitaGlobali />
+      <AttivitaGlobali consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))} />
     </div>
   );
 }

@@ -4,6 +4,7 @@ import { creaAttivitaPerCliente, getAttivitaCliente, getClienti } from "@/lib/sh
 import { puoVedereCliente } from "@/lib/authz";
 import { generaTaskIdManuale } from "@/lib/accessCode";
 import { oggiIso } from "@/lib/roadmap";
+import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 
 export const runtime = "nodejs";
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
     clienteId?: string;
     descrizione?: string;
     fase?: string;
-    responsabile?: string;
+    assegnatari?: string[];
     dataInizio?: string;
     dataFine?: string;
     notaTeam?: string;
@@ -75,7 +76,13 @@ export async function POST(req: NextRequest) {
         blocco: "manuale",
         fase,
         descrizione,
-        responsabile: body.responsabile?.trim() || "Da assegnare",
+        // flatMap per normalizzaAssegnatari: robusto anche se un elemento arriva ancora come testo
+        // combinato ("Andrea, Sherdil" scritto a mano in un campo libero) — unico punto di
+        // normalizzazione, vedi src/lib/assegnatari.ts. Nessun elemento valido -> sentinella.
+        assegnatari:
+          body.assegnatari && body.assegnatari.length > 0
+            ? body.assegnatari.flatMap((a) => normalizzaAssegnatari(a))
+            : [SENTINELLA_NON_ASSEGNATO],
         tipo: "",
         dataInizio,
         dataFine,

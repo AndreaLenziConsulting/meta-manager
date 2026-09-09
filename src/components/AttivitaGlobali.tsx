@@ -26,7 +26,12 @@ type Risposta = { clienti: ClienteRef[]; attivita: AttivitaClienteRow[] };
  * ricavare il `clienteId` dalla riga stessa (mai da un filtro selezionato) prima di chiamare le
  * stesse tre route di mutazione già usate da AttivitaTab (generiche, prendono clienteId a body).
  */
-export function AttivitaGlobali() {
+type Props = {
+  // Identità note per il popover di editing assegnatari in AttivitaLista.tsx — vedi il commento lì.
+  consulenti?: { consulenteId: string; nome: string }[];
+};
+
+export function AttivitaGlobali({ consulenti = [] }: Props = {}) {
   const [dati, setDati] = useState<Risposta | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -117,6 +122,35 @@ export function AttivitaGlobali() {
     }
   }
 
+  // Stesso schema ottimistico di handleCambiaScadenza sopra, per gli assegnatari.
+  async function handleCambiaAssegnatari(attivitaId: string, assegnatari: string[]) {
+    const riga = dati?.attivita.find((a) => a.attivitaId === attivitaId);
+    if (!riga) return;
+    const { clienteId } = riga;
+
+    setDati((prev) =>
+      prev && {
+        ...prev,
+        attivita: prev.attivita.map((a) => (a.attivitaId === attivitaId ? { ...a, assegnatari } : a)),
+      }
+    );
+
+    try {
+      const res = await fetch("/api/attivita/assegnatari", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, attivitaId, assegnatari }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Aggiornamento assegnatari non riuscito");
+      }
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setRefreshTick((t) => t + 1);
+    }
+  }
+
   async function handleEliminaAttivita(attivitaId: string) {
     const riga = dati?.attivita.find((a) => a.attivitaId === attivitaId);
     if (!riga) return;
@@ -166,8 +200,8 @@ export function AttivitaGlobali() {
 
   // Come in AttivitaTab.tsx: valori distinti calcolati sul set NON filtrato, così scegliere un
   // filtro non fa sparire le opzioni dell'altro.
-  const responsabiliDisponibili = Array.from(new Set(dati.attivita.map((a) => a.responsabile).filter(Boolean))).sort(
-    (a, b) => a.localeCompare(b)
+  const responsabiliDisponibili = Array.from(new Set(dati.attivita.flatMap((a) => a.assegnatari))).sort((a, b) =>
+    a.localeCompare(b)
   );
   const clientiDisponibili = Array.from(new Set(dati.attivita.map((a) => a.clienteId)))
     .map((clienteId) => ({ clienteId, nome: nomeClientePer.get(clienteId) ?? clienteId }))
@@ -175,7 +209,7 @@ export function AttivitaGlobali() {
 
   const passaFiltro = (a: AttivitaClienteRow) =>
     (clienteFiltro === CLIENTE_TUTTI || a.clienteId === clienteFiltro) &&
-    (responsabileFiltro === RESPONSABILE_TUTTI || a.responsabile === responsabileFiltro);
+    (responsabileFiltro === RESPONSABILE_TUTTI || a.assegnatari.includes(responsabileFiltro));
   const attivitaFiltrata = dati.attivita.filter(passaFiltro);
 
   return (
@@ -205,8 +239,10 @@ export function AttivitaGlobali() {
         attivita={attivitaFiltrata}
         onCambiaStato={handleCambiaStato}
         onCambiaScadenza={handleCambiaScadenza}
+        onCambiaAssegnatari={handleCambiaAssegnatari}
         onElimina={handleEliminaAttivita}
         nomeClientePer={nomeClientePer}
+        consulenti={consulenti}
       />
     </div>
   );

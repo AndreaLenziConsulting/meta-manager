@@ -221,7 +221,7 @@ function RigaAttivita({
         <p className="text-xs text-ink-900 truncate" title={attivita.descrizione}>
           {attivita.descrizione}
         </p>
-        <p className="text-[10px] text-ink-500 truncate">{attivita.responsabile}</p>
+        <p className="text-[10px] text-ink-500 truncate">{attivita.assegnatari.join(", ")}</p>
       </div>
 
       <div className="relative flex-1 h-6">
@@ -249,7 +249,7 @@ function RigaAttivita({
             style={{ left: `${Math.min(left, 60)}%` }}
           >
             <p className="font-medium text-ink-900">{attivita.descrizione}</p>
-            <p className="text-ink-500 mt-0.5">{attivita.responsabile}</p>
+            <p className="text-ink-500 mt-0.5">{attivita.assegnatari.join(", ")}</p>
             <p className="text-ink-500 mt-0.5">
               {formatDataBreve(attivita.dataInizio)} – {formatDataBreve(attivita.dataFine)}
             </p>

@@ -6,6 +6,7 @@ import { AttivitaLista } from "@/components/AttivitaLista";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
 import { Tabs } from "@/components/Tabs";
 import { oggiIso } from "@/lib/roadmap";
+import { formatDataRelativa } from "@/lib/format";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
 
@@ -17,9 +18,14 @@ type Vista = "lista" | "gantt";
 // nessun campo testuale libero comincia per "__".
 const RESPONSABILE_TUTTI = "__tutti__";
 
-type Props = { clienteId: string; onVaiAMeeting?: (meetingId: string) => void };
+type Props = {
+  clienteId: string;
+  onVaiAMeeting?: (meetingId: string) => void;
+  // Identità note per il popover di editing assegnatari in AttivitaLista.tsx — vedi il commento lì.
+  consulenti?: { consulenteId: string; nome: string }[];
+};
 
-export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
+export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [] }: Props) {
   const [dati, setDati] = useState<Risposta | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
@@ -153,6 +159,35 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
     }
   }
 
+  // Stesso schema ottimistico di handleCambiaScadenza sopra, per gli assegnatari.
+  async function handleCambiaAssegnatari(attivitaId: string, assegnatari: string[]) {
+    setDati((prev) => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        gruppi: prev.gruppi.map((g) => ({
+          ...g,
+          attivita: g.attivita.map((a) => (a.attivitaId === attivitaId ? { ...a, assegnatari } : a)),
+        })),
+      };
+    });
+
+    try {
+      const res = await fetch("/api/attivita/assegnatari", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, attivitaId, assegnatari }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Aggiornamento assegnatari non riuscito");
+      }
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setRefreshTick((t) => t + 1);
+    }
+  }
+
   // Stesso schema ottimistico degli altri due (rimuove subito dalla UI, ripristina dal server in
   // caso di errore) — nessun soft-delete, la riga sparisce davvero dal foglio.
   async function handleEliminaAttivita(attivitaId: string) {
@@ -186,17 +221,18 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
 
   const haRoadmap = dati.gruppi.some((g) => g.attivita.length > 0);
 
-  // Valori distinti già presenti nella roadmap del cliente (non un elenco fisso: "responsabile" è
-  // testo libero — ruoli tipo "PM"/"CS" per i task da template, nomi veri per i task da meeting).
+  // Valori distinti già presenti nella roadmap del cliente (non un elenco fisso: "assegnatari" è
+  // testo libero normalizzato — ruoli tipo "Project Manager"/"Consulente Senior" per i task da
+  // template, nomi veri per i task da meeting, vedi src/lib/assegnatari.ts).
   const responsabiliDisponibili = Array.from(
-    new Set(dati.gruppi.flatMap((g) => g.attivita.map((a) => a.responsabile)).filter(Boolean))
+    new Set(dati.gruppi.flatMap((g) => g.attivita.flatMap((a) => a.assegnatari)))
   ).sort((a, b) => a.localeCompare(b));
   // Stesso schema, per l'autocomplete di NuovaAttivitaForm sotto: un'attività aggiunta a mano finisce
   // più spesso in una fase già in corso che in una nuova lane dedicata (mai un elenco fisso: "fase"
   // è testo libero, ogni cliente ha le proprie).
   const fasiDisponibili = Array.from(new Set(dati.gruppi.map((g) => g.fase))).sort((a, b) => a.localeCompare(b));
-  const passaFiltro = (a: { responsabile: string }) =>
-    responsabileFiltro === RESPONSABILE_TUTTI || a.responsabile === responsabileFiltro;
+  const passaFiltro = (a: { assegnatari: string[] }) =>
+    responsabileFiltro === RESPONSABILE_TUTTI || a.assegnatari.includes(responsabileFiltro);
   const gruppiFiltrati = dati.gruppi
     .map((g) => ({ ...g, attivita: g.attivita.filter(passaFiltro) }))
     .filter((g) => g.attivita.length > 0);
@@ -279,8 +315,10 @@ export function AttivitaTab({ clienteId, onVaiAMeeting }: Props) {
               attivita={gruppiFiltrati.flatMap((g) => g.attivita)}
               onCambiaStato={handleCambiaStato}
               onCambiaScadenza={handleCambiaScadenza}
+              onCambiaAssegnatari={handleCambiaAssegnatari}
               onElimina={handleEliminaAttivita}
               onVaiAMeeting={onVaiAMeeting}
+              consulenti={consulenti}
             />
           ) : (
             <RoadmapGantt gruppi={gruppiFiltrati} onCambiaStato={handleCambiaStato} />
@@ -340,7 +378,17 @@ function NuovaAttivitaForm({
       const res = await fetch("/api/attivita/crea", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, descrizione, fase, responsabile, dataInizio, dataFine }),
+        body: JSON.stringify({
+          clienteId,
+          descrizione,
+          fase,
+          // Ancora un solo campo testo libero qui (verrà sostituito da una selezione multipla vera
+          // nella prossima fase del redesign) — /api/attivita/crea normalizza comunque il testo
+          // (split su delimitatori misti se contiene più nomi), vedi src/lib/assegnatari.ts.
+          assegnatari: responsabile.trim() ? [responsabile.trim()] : undefined,
+          dataInizio,
+          dataFine,
+        }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
@@ -401,11 +449,31 @@ function NuovaAttivitaForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <div>
           <label className={labelClass}>Data inizio</label>
-          <input type="date" className={inputClass} value={dataInizio} onChange={(e) => setDataInizio(e.target.value)} />
+          {/* Date-picker nativo invisibile sotto un'etichetta sempre in italiano, stessa tecnica di
+              AttivitaLista.tsx — mai un formato assoluto americano tipo "08/14/2026". */}
+          <div className={`relative ${inputClass}`}>
+            <input
+              type="date"
+              value={dataInizio}
+              onChange={(e) => setDataInizio(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+            <span className="pointer-events-none block truncate">{formatDataRelativa(dataInizio)}</span>
+          </div>
         </div>
         <div>
           <label className={labelClass}>Scadenza</label>
-          <input type="date" className={inputClass} value={dataFine} onChange={(e) => setDataFine(e.target.value)} />
+          <div className={`relative ${inputClass}`}>
+            <input
+              type="date"
+              value={dataFine}
+              onChange={(e) => setDataFine(e.target.value)}
+              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+            />
+            <span className="pointer-events-none block truncate text-ink-900">
+              {dataFine ? formatDataRelativa(dataFine) : "Seleziona una data"}
+            </span>
+          </div>
         </div>
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}

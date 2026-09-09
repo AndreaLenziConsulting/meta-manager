@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { generaSedeId } from "@/lib/accessCode";
 import { getGoogleOAuth2Client } from "@/lib/googleAuth";
+import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 import type {
   AttivitaClienteRow,
   Campagna,
@@ -133,6 +134,14 @@ export function serialToIsoDate(serial: number): string {
 function asText(value: CellValue): string {
   if (value === undefined || value === null) return "";
   return String(value);
+}
+
+/** Colonna "assegnatari" (ex "responsabile"): lista comma-separated canonica, stesso pattern già
+ * in uso per GhlConnessione.calendarIds. Cella vuota (riga scritta prima della migrazione, o un
+ * bug) -> ["Da assegnare"], mai un array vuoto — un'attività ha sempre almeno un assegnatario. */
+function asAssegnatari(value: CellValue): string[] {
+  const parti = asText(value).split(",").map((p) => p.trim()).filter(Boolean);
+  return parti.length > 0 ? parti : [SENTINELLA_NON_ASSEGNATO];
 }
 
 /**
@@ -626,6 +635,57 @@ export async function migraSediEsistenti(): Promise<RisultatoMigrazioneSedi> {
   };
 }
 
+export type RigaMigrataAssegnatari = { riga: number; prima: string; dopo: string };
+export type RisultatoMigrazioneAssegnatari = {
+  attivitaCliente: RigaMigrataAssegnatari[];
+  templateAttivita: RigaMigrataAssegnatari[];
+};
+
+/**
+ * Migrazione una tantum, idempotente: normalizza la colonna "responsabile" (ora "assegnatari") di
+ * AttivitaCliente (H) e TemplateAttivita (F) dal testo libero storico (delimitatori misti " + "/
+ * " & "/" e "/"/") alla forma comma-separated canonica, via normalizzaAssegnatari (unico punto di
+ * normalizzazione, src/lib/assegnatari.ts). Scrive SOLO le righe il cui risultato normalizzato
+ * differisce dal testo grezzo attuale — rilanciarla su righe già migrate non le tocca di nuovo.
+ * Ritorna il diff riga per riga (numero riga 1-based del foglio, prima/dopo) per revisione: il
+ * chiamante (POST /api/admin/migra-assegnatari) lo mostra sempre nella risposta, mai una scrittura
+ * "silenziosa" senza un modo di verificare cosa è cambiato.
+ */
+export async function migraAssegnatariEsistenti(): Promise<RisultatoMigrazioneAssegnatari> {
+  const { sheets, sheetId } = getSheetsClient();
+
+  async function migraTab(tab: string, colonnaLettera: string, indiceColonna: number): Promise<RigaMigrataAssegnatari[]> {
+    const res = await sheets.spreadsheets.values.get({
+      spreadsheetId: sheetId,
+      range: `${tab}!A2:N`,
+      valueRenderOption: "UNFORMATTED_VALUE",
+    });
+    const righe = (res.data.values as CellValue[][]) ?? [];
+    const modificate: RigaMigrataAssegnatari[] = [];
+    const data: { range: string; values: string[][] }[] = [];
+    righe.forEach((r, i) => {
+      if (!r[0]) return; // riga vuota
+      const grezzo = asText(r[indiceColonna]);
+      const normalizzato = normalizzaAssegnatari(grezzo).join(", ");
+      if (normalizzato === grezzo) return; // già in forma canonica, non riscrivere
+      const riga = i + 2;
+      modificate.push({ riga, prima: grezzo, dopo: normalizzato });
+      data.push({ range: `${tab}!${colonnaLettera}${riga}`, values: [[normalizzato]] });
+    });
+    if (data.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({ spreadsheetId: sheetId, requestBody: { valueInputOption: "USER_ENTERED", data } });
+      invalidateTabCache(tab);
+    }
+    return modificate;
+  }
+
+  const [attivitaCliente, templateAttivita] = await Promise.all([
+    migraTab(TAB.attivitaCliente, "H", 7),
+    migraTab(TAB.templateAttivita, "F", 5),
+  ]);
+  return { attivitaCliente, templateAttivita };
+}
+
 export async function getConsulenti(): Promise<Consulente[]> {
   const rows = await readTab(TAB.consulenti);
   return rows
@@ -895,7 +955,7 @@ export async function getTemplateAttivita(): Promise<TemplateTask[]> {
       blocco: asText(r[2]),
       fase: asText(r[3]),
       descrizione: asText(r[4]),
-      responsabile: asText(r[5]),
+      assegnatari: asAssegnatari(r[5]),
       tipo: asText(r[6]),
       settimanaInizio: toNumber(r[7]),
       settimanaFine: toNumber(r[8]),
@@ -917,7 +977,7 @@ export async function getAttivitaCliente(): Promise<AttivitaClienteRow[]> {
       blocco: asText(r[4]),
       fase: asText(r[5]),
       descrizione: asText(r[6]),
-      responsabile: asText(r[7]),
+      assegnatari: asAssegnatari(r[7]),
       tipo: asText(r[8]),
       dataInizio: normalizeData(r[9]),
       dataFine: normalizeData(r[10]),
@@ -949,7 +1009,7 @@ export async function creaAttivitaPerCliente(righe: AttivitaClienteRow[]): Promi
       r.blocco,
       r.fase,
       r.descrizione,
-      r.responsabile,
+      r.assegnatari.join(", "),
       r.tipo,
       r.dataInizio,
       r.dataFine,
@@ -1020,6 +1080,32 @@ export async function aggiornaScadenzaAttivita(attivitaId: string, nuovaDataFine
     range: `${TAB.attivitaCliente}!K${rowNumber}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: [[nuovaDataFine]] },
+  });
+  invalidateTabCache(TAB.attivitaCliente);
+}
+
+/** Aggiorna solo gli assegnatari (colonna H) di una singola attività — mirror esatto di
+ * aggiornaScadenzaAttivita sopra. `assegnatari` vuoto non è mai valido a monte (il chiamante,
+ * /api/attivita/assegnatari, lo rifiuta prima di arrivare qui), ma per sicurezza un array vuoto
+ * verrebbe comunque scritto come stringa vuota, mai un crash. */
+export async function aggiornaAssegnatariAttivita(attivitaId: string, assegnatari: string[]): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!A2:N`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRigaAttivita(righe, attivitaId);
+  if (rowNumber === null) {
+    throw new Error(`Attività non trovata: ${attivitaId}`);
+  }
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId,
+    range: `${TAB.attivitaCliente}!H${rowNumber}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[assegnatari.join(", ")]] },
   });
   invalidateTabCache(TAB.attivitaCliente);
 }

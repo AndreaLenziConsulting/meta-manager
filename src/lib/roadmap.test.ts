@@ -61,19 +61,19 @@ describe("settimanaCorrente", () => {
 const TEMPLATE_TEST: TemplateTask[] = [
   {
     prodottoId: "gtm", taskId: "S01", blocco: "setup", fase: "Sett. 1", descrizione: "Kick off",
-    responsabile: "PM", tipo: "PM", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "gg 1", nota: "", ordine: 1,
+    assegnatari: ["Project Manager"], tipo: "PM", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "gg 1", nota: "", ordine: 1,
   },
   {
     prodottoId: "gtm", taskId: "S02", blocco: "setup", fase: "Sett. 1", descrizione: "Accessi",
-    responsabile: "Cliente", tipo: "CL", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "gg 1-3", nota: "", ordine: 2,
+    assegnatari: ["Cliente"], tipo: "CL", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "gg 1-3", nota: "", ordine: 2,
   },
   {
     prodottoId: "gtm", taskId: "G01", blocco: "gestione", fase: "Mese 1", descrizione: "Monitoraggio",
-    responsabile: "PM", tipo: "PM", settimanaInizio: 4, settimanaFine: 15, giorniTesto: "", nota: "", ordine: 3,
+    assegnatari: ["Project Manager"], tipo: "PM", settimanaInizio: 4, settimanaFine: 15, giorniTesto: "", nota: "", ordine: 3,
   },
   {
     prodottoId: "altro-prodotto", taskId: "X01", blocco: "setup", fase: "Sett. 1", descrizione: "Non deve comparire",
-    responsabile: "PM", tipo: "PM", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "", nota: "", ordine: 1,
+    assegnatari: ["Project Manager"], tipo: "PM", settimanaInizio: 1, settimanaFine: 1, giorniTesto: "", nota: "", ordine: 1,
   },
 ];
 
@@ -93,7 +93,7 @@ describe("generaAttivitaPerCliente", () => {
     const righe = generaAttivitaPerCliente("alc-07", "gtm", "2026-08-10", TEMPLATE_TEST);
     const s02 = righe.find((r) => r.taskId === "S02")!;
     expect(s02.descrizione).toBe("Accessi");
-    expect(s02.responsabile).toBe("Cliente");
+    expect(s02.assegnatari).toEqual(["Cliente"]);
     expect(s02.tipo).toBe("CL");
     expect(s02.fase).toBe("Sett. 1");
     expect(s02.ordine).toBe(2);
@@ -126,7 +126,7 @@ describe("prossimoStato", () => {
 function riga(over: Partial<AttivitaClienteRow>): AttivitaClienteRow {
   return {
     attivitaId: "x", clienteId: "alc-07", prodottoId: "gtm", taskId: "T", blocco: "setup",
-    fase: "Fase", descrizione: "", responsabile: "", tipo: "", dataInizio: "2026-08-10",
+    fase: "Fase", descrizione: "", assegnatari: [], tipo: "", dataInizio: "2026-08-10",
     dataFine: "2026-08-16", stato: "todo", notaTeam: "", ordine: 1, ...over,
   };
 }

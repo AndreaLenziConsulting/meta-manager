@@ -60,7 +60,7 @@ export function generaAttivitaPerCliente(
       blocco: t.blocco,
       fase: t.fase,
       descrizione: t.descrizione,
-      responsabile: t.responsabile,
+      assegnatari: t.assegnatari,
       tipo: t.tipo,
       dataInizio: dataInizioSettimana(dataInizioProgetto, t.settimanaInizio),
       dataFine: dataFineSettimana(dataInizioProgetto, t.settimanaFine),

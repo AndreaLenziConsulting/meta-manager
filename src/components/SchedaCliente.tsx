@@ -32,6 +32,8 @@ type Props = {
   // sul link pubblico cliente (code), mai per un consulente che vede il cliente ma non può
   // modificarlo. Calcolato lato server in dashboard/cliente/[clienteId]/page.tsx.
   ruoloAdmin?: boolean;
+  // Identità note per il popover di editing assegnatari del tab Attività — vedi AttivitaLista.tsx.
+  consulenti?: { consulenteId: string; nome: string }[];
 };
 
 export function SchedaCliente({
@@ -47,6 +49,7 @@ export function SchedaCliente({
   tuttiITab,
   haConnessioneGhl,
   ruoloAdmin,
+  consulenti = [],
 }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
@@ -71,7 +74,7 @@ export function SchedaCliente({
           {
             id: "attivita",
             label: "Attività",
-            content: clienteId ? <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} /> : null,
+            content: clienteId ? <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} consulenti={consulenti} /> : null,
           },
         ]
       : []),

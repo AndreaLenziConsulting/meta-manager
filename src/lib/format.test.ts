@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  descrizioneScadenza,
   formatDataBreve,
+  formatDataRelativa,
   formatEuro,
   formatMese,
   formatNumero,
@@ -115,5 +117,67 @@ describe("formatStatoAttivita", () => {
 
   it("stato sconosciuto -> fallback a 'todo', non un crash", () => {
     expect(formatStatoAttivita("qualcosa-di-strano")).toEqual(formatStatoAttivita("todo"));
+  });
+});
+
+describe("formatDataRelativa", () => {
+  const OGGI = "2026-09-08"; // martedì
+
+  it("stessa data -> 'oggi'", () => {
+    expect(formatDataRelativa("2026-09-08", OGGI)).toBe("oggi");
+  });
+
+  it("un giorno dopo -> 'domani'", () => {
+    expect(formatDataRelativa("2026-09-09", OGGI)).toBe("domani");
+  });
+
+  it("un giorno prima -> 'ieri'", () => {
+    expect(formatDataRelativa("2026-09-07", OGGI)).toBe("ieri");
+  });
+
+  it("entro una settimana nel futuro -> giorno settimana breve + giorno + mese breve", () => {
+    expect(formatDataRelativa("2026-09-11", OGGI)).toBe("ven 11 set"); // +3 giorni, venerdì
+    expect(formatDataRelativa("2026-09-14", OGGI)).toBe("lun 14 set"); // +6 giorni, bordo incluso
+  });
+
+  it("entro una settimana nel passato -> stesso formato giorno settimana breve", () => {
+    expect(formatDataRelativa("2026-09-02", OGGI)).toBe("mer 2 set"); // -6 giorni, bordo incluso
+  });
+
+  it("oltre una settimana, stesso anno di oggi -> giorno+mese senza anno", () => {
+    expect(formatDataRelativa("2026-09-15", OGGI)).toBe("15 set"); // +7 giorni, appena fuori dal raggio settimanale
+  });
+
+  it("anno diverso da oggi -> anno sempre esplicito, mai ambiguo", () => {
+    expect(formatDataRelativa("2027-01-05", OGGI)).toBe("5 gen 2027");
+    expect(formatDataRelativa("2025-12-25", OGGI)).toBe("25 dic 2025");
+  });
+});
+
+describe("descrizioneScadenza", () => {
+  const OGGI = "2026-09-08";
+
+  it("non scaduta (data futura) -> formatDataRelativa, scaduta:false", () => {
+    expect(descrizioneScadenza("2026-09-09", "todo", OGGI)).toEqual({ testo: "domani", scaduta: false });
+  });
+
+  it("scadenza di oggi stesso NON è scaduta (confronto stretto)", () => {
+    expect(descrizioneScadenza("2026-09-08", "todo", OGGI)).toEqual({ testo: "oggi", scaduta: false });
+  });
+
+  it("scaduta ieri -> 'Scaduta ieri', mai 'Scaduta da 1 giorni'", () => {
+    expect(descrizioneScadenza("2026-09-07", "todo", OGGI)).toEqual({ testo: "Scaduta ieri", scaduta: true });
+  });
+
+  it("scaduta da più giorni -> 'Scaduta da N giorni'", () => {
+    expect(descrizioneScadenza("2026-09-01", "wip", OGGI)).toEqual({ testo: "Scaduta da 7 giorni", scaduta: true });
+  });
+
+  it("bloccata e scaduta è comunque scaduta (stesso criterio di attivitaInRitardo: un blocco resta un problema)", () => {
+    expect(descrizioneScadenza("2026-09-01", "blocked", OGGI).scaduta).toBe(true);
+  });
+
+  it("done con scadenza passata NON è scaduta (il lavoro è comunque concluso)", () => {
+    expect(descrizioneScadenza("2026-09-01", "done", OGGI)).toEqual({ testo: "1 set", scaduta: false });
   });
 });

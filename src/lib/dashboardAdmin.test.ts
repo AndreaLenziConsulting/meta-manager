@@ -19,7 +19,7 @@ function cliente(over: Partial<Cliente>): Cliente {
 function attivitaFittizia(n: number): AttivitaClienteRow[] {
   return Array.from({ length: n }, (_, i) => ({
     attivitaId: `a${i}`, clienteId: "c", prodottoId: "gtm", taskId: `T${i}`, blocco: "setup",
-    fase: "Fase", descrizione: "", responsabile: "", tipo: "", dataInizio: "2026-01-01",
+    fase: "Fase", descrizione: "", assegnatari: [], tipo: "", dataInizio: "2026-01-01",
     dataFine: "2026-01-02", stato: "todo" as const, notaTeam: "", ordine: i,
   }));
 }

@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
+import { getClienti, getConsulenti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { settimanaCorrente } from "@/lib/roadmap";
 import { SchedaCliente } from "@/components/SchedaCliente";
@@ -23,7 +23,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   // Integrazione GHL/Squadd: le tessere Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati del tab
   // KPI vengono lette in diretta da GHL solo se almeno una sede di questo cliente ha una
   // connessione attiva — vedi src/lib/kpiGhlOverlay.ts.
-  const [sedi, connessioniGhl] = await Promise.all([getSedi(), getGhlConnessioni()]);
+  const [sedi, connessioniGhl, consulenti] = await Promise.all([getSedi(), getGhlConnessioni(), getConsulenti()]);
   const sediIdsCliente = new Set(sedi.filter((s) => s.clienteId === clienteId).map((s) => s.sedeId));
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);
 
@@ -50,6 +50,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         tuttiITab
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={sessione.ruolo === "admin"}
+        consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))}
       />
     </div>
   );
