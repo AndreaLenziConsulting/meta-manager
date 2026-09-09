@@ -1462,6 +1462,30 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   invalidateTabCache(TAB.prospect);
 }
 
+/**
+ * Elimina definitivamente un prospect — cascade su TUTTE le sue righe ReportCommerciale (predicato
+ * su prospectId: un prospect accumula un report per chiamata, non uno solo). SOLO admin, e SOLO se
+ * non ancora convertito in cliente (il controllo vive nella route, non qui: distruggerebbe lo
+ * storico report di un cliente vivo per un guadagno minimo — chi vuole eliminare tutto lo fa dal
+ * Cliente, che ha la conferma pesante apposta).
+ */
+export async function eliminaProspect(prospectId: string): Promise<void> {
+  const [righeReport, righeProspect] = await Promise.all([
+    readTab(TAB.reportCommerciale, { noCache: true }),
+    readTab(TAB.prospect, { noCache: true }),
+  ]);
+  const numeriRigaReport = trovaTuttiIndiciRiga(righeReport, (r) => asText(r[1]) === prospectId);
+  const numeroRigaProspect = trovaIndiceRiga(righeProspect, prospectId);
+  if (numeroRigaProspect === null) {
+    throw new Error(`Prospect non trovato: ${prospectId}`);
+  }
+
+  await eliminaRigheBatch([
+    { tab: TAB.reportCommerciale, numeriRiga: numeriRigaReport },
+    { tab: TAB.prospect, numeriRiga: [numeroRigaProspect] },
+  ]);
+}
+
 // Tab ReportCommerciale, colonne A→F: reportId, prospectId, commercialeId, data, aggiornatoIl,
 // dati (l'intero ReportCommercialeDataLoose JSON-stringificato) — stesso pattern di MeetingCliente.
 export async function getReportCommerciale(): Promise<ReportCommercialeRow[]> {

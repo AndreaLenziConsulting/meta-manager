@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Pencil, CheckCircle2, Send } from "lucide-react";
+import { Pencil, CheckCircle2, Send, Trash2 } from "lucide-react";
 import type { Prospect } from "@/types/prospect";
 import { formatEuro, formatNumero } from "@/lib/format";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneModal";
 import { ConvertiProspectModal } from "@/components/ConvertiProspectModal";
 
 function haDatiCommerciali(p: Prospect): boolean {
@@ -60,6 +61,7 @@ export function ProspectDatiCommerciali({
   const [modificaAperta, setModificaAperta] = useState(false);
   const [conversioneAperta, setConversioneAperta] = useState(false);
   const [propostaAperta, setPropostaAperta] = useState(false);
+  const [confermaEliminaAperta, setConfermaEliminaAperta] = useState(false);
   const convertito = Boolean(prospect.clienteId);
   const proposto = !convertito && Boolean(prospect.consulenteSuggeritoId);
   const nomeConsulenteSuggerito = consulenti?.find((c) => c.consulenteId === prospect.consulenteSuggeritoId)?.nome;
@@ -106,6 +108,16 @@ export function ProspectDatiCommerciali({
           >
             <Pencil size={14} />
           </button>
+          {ruoloAdmin && !convertito && (
+            <button
+              type="button"
+              onClick={() => setConfermaEliminaAperta(true)}
+              className="text-ink-500 hover:text-red-600 transition cursor-pointer"
+              aria-label="Elimina prospect"
+            >
+              <Trash2 size={14} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -164,6 +176,24 @@ export function ProspectDatiCommerciali({
           onSalvato={() => {
             setPropostaAperta(false);
             router.refresh();
+          }}
+        />
+      )}
+
+      {confermaEliminaAperta && (
+        <ConfermaEliminazioneModal
+          titolo="Eliminare questo prospect?"
+          messaggio="Elimina anche tutti i suoi report commerciali. Azione irreversibile."
+          onClose={() => setConfermaEliminaAperta(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/prospect/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ prospectId: prospect.prospectId }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            router.push("/dashboard/commerciale");
           }}
         />
       )}
