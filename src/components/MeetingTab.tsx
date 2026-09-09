@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertCircle, FileDown, Mail, Pencil } from "lucide-react";
+import { CheckCircle2, AlertCircle, FileDown, Mail, Pencil, Trash2 } from "lucide-react";
 import { formatDataBreve } from "@/lib/format";
 import { buildEmailText } from "@/lib/meetingEmail";
 import { andamentoSentiment } from "@/lib/sentimentCliente";
 import { MeetingReportView } from "@/components/MeetingReportView";
 import { AndamentoSentiment } from "@/components/AndamentoSentiment";
+import { UndoToast } from "@/components/ui/UndoToast";
 import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
@@ -16,6 +17,10 @@ type Props = {
   clienteNome?: string;
   clienteEmail?: string;
   meetingIdEvidenziato?: string | null;
+  // Mostra il bottone "Elimina" per ogni meeting — SOLO admin, mai il consulente (che può comunque
+  // vedere/creare/modificare meeting per i propri clienti). Assente (quindi falsy) sul link
+  // pubblico cliente (report/[code]/page.tsx non passa mai questa prop).
+  ruoloAdmin?: boolean;
 };
 
 const inputClass =
@@ -153,7 +158,7 @@ function MeetingAzioni({
   );
 }
 
-export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meetingIdEvidenziato }: Props) {
+export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meetingIdEvidenziato, ruoloAdmin }: Props) {
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [meetingTeam, setMeetingTeam] = useState<MeetingClienteRow[] | null>(null);
@@ -206,6 +211,43 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
   const [bozza, setBozza] = useState<MeetingDataLoose | null>(null);
   const [salvandoEdit, setSalvandoEdit] = useState(false);
   const [erroreEdit, setErroreEdit] = useState<string | null>(null);
+
+  // Eliminazione (solo admin, vedi prop ruoloAdmin) — stesso schema "nascondi subito, DELETE reale
+  // solo se il toast scade senza Annulla" già in uso per le attività (AttivitaLista.tsx): un Set
+  // (non una singola stringa) perché più eliminazioni possono restare in sospeso insieme.
+  const [inSospesoPerEliminazione, setInSospesoPerEliminazione] = useState<Set<string>>(new Set());
+
+  function handleEliminaMeeting(meetingId: string) {
+    setInSospesoPerEliminazione((prev) => new Set(prev).add(meetingId));
+  }
+
+  function annullaEliminazione(meetingId: string) {
+    setInSospesoPerEliminazione((prev) => {
+      const next = new Set(prev);
+      next.delete(meetingId);
+      return next;
+    });
+  }
+
+  async function scadenzaEliminazione(meetingId: string) {
+    annullaEliminazione(meetingId); // smonta il toast
+    if (!clienteId) return; // guardia: l'azione è admin-gated e visibile solo nel ramo team (clienteId)
+    setMeetingTeam((prev) => prev?.filter((m) => m.meetingId !== meetingId) ?? prev);
+    try {
+      const res = await fetch("/api/meeting/elimina", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, meetingId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Eliminazione non riuscita");
+      }
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      setRefreshTick((t) => t + 1); // ripristina la riga leggendo di nuovo dal server
+    }
+  }
 
   useEffect(() => {
     if (!code && !clienteId) return;
@@ -515,7 +557,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
         </div>
       )}
 
-      {meetingTeam?.map((m) => {
+      {meetingTeam?.filter((m) => !inSospesoPerEliminazione.has(m.meetingId)).map((m) => {
         const aperto = espanso === m.meetingId;
         const inModifica = editingId === m.meetingId && bozza;
         return (
@@ -567,7 +609,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
             {aperto && !inModifica && (
               <div className="space-y-3">
                 <MeetingReportView meeting={m.dati} clienteNome={clienteNome} />
-                <div className="flex justify-end">
+                <div className="flex justify-end gap-4">
                   <button
                     type="button"
                     onClick={() => iniziaModifica(m)}
@@ -576,6 +618,16 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                     <Pencil size={12} className="flex-shrink-0" />
                     Modifica report
                   </button>
+                  {ruoloAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => handleEliminaMeeting(m.meetingId)}
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      <Trash2 size={12} className="flex-shrink-0" />
+                      Elimina
+                    </button>
+                  )}
                 </div>
                 {clienteId && <MeetingAzioni clienteId={clienteId} meeting={m.dati} clienteNome={clienteNome} />}
               </div>
@@ -623,6 +675,21 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
           </div>
         );
       })}
+
+      {/* Stack di toast "eliminato — Annulla", uno per eliminazione in sospeso — vedi il commento
+          su inSospesoPerEliminazione sopra. Fixed in basso, stesso pattern di AttivitaLista.tsx. */}
+      {inSospesoPerEliminazione.size > 0 && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 space-y-2">
+          {Array.from(inSospesoPerEliminazione).map((meetingId) => (
+            <UndoToast
+              key={meetingId}
+              messaggio="Meeting eliminato."
+              onAnnulla={() => annullaEliminazione(meetingId)}
+              onScadenza={() => scadenzaEliminazione(meetingId)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

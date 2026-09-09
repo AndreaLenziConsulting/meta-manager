@@ -1289,6 +1289,12 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
   return { aggiornato: true };
 }
 
+/** Elimina definitivamente un meeting (cancella la riga dal foglio, non un soft-delete) — SOLO
+ * admin, vedi /api/meeting/elimina. */
+export async function eliminaMeeting(meetingId: string): Promise<void> {
+  await eliminaRigaPerId(TAB.meetingCliente, meetingId);
+}
+
 // Tab Prospect, colonne A→Q: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
 // commercialeId, attivo, creatoIl, driveFolderUrl, mediaBudgetMensile, targetCpl,
 // targetCpaAppuntamento, targetLeadSettimana, targetAppuntamentiSettimana, targetFatturatoMensile,

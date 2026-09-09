@@ -96,6 +96,7 @@ export function SchedaCliente({
                 clienteNome={clienteNome}
                 clienteEmail={clienteEmail}
                 meetingIdEvidenziato={meetingDaEvidenziare}
+                ruoloAdmin={ruoloAdmin}
               />
             ),
           },
