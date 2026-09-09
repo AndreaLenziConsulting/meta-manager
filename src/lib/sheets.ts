@@ -154,6 +154,96 @@ function trovaIndiceRiga(rows: CellValue[][], id: string): number | null {
   return i === -1 ? null : i + 2;
 }
 
+/**
+ * Numeri di riga (1-based) di TUTTE le righe che soddisfano `corrisponde` — generalizza
+ * trovaIndiceRiga per i cascade di eliminazione (vedi eliminaCliente/eliminaSede/eliminaProspect
+ * sotto) dove serve trovare più righe insieme (tutte le AttivitaCliente/MeetingCliente/
+ * RisultatiCommerciali di un cliente) o dove la colonna A non è un id univoco di riga (es.
+ * FasiCompletate, dove colonna A è clienteId stesso: una riga per ogni fase completata).
+ */
+export function trovaTuttiIndiciRiga(rows: CellValue[][], corrisponde: (riga: CellValue[]) => boolean): number[] {
+  return rows.reduce<number[]>((acc, riga, i) => {
+    if (corrisponde(riga)) acc.push(i + 2);
+    return acc;
+  }, []);
+}
+
+type RichiestaEliminaRighe = {
+  deleteDimension: { range: { sheetId: number; dimension: "ROWS"; startIndex: number; endIndex: number } };
+};
+
+/**
+ * Costruisce le richieste `deleteDimension` per un unico batchUpdate che cancella più righe, anche
+ * su più tab insieme (una cascata di eliminazione): ordine DISCENDENTE di riga dentro ogni tab —
+ * l'unico ordine per cui i numeri di riga calcolati da UNA lettura fatta PRIMA di qualunque
+ * cancellazione restano validi per ogni richiesta della stessa chiamata (una deleteDimension sposta
+ * solo le righe sotto di sé, cioè quelle con un numero di riga più alto — processandole dalla più
+ * alta alla più bassa, ogni richiesta successiva punta ancora a una riga non ancora toccata). Tra
+ * tab diverse l'ordine non conta: sheetId diversi, zero interferenza reciproca. Una voce con
+ * `numeriRiga` vuoto non genera richieste (e non richiede nemmeno che il suo gid sia in mappa —
+ * comodo per i cascade dove non tutte le tab hanno sempre qualcosa da eliminare).
+ */
+export function costruisciRichiesteEliminazione(
+  richieste: { tab: string; numeriRiga: number[] }[],
+  gidPerTab: Map<string, number>
+): RichiestaEliminaRighe[] {
+  return richieste.flatMap(({ tab, numeriRiga }) => {
+    if (numeriRiga.length === 0) return [];
+    const gid = gidPerTab.get(tab);
+    if (gid === undefined) throw new Error(`Tab non trovata: ${tab}`);
+    return [...numeriRiga]
+      .sort((a, b) => b - a)
+      .map((rowNumber) => ({
+        deleteDimension: { range: { sheetId: gid, dimension: "ROWS" as const, startIndex: rowNumber - 1, endIndex: rowNumber } },
+      }));
+  });
+}
+
+/** Mappa nome-tab -> sheetId (gid) di ogni tab del foglio, UNA sola chiamata spreadsheets.get
+ * riusabile per un'intera cascata di eliminazione invece di rifarla una volta a tab. */
+async function getSheetGidPerTab(): Promise<Map<string, number>> {
+  const { sheets, sheetId } = getSheetsClient();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
+  const mappa = new Map<string, number>();
+  for (const s of meta.data.sheets ?? []) {
+    const titolo = s.properties?.title;
+    const gid = s.properties?.sheetId;
+    if (titolo && gid !== undefined && gid !== null) mappa.set(titolo, gid);
+  }
+  return mappa;
+}
+
+/**
+ * Commit finale di una (possibile) cascata di eliminazione: UN SOLO batchUpdate con tutte le
+ * deleteDimension di tutte le tab coinvolte, poi invalida la cache di ognuna — mai un batchUpdate
+ * a tab, che lascerebbe una cascata a metà se una richiesta successiva fallisse (batchUpdate è
+ * atomico: o passano tutte le richieste o nessuna). No-op silenzioso se non c'è nulla da eliminare.
+ */
+async function eliminaRigheBatch(richieste: { tab: string; numeriRiga: number[] }[]): Promise<void> {
+  const daEliminare = richieste.filter((r) => r.numeriRiga.length > 0);
+  if (daEliminare.length === 0) return;
+
+  const { sheets, sheetId } = getSheetsClient();
+  const gidPerTab = await getSheetGidPerTab();
+  const requests = costruisciRichiesteEliminazione(daEliminare, gidPerTab);
+
+  await sheets.spreadsheets.batchUpdate({ spreadsheetId: sheetId, requestBody: { requests } });
+  daEliminare.forEach(({ tab }) => invalidateTabCache(tab));
+}
+
+/** Elimina la riga la cui colonna A combacia con `id` da `tab` — generalizza la meccanica già in
+ * uso (prima solo in eliminaAttivita) per qualunque tab con id univoco in colonna A. Lancia se
+ * l'id non esiste — il chiamante (una route API) valida di solito esistenza/ownership PRIMA di
+ * arrivare qui, quindi questo è un ultimo controllo di sicurezza, non la validazione principale. */
+async function eliminaRigaPerId(tab: string, id: string): Promise<void> {
+  const righe = await readTab(tab, { noCache: true });
+  const numeroRiga = trovaIndiceRiga(righe, id);
+  if (numeroRiga === null) {
+    throw new Error(`Riga non trovata in ${tab}: ${id}`);
+  }
+  await eliminaRigheBatch([{ tab, numeriRiga: [numeroRiga] }]);
+}
+
 /** Normalizza una cella "data" (YYYY-MM-DD) che Sheets potrebbe aver convertito in numero seriale. */
 export function normalizeData(value: CellValue): string {
   if (typeof value === "number") return serialToIsoDate(value);
@@ -1112,35 +1202,7 @@ export async function aggiornaAssegnatariAttivita(attivitaId: string, assegnatar
 
 /** Elimina definitivamente una riga di attività (cancella la riga dal foglio, non un soft-delete). */
 export async function eliminaAttivita(attivitaId: string): Promise<void> {
-  const { sheets, sheetId } = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: `${TAB.attivitaCliente}!A2:N`,
-    valueRenderOption: "UNFORMATTED_VALUE",
-  });
-  const righe = (res.data.values as CellValue[][]) ?? [];
-  const rowNumber = trovaIndiceRigaAttivita(righe, attivitaId);
-  if (rowNumber === null) {
-    throw new Error(`Attività non trovata: ${attivitaId}`);
-  }
-
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: sheetId });
-  const sheetGid = meta.data.sheets?.find((s) => s.properties?.title === TAB.attivitaCliente)?.properties?.sheetId;
-  if (sheetGid === undefined || sheetGid === null) {
-    throw new Error(`Tab non trovata: ${TAB.attivitaCliente}`);
-  }
-
-  // rowNumber è già 1-based (numero di riga reale nel foglio); deleteDimension vuole indici
-  // 0-based con endIndex esclusivo, quindi startIndex = rowNumber - 1.
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: sheetId,
-    requestBody: {
-      requests: [
-        { deleteDimension: { range: { sheetId: sheetGid, dimension: "ROWS", startIndex: rowNumber - 1, endIndex: rowNumber } } },
-      ],
-    },
-  });
-  invalidateTabCache(TAB.attivitaCliente);
+  await eliminaRigaPerId(TAB.attivitaCliente, attivitaId);
 }
 
 export async function getFasiCompletate(): Promise<FaseCompletataRow[]> {

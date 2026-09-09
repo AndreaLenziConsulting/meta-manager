@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  costruisciRichiesteEliminazione,
   guessTipoCampagnaFromNome,
   normalizeData,
   normalizeMese,
@@ -7,6 +8,7 @@ import {
   toNumber,
   toNumberOrNull,
   trovaIndiceRigaCliente,
+  trovaTuttiIndiciRiga,
   ultimoCambioDaRighe,
   type CellValue,
 } from "./sheets";
@@ -163,5 +165,65 @@ describe("trovaIndiceRigaCliente", () => {
 
   it("nessuna riga -> null", () => {
     expect(trovaIndiceRigaCliente([], "alc-01")).toBeNull();
+  });
+});
+
+describe("trovaTuttiIndiciRiga", () => {
+  it("nessuna corrispondenza -> array vuoto", () => {
+    const righe: CellValue[][] = [["alc-01", "Attività A"]];
+    expect(trovaTuttiIndiciRiga(righe, (r) => r[0] === "alc-99")).toEqual([]);
+  });
+
+  it("più righe corrispondenti -> tutti i numeri di riga, in ordine di apparizione", () => {
+    // Caso reale: FasiCompletate, dove la colonna A è clienteId stesso (una riga per fase) — a
+    // differenza di trovaIndiceRigaCliente (colonna A = id univoco), qui serve trovarle TUTTE.
+    const righe: CellValue[][] = [
+      ["alc-01", "Fase 1"],
+      ["alc-02", "Fase 1"],
+      ["alc-01", "Fase 2"],
+    ];
+    expect(trovaTuttiIndiciRiga(righe, (r) => r[0] === "alc-01")).toEqual([2, 4]);
+  });
+
+  it("righe vuote/incomplete non fanno mai combaciare il predicato per errore", () => {
+    const righe: CellValue[][] = [[], ["alc-01"]];
+    expect(trovaTuttiIndiciRiga(righe, (r) => r[0] === "alc-01")).toEqual([3]);
+  });
+});
+
+describe("costruisciRichiesteEliminazione", () => {
+  it("ordina le richieste di una stessa tab in modo discendente per numero di riga", () => {
+    const richieste = costruisciRichiesteEliminazione(
+      [{ tab: "AttivitaCliente", numeriRiga: [3, 10, 5] }],
+      new Map([["AttivitaCliente", 111]])
+    );
+    expect(richieste.map((r) => r.deleteDimension.range.startIndex)).toEqual([9, 4, 2]);
+    expect(richieste.every((r) => r.deleteDimension.range.sheetId === 111 && r.deleteDimension.range.dimension === "ROWS")).toBe(true);
+  });
+
+  it("gestisce più tab insieme, ognuna col proprio gid", () => {
+    const richieste = costruisciRichiesteEliminazione(
+      [
+        { tab: "Sedi", numeriRiga: [4] },
+        { tab: "GhlConnessioni", numeriRiga: [2] },
+      ],
+      new Map([
+        ["Sedi", 5],
+        ["GhlConnessioni", 6],
+      ])
+    );
+    expect(richieste).toEqual([
+      { deleteDimension: { range: { sheetId: 5, dimension: "ROWS", startIndex: 3, endIndex: 4 } } },
+      { deleteDimension: { range: { sheetId: 6, dimension: "ROWS", startIndex: 1, endIndex: 2 } } },
+    ]);
+  });
+
+  it("una voce con numeriRiga vuoto non genera richieste, anche senza gid in mappa", () => {
+    const richieste = costruisciRichiesteEliminazione([{ tab: "FasiCompletate", numeriRiga: [] }], new Map());
+    expect(richieste).toEqual([]);
+  });
+
+  it("lancia se manca il gid di una tab che ha davvero righe da eliminare", () => {
+    expect(() => costruisciRichiesteEliminazione([{ tab: "Sedi", numeriRiga: [3] }], new Map())).toThrow(/Sedi/);
   });
 });
