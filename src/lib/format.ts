@@ -74,8 +74,9 @@ function oggiDefault(): string {
 
 const GIORNI_BREVI = ["dom", "lun", "mar", "mer", "gio", "ven", "sab"]; // indice = Date.getUTCDay()
 
-/** "5 ago", senza anno — usata da formatDataBreve (che invece lo include) e da formatDataRelativa. */
-function giornoMeseBreve(dataIso: string): string {
+/** "5 ago", senza anno — usata da formatDataBreve (che invece lo include) e da formatDataRelativa;
+ * esportata anche per KpiSection.tsx (testo di chiarimento sotto al selettore periodo). */
+export function giornoMeseBreve(dataIso: string): string {
   const [, m, giorno] = dataIso.slice(0, 10).split("-");
   const idx = Number(m) - 1;
   return `${Number(giorno)} ${(MESI_BREVI[idx] ?? m).toLowerCase()}`;

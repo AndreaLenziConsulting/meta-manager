@@ -17,8 +17,10 @@ import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
 import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
 import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
-import { attivitaInRitardo } from "@/lib/roadmap";
+import { attivitaInRitardo, giorniTra, oggiIso } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
+import { ultimoGiornoDelMese } from "@/lib/kpi";
+import { giornoMeseBreve } from "@/lib/format";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
@@ -52,6 +54,25 @@ function spostaMesi(mese: string, delta: number): string {
   const [y, m] = mese.split("-").map(Number);
   const d = new Date(y, m - 1 + delta, 1);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/**
+ * Testo di chiarimento sotto al selettore periodo — richiesta esplicita dell'utente (09/09/2026):
+ * il filtro lavora per MESE intero (vedi computeKpi in kpi.ts, `nelPeriodo` confronta stringhe
+ * "YYYY-MM"), quindi il default "ultimi 30 giorni" di meseIniziale30Giorni sopra in realtà somma
+ * l'intero mese precedente + il mese in corso fin qui — spesso 35-40 giorni, non 30, e sempre più
+ * man mano che il mese avanza. L'etichetta del picker (`Ago 26 – Set 26`, solo i due mesi) non lo
+ * rende visibile da sola: qui si mostra il vero intervallo di giorni incluso, per non far credere
+ * che il periodo scelto sia esattamente quei 30 giorni arrotondati.
+ */
+function descrizioneIntervalloGiorni(da: string, a: string): string {
+  const inizio = `${da}-01`;
+  const oggi = oggiIso();
+  // Il mese corrente non è ancora finito: il periodo si ferma a oggi, non al 30/31 che non esiste
+  // ancora — stesso "fin qui" già implicito nel default.
+  const fine = a === oggi.slice(0, 7) ? oggi : ultimoGiornoDelMese(a);
+  const giorni = giorniTra(inizio, fine) + 1; // inclusivo su entrambi gli estremi
+  return `${giornoMeseBreve(inizio)} – ${giornoMeseBreve(fine)} · ${giorni} giorni`;
 }
 
 type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
@@ -522,6 +543,9 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               setA(nA);
             }}
           />
+          {/* Il filtro lavora per mese intero: questo testo rende sempre esplicito il vero
+              intervallo di giorni incluso — vedi descrizioneIntervalloGiorni sopra sul perché. */}
+          <span className="text-xs text-ink-500">{descrizioneIntervalloGiorni(da, a)}</span>
 
           {dati && dati.sediDisponibili.length > 1 && (
             <Tabs
