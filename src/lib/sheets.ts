@@ -538,6 +538,31 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
   invalidateTabCache(TAB.sedi);
 }
 
+/**
+ * Elimina definitivamente una sede — cascade sulla sua/e connessione/i GHL (predicato su sedeId,
+ * non sull'id deterministico `${sedeId}--ghl`, per robustezza). NON tocca Campagne/
+ * RisultatiCommerciali/StoricoStatoCampagne di questa sede: restano nel foglio ma orfane, invisibili
+ * ovunque nell'app — stessa filosofia "storico ads lasciato orfano" di eliminaCliente sotto. Il
+ * guard "non è l'unica sede del cliente" resta nella ROUTE (mai qui): stesso schema di
+ * creaSede/aggiornaSede, che non validano il cliente — è la route a farlo.
+ */
+export async function eliminaSede(sedeId: string): Promise<void> {
+  const [righeGhl, righeSedi] = await Promise.all([
+    readTab(TAB.ghlConnessioni, { noCache: true }),
+    readTab(TAB.sedi, { noCache: true }),
+  ]);
+  const numeriRigaGhl = trovaTuttiIndiciRiga(righeGhl, (r) => asText(r[1]) === sedeId);
+  const numeroRigaSede = trovaIndiceRiga(righeSedi, sedeId);
+  if (numeroRigaSede === null) {
+    throw new Error(`Sede non trovata: ${sedeId}`);
+  }
+
+  await eliminaRigheBatch([
+    { tab: TAB.ghlConnessioni, numeriRiga: numeriRigaGhl },
+    { tab: TAB.sedi, numeriRiga: [numeroRigaSede] },
+  ]);
+}
+
 // Tab GhlConnessioni, colonne A→H: connessioneId, sedeId, locationId, privateToken, attivo, note,
 // creataIl, calendarIds (elenco separato da virgole — scelta esplicita dell'admin di quali
 // calendari contare, vedi GhlConnessione in src/types/ghl.ts). Una per sede (non per cliente,

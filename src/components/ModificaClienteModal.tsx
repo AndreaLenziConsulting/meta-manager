@@ -198,6 +198,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
               ghlConnessione={ghlPerSede[sede.sedeId]}
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
               ruoloAdmin={ruoloAdmin}
+              numeroSediCliente={sedi.length}
             />
           ))}
         </div>
@@ -212,11 +213,13 @@ function SedeRow({
   ghlConnessione,
   onGhlSalvato,
   ruoloAdmin,
+  numeroSediCliente,
 }: {
   sede: Sede;
   ghlConnessione?: GhlConnessioneVista;
   onGhlSalvato: () => void;
   ruoloAdmin?: boolean;
+  numeroSediCliente: number;
 }) {
   const [nome, setNome] = useState(sede.nome);
   const [adAccountId, setAdAccountId] = useState(sede.adAccountId);
@@ -238,6 +241,7 @@ function SedeRow({
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [salvato, setSalvato] = useState(false);
+  const [mostraConfermaElimina, setMostraConfermaElimina] = useState(false);
   const router = useRouter();
 
   // `onSalvato` (prop condivisa con il form principale del cliente) chiude l'intera modale — giusto
@@ -343,6 +347,11 @@ function SedeRow({
           >
             {salvando ? "Salvataggio…" : "Salva sede"}
           </Button>
+          {ruoloAdmin && numeroSediCliente > 1 && (
+            <Button type="button" size="sm" variant="danger" onClick={() => setMostraConfermaElimina(true)}>
+              Elimina sede
+            </Button>
+          )}
         </div>
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
@@ -350,6 +359,33 @@ function SedeRow({
       <div className="pt-2 mt-1 border-t border-ink-300/60">
         <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
       </div>
+
+      {mostraConfermaElimina && (
+        <ConfermaEliminazioneModal
+          titolo="Eliminare questa sede?"
+          messaggio={
+            <>
+              Cancella anche la sua connessione GHL, se presente. Lo storico ads (Campagne, risultati
+              commerciali) di questa sede resta nel foglio ma non sarà più visibile da nessuna parte
+              dell&apos;app. Azione irreversibile.
+            </>
+          }
+          onClose={() => setMostraConfermaElimina(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/sedi/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ sedeId: sede.sedeId, clienteId: sede.clienteId }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            setMostraConfermaElimina(false);
+            // Non onGhlSalvato/onSalvato (chiuderebbe l'intera modale, stesso motivo di salva()
+            // sopra): router.refresh() ricarica sedi da zero, la riga di questa sede sparisce.
+            router.refresh();
+          }}
+        />
+      )}
     </div>
   );
 }
