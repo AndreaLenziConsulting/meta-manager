@@ -20,6 +20,9 @@ export default async function AttivitaGlobaliPage() {
   }
 
   const consulenti = await getConsulenti();
+  // Quick-filter "Le mie task" — nessuna identità "propria" per l'admin (vede tutti i clienti,
+  // non ha un consulenteId in Sessione, vedi authz.ts), il quick-filter non compare in quel caso.
+  const nomeConsulenteCorrente = consulenti.find((c) => c.consulenteId === sessione.consulenteId)?.nome;
 
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
@@ -29,7 +32,10 @@ export default async function AttivitaGlobaliPage() {
           {sessione.ruolo === "admin" ? "Tutte le attività di tutti i clienti." : "Tutte le attività dei tuoi clienti."}
         </p>
       </div>
-      <AttivitaGlobali consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))} />
+      <AttivitaGlobali
+        consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))}
+        nomeConsulenteCorrente={nomeConsulenteCorrente}
+      />
     </div>
   );
 }

@@ -66,3 +66,17 @@ export function normalizzaAssegnatari(testoLibero: string): string[] {
   const parti = Array.from(new Set(testo.split(",").map((p) => p.trim()).filter(Boolean)));
   return parti.length > 0 ? parti : [SENTINELLA_NON_ASSEGNATO];
 }
+
+/**
+ * Un assegnatario coincide con un consulente della sessione corrente (quick-filter "Le mie task",
+ * blocco 3 del redesign Attività) se è uguale al suo nome completo o alla sola prima parola —
+ * un'attività estratta da meeting porta quasi sempre solo il nome di battesimo ("Andrea"), mai il
+ * cognome, quindi il confronto sul nome completo da solo perderebbe la maggior parte dei match.
+ */
+export function nomeCoincideConConsulente(assegnatario: string, nomeConsulente: string): boolean {
+  const a = assegnatario.trim().toLowerCase();
+  const nome = nomeConsulente.trim().toLowerCase();
+  if (!a || !nome) return false;
+  if (a === nome) return true;
+  return a === nome.split(/\s+/)[0];
+}

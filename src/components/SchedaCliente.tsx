@@ -34,6 +34,9 @@ type Props = {
   ruoloAdmin?: boolean;
   // Identità note per il popover di editing assegnatari del tab Attività — vedi AttivitaLista.tsx.
   consulenti?: { consulenteId: string; nome: string }[];
+  // Nome del consulente della sessione corrente, per il quick-filter "Le mie task" del tab
+  // Attività — vedi lo stesso prop in AttivitaTab.tsx.
+  nomeConsulenteCorrente?: string;
 };
 
 export function SchedaCliente({
@@ -50,6 +53,7 @@ export function SchedaCliente({
   haConnessioneGhl,
   ruoloAdmin,
   consulenti = [],
+  nomeConsulenteCorrente,
 }: Props) {
   const [tabAttivo, setTabAttivo] = useState("kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
@@ -74,7 +78,9 @@ export function SchedaCliente({
           {
             id: "attivita",
             label: "Attività",
-            content: clienteId ? <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} consulenti={consulenti} /> : null,
+            content: clienteId ? (
+              <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} consulenti={consulenti} nomeConsulenteCorrente={nomeConsulenteCorrente} />
+            ) : null,
           },
         ]
       : []),

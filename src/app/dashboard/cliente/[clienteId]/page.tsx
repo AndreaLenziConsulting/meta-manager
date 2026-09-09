@@ -29,6 +29,11 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
 
   const settimanaProgetto = cliente?.dataInizioProgetto ? settimanaCorrente(cliente.dataInizioProgetto) : null;
 
+  // Quick-filter "Le mie task" del tab Attività — nessuna identità "propria" per l'admin (vede
+  // tutti i clienti, non ha un consulenteId in Sessione, vedi authz.ts), il quick-filter non
+  // compare in quel caso (AttivitaTab.tsx lo gated su questo prop essendo undefined).
+  const nomeConsulenteCorrente = consulenti.find((c) => c.consulenteId === sessione.consulenteId)?.nome;
+
   return (
     // font-sans qui, non solo nello style: font-family è dichiarato sul <body> (fuori da questo
     // wrapper) e le proprietà ereditate si "congelano" al valore già calcolato lì — il body non
@@ -51,6 +56,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={sessione.ruolo === "admin"}
         consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))}
+        nomeConsulenteCorrente={nomeConsulenteCorrente}
       />
     </div>
   );

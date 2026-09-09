@@ -3,10 +3,11 @@
 import { useEffect, useState } from "react";
 import { RoadmapGantt } from "@/components/RoadmapGantt";
 import { AttivitaLista } from "@/components/AttivitaLista";
+import { ComboboxMultiSelect } from "@/components/ComboboxMultiSelect";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
-import { Tabs } from "@/components/Tabs";
 import { oggiIso } from "@/lib/roadmap";
 import { formatDataRelativa } from "@/lib/format";
+import { classificaAssegnatario, nomeCoincideConConsulente, taskOrfana } from "@/lib/assegnatari";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
 
@@ -14,25 +15,27 @@ type ClienteInfo = { clienteId: string; nome: string; prodottoId: string; dataIn
 type Risposta = { cliente: ClienteInfo; gruppi: GruppoFase[] };
 type Vista = "lista" | "gantt";
 
-// Sentinella per "nessun filtro" — non può collidere con un vero valore di responsabile perché
-// nessun campo testuale libero comincia per "__".
-const RESPONSABILE_TUTTI = "__tutti__";
-
 type Props = {
   clienteId: string;
   onVaiAMeeting?: (meetingId: string) => void;
   // Identità note per il popover di editing assegnatari in AttivitaLista.tsx — vedi il commento lì.
   consulenti?: { consulenteId: string; nome: string }[];
+  // Nome del consulente della sessione corrente, per il quick-filter "Le mie task" — vedi lo
+  // stesso prop in AttivitaGlobali.tsx.
+  nomeConsulenteCorrente?: string;
 };
 
-export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [] }: Props) {
+export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeConsulenteCorrente }: Props) {
   const [dati, setDati] = useState<Risposta | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
   const [generando, setGenerando] = useState(false);
   const [refreshTick, setRefreshTick] = useState(0);
   const [vista, setVista] = useState<Vista>("lista");
-  const [responsabileFiltro, setResponsabileFiltro] = useState(RESPONSABILE_TUTTI);
+  // null = tutti — stesso contratto di ComboboxMultiSelect/CampagneFilter.
+  const [responsabiliFiltro, setResponsabiliFiltro] = useState<Set<string> | null>(null);
+  const [soloOrfane, setSoloOrfane] = useState(false);
+  const [soloMie, setSoloMie] = useState(false);
   // Banner "tappa raggiunta" (vista milestone, Fase 1 roadmap) — vedi FaseCompletataBanner.tsx.
   // Fetch separato dalla roadmap sopra: /api/fasi-completate risponde solo fase+data, non l'intera
   // roadmap. fasiTick (a parte da refreshTick) si incrementa solo dopo un cambio di stato RIUSCITO
@@ -223,16 +226,20 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [] }: Props
 
   // Valori distinti già presenti nella roadmap del cliente (non un elenco fisso: "assegnatari" è
   // testo libero normalizzato — ruoli tipo "Project Manager"/"Consulente Senior" per i task da
-  // template, nomi veri per i task da meeting, vedi src/lib/assegnatari.ts).
-  const responsabiliDisponibili = Array.from(
-    new Set(dati.gruppi.flatMap((g) => g.attivita.flatMap((a) => a.assegnatari)))
-  ).sort((a, b) => a.localeCompare(b));
+  // template, nomi veri per i task da meeting, vedi src/lib/assegnatari.ts). "Da assegnare"
+  // escluso: è il quick-filter "Da assegnare" sotto, non un'opzione della combobox.
+  const responsabiliDisponibili = Array.from(new Set(dati.gruppi.flatMap((g) => g.attivita.flatMap((a) => a.assegnatari))))
+    .filter((nome) => classificaAssegnatario(nome) !== "non-assegnato")
+    .map((nome) => ({ id: nome, label: nome, gruppo: classificaAssegnatario(nome) === "persona" ? "Persone" : "Ruoli" }))
+    .sort((a, b) => a.label.localeCompare(b.label));
   // Stesso schema, per l'autocomplete di NuovaAttivitaForm sotto: un'attività aggiunta a mano finisce
   // più spesso in una fase già in corso che in una nuova lane dedicata (mai un elenco fisso: "fase"
   // è testo libero, ogni cliente ha le proprie).
   const fasiDisponibili = Array.from(new Set(dati.gruppi.map((g) => g.fase))).sort((a, b) => a.localeCompare(b));
   const passaFiltro = (a: { assegnatari: string[] }) =>
-    responsabileFiltro === RESPONSABILE_TUTTI || a.assegnatari.includes(responsabileFiltro);
+    (responsabiliFiltro === null || a.assegnatari.some((x) => responsabiliFiltro.has(x))) &&
+    (!soloOrfane || taskOrfana(a.assegnatari)) &&
+    (!soloMie || Boolean(nomeConsulenteCorrente && a.assegnatari.some((x) => nomeCoincideConConsulente(x, nomeConsulenteCorrente))));
   const gruppiFiltrati = dati.gruppi
     .map((g) => ({ ...g, attivita: g.attivita.filter(passaFiltro) }))
     .filter((g) => g.attivita.length > 0);
@@ -300,14 +307,39 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [] }: Props
               </button>
             </div>
 
-            {/* Solo se ha senso scegliere: con 0-1 responsabili distinti un filtro non filtrerebbe nulla. */}
-            {responsabiliDisponibili.length > 1 && (
-              <Tabs
-                tabs={[{ id: RESPONSABILE_TUTTI, label: "Tutti" }, ...responsabiliDisponibili.map((r) => ({ id: r, label: r }))]}
-                attivo={responsabileFiltro}
-                onChange={setResponsabileFiltro}
-              />
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Solo se ha senso scegliere: con 0-1 responsabili distinti un filtro non filtrerebbe nulla. */}
+              {responsabiliDisponibili.length > 1 && (
+                <ComboboxMultiSelect
+                  etichettaTutti="Tutti"
+                  nomePlurale="assegnatari"
+                  opzioni={responsabiliDisponibili}
+                  selezionati={responsabiliFiltro}
+                  onChange={setResponsabiliFiltro}
+                  ricercabile
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => setSoloOrfane((v) => !v)}
+                className={`text-xs font-semibold px-3 py-2 rounded-xl border transition cursor-pointer ${
+                  soloOrfane ? "bg-brand text-white border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
+                }`}
+              >
+                Da assegnare
+              </button>
+              {nomeConsulenteCorrente && (
+                <button
+                  type="button"
+                  onClick={() => setSoloMie((v) => !v)}
+                  className={`text-xs font-semibold px-3 py-2 rounded-xl border transition cursor-pointer ${
+                    soloMie ? "bg-brand text-white border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
+                  }`}
+                >
+                  Le mie task
+                </button>
+              )}
+            </div>
           </div>
 
           {vista === "lista" ? (

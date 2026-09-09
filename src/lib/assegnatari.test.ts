@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classificaAssegnatario, normalizzaAssegnatari, taskOrfana } from "./assegnatari";
+import { classificaAssegnatario, nomeCoincideConConsulente, normalizzaAssegnatari, taskOrfana } from "./assegnatari";
 
 describe("classificaAssegnatario", () => {
   it("i due ruoli interni (unico set verificato su TemplateAttivita) -> ruolo", () => {
@@ -89,5 +89,32 @@ describe("normalizzaAssegnatari — casi presi dai valori reali osservati sul fo
 
   it("già in forma comma-separated canonica (post-migrazione) -> passa invariata", () => {
     expect(normalizzaAssegnatari("Andrea, Sherdil")).toEqual(["Andrea", "Sherdil"]);
+  });
+});
+
+describe("nomeCoincideConConsulente", () => {
+  it("nome completo identico -> match", () => {
+    expect(nomeCoincideConConsulente("Francesco Crosa", "Francesco Crosa")).toBe(true);
+  });
+
+  it("solo il nome di battesimo (estrazione meeting) -> match sulla prima parola del consulente", () => {
+    expect(nomeCoincideConConsulente("Francesco", "Francesco Crosa")).toBe(true);
+  });
+
+  it("case-insensitive", () => {
+    expect(nomeCoincideConConsulente("francesco", "Francesco Crosa")).toBe(true);
+  });
+
+  it("cognome da solo NON combacia (mai osservato nei dati reali, ma non deve dare un falso positivo)", () => {
+    expect(nomeCoincideConConsulente("Crosa", "Francesco Crosa")).toBe(false);
+  });
+
+  it("nomi diversi -> nessun match", () => {
+    expect(nomeCoincideConConsulente("Andrea", "Francesco Crosa")).toBe(false);
+  });
+
+  it("stringhe vuote -> nessun match, mai un falso positivo", () => {
+    expect(nomeCoincideConConsulente("", "Francesco Crosa")).toBe(false);
+    expect(nomeCoincideConConsulente("Andrea", "")).toBe(false);
   });
 });
