@@ -4,6 +4,7 @@ import { generaAccessCode, generaClienteId, generaSedeId } from "@/lib/accessCod
 import { generaAttivitaPerCliente } from "@/lib/roadmap";
 import { isHexValido } from "@/lib/colore";
 import { isFontClienteValido } from "@/lib/temaCliente";
+import { clienteDaCondividere, condividiCartellaConConsulente } from "@/lib/driveAccesso";
 import {
   aggiornaCliente,
   creaAttivitaPerCliente,
@@ -194,6 +195,22 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Il cliente ormai esiste: come sopra, un fallimento qui (tipicamente la cartella non condivisa
+  // in scrittura con l'account del team) non deve sembrare un fallimento totale — l'accesso si può
+  // sempre concedere a mano su Drive, o rilanciando /api/admin/condividi-cartelle-clienti.
+  const driveFolderUrlNuovo = body.driveFolderUrl?.trim();
+  if (driveFolderUrlNuovo) {
+    const emailPerConsulente = new Map(consulenti.map((c) => [c.consulenteId, c.email]));
+    const decisione = clienteDaCondividere({ driveFolderUrl: driveFolderUrlNuovo, consulenteId }, emailPerConsulente);
+    if (decisione) {
+      try {
+        await condividiCartellaConConsulente(driveFolderUrlNuovo, decisione.emailConsulente);
+      } catch {
+        // best-effort, vedi commento sopra
+      }
+    }
+  }
+
   return NextResponse.json({ clienteId, accessCode, roadmapGenerata }, { status: 201 });
 }
 
@@ -269,6 +286,25 @@ export async function PATCH(req: NextRequest) {
       driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
       landingPageUrl: body.landingPageUrl !== undefined ? body.landingPageUrl.trim() : undefined,
     });
+
+    // Solo se questa modifica ha toccato la cartella o il consulente — non ha senso rifare la
+    // chiamata Drive ad ogni salvataggio (es. un semplice cambio colore). Best-effort come in POST:
+    // un fallimento qui non deve far sembrare fallito il salvataggio, già andato a buon fine sopra.
+    if (body.driveFolderUrl !== undefined || body.consulenteId !== undefined) {
+      const clienteEsistente = clienti.find((c) => c.clienteId === clienteId);
+      const driveFolderUrlFinale = body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : clienteEsistente?.driveFolderUrl ?? "";
+      const consulenteIdFinale = body.consulenteId !== undefined ? body.consulenteId : clienteEsistente?.consulenteId ?? "";
+      const emailPerConsulente = new Map(consulenti.map((c) => [c.consulenteId, c.email]));
+      const decisione = clienteDaCondividere({ driveFolderUrl: driveFolderUrlFinale, consulenteId: consulenteIdFinale }, emailPerConsulente);
+      if (decisione) {
+        try {
+          await condividiCartellaConConsulente(driveFolderUrlFinale, decisione.emailConsulente);
+        } catch {
+          // best-effort, vedi commento sopra
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore sconosciuto" }, { status: 502 });
