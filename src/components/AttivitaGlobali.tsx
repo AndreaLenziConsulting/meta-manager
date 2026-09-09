@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AttivitaLista } from "@/components/AttivitaLista";
 import { ComboboxMultiSelect } from "@/components/ComboboxMultiSelect";
 import { GruppoCollassabile } from "@/components/GruppoCollassabile";
+import { NuovaAttivitaForm } from "@/components/NuovaAttivitaForm";
 import { classificaAssegnatario, nomeCoincideConConsulente, taskOrfana } from "@/lib/assegnatari";
 import { raggruppaAttivitaPerCliente } from "@/lib/roadmap";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
@@ -222,6 +223,10 @@ export function AttivitaGlobali({ consulenti = [], nomeConsulenteCorrente }: Pro
   const clientiDisponibili = Array.from(new Set(dati.attivita.map((a) => a.clienteId)))
     .map((clienteId) => ({ id: clienteId, label: nomeClientePer.get(clienteId) ?? clienteId }))
     .sort((a, b) => a.label.localeCompare(b.label));
+  // Stesso schema di AttivitaTab.tsx, per l'autocomplete di NuovaAttivitaForm sotto — qui però su
+  // tutte le fasi di tutti i clienti visibili, non solo di uno: coerente col fatto che qui si scelga
+  // anche il cliente.
+  const fasiDisponibili = Array.from(new Set(dati.attivita.map((a) => a.fase))).sort((a, b) => a.localeCompare(b));
 
   const passaFiltro = (a: AttivitaClienteRow) =>
     (clientiFiltro === null || clientiFiltro.has(a.clienteId)) &&
@@ -243,6 +248,13 @@ export function AttivitaGlobali({ consulenti = [], nomeConsulenteCorrente }: Pro
   return (
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
+
+      <NuovaAttivitaForm
+        clienti={dati.clienti}
+        fasiDisponibili={fasiDisponibili}
+        consulenti={consulenti}
+        onCreata={() => setRefreshTick((t) => t + 1)}
+      />
 
       <div className="flex flex-wrap items-center gap-2">
         {clientiDisponibili.length > 1 && (

@@ -4,9 +4,8 @@ import { useEffect, useState } from "react";
 import { RoadmapGantt } from "@/components/RoadmapGantt";
 import { AttivitaLista } from "@/components/AttivitaLista";
 import { ComboboxMultiSelect } from "@/components/ComboboxMultiSelect";
+import { NuovaAttivitaForm } from "@/components/NuovaAttivitaForm";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
-import { oggiIso } from "@/lib/roadmap";
-import { formatDataRelativa } from "@/lib/format";
 import { classificaAssegnatario, nomeCoincideConConsulente, taskOrfana } from "@/lib/assegnatari";
 import type { StatoAttivita } from "@/types/kpi";
 import type { GruppoFase } from "@/lib/roadmap";
@@ -253,6 +252,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
       <NuovaAttivitaForm
         clienteId={clienteId}
         fasiDisponibili={fasiDisponibili}
+        consulenti={consulenti}
         onCreata={() => setRefreshTick((t) => t + 1)}
       />
 
@@ -357,175 +357,6 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
           )}
         </>
       )}
-    </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-xl border border-ink-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
-const labelClass = "text-xs font-semibold text-ink-700 mb-1 block";
-
-/**
- * "+ Nuova attività" — aggiunta libera di un task alla roadmap, un elemento alla volta (POST
- * /api/attivita/crea), a differenza di "Genera roadmap" sopra (template prodotto, tutta la roadmap
- * in un colpo). Stesso pattern toggle-apri/annulla di "+ Nuovo meeting" in MeetingTab.tsx. `fase` ha
- * un `<datalist>` con le fasi già presenti (fasiDisponibili) ma resta testo libero: si può sia
- * scegliere una fase in corso sia digitarne una nuova. Dopo la creazione richiama `onCreata` (il
- * chiamante ricarica dati reali con refreshTick, non un aggiornamento ottimistico: il nuovo task
- * può appartenere a una fase non ancora presente in `dati.gruppi`, più semplice ricaricare che
- * simulare la nuova forma dei gruppi qui).
- */
-function NuovaAttivitaForm({
-  clienteId,
-  fasiDisponibili,
-  onCreata,
-}: {
-  clienteId: string;
-  fasiDisponibili: string[];
-  onCreata: () => void;
-}) {
-  const [aperto, setAperto] = useState(false);
-  const [descrizione, setDescrizione] = useState("");
-  const [fase, setFase] = useState("");
-  const [responsabile, setResponsabile] = useState("");
-  const [dataInizio, setDataInizio] = useState(oggiIso());
-  const [dataFine, setDataFine] = useState("");
-  const [salvando, setSalvando] = useState(false);
-  const [errore, setErrore] = useState<string | null>(null);
-
-  function chiudiEResetta() {
-    setAperto(false);
-    setDescrizione("");
-    setFase("");
-    setResponsabile("");
-    setDataInizio(oggiIso());
-    setDataFine("");
-    setErrore(null);
-  }
-
-  async function handleSalva() {
-    setErrore(null);
-    setSalvando(true);
-    try {
-      const res = await fetch("/api/attivita/crea", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clienteId,
-          descrizione,
-          fase,
-          // Ancora un solo campo testo libero qui (verrà sostituito da una selezione multipla vera
-          // nella prossima fase del redesign) — /api/attivita/crea normalizza comunque il testo
-          // (split su delimitatori misti se contiene più nomi), vedi src/lib/assegnatari.ts.
-          assegnatari: responsabile.trim() ? [responsabile.trim()] : undefined,
-          dataInizio,
-          dataFine,
-        }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
-      chiudiEResetta();
-      onCreata();
-    } catch (err) {
-      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  if (!aperto) {
-    return (
-      <button
-        type="button"
-        onClick={() => setAperto(true)}
-        className="rounded-xl border border-ink-300 bg-surface-card text-ink-700 hover:border-brand hover:text-brand text-sm font-semibold px-4 py-2.5 transition cursor-pointer w-fit"
-      >
-        + Nuova attività
-      </button>
-    );
-  }
-
-  return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4 space-y-2.5">
-      <div>
-        <label className={labelClass}>Descrizione</label>
-        <input
-          className={inputClass}
-          value={descrizione}
-          onChange={(e) => setDescrizione(e.target.value)}
-          placeholder="Cosa va fatto"
-          autoFocus
-        />
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <div>
-          <label className={labelClass}>Fase</label>
-          <input
-            className={inputClass}
-            value={fase}
-            onChange={(e) => setFase(e.target.value)}
-            placeholder="Fase in corso, o una nuova"
-            list="fasi-disponibili"
-          />
-          <datalist id="fasi-disponibili">
-            {fasiDisponibili.map((f) => (
-              <option key={f} value={f} />
-            ))}
-          </datalist>
-        </div>
-        <div>
-          <label className={labelClass}>Responsabile (opzionale)</label>
-          <input className={inputClass} value={responsabile} onChange={(e) => setResponsabile(e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-        <div>
-          <label className={labelClass}>Data inizio</label>
-          {/* Date-picker nativo invisibile sotto un'etichetta sempre in italiano, stessa tecnica di
-              AttivitaLista.tsx — mai un formato assoluto americano tipo "08/14/2026". */}
-          <div className={`relative ${inputClass}`}>
-            <input
-              type="date"
-              value={dataInizio}
-              onChange={(e) => setDataInizio(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-            />
-            <span className="pointer-events-none block truncate">{formatDataRelativa(dataInizio)}</span>
-          </div>
-        </div>
-        <div>
-          <label className={labelClass}>Scadenza</label>
-          <div className={`relative ${inputClass}`}>
-            <input
-              type="date"
-              value={dataFine}
-              onChange={(e) => setDataFine(e.target.value)}
-              className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
-            />
-            <span className="pointer-events-none block truncate text-ink-900">
-              {dataFine ? formatDataRelativa(dataFine) : "Seleziona una data"}
-            </span>
-          </div>
-        </div>
-      </div>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
-      <div className="flex gap-2 pt-1">
-        <button
-          type="button"
-          onClick={handleSalva}
-          disabled={salvando || !descrizione.trim() || !fase.trim() || !dataFine}
-          className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
-        >
-          {salvando ? "Salvataggio…" : "Aggiungi attività"}
-        </button>
-        <button
-          type="button"
-          onClick={chiudiEResetta}
-          className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
-        >
-          Annulla
-        </button>
-      </div>
     </div>
   );
 }
