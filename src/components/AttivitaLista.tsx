@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Calendar, ChevronDown, ChevronUp, ChevronsUpDown, MoreVertical } from "lucide-react";
+import { Calendar, ChevronDown, ChevronUp, ChevronsUpDown, MoreVertical, Rows3, Rows4 } from "lucide-react";
 import type { AttivitaClienteRow, StatoAttivita } from "@/types/kpi";
 import { raggruppaPerStato } from "@/lib/roadmap";
 import { descrizioneScadenza, formatStatoAttivita, iniziali } from "@/lib/format";
@@ -13,12 +13,17 @@ import {
   SENTINELLA_NON_ASSEGNATO,
 } from "@/lib/assegnatari";
 import { UndoToast } from "@/components/ui/UndoToast";
+import { GruppoCollassabile } from "@/components/GruppoCollassabile";
 
 const STATI_MENU: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
 const COL_RESPONSABILE = "w-[130px]";
 const COL_SCADENZA = "w-[120px]";
 const COL_STATO = "w-14";
 const COL_AZIONI = "w-6";
+// Dentro un gruppo-stato con più righe di questa soglia, si mostrano solo le prime finché non si
+// clicca "Mostra altre" — 66 task in un'unica lista (il caso reale che ha motivato il redesign)
+// altrimenti si scorrono tutte insieme senza nessun punto di respiro.
+const SOGLIA_MOSTRA_ALTRE = 20;
 
 /** Colonne ordinabili cliccando l'intestazione — "Stato" è escluso: è già l'asse di
  * raggruppamento (ogni card è già un unico stato), ordinarlo dentro un gruppo sarebbe un no-op. */
@@ -103,6 +108,25 @@ export function AttivitaLista({
   // sull'intestazione ordina DENTRO ciascun gruppo-stato, senza mescolare i gruppi tra loro — sono
   // già la struttura portante della vista (board-like), un sort globale li romperebbe.
   const [sort, setSort] = useState<StatoSort | null>({ colonna: "dataFine", direzione: "asc" });
+  // Gruppi-stato chiusi dall'utente — un Set di stati CHIUSI (non aperti): tutti i gruppi partono
+  // aperti senza doverli precompilare, comodo perché `raggruppaPerStato` include solo gli stati
+  // che hanno almeno una riga (mai saprei in anticipo quali).
+  const [gruppiChiusi, setGruppiChiusi] = useState<Set<StatoAttivita>>(new Set());
+  // Gruppi-stato per cui si è cliccato "Mostra altre" — oltre SOGLIA_MOSTRA_ALTRE righe si vedono
+  // solo le prime finché non è in questo set.
+  const [gruppiEspansi, setGruppiEspansi] = useState<Set<StatoAttivita>>(new Set());
+  // Modalità compatta (riga più bassa, niente seconda riga di badge fase/meeting) — stato locale,
+  // non persistito: una preferenza di sessione, non un dato del cliente.
+  const [compatta, setCompatta] = useState(false);
+
+  function toggleGruppo(stato: StatoAttivita) {
+    setGruppiChiusi((prev) => {
+      const next = new Set(prev);
+      if (next.has(stato)) next.delete(stato);
+      else next.add(stato);
+      return next;
+    });
+  }
 
   function handleClickColonna(colonna: ColonnaSort) {
     setSort((prev) => {
@@ -170,50 +194,84 @@ export function AttivitaLista({
             </IntestazioneOrdinabile>
             <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
             <span className={`flex-shrink-0 ${COL_AZIONI}`} />
+            <button
+              type="button"
+              onClick={() => setCompatta((v) => !v)}
+              title={compatta ? "Vista normale" : "Vista compatta"}
+              className="flex-shrink-0 text-ink-400 hover:text-ink-700 transition-colors cursor-pointer normal-case"
+            >
+              {compatta ? <Rows3 size={14} /> : <Rows4 size={14} />}
+            </button>
           </div>
 
           {gruppi.map((gruppo) => {
             const info = formatStatoAttivita(gruppo.stato);
-            const righe = sort ? [...gruppo.attivita].sort((a, b) => confrontaPerColonna(a, b, sort.colonna) * (sort.direzione === "asc" ? 1 : -1)) : gruppo.attivita;
+            const righeOrdinate = sort
+              ? [...gruppo.attivita].sort((a, b) => confrontaPerColonna(a, b, sort.colonna) * (sort.direzione === "asc" ? 1 : -1))
+              : gruppo.attivita;
+            const aperto = !gruppiChiusi.has(gruppo.stato);
+            const espanso = gruppiEspansi.has(gruppo.stato);
+            const oltreSoglia = righeOrdinate.length > SOGLIA_MOSTRA_ALTRE;
+            const righe = espanso ? righeOrdinate : righeOrdinate.slice(0, SOGLIA_MOSTRA_ALTRE);
             return (
               <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
-                <div className={`flex items-center gap-2 px-5 py-2 rounded-t-2xl ${info.puntino} text-white`}>
-                  <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
-                  <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
-                </div>
-
-                <div>
-                  {righe.map((a) => (
-                    <RigaAttivita
-                      key={a.attivitaId}
-                      attivita={a}
-                      menuAperto={menuApertoPer === a.attivitaId}
-                      popoverBloccoAperto={popoverBloccoPer === a.attivitaId}
-                      popoverAssegnatariAperto={popoverAssegnatariPer === a.attivitaId}
-                      menuKebabAperto={menuKebabPer === a.attivitaId}
-                      notaBozza={notaBozza}
-                      consulenti={consulenti}
-                      onApriMenu={() => setMenuApertoPer(a.attivitaId)}
-                      onChiudiMenu={() => setMenuApertoPer(null)}
-                      onSceltaStato={(s) => handleScegliStato(a, s)}
-                      onNotaBozzaChange={setNotaBozza}
-                      onChiudiBlocco={() => setPopoverBloccoPer(null)}
-                      onConfermaBlocco={() => confermaBlocco(a.attivitaId)}
-                      onCambiaScadenza={(v) => onCambiaScadenza(a.attivitaId, v)}
-                      onApriPopoverAssegnatari={() => setPopoverAssegnatariPer(a.attivitaId)}
-                      onChiudiPopoverAssegnatari={() => setPopoverAssegnatariPer(null)}
-                      onSalvaAssegnatari={(nuovi) => {
-                        setPopoverAssegnatariPer(null);
-                        onCambiaAssegnatari(a.attivitaId, nuovi);
-                      }}
-                      onApriKebab={() => setMenuKebabPer(a.attivitaId)}
-                      onChiudiKebab={() => setMenuKebabPer(null)}
-                      onElimina={() => handleEliminaRiga(a.attivitaId)}
-                      onVaiAMeeting={onVaiAMeeting}
-                      nomeCliente={nomeClientePer?.get(a.clienteId)}
-                    />
-                  ))}
-                </div>
+                <GruppoCollassabile
+                  aperto={aperto}
+                  onToggle={() => toggleGruppo(gruppo.stato)}
+                  // Niente `overflow-hidden` sulla card (tagliava i menu a tendina delle righe, vedi
+                  // il commento in cima al file) — da chiuso l'header è anche il fondo della card,
+                  // serve arrotondare anche sotto per non lasciare gli angoli squadrati a vista.
+                  headerClassName={`gap-2 px-5 py-2 text-white ${info.puntino} ${aperto ? "rounded-t-2xl" : "rounded-2xl"}`}
+                  titolo={
+                    <>
+                      <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
+                      <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
+                    </>
+                  }
+                >
+                  <div>
+                    {righe.map((a) => (
+                      <RigaAttivita
+                        key={a.attivitaId}
+                        attivita={a}
+                        compatta={compatta}
+                        menuAperto={menuApertoPer === a.attivitaId}
+                        popoverBloccoAperto={popoverBloccoPer === a.attivitaId}
+                        popoverAssegnatariAperto={popoverAssegnatariPer === a.attivitaId}
+                        menuKebabAperto={menuKebabPer === a.attivitaId}
+                        notaBozza={notaBozza}
+                        consulenti={consulenti}
+                        onApriMenu={() => setMenuApertoPer(a.attivitaId)}
+                        onChiudiMenu={() => setMenuApertoPer(null)}
+                        onSceltaStato={(s) => handleScegliStato(a, s)}
+                        onNotaBozzaChange={setNotaBozza}
+                        onChiudiBlocco={() => setPopoverBloccoPer(null)}
+                        onConfermaBlocco={() => confermaBlocco(a.attivitaId)}
+                        onCambiaScadenza={(v) => onCambiaScadenza(a.attivitaId, v)}
+                        onApriPopoverAssegnatari={() => setPopoverAssegnatariPer(a.attivitaId)}
+                        onChiudiPopoverAssegnatari={() => setPopoverAssegnatariPer(null)}
+                        onSalvaAssegnatari={(nuovi) => {
+                          setPopoverAssegnatariPer(null);
+                          onCambiaAssegnatari(a.attivitaId, nuovi);
+                        }}
+                        onApriKebab={() => setMenuKebabPer(a.attivitaId)}
+                        onChiudiKebab={() => setMenuKebabPer(null)}
+                        onElimina={() => handleEliminaRiga(a.attivitaId)}
+                        onVaiAMeeting={onVaiAMeeting}
+                        nomeCliente={nomeClientePer?.get(a.clienteId)}
+                      />
+                    ))}
+                    {oltreSoglia && !espanso && (
+                      <button
+                        type="button"
+                        onClick={() => setGruppiEspansi((prev) => new Set(prev).add(gruppo.stato))}
+                        className="w-full text-center text-xs font-semibold text-brand hover:underline py-2.5 border-t border-surface cursor-pointer"
+                      >
+                        Mostra altre {righeOrdinate.length - SOGLIA_MOSTRA_ALTRE}
+                      </button>
+                    )}
+                  </div>
+                </GruppoCollassabile>
               </div>
             );
           })}
@@ -420,6 +478,7 @@ function PopoverAssegnatari({
 
 function RigaAttivita({
   attivita,
+  compatta,
   menuAperto,
   popoverBloccoAperto,
   popoverAssegnatariAperto,
@@ -443,6 +502,7 @@ function RigaAttivita({
   nomeCliente,
 }: {
   attivita: AttivitaClienteRow;
+  compatta: boolean;
   menuAperto: boolean;
   popoverBloccoAperto: boolean;
   popoverAssegnatariAperto: boolean;
@@ -471,7 +531,11 @@ function RigaAttivita({
   const scadenza = descrizioneScadenza(attivita.dataFine, attivita.stato);
 
   return (
-    <div className="group flex items-start gap-3 px-5 py-3 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0">
+    <div
+      className={`group flex items-start gap-3 px-5 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0 ${
+        compatta ? "py-1.5" : "py-3"
+      }`}
+    >
       <input
         type="checkbox"
         checked={attivita.stato === "done"}
@@ -481,7 +545,10 @@ function RigaAttivita({
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-base text-ink-900">{attivita.descrizione}</p>
+        <p className={`text-ink-900 truncate ${compatta ? "text-sm" : "text-base"}`}>{attivita.descrizione}</p>
+        {/* Seconda riga (badge cliente/fase/meeting/nota) nascosta in modalità compatta — solo il
+            titolo resta, per far entrare più righe a schermo (blocco 4 del redesign). */}
+        {!compatta && (
         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
           {nomeCliente && (
             // Pill piena e scura (non un tint chiaro come le altre): qui il "quale cliente" è
@@ -526,6 +593,7 @@ function RigaAttivita({
             </span>
           )}
         </div>
+        )}
       </div>
 
       <div className={`relative flex-shrink-0 ${COL_RESPONSABILE}`}>

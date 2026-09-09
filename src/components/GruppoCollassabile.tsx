@@ -15,22 +15,33 @@ import { cn } from "@/lib/cn";
 export function GruppoCollassabile({
   titolo,
   defaultAperto = true,
+  // Modalità controllata (opzionale): il chiamante tiene lo stato aperto/chiuso invece di
+  // lasciarlo interno — serve quando serve REAGIRE all'apertura (es. AttivitaLista.tsx applica
+  // `rounded-b-2xl` all'header solo da chiuso, visto che niente `overflow-hidden` clippa gli
+  // angoli — vedi il commento lì sul perché). Se assente, si comporta come prima (stato interno).
+  aperto: apertoControllato,
+  onToggle,
   headerClassName,
   children,
 }: {
   titolo: React.ReactNode;
   defaultAperto?: boolean;
+  aperto?: boolean;
+  onToggle?: () => void;
   headerClassName?: string;
   children: React.ReactNode;
 }) {
-  const [aperto, setAperto] = useState(defaultAperto);
+  const [apertoInterno, setApertoInterno] = useState(defaultAperto);
+  const aperto = apertoControllato ?? apertoInterno;
+
+  function handleClick() {
+    if (onToggle) onToggle();
+    else setApertoInterno((a) => !a);
+  }
+
   return (
     <div>
-      <button
-        type="button"
-        onClick={() => setAperto((a) => !a)}
-        className={cn("w-full flex items-center gap-2 cursor-pointer text-left", headerClassName)}
-      >
+      <button type="button" onClick={handleClick} className={cn("w-full flex items-center gap-2 cursor-pointer text-left", headerClassName)}>
         <ChevronDown size={14} className={cn("flex-shrink-0 transition-transform", !aperto && "-rotate-90")} />
         {titolo}
       </button>
