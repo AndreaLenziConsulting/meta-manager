@@ -9,6 +9,9 @@ const VARIANTE = {
   secondary: "border-2 border-brand text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed",
   // Azione terziaria/annulla — nessuno sfondo, solo bordo neutro.
   ghost: "border border-ink-300 text-ink-700 hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed",
+  // Azione distruttiva (eliminazioni admin-only) — mai per un'azione reversibile: rosso pieno,
+  // stessa forza visiva di primary ma nel colore di allarme, non di brand/azione positiva.
+  danger: "bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed",
 } as const;
 
 const DIMENSIONE = {

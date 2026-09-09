@@ -636,6 +636,13 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
   invalidateTabCache(TAB.ghlConnessioni);
 }
 
+/** Elimina definitivamente una connessione GHL (cancella la riga dal foglio, non un soft-delete —
+ * a differenza del solo campo `attivo` sopra, mai esposto nella UI). SOLO admin, vedi
+ * /api/ghl-connessioni/elimina. */
+export async function eliminaGhlConnessione(connessioneId: string): Promise<void> {
+  await eliminaRigaPerId(TAB.ghlConnessioni, connessioneId);
+}
+
 export type RisultatoMigrazioneSedi = {
   sedeCreatePerCliente: string[]; // clienteId per cui è stata creata una sede "Principale"
   campagneBackfillate: number;

@@ -8,6 +8,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneModal";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
@@ -26,11 +27,15 @@ type Props = {
   cliente: Cliente;
   sedi: Sede[];
   consulenti: Consulente[];
+  // Mostra le azioni di eliminazione (Connessione GHL/Sede/Cliente — quest'ultime nelle fasi
+  // successive del piano) — SOLO admin, mai il consulente (che può comunque apire questa stessa
+  // modale per modificare l'anagrafica). Assente = nessuna azione distruttiva mostrata.
+  ruoloAdmin?: boolean;
   onClose: () => void;
   onSalvato: () => void;
 };
 
-export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSalvato }: Props) {
+export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, onClose, onSalvato }: Props) {
   const [nome, setNome] = useState(cliente.nome);
   const [email, setEmail] = useState(cliente.email);
   const [consulenteId, setConsulenteId] = useState(cliente.consulenteId);
@@ -192,6 +197,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, onClose, onSal
               sede={sede}
               ghlConnessione={ghlPerSede[sede.sedeId]}
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
+              ruoloAdmin={ruoloAdmin}
             />
           ))}
         </div>
@@ -205,10 +211,12 @@ function SedeRow({
   sede,
   ghlConnessione,
   onGhlSalvato,
+  ruoloAdmin,
 }: {
   sede: Sede;
   ghlConnessione?: GhlConnessioneVista;
   onGhlSalvato: () => void;
+  ruoloAdmin?: boolean;
 }) {
   const [nome, setNome] = useState(sede.nome);
   const [adAccountId, setAdAccountId] = useState(sede.adAccountId);
@@ -340,7 +348,7 @@ function SedeRow({
       {errore && <p className="text-xs text-red-600">{errore}</p>}
 
       <div className="pt-2 mt-1 border-t border-ink-300/60">
-        <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} />
+        <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
       </div>
     </div>
   );
@@ -356,16 +364,19 @@ function GhlConnessioneBlock({
   sedeId,
   connessione,
   onSalvato,
+  ruoloAdmin,
 }: {
   sedeId: string;
   connessione?: GhlConnessioneVista;
   onSalvato: () => void;
+  ruoloAdmin?: boolean;
 }) {
   const [attiva, setAttiva] = useState(false);
   const [locationId, setLocationId] = useState(connessione?.locationId ?? "");
   const [privateToken, setPrivateToken] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
+  const [mostraConfermaElimina, setMostraConfermaElimina] = useState(false);
 
   if (!connessione && !attiva) {
     return (
@@ -431,8 +442,38 @@ function GhlConnessioneBlock({
             Annulla
           </Button>
         )}
+        {connessione && ruoloAdmin && (
+          <Button type="button" size="sm" variant="danger" onClick={() => setMostraConfermaElimina(true)}>
+            Elimina connessione
+          </Button>
+        )}
       </div>
       {connessione && <GhlCalendariPicker connessione={connessione} onSalvato={onSalvato} />}
+
+      {mostraConfermaElimina && connessione && (
+        <ConfermaEliminazioneModal
+          titolo="Eliminare la connessione GHL?"
+          messaggio={
+            <>
+              I KPI restano invariati (sono letti in diretta dall&apos;API GHL, nulla di storico dipende da
+              questa riga) — viene rimosso solo il collegamento. Potrai ricollegare la stessa location in
+              seguito.
+            </>
+          }
+          onClose={() => setMostraConfermaElimina(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/ghl-connessioni/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ connessioneId: connessione.connessioneId }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            setMostraConfermaElimina(false);
+            onSalvato();
+          }}
+        />
+      )}
     </div>
   );
 }

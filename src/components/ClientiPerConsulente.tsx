@@ -17,7 +17,15 @@ import type { Consulente } from "@/types/kpi";
  * apri/chiudi, non vale l'astrazione per due viste indipendenti) — stesso principio già seguito da
  * AttivitaLista.tsx rispetto a RoadmapGantt.tsx.
  */
-export function ClientiPerConsulente({ items, consulenti }: { items: SaluteClienteItem[]; consulenti: Consulente[] }) {
+export function ClientiPerConsulente({
+  items,
+  consulenti,
+  ruoloAdmin,
+}: {
+  items: SaluteClienteItem[];
+  consulenti: Consulente[];
+  ruoloAdmin?: boolean;
+}) {
   const router = useRouter();
   const [clienteInModifica, setClienteInModifica] = useState<string | null>(null);
 
@@ -78,6 +86,7 @@ export function ClientiPerConsulente({ items, consulenti }: { items: SaluteClien
           cliente={itemInModifica.cliente}
           sedi={itemInModifica.sedi.map((s) => s.sede)}
           consulenti={consulenti}
+          ruoloAdmin={ruoloAdmin}
           onClose={() => setClienteInModifica(null)}
           onSalvato={() => {
             setClienteInModifica(null);

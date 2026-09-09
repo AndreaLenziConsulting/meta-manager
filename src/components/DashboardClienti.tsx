@@ -43,9 +43,9 @@ export function DashboardClienti({
       )}
 
       {mostraToggle && vista === "consulente" ? (
-        <ClientiPerConsulente items={items} consulenti={consulenti} />
+        <ClientiPerConsulente items={items} consulenti={consulenti} ruoloAdmin={mostraToggle} />
       ) : (
-        <SaluteClienti items={items} consulenti={consulenti} />
+        <SaluteClienti items={items} consulenti={consulenti} ruoloAdmin={mostraToggle} />
       )}
     </div>
   );

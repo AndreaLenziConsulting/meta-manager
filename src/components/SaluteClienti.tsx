@@ -173,7 +173,15 @@ export function ClienteRiga({
   );
 }
 
-export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[]; consulenti: Consulente[] }) {
+export function SaluteClienti({
+  items,
+  consulenti,
+  ruoloAdmin,
+}: {
+  items: SaluteClienteItem[];
+  consulenti: Consulente[];
+  ruoloAdmin?: boolean;
+}) {
   const router = useRouter();
   const [clienteInModifica, setClienteInModifica] = useState<string | null>(null);
 
@@ -266,6 +274,7 @@ export function SaluteClienti({ items, consulenti }: { items: SaluteClienteItem[
           cliente={itemInModifica.cliente}
           sedi={itemInModifica.sedi.map((s) => s.sede)}
           consulenti={consulenti}
+          ruoloAdmin={ruoloAdmin}
           onClose={() => setClienteInModifica(null)}
           onSalvato={() => {
             setClienteInModifica(null);
