@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, AlertCircle, FileDown, Mail, Pencil, Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { formatDataBreve } from "@/lib/format";
-import { buildEmailText } from "@/lib/meetingEmail";
 import { andamentoSentiment } from "@/lib/sentimentCliente";
 import { MeetingReportView } from "@/components/MeetingReportView";
+import { MeetingAzioni } from "@/components/MeetingAzioni";
+import { NuovoMeetingForm } from "@/components/NuovoMeetingForm";
 import { AndamentoSentiment } from "@/components/AndamentoSentiment";
 import { UndoToast } from "@/components/ui/UndoToast";
-import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { MeetingCampiPubblici, MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 
 type Props = {
@@ -22,141 +22,6 @@ type Props = {
   // pubblico cliente (report/[code]/page.tsx non passa mai questa prop).
   ruoloAdmin?: boolean;
 };
-
-const inputClass =
-  "w-full rounded-xl border border-ink-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
-// Senza "w-full": per gli input dentro una riga flex (testo + assegnatario), dove la larghezza
-// deve venire da flex-1/w-32 e non da w-full — le due classi insieme sullo stesso elemento
-// vanno in conflitto sulla proprietà width (ordine di generazione Tailwind, non l'ordine nella
-// stringa className), causando il campo assegnatario a espandersi su tutta la riga in anteprima.
-const inputClassFlex = inputClass.replace("w-full ", "");
-const labelClass = "text-xs font-semibold text-ink-700 mb-1 block";
-
-/**
- * Bottoni "Scarica PDF" / "Genera email di follow-up" — porting delle azioni di Fast Report
- * (`handleDownloadPDF`/`EmailTemplate.tsx`), montato sia sull'anteprima pre-salvataggio sia su
- * ogni meeting già salvato nello storico (possibile solo perché qui c'è uno storico persistente,
- * che Fast Report non aveva). Solo contesto team: /api/meeting/pdf richiede sessione.
- *
- * `testoEmailControllato`/`onCambiaTestoEmail` (opzionali): se presenti, il testo dell'email vive
- * nello stato del genitore invece che qui — serve solo all'istanza nell'anteprima, dove il testo
- * (eventualmente corretto a mano) deve essere quello davvero usato dall'invio automatico al
- * salvataggio, non uno rigenerato da zero. Le istanze nello storico restano non controllate,
- * comportamento invariato: lì l'invio automatico non si applica.
- */
-function MeetingAzioni({
-  clienteId,
-  meeting,
-  clienteNome,
-  testoEmailControllato,
-  onCambiaTestoEmail,
-}: {
-  clienteId: string;
-  meeting: MeetingDataLoose;
-  clienteNome?: string;
-  testoEmailControllato?: string | null;
-  onCambiaTestoEmail?: (v: string | null) => void;
-}) {
-  const [scaricando, setScaricando] = useState(false);
-  const [errorePdf, setErrorePdf] = useState<string | null>(null);
-  const [mostraEmail, setMostraEmail] = useState(false);
-  const [testoEmailInterno, setTestoEmailInterno] = useState<string | null>(null);
-  const testoEmail = onCambiaTestoEmail ? (testoEmailControllato ?? null) : testoEmailInterno;
-  const setTestoEmail = onCambiaTestoEmail ?? setTestoEmailInterno;
-  const [copiato, setCopiato] = useState(false);
-
-  async function handleScaricaPdf() {
-    setScaricando(true);
-    setErrorePdf(null);
-    try {
-      const res = await fetch("/api/meeting/pdf", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, meeting }),
-      });
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Errore generazione PDF");
-      }
-      const blob = await res.blob();
-      const objUrl = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = objUrl;
-      const clienteSlug = (clienteNome || meeting.title || "meeting")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-")
-        .slice(0, 40);
-      const dataSlug = (meeting.dataConsulenza || meeting.date || "").replace(/\//g, "-");
-      a.download = `report-${clienteSlug}${dataSlug ? `-${dataSlug}` : ""}.pdf`;
-      a.click();
-      URL.revokeObjectURL(objUrl);
-    } catch (err) {
-      setErrorePdf(err instanceof Error ? err.message : "Errore sconosciuto");
-    } finally {
-      setScaricando(false);
-    }
-  }
-
-  function handleGeneraEmail() {
-    if (!mostraEmail) setTestoEmail(buildEmailText(meeting, clienteNome ?? ""));
-    setMostraEmail((v) => !v);
-  }
-
-  async function handleCopiaEmail() {
-    if (!testoEmail) return;
-    await navigator.clipboard.writeText(testoEmail);
-    setCopiato(true);
-    setTimeout(() => setCopiato(false), 2500);
-  }
-
-  return (
-    <div className="pt-3 mt-3 border-t border-ink-300/40 space-y-2.5">
-      <div className="flex flex-wrap gap-2.5">
-        <button
-          type="button"
-          onClick={handleScaricaPdf}
-          disabled={scaricando}
-          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[.98]"
-        >
-          {scaricando ? (
-            "Generazione PDF…"
-          ) : (
-            <>
-              <FileDown size={14} className="flex-shrink-0" />
-              Scarica PDF
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={handleGeneraEmail}
-          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light transition cursor-pointer active:scale-[.98]"
-        >
-          <Mail size={14} className="flex-shrink-0" />
-          {mostraEmail ? "Nascondi email" : "Genera email di follow-up"}
-        </button>
-      </div>
-      {errorePdf && <p className="text-xs text-red-600">{errorePdf}</p>}
-      {mostraEmail && testoEmail !== null && (
-        <div className="space-y-1.5">
-          <textarea
-            className={`${inputClass} resize-none text-xs leading-relaxed`}
-            rows={8}
-            value={testoEmail}
-            onChange={(e) => setTestoEmail(e.target.value)}
-          />
-          <button
-            type="button"
-            onClick={handleCopiaEmail}
-            className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2 transition cursor-pointer active:scale-[.98]"
-          >
-            {copiato ? "Copiato ✓" : "Copia email"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meetingIdEvidenziato, ruoloAdmin }: Props) {
   const [caricamento, setCaricamento] = useState(true);
@@ -183,26 +48,6 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
     setUltimoEvidenziato(meetingIdEvidenziato);
     setEspanso(meetingIdEvidenziato);
   }
-
-  const [mostraForm, setMostraForm] = useState(false);
-  const [url, setUrl] = useState("");
-  const [estraendo, setEstraendo] = useState(false);
-  const [anteprima, setAnteprima] = useState<MeetingDataLoose | null>(null);
-  const [salvando, setSalvando] = useState(false);
-  const [erroreForm, setErroreForm] = useState<string | null>(null);
-  // Segnale momentaneo (non salvato) di quanto testo scrapato non è stato passato al modello
-  // perché oltre il limite caratteri/token del piano Groq — vedi estrazione.ts. Solo per chi sta
-  // creando il report in quel momento, non un campo del dato persistito.
-  const [troncamento, setTroncamento] = useState<TroncamentoInfo | null>(null);
-
-  // Invio automatico dell'email di follow-up al primo salvataggio — checkbox selezionata di
-  // default solo se il cliente ha un'email impostata (altrimenti non c'è nulla da inviare).
-  // `emailBozza` è il testo dell'email "lifted" da MeetingAzioni: se l'utente lo apre e lo
-  // corregge a mano prima di salvare, è quella versione a dover essere davvero inviata, non una
-  // rigenerata da zero al momento del salvataggio.
-  const [inviaAutomatica, setInviaAutomatica] = useState(!!clienteEmail);
-  const [emailBozza, setEmailBozza] = useState<string | null>(null);
-  const [esitoInvio, setEsitoInvio] = useState<{ inviata: boolean; errore: string | null } | null>(null);
 
   // Modifica di un meeting già salvato nello storico: bozza separata da m.dati finché non si
   // conferma, stesso endpoint POST /api/meeting di handleSalva (upsert per meetingId = hash di
@@ -294,73 +139,6 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
     return () => cancelAnimationFrame(raf);
   }, [meetingIdEvidenziato, meetingTeam]);
 
-  async function handleEstrai(e: React.FormEvent) {
-    e.preventDefault();
-    if (!clienteId) return;
-    setEstraendo(true);
-    setErroreForm(null);
-    setEsitoInvio(null);
-    setTroncamento(null);
-    try {
-      const res = await fetch("/api/meeting/estrai", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ clienteId, url }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Estrazione non riuscita");
-      const { dati, troncamento: info } = body as { dati: MeetingDataLoose; troncamento: TroncamentoInfo | null };
-      setAnteprima(dati);
-      setTroncamento(info);
-      setInviaAutomatica(!!clienteEmail);
-      setEmailBozza(null);
-    } catch (err) {
-      setErroreForm(err instanceof Error ? err.message : "Errore sconosciuto");
-    } finally {
-      setEstraendo(false);
-    }
-  }
-
-  async function handleSalva() {
-    if (!clienteId || !anteprima) return;
-    setSalvando(true);
-    setErroreForm(null);
-    try {
-      const res = await fetch("/api/meeting", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clienteId,
-          meeting: anteprima,
-          inviaEmailAutomatica: inviaAutomatica,
-          testoEmailBozza: emailBozza ?? undefined,
-        }),
-      });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
-      // Il server tenta l'invio SOLO al primo salvataggio (mai su un upsert di un meeting già
-      // esistente, es. stesso link incollato di nuovo per errore in "+ Nuovo meeting" invece che
-      // "✎ Modifica report"): se `aggiornato` è true, il server non ha nemmeno provato, quindi
-      // qui non c'è nessun esito da mostrare — mostrarlo comunque avrebbe stampato un fuorviante
-      // "non riuscito: null" (emailInviata/erroreEmail restano ai valori di default, mai popolati).
-      if (inviaAutomatica && !body.aggiornato) {
-        setEsitoInvio({
-          inviata: !!body.emailInviata,
-          errore: body.erroreEmail ?? (body.emailInviata ? null : "errore sconosciuto"),
-        });
-      }
-      setAnteprima(null);
-      setTroncamento(null);
-      setUrl("");
-      setMostraForm(false);
-      setRefreshTick((t) => t + 1);
-    } catch (err) {
-      setErroreForm(err instanceof Error ? err.message : "Errore sconosciuto");
-    } finally {
-      setSalvando(false);
-    }
-  }
-
   function iniziaModifica(m: MeetingClienteRow) {
     setEditingId(m.meetingId);
     setBozza({ ...m.dati });
@@ -404,154 +182,20 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
 
-      {esitoInvio && (
-        <div
-          className={`rounded-xl border p-3 flex items-start justify-between gap-3 text-xs ${
-            esitoInvio.inviata ? "bg-green-50 border-green-100 text-green-700" : "bg-yellow-50 border-yellow-100 text-yellow-800"
-          }`}
-        >
-          <p className="flex items-start gap-1.5">
-            {esitoInvio.inviata ? (
-              <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-            )}
-            <span>
-              {esitoInvio.inviata
-                ? `Meeting salvato ed email inviata a ${clienteEmail}.`
-                : `Meeting salvato, ma l'invio email non è riuscito: ${esitoInvio.errore}. Usa "Genera email di follow-up" sul meeting salvato per copiarla a mano.`}
-            </span>
-          </p>
-          <button type="button" onClick={() => setEsitoInvio(null)} className="text-current opacity-60 hover:opacity-100 flex-shrink-0" aria-label="Chiudi">
-            ×
-          </button>
-        </div>
-      )}
-
-      {clienteId && !anteprima && (
-        <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
-          {!mostraForm ? (
-            <button
-              type="button"
-              onClick={() => setMostraForm(true)}
-              className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
-            >
-              + Nuovo meeting
-            </button>
-          ) : (
-            <form onSubmit={handleEstrai} className="space-y-2">
-              <label className={labelClass}>Link del meeting (Fathom, Circleback o Loom)</label>
-              <div className="flex flex-wrap gap-2">
-                <input
-                  className={`${inputClassFlex} flex-1 min-w-[220px]`}
-                  value={url}
-                  onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://…"
-                  required
-                />
-                <button
-                  type="submit"
-                  disabled={estraendo || !url}
-                  className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition whitespace-nowrap"
-                >
-                  {estraendo ? "Estrazione…" : "Estrai"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMostraForm(false);
-                    setUrl("");
-                    setErroreForm(null);
-                  }}
-                  className="rounded-xl border border-ink-300 text-sm font-semibold px-3 py-2.5 text-ink-500 hover:bg-surface transition"
-                >
-                  Annulla
-                </button>
-              </div>
-              {estraendo && (
-                <p className="text-xs text-ink-500">
-                  Estrazione in corso — scraping della pagina più lettura del modello, con eventuale nuovo
-                  tentativo automatico in caso di errore transitorio: può richiedere fino a due minuti e
-                  mezzo…
-                </p>
-              )}
-              {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
-            </form>
-          )}
-        </div>
-      )}
-
-      {anteprima && (
-        <div className="space-y-3">
-          <h4 className="text-sm font-semibold text-ink-900">Anteprima — verifica e modifica prima di salvare</h4>
-
-          {troncamento && (
-            <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
-              La chiamata era più lunga di quanto il modello riesca ad analizzare in un colpo solo: elaborati{" "}
-              {troncamento.caratteriElaborati.toLocaleString("it-IT")} di{" "}
-              {troncamento.caratteriTotali.toLocaleString("it-IT")} caratteri (
-              {Math.round((troncamento.caratteriElaborati / troncamento.caratteriTotali) * 100)}%). Le parti finali
-              della chiamata potrebbero non essere riflesse nel report — controlla con attenzione prima di salvare.
-            </p>
-          )}
-
-          <MeetingReportView meeting={anteprima} clienteNome={clienteNome} onChange={(u) => setAnteprima({ ...anteprima, ...u })} />
-
-          {clienteId && (
-            <MeetingAzioni
-              clienteId={clienteId}
-              meeting={anteprima}
-              clienteNome={clienteNome}
-              testoEmailControllato={emailBozza}
-              onCambiaTestoEmail={setEmailBozza}
-            />
-          )}
-
-          <label
-            className={`flex items-center gap-2 text-xs pt-1 ${clienteEmail ? "text-ink-500 cursor-pointer" : "text-ink-500"}`}
-          >
-            <input
-              type="checkbox"
-              checked={inviaAutomatica}
-              disabled={!clienteEmail}
-              onChange={(e) => setInviaAutomatica(e.target.checked)}
-              className="accent-current text-brand"
-            />
-            {clienteEmail
-              ? `Invia email al cliente in automatico (a ${clienteEmail}, con PDF allegato)`
-              : "Invia email al cliente in automatico — aggiungi l'email del cliente nella scheda cliente per abilitarlo"}
-          </label>
-
-          {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
-
-          <div className="flex gap-2 pt-2 border-t border-ink-300/40">
-            <button
-              type="button"
-              onClick={handleSalva}
-              disabled={salvando}
-              className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
-            >
-              {salvando ? (inviaAutomatica ? "Salvataggio e invio…" : "Salvataggio…") : "Salva"}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setAnteprima(null);
-                setTroncamento(null);
-              }}
-              className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
-            >
-              Annulla
-            </button>
-          </div>
-        </div>
+      {clienteId && (
+        <NuovoMeetingForm
+          clienteId={clienteId}
+          clienteNome={clienteNome}
+          clienteEmail={clienteEmail}
+          onCreato={() => setRefreshTick((t) => t + 1)}
+        />
       )}
 
       {/* Team-only per costruzione: clienteId è l'unico ramo che passa mai una lista non vuota qui,
           il ramo `code` (link pubblico) non arriva mai ad avere sentiment nei dati che riceve. */}
       {clienteId && <AndamentoSentiment andamento={andamento} />}
 
-      {listaVuota && !anteprima && (
+      {listaVuota && (
         <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessun meeting registrato.</p>
         </div>

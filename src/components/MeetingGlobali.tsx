@@ -6,6 +6,7 @@ import { formatDataBreve } from "@/lib/format";
 import { classificaSentiment, type StatoSentiment } from "@/lib/sentimentCliente";
 import { STILE_LIVELLO } from "@/lib/statusStyles";
 import { MeetingReportView } from "@/components/MeetingReportView";
+import { NuovoMeetingForm } from "@/components/NuovoMeetingForm";
 import { Tabs } from "@/components/Tabs";
 import type { MeetingClienteRow } from "@/types/meeting";
 
@@ -13,7 +14,7 @@ import type { MeetingClienteRow } from "@/types/meeting";
 // comincia per "__".
 const CLIENTE_TUTTI = "__tutti__";
 
-type ClienteRef = { clienteId: string; nome: string };
+type ClienteRef = { clienteId: string; nome: string; email: string };
 type Risposta = { clienti: ClienteRef[]; meeting: MeetingClienteRow[] };
 
 const ICONA_SENTIMENT: Record<StatoSentiment, LucideIcon> = { positivo: Smile, neutro: Meh, negativo: Frown, sconosciuto: HelpCircle };
@@ -50,10 +51,12 @@ function BadgeSentiment({ sentiment }: { sentiment: string }) {
  * Vista aggregata "Meeting" — tutti gli appuntamenti di tutti i clienti visibili alla sessione
  * (tutti per l'admin, solo i propri per il consulente), mirror di AttivitaGlobali.tsx: stesso
  * fetch-una-volta, stesso filtro per cliente con Tabs, stesso badge nome-cliente per riga (qui
- * risolto localmente perché non c'è una lista condivisa come AttivitaLista da riusare). Sola
- * lettura — a differenza di AttivitaGlobali non ci sono mutazioni da fare da qui: aprire/modificare
- * un meeting resta nel tab Meeting del singolo cliente (MeetingTab.tsx), raggiungibile dal badge
- * cliente su ogni riga.
+ * risolto localmente perché non c'è una lista condivisa come AttivitaLista da riusare).
+ * Aprire/modificare un meeting già salvato resta nel tab Meeting del singolo cliente
+ * (MeetingTab.tsx), raggiungibile dal badge cliente su ogni riga — l'unica mutazione possibile
+ * da qui è la creazione di un meeting nuovo (09/09/2026, caricamento registrazione anche dal menù
+ * generale: richiesta esplicita dell'utente), via NuovoMeetingForm.tsx con un select cliente (qui
+ * non c'è un cliente di contesto fisso come in MeetingTab.tsx).
  *
  * Priorità esplicita della richiesta utente: "si deve capire subito il sentiment se è positivo o
  * negativo" — per questo ogni riga mostra un badge colorato+icona+etichetta SEMPRE visibile (mai
@@ -65,6 +68,7 @@ export function MeetingGlobali() {
   const [errore, setErrore] = useState<string | null>(null);
   const [clienteFiltro, setClienteFiltro] = useState(CLIENTE_TUTTI);
   const [espanso, setEspanso] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -89,7 +93,7 @@ export function MeetingGlobali() {
       .finally(() => setCaricamento(false));
 
     return () => controller.abort();
-  }, []);
+  }, [refreshTick]);
 
   if (caricamento && !dati) return <p className="text-sm text-ink-500">Caricamento…</p>;
   if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
@@ -99,14 +103,6 @@ export function MeetingGlobali() {
     return (
       <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
         <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
-      </div>
-    );
-  }
-
-  if (dati.meeting.length === 0) {
-    return (
-      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
-        <p className="text-sm text-ink-500">Nessun meeting registrato. Apri la scheda di un cliente per registrarne uno.</p>
       </div>
     );
   }
@@ -125,12 +121,20 @@ export function MeetingGlobali() {
     <div className="space-y-3">
       {errore && <p className="text-sm text-red-600">{errore}</p>}
 
+      <NuovoMeetingForm clienti={dati.clienti} onCreato={() => setRefreshTick((t) => t + 1)} />
+
       {clientiDisponibili.length > 1 && (
         <Tabs
           tabs={[{ id: CLIENTE_TUTTI, label: "Tutti i clienti" }, ...clientiDisponibili.map((c) => ({ id: c.clienteId, label: c.nome }))]}
           attivo={clienteFiltro}
           onChange={setClienteFiltro}
         />
+      )}
+
+      {dati.meeting.length === 0 && (
+        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+          <p className="text-sm text-ink-500">Nessun meeting registrato. Usa &quot;+ Nuovo meeting&quot; qui sopra per caricarne uno.</p>
+        </div>
       )}
 
       <div className="space-y-2">

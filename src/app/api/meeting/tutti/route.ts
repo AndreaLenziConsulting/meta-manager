@@ -13,10 +13,13 @@ export const runtime = "nodejs";
  * finale, stesso motivo per cui AndamentoSentiment è gated su clienteId in MeetingTab.tsx.
  *
  * `clienti` include TUTTI i visibili, anche quelli senza nessun meeting salvato — serve alla UI per
- * distinguere "0 clienti assegnati" da "clienti assegnati ma senza meeting", e per risolvere il
- * badge nome-cliente per id su ogni riga. `meeting` ordinati per data decrescente (il più recente
- * prima): a differenza di /api/attivita/tutte (nessun ordine imposto, la UI raggruppa per stato),
- * qui l'ordine cronologico inverso è la lettura naturale di un elenco di appuntamenti.
+ * distinguere "0 clienti assegnati" da "clienti assegnati ma senza meeting", per risolvere il
+ * badge nome-cliente per id su ogni riga, e (09/09/2026, caricamento registrazione anche dal menù
+ * generale) per il select cliente di NuovoMeetingForm.tsx — `email` inclusa lì per lo stesso motivo
+ * per cui serve in MeetingTab.tsx: default/etichetta della checkbox invio automatico una volta
+ * scelto il cliente. `meeting` ordinati per data decrescente (il più recente prima): a differenza
+ * di /api/attivita/tutte (nessun ordine imposto, la UI raggruppa per stato), qui l'ordine
+ * cronologico inverso è la lettura naturale di un elenco di appuntamenti.
  */
 export async function GET() {
   const sessione = await getSessione();
@@ -32,7 +35,7 @@ export async function GET() {
   const meeting = tuttiMeeting.filter((m) => idVisibili.has(m.clienteId)).sort((a, b) => b.data.localeCompare(a.data));
 
   return NextResponse.json({
-    clienti: visibili.map((c) => ({ clienteId: c.clienteId, nome: c.nome })),
+    clienti: visibili.map((c) => ({ clienteId: c.clienteId, nome: c.nome, email: c.email })),
     meeting,
   });
 }
