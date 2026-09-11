@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
@@ -96,6 +96,14 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [refreshTick, setRefreshTick] = useState(0);
+  // Quale valore di refreshTick deve saltare la cache da 30s di /api/kpi — SOLO quello impostato da
+  // un "Aggiorna KPI" manuale (handleAggiornaKpi sotto), mai le normali navigazioni (cambio periodo/
+  // sede/campagne, che restano cached per velocità). Un ref (non uno state) confrontato col
+  // refreshTick corrente dentro ai due effect che fanno fetch /api/kpi sotto — niente reset esplicito
+  // da gestire: resta "vero" solo finché refreshTick non avanza di nuovo, ed entrambi gli effect
+  // leggono lo stesso valore nello stesso giro, senza dipendere dall'ordine in cui girano (un
+  // reset-dentro-un-effect romperebbe l'altro, vedi bug "serve cliccare 2-3 volte", 11/09/2026).
+  const frescoPerTickRef = useRef<number | null>(null);
   const [sincronizzando, setSincronizzando] = useState(false);
   const [esitoSync, setEsitoSync] = useState<string | null>(null);
   // Form inline "+ Aggiungi ad account" nell'avviso sotto — mai aperto di default, solo admin.
@@ -159,6 +167,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     if (clienteId) params.set("clienteId", clienteId);
     if (sedeId) params.set("sedeId", sedeId);
     if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+    if (frescoPerTickRef.current === refreshTick) params.set("noCache", "1");
 
     Promise.resolve()
       .then(() => {
@@ -199,6 +208,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     if (clienteId) params.set("clienteId", clienteId);
     if (sedeId) params.set("sedeId", sedeId);
     if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+    if (frescoPerTickRef.current === refreshTick) params.set("noCache", "1");
 
     Promise.resolve()
       .then(() => fetch(`/api/kpi?${params.toString()}`, { signal: controller.signal }))
@@ -434,7 +444,11 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         parti.push(`GHL: ${ghlEsito.value.appuntamenti.totali} appuntamenti, ${ghlEsito.value.opportunita.vendite} vendite`);
       }
       setEsitoSync(parti.join(" · "));
-      setRefreshTick((t) => t + 1);
+      setRefreshTick((t) => {
+        const nuovo = t + 1;
+        frescoPerTickRef.current = nuovo; // legge fresco da Sheets, mai la cache da 30s — vedi sopra
+        return nuovo;
+      });
     } finally {
       setSincronizzando(false);
     }

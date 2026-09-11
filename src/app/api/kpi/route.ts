@@ -29,6 +29,13 @@ export async function GET(req: NextRequest) {
   const a = searchParams.get("a") || meseCorrente();
   const campagneParam = searchParams.get("campagne");
   const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
+  // Bypassa la cache da 30s di sheets.ts — SOLO quando il chiamante lo chiede esplicitamente (subito
+  // dopo un "Aggiorna KPI" manuale, vedi KpiSection.tsx). La cache vive per istanza serverless, mai
+  // condivisa: senza questo, la lettura che segue una sincronizzazione può capitare su un'istanza
+  // diversa da quella che ha scritto, mostrando dati di prima del sync per altri secondi (bug "serve
+  // cliccare 2-3 volte", 11/09/2026). Mai true sulle normali navigazioni: perderebbero il beneficio
+  // della cache senza un motivo reale.
+  const noCache = searchParams.get("noCache") === "1";
 
   let clienteId: string;
   let nomeCliente: string;
@@ -71,10 +78,10 @@ export async function GET(req: NextRequest) {
   const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
   const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna] = await Promise.all([
-    getMetaDaily(),
-    getCampagne(),
-    getRisultatiCommerciali(),
-    getUltimoCambioPerCampagna(),
+    getMetaDaily({ noCache }),
+    getCampagne({ noCache }),
+    getRisultatiCommerciali({ noCache }),
+    getUltimoCambioPerCampagna({ noCache }),
   ]);
 
   const { gruppi, totale, trend, trendSettimanale } = computeKpi(

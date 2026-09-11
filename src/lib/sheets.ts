@@ -880,8 +880,8 @@ export async function getClienteByAccessCode(code: string): Promise<Cliente | nu
   return clienti.find((c) => c.accessCode === code) ?? null;
 }
 
-export async function getCampagne(): Promise<Campagna[]> {
-  const rows = await readTab(TAB.campagne);
+export async function getCampagne(opts?: { noCache?: boolean }): Promise<Campagna[]> {
+  const rows = await readTab(TAB.campagne, opts);
   return rows
     .filter((r) => r[0])
     .map((r) => ({
@@ -990,13 +990,20 @@ export function ultimoCambioDaRighe(rows: CellValue[][]): Map<string, string> {
  * È la data in cui il sync se n'è accorto (finestra rolling + cadenza del cron), non necessariamente
  * l'istante esatto in cui è stato cambiato su Meta Ads.
  */
-export async function getUltimoCambioPerCampagna(): Promise<Map<string, string>> {
-  const rows = await readTab(TAB.storicoStato);
+export async function getUltimoCambioPerCampagna(opts?: { noCache?: boolean }): Promise<Map<string, string>> {
+  const rows = await readTab(TAB.storicoStato, opts);
   return ultimoCambioDaRighe(rows);
 }
 
-export async function getMetaDaily(): Promise<MetaDailyRow[]> {
-  const rows = await readTab(TAB.metaDaily);
+/** `opts.noCache` (qui e in getCampagne/getRisultatiCommerciali/getUltimoCambioPerCampagna, stesso
+ * motivo): la cache da 30s di readTab vive per istanza serverless, mai condivisa tra istanze
+ * diverse (vedi il commento su readCache) — un "Aggiorna KPI" che scrive su un'istanza e la
+ * lettura /api/kpi che segue su un'altra può mostrare dati di prima della sincronizzazione fino a
+ * 30s (bug "serve cliccare 2-3 volte", 11/09/2026). GET /api/kpi passa noCache:true SOLO sulla
+ * richiesta che segue subito un sync manuale (vedi KpiSection.tsx forzaFrescoRef) — mai sulle
+ * normali navigazioni, che restano cached per non perdere la velocità della cache. */
+export async function getMetaDaily(opts?: { noCache?: boolean }): Promise<MetaDailyRow[]> {
+  const rows = await readTab(TAB.metaDaily, opts);
   return rows
     .filter((r) => r[0])
     .map((r) => ({
@@ -1074,8 +1081,8 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
   await appendRows(TAB.metaDaily, daAggiungere);
 }
 
-export async function getRisultatiCommerciali(): Promise<RisultatoCommercialeRow[]> {
-  const rows = await readTab(TAB.risultatiCommerciali);
+export async function getRisultatiCommerciali(opts?: { noCache?: boolean }): Promise<RisultatoCommercialeRow[]> {
+  const rows = await readTab(TAB.risultatiCommerciali, opts);
   return rows
     .filter((r) => r[0])
     .map((r) => ({
