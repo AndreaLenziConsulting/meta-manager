@@ -85,6 +85,15 @@ export type Sessione = {
 
 export type Salute = "scala" | "mantieni" | "interveni" | "dati-insufficienti" | "no-target";
 
+// Canale pubblicitario di origine di una campagna/riga di spesa — introdotto per supportare più
+// fonti di traffico per cliente oltre a Meta Ads (Fase 1 del redesign multi-canale, 12/09/2026).
+// Union tipizzata (non stringa libera) così ogni nuovo canale futuro resta type-checked ovunque.
+// Opzionale su Campagna/MetaDailyRow/CampagnaDisponibile/RigaCampagna sotto — non su un campo
+// obbligatorio: obbligarlo avrebbe rotto ogni fixture di test esistente che costruisce questi tipi
+// senza saperne nulla. Assente = "meta" (vedi canaleEffettivo/chiaveCampagna in lib/kpi.ts) — vero
+// per ogni riga scritta prima di questa colonna e per ogni test esistente, comportamento invariato.
+export type Canale = "meta" | "google";
+
 export type Campagna = {
   campaignId: string;
   clienteId: string;
@@ -92,12 +101,14 @@ export type Campagna = {
   nomeCampagna: string;
   tipoCampagna: string;
   stato: string; // valore grezzo Meta: ACTIVE, PAUSED, DELETED, ARCHIVED, ...
+  canale?: Canale;
 };
 
 export type MetaDailyRow = {
   data: string; // YYYY-MM-DD
   clienteId: string;
   campaignId: string;
+  canale?: Canale;
   spesa: number;
   impressions: number;
   clicks: number;
@@ -160,6 +171,7 @@ export type KpiGroup = {
 
 export type RigaCampagna = {
   campaignId: string;
+  canale?: Canale;
   nomeCampagna: string;
   tipoCampagna: string;
   stato: string;
@@ -179,6 +191,7 @@ export type RigaCampagna = {
 
 export type CampagnaDisponibile = {
   campaignId: string;
+  canale?: Canale;
   nomeCampagna: string;
   tipoCampagna: string;
   stato: string;

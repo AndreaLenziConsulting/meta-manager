@@ -1,5 +1,14 @@
 import { STILE_LIVELLO } from "@/lib/statusStyles";
 import { giorniTra } from "@/lib/roadmap";
+import type { Canale } from "@/types/kpi";
+
+const ETICHETTA_CANALE: Record<Canale, string> = { meta: "Meta Ads", google: "Google Ads" };
+
+/** Etichetta leggibile per un canale pubblicitario — canale assente = "meta", coerente con
+ * canaleEffettivo in lib/kpi.ts. */
+export function formatCanale(canale?: Canale): string {
+  return ETICHETTA_CANALE[canale ?? "meta"];
+}
 
 export function formatEuro(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";

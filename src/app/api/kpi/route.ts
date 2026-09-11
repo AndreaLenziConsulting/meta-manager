@@ -10,9 +10,9 @@ import {
   getUltimoCambioPerCampagna,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
+import { chiaveCampagna, computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
-import type { CampagnaDisponibile, KpiResponse, Sede } from "@/types/kpi";
+import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
 
@@ -29,6 +29,13 @@ export async function GET(req: NextRequest) {
   const a = searchParams.get("a") || meseCorrente();
   const campagneParam = searchParams.get("campagne");
   const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
+  // Filtro canale (Meta/Google Ads — Fase 1 del redesign multi-canale, 12/09/2026): a differenza di
+  // `campagne` sopra, non arriva come Set separato fino a computeKpi — viene tradotto qui sotto
+  // (dopo aver letto `campagne`, serve per sapere quali campaignId appartengono a quali canali) in
+  // un ulteriore restringimento di campagneSelezionate, così computeKpi/computeKpiPerCampagna non
+  // guadagnano un nuovo parametro.
+  const canaliParam = searchParams.get("canali");
+  const canaliSelezionati = canaliParam ? new Set(canaliParam.split(",").filter(Boolean) as Canale[]) : undefined;
   // Bypassa la cache da 30s di sheets.ts — SOLO quando il chiamante lo chiede esplicitamente (subito
   // dopo un "Aggiorna KPI" manuale, vedi KpiSection.tsx). La cache vive per istanza serverless, mai
   // condivisa: senza questo, la lettura che segue una sincronizzazione può capitare su un'istanza
@@ -84,6 +91,20 @@ export async function GET(req: NextRequest) {
     getUltimoCambioPerCampagna({ noCache }),
   ]);
 
+  // Interseca il filtro canale (se presente) dentro campagneSelezionate: dopo questo punto i due
+  // compute* sotto continuano a ricevere l'unico Set che già conoscevano, senza saperne nulla.
+  let campagneSelezionateEffettive = campagneSelezionate;
+  if (canaliSelezionati) {
+    const idsNelCanale = new Set(
+      campagne
+        .filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId && canaliSelezionati.has(c.canale ?? "meta"))
+        .map((c) => c.campaignId)
+    );
+    campagneSelezionateEffettive = campagneSelezionate
+      ? new Set([...campagneSelezionate].filter((id) => idsNelCanale.has(id)))
+      : idsNelCanale;
+  }
+
   const { gruppi, totale, trend, trendSettimanale } = computeKpi(
     clienteId,
     sede.sedeId,
@@ -92,7 +113,7 @@ export async function GET(req: NextRequest) {
     metaDaily,
     campagne,
     risultatiCommerciali,
-    campagneSelezionate
+    campagneSelezionateEffettive
   );
   const righeCampagne = computeKpiPerCampagna(
     clienteId,
@@ -101,23 +122,28 @@ export async function GET(req: NextRequest) {
     a,
     metaDaily,
     campagne,
-    campagneSelezionate,
+    campagneSelezionateEffettive,
     ultimoCambioPerCampagna
   );
 
   const campagneSede = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId);
-  const infoCampagna = new Map(campagneSede.map((c) => [c.campaignId, c]));
-  const campaignIdsSede = new Set(campagneSede.map((c) => c.campaignId));
+  // Chiave canale::campaignId (vedi chiaveCampagna in lib/kpi.ts), non il solo campaignId — stesso
+  // motivo delle Map equivalenti in computeKpi/computeKpiPerCampagna: campagneDisponibili alimenta
+  // il filtro dell'utente e non deve mai fondere due campagne di canali diversi con lo stesso id.
+  const infoCampagna = new Map(campagneSede.map((c) => [chiaveCampagna(c.canale, c.campaignId), c]));
+  const campaignKeysSede = new Set(campagneSede.map((c) => chiaveCampagna(c.canale, c.campaignId)));
   const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
-    if (!campaignIdsSede.has(row.campaignId)) continue;
+    const chiave = chiaveCampagna(row.canale, row.campaignId);
+    if (!campaignKeysSede.has(chiave)) continue;
     const mese = row.data.slice(0, 7);
     if (mese < da || mese > a) continue;
-    if (campagneDisponibiliMap.has(row.campaignId)) continue;
-    const info = infoCampagna.get(row.campaignId);
-    campagneDisponibiliMap.set(row.campaignId, {
+    if (campagneDisponibiliMap.has(chiave)) continue;
+    const info = infoCampagna.get(chiave);
+    campagneDisponibiliMap.set(chiave, {
       campaignId: row.campaignId,
+      canale: info?.canale ?? row.canale ?? "meta",
       nomeCampagna: info?.nomeCampagna ?? row.campaignId,
       tipoCampagna: info?.tipoCampagna || "Non classificata",
       stato: info?.stato ?? "",

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Filter } from "lucide-react";
 import type { CampagnaDisponibile } from "@/types/kpi";
-import { formatStatoCampagna } from "@/lib/format";
+import { formatCanale, formatStatoCampagna } from "@/lib/format";
 
 type Props = {
   campagneDisponibili: CampagnaDisponibile[];
@@ -19,15 +19,27 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
   const attive = selezionate ?? new Set(tuttiGliId);
   const tutteSelezionate = attive.size >= tuttiGliId.length;
 
+  // Raggruppamento per canale (Meta/Google Ads — Fase 1 del redesign multi-canale, 12/09/2026),
+  // ma SOLO quando è davvero presente più di un canale: con un solo canale (oggi sempre, finché
+  // Google Ads non è collegato in Fase 2) l'etichetta di gruppo resta il solo tipo_campagna, byte
+  // per byte identica a prima di questo campo — stesso principio del selettore Sede (invisibile
+  // con una sola sede).
+  const mostraGruppoCanale = useMemo(
+    () => new Set(campagneDisponibili.map((c) => c.canale ?? "meta")).size > 1,
+    [campagneDisponibili]
+  );
+
   const gruppi = useMemo(() => {
-    const map = new Map<string, CampagnaDisponibile[]>();
+    const map = new Map<string, { etichetta: string; lista: CampagnaDisponibile[] }>();
     for (const c of campagneDisponibili) {
-      const lista = map.get(c.tipoCampagna) ?? [];
-      lista.push(c);
-      map.set(c.tipoCampagna, lista);
+      const chiave = mostraGruppoCanale ? `${c.canale ?? "meta"}::${c.tipoCampagna}` : c.tipoCampagna;
+      const etichetta = mostraGruppoCanale ? `${formatCanale(c.canale)} · ${c.tipoCampagna}` : c.tipoCampagna;
+      const entry = map.get(chiave) ?? { etichetta, lista: [] };
+      entry.lista.push(c);
+      map.set(chiave, entry);
     }
     return Array.from(map.entries());
-  }, [campagneDisponibili]);
+  }, [campagneDisponibili, mostraGruppoCanale]);
 
   useEffect(() => {
     if (!open) return;
@@ -82,20 +94,20 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
           </button>
 
           <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
-            {gruppi.map(([tipo, lista]) => {
+            {gruppi.map(([chiave, { etichetta, lista }]) => {
               const idsGruppo = lista.map((c) => c.campaignId);
               const tuttiNelGruppo = idsGruppo.every((id) => attive.has(id));
               return (
-                <div key={tipo}>
+                <div key={chiave}>
                   <label className="flex items-center gap-2 text-xs font-semibold text-ink-900 cursor-pointer">
                     <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="accent-current text-brand" />
-                    {tipo}
+                    {etichetta}
                   </label>
                   <div className="mt-1 ml-5 space-y-1">
                     {lista.map((c) => {
                       const stato = formatStatoCampagna(c.stato);
                       return (
-                        <label key={c.campaignId} className="flex items-center gap-2 text-xs text-ink-500 cursor-pointer">
+                        <label key={`${c.canale ?? "meta"}::${c.campaignId}`} className="flex items-center gap-2 text-xs text-ink-500 cursor-pointer">
                           <input
                             type="checkbox"
                             checked={attive.has(c.campaignId)}

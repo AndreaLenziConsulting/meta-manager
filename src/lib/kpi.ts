@@ -1,6 +1,22 @@
-import type { Campagna, RisultatoCommercialeRow, KpiGroup, MetaDailyRow, RigaCampagna } from "@/types/kpi";
+import type { Campagna, Canale, RisultatoCommercialeRow, KpiGroup, MetaDailyRow, RigaCampagna } from "@/types/kpi";
 
 const NON_CLASSIFICATA = "Non classificata";
+
+/** Canale assente su una riga scritta prima dell'introduzione del campo (o su una fixture di test
+ * che non lo conosce) = "meta", sempre — vedi il commento su Canale in types/kpi.ts. */
+export function canaleEffettivo(riga: { canale?: Canale }): Canale {
+  return riga.canale ?? "meta";
+}
+
+// Meta Ads e Google Ads generano entrambi campaignId puramente numerici: senza distinguerli per
+// canale, una campagna Google Ads con lo stesso numero (per quanto improbabile) di una campagna
+// Meta esistente verrebbe silenziosamente confusa con essa in ogni Map/Set chiavata sul solo
+// campaignId (spesa/lead attribuiti al tipo_campagna sbagliato). Questa chiave composita è quello
+// che elimina davvero il rischio, non solo la presenza della colonna canale — usata ovunque una
+// campagna va identificata univocamente tra sedi/canali diversi (qui e in api/kpi/route.ts).
+export function chiaveCampagna(canale: Canale | undefined, campaignId: string): string {
+  return `${canale ?? "meta"}::${campaignId}`;
+}
 
 function meseDiData(data: string): string {
   return data.slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
@@ -133,11 +149,20 @@ export function computeKpi(
   campagneSelezionate?: Set<string>
 ): KpiComputationResult {
   const campagneCliente = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
-  const tipoPerCampagna = new Map(campagneCliente.map((c) => [c.campaignId, c.tipoCampagna || NON_CLASSIFICATA]));
+  // Chiave canale::campaignId (vedi chiaveCampagna) — non il solo campaignId: due campagne di
+  // canali diversi con lo stesso campaignId non devono mai fondersi nella stessa voce.
+  const tipoPerCampagna = new Map(
+    campagneCliente.map((c) => [chiaveCampagna(c.canale, c.campaignId), c.tipoCampagna || NON_CLASSIFICATA])
+  );
   // Una campagna che non appartiene a questa sede (o non ancora mappata) va sempre esclusa qui —
   // a differenza di prima (un cliente = una sola sede implicita), non basta più "sconosciuta ->
   // Non classificata ma inclusa": finirebbe nei numeri della sede sbagliata.
-  const campaignIdsSede = new Set(campagneCliente.map((c) => c.campaignId));
+  const campaignKeysSede = new Set(campagneCliente.map((c) => chiaveCampagna(c.canale, c.campaignId)));
+  // campagneSelezionate resta un Set di campaignId nudi (non canale::campaignId): è il filtro a
+  // scelta dell'utente in CampagneFilter.tsx, applicato DOPO che la riga è già stata attribuita al
+  // tipo_campagna corretto tramite la chiave composita sopra — una collisione di campaignId tra
+  // canali diversi (evento comunque improbabile) al più farebbe selezionare/deselezionare insieme
+  // due campagne con lo stesso id invece di confondere a quale tipo_campagna appartiene la spesa.
   const tipiConCampagnaSelezionata = campagneSelezionate
     ? new Set(
         campagneCliente
@@ -172,12 +197,13 @@ export function computeKpi(
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
-    if (!campaignIdsSede.has(row.campaignId)) continue;
+    const chiave = chiaveCampagna(row.canale, row.campaignId);
+    if (!campaignKeysSede.has(chiave)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
     const mese = meseDiData(row.data);
     if (!nelPeriodo(mese)) continue;
 
-    const tipoCampagna = tipoPerCampagna.get(row.campaignId) ?? NON_CLASSIFICATA;
+    const tipoCampagna = tipoPerCampagna.get(chiave) ?? NON_CLASSIFICATA;
     const gruppo = gruppiMap.get(tipoCampagna) ?? nuovoGruppoVuoto(tipoCampagna);
     gruppo.investimento += row.spesa;
     gruppo.impressions += row.impressions;
@@ -299,36 +325,43 @@ export function computeKpiPerCampagna(
   ultimoCambioPerCampagna?: Map<string, string>
 ): RigaCampagna[] {
   const campagneSede = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
-  const infoCampagna = new Map(campagneSede.map((c) => [c.campaignId, c]));
-  const campaignIdsSede = new Set(campagneSede.map((c) => c.campaignId));
+  const infoCampagna = new Map(campagneSede.map((c) => [chiaveCampagna(c.canale, c.campaignId), c]));
+  const campaignKeysSede = new Set(campagneSede.map((c) => chiaveCampagna(c.canale, c.campaignId)));
 
   const nelPeriodo = (mese: string) => mese >= daMese && mese <= aMese;
-  const righeMap = new Map<string, { investimento: number; impressions: number; numeroLead: number; clicLink: number }>();
+  const righeMap = new Map<
+    string,
+    { campaignId: string; canale: Canale; investimento: number; impressions: number; numeroLead: number; clicLink: number }
+  >();
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
-    if (!campaignIdsSede.has(row.campaignId)) continue;
+    const chiave = chiaveCampagna(row.canale, row.campaignId);
+    if (!campaignKeysSede.has(chiave)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
     if (!nelPeriodo(meseDiData(row.data))) continue;
 
-    const entry = righeMap.get(row.campaignId) ?? { investimento: 0, impressions: 0, numeroLead: 0, clicLink: 0 };
+    const entry =
+      righeMap.get(chiave) ??
+      { campaignId: row.campaignId, canale: canaleEffettivo(row), investimento: 0, impressions: 0, numeroLead: 0, clicLink: 0 };
     entry.investimento += row.spesa;
     entry.impressions += row.impressions;
     entry.numeroLead += row.lead;
     entry.clicLink += row.clicLink;
-    righeMap.set(row.campaignId, entry);
+    righeMap.set(chiave, entry);
   }
 
   return Array.from(righeMap.entries())
-    .map(([campaignId, v]) => {
-      const info = infoCampagna.get(campaignId);
+    .map(([chiave, v]) => {
+      const info = infoCampagna.get(chiave);
       const cpmRatio = divideOrNull(v.investimento, v.impressions);
       return {
-        campaignId,
-        nomeCampagna: info?.nomeCampagna ?? campaignId,
+        campaignId: v.campaignId,
+        canale: v.canale,
+        nomeCampagna: info?.nomeCampagna ?? v.campaignId,
         tipoCampagna: info?.tipoCampagna || NON_CLASSIFICATA,
         stato: info?.stato ?? "",
-        statoDal: ultimoCambioPerCampagna?.get(campaignId) ?? null,
+        statoDal: ultimoCambioPerCampagna?.get(v.campaignId) ?? null,
         investimento: v.investimento,
         impressions: v.impressions,
         cpm: cpmRatio === null ? null : cpmRatio * 1000,
@@ -365,14 +398,14 @@ export function computeSpesaLeadPeriodo(
   metaDaily: MetaDailyRow[],
   campagne: Campagna[]
 ): { investimento: number; numeroLead: number; costoPerLead: number | null } {
-  const campaignIdsSede = new Set(
-    campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId).map((c) => c.campaignId)
+  const campaignKeysSede = new Set(
+    campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId).map((c) => chiaveCampagna(c.canale, c.campaignId))
   );
   let investimento = 0;
   let numeroLead = 0;
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
-    if (!campaignIdsSede.has(row.campaignId)) continue;
+    if (!campaignKeysSede.has(chiaveCampagna(row.canale, row.campaignId))) continue;
     if (row.data < daData || row.data > aData) continue;
     investimento += row.spesa;
     numeroLead += row.lead;

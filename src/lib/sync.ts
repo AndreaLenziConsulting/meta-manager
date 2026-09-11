@@ -40,6 +40,7 @@ export async function syncSede(sede: Sede): Promise<{ righe: number }> {
       clienteId: sede.clienteId,
       sedeId: sede.sedeId,
       nomeCampagna: c.nomeCampagna,
+      canale: "meta",
     }))
   );
   await upsertMetaDailyRows(rows);

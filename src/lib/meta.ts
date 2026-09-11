@@ -131,6 +131,7 @@ export async function fetchCampaignInsights(
       cpm: Number(item.cpm || 0),
       lead: extractLeads(item.actions, tipoConversioneLead),
       clicLink: extractClicLink(item.actions),
+      canale: "meta",
     });
   }
 

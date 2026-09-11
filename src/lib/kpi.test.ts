@@ -321,3 +321,45 @@ describe("computeSpesaLeadPeriodo", () => {
     expect(r.costoPerLead).toBeNull();
   });
 });
+
+// Test di regressione per la Fase 1 del redesign multi-canale (12/09/2026): Meta Ads e Google Ads
+// generano entrambi campaignId puramente numerici — senza la chiave composita canale::campaignId
+// (vedi chiaveCampagna in kpi.ts), due campagne di canali diversi con lo stesso campaignId (per
+// quanto improbabile) si fonderebbero silenziosamente in una sola voce.
+describe("isolamento tra canali con lo stesso campaignId", () => {
+  const campagneDueCanali: Campagna[] = [
+    { campaignId: "999", clienteId: "multi-canale", sedeId: SEDE, nomeCampagna: "Meta", tipoCampagna: "Prospecting", stato: "ACTIVE", canale: "meta" },
+    { campaignId: "999", clienteId: "multi-canale", sedeId: SEDE, nomeCampagna: "Google", tipoCampagna: "Retargeting", stato: "ACTIVE", canale: "google" },
+  ];
+  const metaDailyDueCanali: MetaDailyRow[] = [
+    { data: "2026-06-10", clienteId: "multi-canale", campaignId: "999", canale: "meta", spesa: 100, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 10, clicLink: 0 },
+    { data: "2026-06-10", clienteId: "multi-canale", campaignId: "999", canale: "google", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicLink: 0 },
+  ];
+
+  it("computeKpi aggrega le due campagne nei rispettivi tipo_campagna, mai fuse insieme", () => {
+    const { gruppi } = computeKpi("multi-canale", SEDE, "2026-06", "2026-06", metaDailyDueCanali, campagneDueCanali, []);
+    const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
+    const retargeting = gruppi.find((g) => g.tipoCampagna === "Retargeting")!;
+    expect(prospecting.investimento).toBe(100); // solo la riga Meta
+    expect(prospecting.numeroLead).toBe(10);
+    expect(retargeting.investimento).toBe(500); // solo la riga Google Ads
+    expect(retargeting.numeroLead).toBe(50);
+  });
+
+  it("computeKpiPerCampagna produce due righe distinte, una per canale, mai una sola sommata", () => {
+    const righe = computeKpiPerCampagna("multi-canale", SEDE, "2026-06", "2026-06", metaDailyDueCanali, campagneDueCanali);
+    expect(righe).toHaveLength(2);
+    const meta = righe.find((r) => r.canale === "meta")!;
+    const google = righe.find((r) => r.canale === "google")!;
+    expect(meta.investimento).toBe(100);
+    expect(meta.tipoCampagna).toBe("Prospecting");
+    expect(google.investimento).toBe(500);
+    expect(google.tipoCampagna).toBe("Retargeting");
+  });
+
+  it("computeSpesaLeadPeriodo somma solo la riga del canale corretto per ciascuna campagna", () => {
+    const r = computeSpesaLeadPeriodo("multi-canale", SEDE, "2026-06-01", "2026-06-30", metaDailyDueCanali, campagneDueCanali);
+    expect(r.investimento).toBe(600); // 100 (meta) + 500 (google), entrambe valide per la sede
+    expect(r.numeroLead).toBe(60);
+  });
+});

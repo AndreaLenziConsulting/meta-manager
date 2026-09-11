@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
 import type { GhlBreakdownCampagna } from "@/types/ghl";
 import { valutaCampagna } from "@/lib/valutazioneCampagna";
-import { formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
+import { formatCanale, formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
@@ -65,6 +65,11 @@ export function DettaglioCampagneEsteso({
   ghlPerCampagna: Record<string, GhlBreakdownCampagna> | null;
 }) {
   const [vista, setVista] = useState<"tipo" | "campagna">("tipo");
+
+  // Etichetta canale accanto al tipo_campagna nella vista "per singola campagna" — SOLO quando è
+  // davvero presente più di un canale (Meta/Google Ads), stesso principio "invisibile con un solo
+  // valore" di CampagneFilter.tsx: con un solo canale la vista resta identica a prima di questo campo.
+  const mostraCanale = useMemo(() => new Set(campagne.map((c) => c.canale ?? "meta")).size > 1, [campagne]);
 
   const totaleCampagne = useMemo(() => {
     const investimento = campagne.reduce((s, c) => s + c.investimento, 0);
@@ -197,7 +202,7 @@ export function DettaglioCampagneEsteso({
                     ? { livello: "non-valutabile" as const, motivo: "Campagna non attiva" }
                     : valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl });
                 return (
-                  <tr key={c.campaignId} className="border-b border-[var(--glass-border-soft)]">
+                  <tr key={`${c.canale ?? "meta"}::${c.campaignId}`} className="border-b border-[var(--glass-border-soft)]">
                     <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">
                       <span className="flex items-start gap-2">
                         {valutazione && (
@@ -209,7 +214,10 @@ export function DettaglioCampagneEsteso({
                         )}
                         <span className="flex flex-col">
                           {c.nomeCampagna}
-                          <span className="text-[11px] text-ink-500 font-normal">{c.tipoCampagna}</span>
+                          <span className="text-[11px] text-ink-500 font-normal">
+                            {c.tipoCampagna}
+                            {mostraCanale ? ` · ${formatCanale(c.canale)}` : ""}
+                          </span>
                         </span>
                       </span>
                     </td>

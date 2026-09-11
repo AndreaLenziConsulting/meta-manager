@@ -5,6 +5,7 @@ import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnata
 import type {
   AttivitaClienteRow,
   Campagna,
+  Canale,
   Cliente,
   Consulente,
   FaseCompletataRow,
@@ -880,6 +881,12 @@ export async function getClienteByAccessCode(code: string): Promise<Cliente | nu
   return clienti.find((c) => c.accessCode === code) ?? null;
 }
 
+/** Colonna vuota (riga scritta prima dell'introduzione del campo, 12/09/2026) o valore non
+ * riconosciuto -> "meta", mai un valore libero: coerente con canaleEffettivo in lib/kpi.ts. */
+function asCanale(value: CellValue): Canale {
+  return asText(value) === "google" ? "google" : "meta";
+}
+
 export async function getCampagne(opts?: { noCache?: boolean }): Promise<Campagna[]> {
   const rows = await readTab(TAB.campagne, opts);
   return rows
@@ -892,6 +899,8 @@ export async function getCampagne(opts?: { noCache?: boolean }): Promise<Campagn
       stato: asText(r[4]),
       // Colonna F, aggiunta dopo le prime cinque per non spostare nulla di già scritto — vedi Sede.
       sedeId: asText(r[5]),
+      // Colonna G, stesso principio "aggiunta in coda" — vedi Canale in types/kpi.ts.
+      canale: asCanale(r[6]),
     }));
 }
 
@@ -913,18 +922,23 @@ export function guessTipoCampagnaFromNome(nomeCampagna: string): string {
  * (vuoto se il prefisso non è riconosciuto, resta "da classificare" a mano).
  */
 export async function ensureCampagneMappate(
-  candidate: { campaignId: string; clienteId: string; sedeId: string; nomeCampagna: string }[]
+  candidate: { campaignId: string; clienteId: string; sedeId: string; nomeCampagna: string; canale?: Canale }[]
 ): Promise<void> {
   if (candidate.length === 0) return;
   const esistenti = await getCampagne();
-  const idEsistenti = new Set(esistenti.map((c) => c.campaignId));
+  // Chiave canale::campaignId, non il solo campaignId — vedi chiaveCampagna in lib/kpi.ts: una
+  // campagna Google Ads non va mai scambiata per "già mappata" solo perché un'altra campagna Meta
+  // ha per caso lo stesso campaignId numerico.
+  const chiaviEsistenti = new Set(esistenti.map((c) => `${c.canale ?? "meta"}::${c.campaignId}`));
 
   const viste = new Set<string>();
   const righe: (string | number)[][] = [];
   for (const c of candidate) {
-    if (idEsistenti.has(c.campaignId) || viste.has(c.campaignId)) continue;
-    viste.add(c.campaignId);
-    righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), "", c.sedeId]);
+    const canale = c.canale ?? "meta";
+    const chiave = `${canale}::${c.campaignId}`;
+    if (chiaviEsistenti.has(chiave) || viste.has(chiave)) continue;
+    viste.add(chiave);
+    righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), "", c.sedeId, canale]);
   }
   await appendRows(TAB.campagne, righe);
 }
@@ -1023,6 +1037,8 @@ export async function getMetaDaily(opts?: { noCache?: boolean }): Promise<MetaDa
       // automaticamente. toNumber su una cella vuota (mai sincronizzata) torna 0 — dato mancante,
       // non un errore da segnalare.
       clicLink: toNumber(r[10]),
+      // Colonna L, stesso principio "aggiunta in coda" di sedeId su Campagne — vedi Canale in types/kpi.ts.
+      canale: asCanale(r[11]),
     }));
 }
 
@@ -1035,21 +1051,25 @@ export async function getMetaDaily(opts?: { noCache?: boolean }): Promise<MetaDa
 export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
   if (rows.length === 0) return;
   const { sheets, sheetId } = getSheetsClient();
+  // Letta anche la colonna L (canale, vedi getMetaDaily) — la chiave di dedup sotto deve includerla:
+  // senza, una riga Google Ads potrebbe silenziosamente sovrascrivere una riga Meta esistente con lo
+  // stesso (clienteId, campaignId, data) se i due campaignId numerici collidessero per caso.
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.metaDaily}!A2:C`,
+    range: `${TAB.metaDaily}!A2:L`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const esistenti = (res.data.values as CellValue[][]) ?? [];
   const indexByKey = new Map<string, number>();
   esistenti.forEach((r, i) => {
-    indexByKey.set(`${asText(r[1])}|${asText(r[2])}|${normalizeData(r[0])}`, i + 2);
+    indexByKey.set(`${asCanale(r[11])}|${asText(r[1])}|${asText(r[2])}|${normalizeData(r[0])}`, i + 2);
   });
 
   const daAggiornare: { range: string; values: (string | number)[][] }[] = [];
   const daAggiungere: (string | number)[][] = [];
   for (const row of rows) {
-    const key = `${row.clienteId}|${row.campaignId}|${row.data}`;
+    const canale = row.canale ?? "meta";
+    const key = `${canale}|${row.clienteId}|${row.campaignId}|${row.data}`;
     const rowValues = [
       row.data,
       row.clienteId,
@@ -1062,10 +1082,11 @@ export async function upsertMetaDailyRows(rows: MetaDailyRow[]): Promise<void> {
       row.cpm,
       row.lead,
       row.clicLink,
+      canale,
     ];
     const existingRowNumber = indexByKey.get(key);
     if (existingRowNumber) {
-      daAggiornare.push({ range: `${TAB.metaDaily}!A${existingRowNumber}:K${existingRowNumber}`, values: [rowValues] });
+      daAggiornare.push({ range: `${TAB.metaDaily}!A${existingRowNumber}:L${existingRowNumber}`, values: [rowValues] });
     } else {
       daAggiungere.push(rowValues);
     }
