@@ -118,7 +118,7 @@ export function DettaglioCampagneEsteso({
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-xs border-collapse min-w-[800px]">
             <thead>
-              <tr className="border-b border-ink-300/60">
+              <tr className="border-b border-[var(--glass-border-soft)]">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">
                   Tipo campagna
                 </th>
@@ -131,7 +131,7 @@ export function DettaglioCampagneEsteso({
             </thead>
             <tbody>
               {gruppi.map((g) => (
-                <tr key={g.tipoCampagna} className="border-b border-ink-300/60">
+                <tr key={g.tipoCampagna} className="border-b border-[var(--glass-border-soft)]">
                   <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">{g.tipoCampagna}</td>
                   {COLONNE_TIPO.map((c) => (
                     <td
@@ -143,8 +143,8 @@ export function DettaglioCampagneEsteso({
                   ))}
                 </tr>
               ))}
-              <tr>
-                <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
+              <tr className="bg-[var(--glass-content-strong)]">
+                <td className="px-5 py-3 font-semibold sticky left-0 bg-[var(--glass-content-strong)] text-ink-900">Totale</td>
                 {COLONNE_TIPO.map((c) => (
                   <td
                     key={c.key}
@@ -161,7 +161,7 @@ export function DettaglioCampagneEsteso({
         <div className="overflow-x-auto mt-3">
           <table className={`w-full text-xs border-collapse ${ghlPerCampagna ? "min-w-[1450px]" : "min-w-[1100px]"}`}>
             <thead>
-              <tr className="border-b border-ink-300/60">
+              <tr className="border-b border-[var(--glass-border-soft)]">
                 <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Campagna</th>
                 <th className="text-left font-medium px-4 py-3 text-ink-500">Stato</th>
                 <th className="text-right font-medium px-4 py-3 text-ink-500">Investimento</th>
@@ -197,7 +197,7 @@ export function DettaglioCampagneEsteso({
                     ? { livello: "non-valutabile" as const, motivo: "Campagna non attiva" }
                     : valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl });
                 return (
-                  <tr key={c.campaignId} className="border-b border-ink-300/60">
+                  <tr key={c.campaignId} className="border-b border-[var(--glass-border-soft)]">
                     <td className="px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium">
                       <span className="flex items-start gap-2">
                         {valutazione && (
@@ -275,8 +275,8 @@ export function DettaglioCampagneEsteso({
                 </tr>
               )}
               {campagne.length > 0 && (
-                <tr>
-                  <td className="px-5 py-3 font-semibold sticky left-0 bg-surface-card text-ink-900">Totale</td>
+                <tr className="bg-[var(--glass-content-strong)]">
+                  <td className="px-5 py-3 font-semibold sticky left-0 bg-[var(--glass-content-strong)] text-ink-900">Totale</td>
                   <td className="px-4 py-3" />
                   <td className="text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900">
                     {formatEuro(totaleCampagne.investimento)}

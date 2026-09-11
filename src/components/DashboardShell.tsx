@@ -92,7 +92,7 @@ export function DashboardShell({
             onCloseMobile={() => setMobileOpen(false)}
           />
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="sticky top-0 z-10 h-14 flex items-center justify-between gap-3 bg-surface-card border-b border-ink-300/60 backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome-strong)] px-6 sm:px-8">
+            <div className="sticky top-0 z-10 h-14 flex items-center justify-between gap-3 bg-surface-card border-b border-[var(--glass-border-soft)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome-strong)] px-6 sm:px-8">
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}

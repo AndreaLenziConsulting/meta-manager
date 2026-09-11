@@ -35,7 +35,7 @@ export function ClientiPerConsulente({
 
   if (gruppi.every((g) => g.items.length === 0) && nonAssegnati.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-6 text-sm text-ink-500">
+      <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -48,7 +48,7 @@ export function ClientiPerConsulente({
           <div key={consulente.consulenteId}>
             <IntestazioneGruppo nome={consulente.nome} conteggio={itemsConsulente.length} />
             {itemsConsulente.length > 0 ? (
-              <div className="rounded-2xl border border-ink-300 overflow-hidden divide-y divide-ink-300/60">
+              <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
                 {itemsConsulente.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}
@@ -67,7 +67,7 @@ export function ClientiPerConsulente({
         {nonAssegnati.length > 0 && (
           <div>
             <IntestazioneGruppo nome="Non assegnato" conteggio={nonAssegnati.length} />
-            <div className="rounded-2xl border border-ink-300 overflow-hidden divide-y divide-ink-300/60">
+            <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
               {nonAssegnati.map((item) => (
                 <ClienteRiga
                   key={item.cliente.clienteId}

@@ -31,7 +31,7 @@ export function AvvisiOperativi({ avvisi }: { avvisi: AvvisoOperativo[] }) {
           .join(", ")}`;
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+    <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
       <button type="button" onClick={() => setAperto((a) => !a)} className="w-full flex items-center justify-between gap-3 cursor-pointer">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-1 h-5 rounded-full bg-brand shrink-0" />

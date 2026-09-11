@@ -131,7 +131,7 @@ export function ClienteHeader({
           onClick={tornaIndietro}
           aria-label="Torna indietro"
           title="Torna indietro"
-          className="flex items-center justify-center w-9 h-9 rounded-xl border border-ink-300 bg-surface-card text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0 cursor-pointer"
+          className="flex items-center justify-center w-9 h-9 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0 cursor-pointer"
         >
           <ArrowLeft size={18} />
         </button>
@@ -146,7 +146,7 @@ export function ClienteHeader({
 
       <div className="flex items-center gap-3 flex-wrap">
         {Boolean(settimanaProgetto) && (
-          <span className="text-xs font-semibold text-ink-500 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-ink-300 rounded-full px-3 py-1">
+          <span className="text-xs font-semibold text-ink-500 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-[var(--glass-border-soft)] rounded-full px-3 py-1">
             Settimana {settimanaProgetto}
           </span>
         )}
@@ -199,7 +199,7 @@ export function ClienteHeader({
 }
 
 const classePillo =
-  "flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer";
+  "flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-[var(--glass-border-soft)] rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer";
 
 /**
  * Un link rapido dell'header (Drive/Landing page): pillola che apre il link se impostato, altrimenti

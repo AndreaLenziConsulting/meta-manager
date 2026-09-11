@@ -129,11 +129,11 @@ export function Sidebar({
           l'overlay scuro. */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-ink-300/60 bg-surface-card backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome)] transition-[width] duration-200",
+          "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome)] transition-[width] duration-200",
           collapsed ? "w-16" : "w-64"
         )}
       >
-        <div className="h-16 flex items-center px-4 border-b border-ink-300/60 overflow-hidden">
+        <div className="h-16 flex items-center px-4 border-b border-[var(--glass-border-soft)] overflow-hidden">
           {!collapsed && (
             <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={110} height={38} className="object-contain h-8 w-auto" />
           )}

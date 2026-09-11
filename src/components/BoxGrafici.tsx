@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown, LineChart } from "lucide-react";
 import { FunnelConversioneChart } from "@/components/FunnelConversioneChart";
 import { CostoPerRisultatoChart } from "@/components/CostoPerRisultatoChart";
 import { SaldoNettoCumulatoChart } from "@/components/SaldoNettoCumulatoChart";
@@ -53,7 +54,7 @@ export function BoxGrafici({
   const attivo = OPZIONI.find((o) => o.id === selezionato)!;
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+    <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <div className="w-1 h-5 rounded-full bg-brand" />
@@ -64,15 +65,15 @@ export function BoxGrafici({
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+            className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
           >
-            <GraficoIcon />
+            <LineChart size={14} className="text-ink-500" />
             {attivo.label}
-            <ChevronIcon />
+            <ChevronDown size={12} className="text-ink-500" />
           </button>
 
           {open && (
-            <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-2">
+            <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-2">
               {OPZIONI.map((o) => (
                 <button
                   key={o.id}
@@ -99,22 +100,5 @@ export function BoxGrafici({
       {selezionato === "andamentoAppuntamenti" && <AndamentoAppuntamentiChart serieSettimanale={trendSettimanaleConOverlay} />}
       {selezionato === "saldoNetto" && <SaldoNettoCumulatoChart serieSettimanale={trendSettimanaleConOverlay} />}
     </div>
-  );
-}
-
-function GraficoIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-500">
-      <path d="M3 3v18h18" />
-      <path d="M7 15l4-6 4 3 5-8" />
-    </svg>
-  );
-}
-
-function ChevronIcon() {
-  return (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="text-ink-500">
-      <path d="M6 9l6 6 6-6" />
-    </svg>
   );
 }

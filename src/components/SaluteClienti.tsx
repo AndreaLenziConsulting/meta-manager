@@ -49,7 +49,7 @@ function ClienteCard({
           router.push(href);
         }
       }}
-      className={`rounded-2xl border border-ink-300 border-t-4 ${stile.railClasse} bg-surface-card shadow-sm p-5 hover:shadow-md transition cursor-pointer`}
+      className={`rounded-2xl border border-[var(--glass-border-soft)] border-t-4 ${stile.railClasse} bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] hover:shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] transition cursor-pointer p-5`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -187,7 +187,7 @@ export function SaluteClienti({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-6 text-sm text-ink-500">
+      <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -243,7 +243,7 @@ export function SaluteClienti({
             </div>
 
             {zona.compatta ? (
-              <div className="rounded-2xl border border-ink-300 overflow-hidden divide-y divide-ink-300/60">
+              <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
                 {zona.items.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}

@@ -65,14 +65,14 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
+        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
       >
         <Filter size={14} className="text-ink-500" />
         {tutteSelezionate ? `Tutte le campagne (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} campagne`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
           <button
             type="button"
             onClick={toggleTutte}

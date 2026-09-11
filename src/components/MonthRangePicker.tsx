@@ -138,14 +138,14 @@ export function MonthRangePicker({ da, a, onChange }: Props) {
       <button
         type="button"
         onClick={() => (open ? setOpen(false) : apri())}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
       >
         <Calendar size={14} className="text-ink-500" />
         {formatMese(da)} – {formatMese(a)}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4 flex flex-col sm:flex-row gap-4">
+        <div className="absolute z-20 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4 flex flex-col sm:flex-row gap-4">
           <div className="sm:w-32 flex-shrink-0 sm:border-r border-b sm:border-b-0 border-ink-300/60 pb-3 sm:pb-0 sm:pr-3 space-y-0.5">
             {PRESET.map((p) => (
               <button

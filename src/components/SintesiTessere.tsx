@@ -120,7 +120,10 @@ export function SintesiTessere({
         const variazione = calcolaVariazionePeriodo(t.primarioValore, t.precedenteValore);
         const Icona = t.icona;
         return (
-          <div key={t.label} className="relative overflow-hidden rounded-xl border border-ink-300 bg-surface-card shadow-[var(--shadow-tile)] p-4">
+          <div
+            key={t.label}
+            className="relative overflow-hidden rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] p-4"
+          >
             {/* Icona-filigrana — "appena visibile": grande, bassissima opacità, mai in
                 competizione col numero (redesign "Vetro ALC", Fase C, 09/09/2026). */}
             <Icona className="pointer-events-none absolute -right-3.5 -bottom-3.5 w-20 h-20 text-brand opacity-[0.09]" strokeWidth={1.6} />
