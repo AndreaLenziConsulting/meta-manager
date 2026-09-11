@@ -1,3 +1,4 @@
+import { Calendar, CalendarCheck, Euro, ShoppingBag, TrendingUp, Users, type LucideIcon } from "lucide-react";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas, formatVariazionePercentuale } from "@/lib/format";
 import { calcolaVariazionePeriodo, type DirezioneVariazione } from "@/lib/confrontoPeriodo";
 import type { KpiGroup } from "@/types/kpi";
@@ -5,6 +6,7 @@ import type { KpiConOverlayGhl } from "@/lib/kpiGhlOverlay";
 
 type Tessera = {
   label: string;
+  icona: LucideIcon;
   primario: string;
   primarioValore: number | null;
   precedenteValore: number | null;
@@ -59,6 +61,7 @@ export function SintesiTessere({
   const tessere: Tessera[] = [
     {
       label: "Investimento",
+      icona: Euro,
       primario: formatEuro(totale.investimento),
       primarioValore: totale.investimento,
       precedenteValore: totalePrecedente?.investimento ?? null,
@@ -66,6 +69,7 @@ export function SintesiTessere({
     },
     {
       label: "Contatti generati",
+      icona: Users,
       primario: formatNumero(totale.numeroLead),
       primarioValore: totale.numeroLead,
       precedenteValore: totalePrecedente?.numeroLead ?? null,
@@ -74,6 +78,7 @@ export function SintesiTessere({
     },
     {
       label: "Appuntamenti prenotati",
+      icona: Calendar,
       primario: formatNumero(overlayGhl?.appuntamentiFissati.valore ?? totale.appuntamentiFissati),
       primarioValore: overlayGhl?.appuntamentiFissati.valore ?? totale.appuntamentiFissati,
       precedenteValore: overlayGhlPrecedente?.appuntamentiFissati.valore ?? totalePrecedente?.appuntamentiFissati ?? null,
@@ -82,6 +87,7 @@ export function SintesiTessere({
     },
     {
       label: "Appuntamenti effettuati",
+      icona: CalendarCheck,
       primario: formatNumero(overlayGhl?.appuntamentiEffettuati.valore ?? totale.appuntamentiEffettuati),
       primarioValore: overlayGhl?.appuntamentiEffettuati.valore ?? totale.appuntamentiEffettuati,
       precedenteValore: overlayGhlPrecedente?.appuntamentiEffettuati.valore ?? totalePrecedente?.appuntamentiEffettuati ?? null,
@@ -90,6 +96,7 @@ export function SintesiTessere({
     },
     {
       label: "Vendite",
+      icona: ShoppingBag,
       primario: formatNumero(overlayGhl?.numeroVendite.valore ?? totale.numeroVendite),
       primarioValore: overlayGhl?.numeroVendite.valore ?? totale.numeroVendite,
       precedenteValore: overlayGhlPrecedente?.numeroVendite.valore ?? totalePrecedente?.numeroVendite ?? null,
@@ -98,6 +105,7 @@ export function SintesiTessere({
     },
     {
       label: "Fatturato",
+      icona: TrendingUp,
       primario: formatEuro(overlayGhl?.fatturato.valore ?? totale.fatturato),
       primarioValore: overlayGhl?.fatturato.valore ?? totale.fatturato,
       precedenteValore: overlayGhlPrecedente?.fatturato.valore ?? totalePrecedente?.fatturato ?? null,
@@ -110,8 +118,12 @@ export function SintesiTessere({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {tessere.map((t) => {
         const variazione = calcolaVariazionePeriodo(t.primarioValore, t.precedenteValore);
+        const Icona = t.icona;
         return (
-          <div key={t.label} className="rounded-xl border border-ink-300 bg-surface-card shadow-sm p-4">
+          <div key={t.label} className="relative overflow-hidden rounded-xl border border-ink-300 bg-surface-card shadow-[var(--shadow-tile)] p-4">
+            {/* Icona-filigrana — "appena visibile": grande, bassissima opacità, mai in
+                competizione col numero (redesign "Vetro ALC", Fase C, 09/09/2026). */}
+            <Icona className="pointer-events-none absolute -right-3.5 -bottom-3.5 w-20 h-20 text-brand opacity-[0.09]" strokeWidth={1.6} />
             <div className="flex items-center gap-2 mb-2.5">
               <div className="w-1 h-4 rounded-full bg-brand shrink-0" />
               <p className="text-xs font-semibold uppercase tracking-wide text-ink-500 truncate">{t.label}</p>
