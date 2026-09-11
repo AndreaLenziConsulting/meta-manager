@@ -121,10 +121,15 @@ export function Sidebar({
 
   return (
     <>
-      {/* Rail desktop — sticky così resta ferma mentre <main> scorre */}
+      {/* Rail desktop — sticky così resta ferma mentre <main> scorre. Vetro (redesign "Vetro ALC",
+          09/09/2026): base opaca + backdrop-blur sempre attivo + sfondo traslucido SOLO se il
+          browser supporta backdrop-filter (stesso pattern già in uso in AppHeader.tsx) — chi non
+          lo supporta vede semplicemente la superficie piena di prima, mai un vetro "rotto". Solo
+          la rail desktop, non il drawer mobile sotto: lì resta opaco, più leggibile sopra
+          l'overlay scuro. */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-ink-300/60 bg-surface-card transition-[width] duration-200",
+          "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-ink-300/60 bg-surface-card backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome)] transition-[width] duration-200",
           collapsed ? "w-16" : "w-64"
         )}
       >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Filter } from "lucide-react";
 
 type Opzione = { id: string; label: string; gruppo?: string };
 
@@ -90,14 +91,14 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
+        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
       >
-        <FiltroIcon />
+        <Filter size={14} className="text-ink-500" />
         {tutteSelezionate ? `${etichettaTutti} (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} ${nomePlurale}`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
           {ricercabile && (
             <input
               autoFocus
@@ -144,13 +145,5 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
         </div>
       )}
     </div>
-  );
-}
-
-function FiltroIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-500">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
   );
 }

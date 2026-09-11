@@ -48,7 +48,7 @@ export function AccountMenu({ ruolo, nome }: { ruolo: Ruolo; nome: string | null
       <button
         type="button"
         onClick={() => setAperto((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-2.5 py-1.5 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-2.5 py-1.5 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
       >
         {nome ? (
           <span className="w-6 h-6 rounded-full bg-brand text-white text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
@@ -61,7 +61,7 @@ export function AccountMenu({ ruolo, nome }: { ruolo: Ruolo; nome: string | null
       </button>
 
       {aperto && (
-        <div className="absolute right-0 top-full mt-2 z-20 w-52 rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1.5">
+        <div className="absolute right-0 top-full mt-2 z-20 w-52 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg py-1.5">
           <div className="px-3 py-2 border-b border-ink-300/60">
             <p className="text-sm font-semibold text-ink-900 truncate">{nome ?? ETICHETTA_RUOLO[ruolo]}</p>
             {nome && <p className="text-xs text-ink-500">{ETICHETTA_RUOLO[ruolo]}</p>}

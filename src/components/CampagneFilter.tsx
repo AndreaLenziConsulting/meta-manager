@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Filter } from "lucide-react";
 import type { CampagnaDisponibile } from "@/types/kpi";
 import { formatStatoCampagna } from "@/lib/format";
 
@@ -64,14 +65,14 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
+        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
       >
-        <FiltroIcon />
+        <Filter size={14} className="text-ink-500" />
         {tutteSelezionate ? `Tutte le campagne (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} campagne`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
           <button
             type="button"
             onClick={toggleTutte}
@@ -117,13 +118,5 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
         </div>
       )}
     </div>
-  );
-}
-
-function FiltroIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-500">
-      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
-    </svg>
   );
 }

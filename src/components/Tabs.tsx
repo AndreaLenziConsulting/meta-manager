@@ -19,7 +19,9 @@ export function Tabs({
           type="button"
           onClick={() => onChange(t.id)}
           className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-            attivo === t.id ? "bg-surface-card text-ink-900 shadow-sm" : "text-ink-500 hover:text-ink-700"
+            attivo === t.id
+              ? "bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] text-ink-900 shadow-sm"
+              : "text-ink-500 hover:text-ink-700"
           }`}
         >
           {t.label}

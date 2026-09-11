@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Calendar } from "lucide-react";
 import { MESI_BREVI, formatMese } from "@/lib/format";
 
 type Props = {
@@ -137,14 +138,14 @@ export function MonthRangePicker({ da, a, onChange }: Props) {
       <button
         type="button"
         onClick={() => (open ? setOpen(false) : apri())}
-        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+        className="flex items-center gap-2 rounded-xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
       >
-        <CalendarIcon />
+        <Calendar size={14} className="text-ink-500" />
         {formatMese(da)} – {formatMese(a)}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-ink-300 bg-surface-card shadow-lg p-4 flex flex-col sm:flex-row gap-4">
+        <div className="absolute z-20 mt-2 w-[min(420px,calc(100vw-2rem))] rounded-2xl border border-ink-300 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4 flex flex-col sm:flex-row gap-4">
           <div className="sm:w-32 flex-shrink-0 sm:border-r border-b sm:border-b-0 border-ink-300/60 pb-3 sm:pb-0 sm:pr-3 space-y-0.5">
             {PRESET.map((p) => (
               <button
@@ -208,16 +209,5 @@ export function MonthRangePicker({ da, a, onChange }: Props) {
         </div>
       )}
     </div>
-  );
-}
-
-function CalendarIcon() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-ink-500">
-      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-      <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
-    </svg>
   );
 }

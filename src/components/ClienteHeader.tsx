@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ClipboardList, Folder, ExternalLink } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
+import { TopbarPortal } from "@/components/TopbarSlot";
 
 /**
  * Prima cosa visibile sulla scheda di un cliente: il nome (o il suo logo, se personalizzato — vedi
@@ -13,6 +14,14 @@ import { LogoONomeCliente } from "@/components/LogoONomeCliente";
  * (src/app/report/[code]/page.tsx) ha già il proprio header col nome/logo del cliente sopra
  * SchedaCliente — qui comparirebbe raddoppiato.
  *
+ * Redesign "Vetro ALC", topbar unificata (09/09/2026): torna-indietro + nome/logo cliente sono
+ * portati (via TopbarPortal, vedi TopbarSlot.tsx) dentro la barra sticky di DashboardShell.tsx,
+ * così restano visibili durante lo scroll — DashboardShell non conosce il concetto di "cliente",
+ * il portal è l'unico modo pulito per farceli comparire senza prop-drilling attraverso ogni rotta.
+ * Il resto (pillola "Settimana N", cluster link rapidi) resta nel flusso della pagina, non sale
+ * anch'esso: il mockup di riferimento non mostra queste pillole nella barra, che è già stretta.
+ *
+
  * "Torna indietro" usa router.back() (cronologia del browser), non più un link fisso: si arriva a
  * una scheda cliente sia dalla vista priorità sia da quella per consulente (entrambe dentro
  * /dashboard, vedi DashboardClienti.tsx), e "indietro" deve tornare a quella di partenza, non
@@ -115,31 +124,34 @@ export function ClienteHeader({
   }
 
   return (
-    <div className="flex items-center gap-3 flex-wrap">
-      <button
-        type="button"
-        onClick={tornaIndietro}
-        aria-label="Torna indietro"
-        title="Torna indietro"
-        className="flex items-center justify-center w-9 h-9 rounded-xl border border-ink-300 bg-surface-card text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0 cursor-pointer"
-      >
-        <ArrowLeft size={18} />
-      </button>
-      <h1>
-        <LogoONomeCliente
-          nome={clienteNome}
-          logoUrl={clienteLogoUrl}
-          className={clienteLogoUrl ? "h-9 w-auto object-contain" : "font-heading font-bold text-2xl text-ink-900"}
-        />
-      </h1>
+    <>
+      <TopbarPortal>
+        <button
+          type="button"
+          onClick={tornaIndietro}
+          aria-label="Torna indietro"
+          title="Torna indietro"
+          className="flex items-center justify-center w-9 h-9 rounded-xl border border-ink-300 bg-surface-card text-ink-500 hover:text-ink-900 hover:border-ink-400 transition shrink-0 cursor-pointer"
+        >
+          <ArrowLeft size={18} />
+        </button>
+        <h1 className="min-w-0 truncate">
+          <LogoONomeCliente
+            nome={clienteNome}
+            logoUrl={clienteLogoUrl}
+            className={clienteLogoUrl ? "h-8 w-auto object-contain" : "font-heading font-bold text-lg text-ink-900 truncate"}
+          />
+        </h1>
+      </TopbarPortal>
 
-      {Boolean(settimanaProgetto) && (
-        <span className="text-xs font-semibold text-ink-500 bg-surface-card border border-ink-300 rounded-full px-3 py-1">
-          Settimana {settimanaProgetto}
-        </span>
-      )}
+      <div className="flex items-center gap-3 flex-wrap">
+        {Boolean(settimanaProgetto) && (
+          <span className="text-xs font-semibold text-ink-500 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-ink-300 rounded-full px-3 py-1">
+            Settimana {settimanaProgetto}
+          </span>
+        )}
 
-      <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 ml-auto">
         <LinkRapido
           label="Drive"
           icona={Folder}
@@ -180,13 +192,14 @@ export function ClienteHeader({
             <ClipboardList size={14} /> Appuntamenti — errore
           </span>
         )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
 const classePillo =
-  "flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer";
+  "flex items-center gap-1.5 text-xs font-semibold text-ink-700 bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] border border-ink-300 rounded-full px-3 py-1.5 hover:border-brand hover:text-brand transition cursor-pointer";
 
 /**
  * Un link rapido dell'header (Drive/Landing page): pillola che apre il link se impostato, altrimenti
