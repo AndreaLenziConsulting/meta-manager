@@ -19,6 +19,7 @@ import type {
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 import type { Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
 import type { GhlConnessione } from "@/types/ghl";
+import type { ConnessioneCanale } from "@/types/connessioniCanale";
 
 const TAB = {
   clienti: "Clienti",
@@ -40,6 +41,11 @@ const TAB = {
   reportCommerciale: "ReportCommerciale",
   ghlConnessioni: "GhlConnessioni",
   fasiCompletate: "FasiCompletate",
+  // Fase 2 del redesign multi-canale — vedi types/connessioniCanale.ts. Tab NUOVA: deve esistere
+  // fisicamente sul foglio Google (colonne A→H: connessioneId, sedeId, canale, accountId,
+  // tipoConversioneLead, attivo, note, creataIl) prima che getConnessioniCanale/migraConnessioniMeta
+  // funzionino — stesso prerequisito già valso per Sedi.
+  connessioniCanale: "ConnessioniCanale",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -707,6 +713,131 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
  * /api/ghl-connessioni/elimina. */
 export async function eliminaGhlConnessione(connessioneId: string): Promise<void> {
   await eliminaRigaPerId(TAB.ghlConnessioni, connessioneId);
+}
+
+// Tab ConnessioniCanale, colonne A→H: connessioneId, sedeId, canale, accountId,
+// tipoConversioneLead, attivo, note, creataIl — vedi ConnessioneCanale in types/connessioniCanale.ts.
+// noCache: true come GhlConnessioni/Prospect/ReportCommerciale/Commerciali — un flusso
+// crea-poi-rileggi-subito (l'admin collega un canale e la lista si aggiorna subito) è normale qui.
+export async function getConnessioniCanale(): Promise<ConnessioneCanale[]> {
+  const rows = await readTab(TAB.connessioniCanale, { noCache: true });
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      connessioneId: asText(r[0]),
+      sedeId: asText(r[1]),
+      canale: asCanale(r[2]),
+      accountId: asText(r[3]),
+      tipoConversioneLead: asText(r[4]),
+      attivo: asText(r[5]).trim().toUpperCase() === "TRUE",
+      note: asText(r[6]),
+      creataIl: asText(r[7]),
+    }));
+}
+
+export type NuovaConnessioneCanaleInput = {
+  connessioneId: string;
+  sedeId: string;
+  canale: Canale;
+  accountId: string;
+  tipoConversioneLead?: string;
+  note?: string;
+};
+
+/** Crea una nuova connessione canale (sempre attiva). Rifiuta esplicitamente un connessioneId già in uso. */
+export async function creaConnessioneCanale(input: NuovaConnessioneCanaleInput): Promise<void> {
+  const esistenti = await getConnessioniCanale();
+  if (esistenti.some((c) => c.connessioneId === input.connessioneId)) {
+    throw new Error(`Esiste già una connessione con id "${input.connessioneId}"`);
+  }
+  await appendRows(TAB.connessioniCanale, [
+    [
+      input.connessioneId,
+      input.sedeId,
+      input.canale,
+      input.accountId,
+      input.tipoConversioneLead ?? "",
+      "TRUE",
+      input.note ?? "",
+      new Date().toISOString(),
+    ],
+  ]);
+}
+
+export type AggiornaConnessioneCanaleInput = {
+  connessioneId: string;
+  accountId?: string;
+  tipoConversioneLead?: string;
+  attivo?: boolean;
+  note?: string;
+};
+
+/** Aggiorna solo i campi esplicitamente presenti in `input` di una connessione canale esistente. */
+export async function aggiornaConnessioneCanale(input: AggiornaConnessioneCanaleInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.connessioniCanale}!A2:H`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRiga(righe, input.connessioneId);
+  if (rowNumber === null) {
+    throw new Error(`Connessione non trovata: ${input.connessioneId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.connessioniCanale}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.accountId !== undefined) set("D", input.accountId);
+  if (input.tipoConversioneLead !== undefined) set("E", input.tipoConversioneLead);
+  if (input.attivo !== undefined) set("F", input.attivo ? "TRUE" : "FALSE");
+  if (input.note !== undefined) set("G", input.note);
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.connessioniCanale);
+}
+
+/** Elimina definitivamente una connessione canale (cancella la riga, non un soft-delete — stesso
+ * principio di eliminaGhlConnessione: il campo `attivo` sopra resta la via normale). */
+export async function eliminaConnessioneCanale(connessioneId: string): Promise<void> {
+  await eliminaRigaPerId(TAB.connessioniCanale, connessioneId);
+}
+
+export type RisultatoMigrazioneConnessioniCanale = {
+  connessioniCreate: string[]; // sedeId per cui è stata creata la connessione "meta"
+};
+
+/**
+ * Migrazione una tantum (idempotente, sicura da rilanciare): per ogni Sede con adAccountId non
+ * vuoto, crea la connessione canale:"meta" equivalente in ConnessioniCanale — se non esiste già.
+ * PURAMENTE PREPARATORIA: non tocca Sede.adAccountId/tipoConversioneLead né il percorso di lettura
+ * di syncSede (src/lib/sync.ts), che continua a leggere Sede.adAccountId esattamente come prima —
+ * il cutover verso questa tabella è un passo deliberatamente separato (vedi il piano).
+ */
+export async function migraConnessioniMeta(): Promise<RisultatoMigrazioneConnessioniCanale> {
+  const [sedi, connessioni] = await Promise.all([getSedi(), getConnessioniCanale()]);
+  const esistenti = new Set(connessioni.map((c) => c.connessioneId));
+  const oraIso = new Date().toISOString();
+
+  const daCreare = sedi.filter((s) => s.adAccountId && !esistenti.has(`${s.sedeId}--meta`));
+  const righe = daCreare.map((sede) => [
+    `${sede.sedeId}--meta`,
+    sede.sedeId,
+    "meta",
+    sede.adAccountId,
+    sede.tipoConversioneLead,
+    "TRUE",
+    "",
+    oraIso,
+  ]);
+  await appendRows(TAB.connessioniCanale, righe);
+  return { connessioniCreate: daCreare.map((s) => s.sedeId) };
 }
 
 export type RisultatoMigrazioneSedi = {
