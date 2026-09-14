@@ -27,6 +27,15 @@ type Body = {
   adAccountId?: string;
   targetCpa?: number | null;
   targetCpl?: number | null;
+  // Target commerciali della Sede (budget/fatturato mensile, lead/appuntamenti a settimana) —
+  // proposti (precompilati, modificabili) da ConvertiProspectModal.tsx a partire dal Calcolatore
+  // Budget dell'ultimo report del prospect, se disponibile. A differenza di targetCpa/targetCpl
+  // sopra questi NON sono target ads (costo), sono gli stessi identici campi "target commerciali
+  // concordati col cliente" già confrontati col reale nel tab KPI — vedi Sede in types/kpi.ts.
+  targetBudgetMensile?: number | null;
+  targetFatturatoMensile?: number | null;
+  targetLeadSettimana?: number | null;
+  targetAppuntamentiSettimana?: number | null;
   driveFolderUrl?: string;
   landingPageUrl?: string;
 };
@@ -47,6 +56,16 @@ type Body = {
  * numero concordato in fase commerciale. Restano visibili come riferimento nel pannello "Dati
  * commerciali" del prospect (ProspectDatiCommerciali.tsx): l'admin li guarda e decide i target ads
  * reali da sé, non li riceve già (silenziosamente) applicati.
+ *
+ * `targetBudgetMensile`/`targetFatturatoMensile`/`targetLeadSettimana`/`targetAppuntamentiSettimana`
+ * invece SONO proposti (precompilati, sempre modificabili) da ConvertiProspectModal.tsx a partire
+ * dal Calcolatore Budget dell'ultimo report — sono la stessa "anagrafica" che il consulente
+ * ritroverà nel tab KPI (Sede.targetBudgetMensile ecc., vedi types/kpi.ts), non un target ads da
+ * verificare: qui il caso d'uso è esattamente "far arrivare il dato al consulente post-vendita
+ * senza doverlo ridigitare". Il Calcolatore Budget completo (ticket medio, margine, CPL, tassi,
+ * piano annuale) resta comunque consultabile per intero dal consulente nel tab "Vendita" della
+ * scheda cliente — vedi GET /api/clienti/report-vendita — anche se qui viene copiato solo un
+ * sottoinsieme di 4 numeri.
  */
 export async function POST(req: NextRequest) {
   const sessione = await getSessione();
@@ -136,6 +155,10 @@ export async function POST(req: NextRequest) {
       adAccountId: adAccountId ?? "",
       targetCpa: body.targetCpa ?? null,
       targetCpl: body.targetCpl ?? null,
+      targetBudgetMensile: body.targetBudgetMensile ?? null,
+      targetFatturatoMensile: body.targetFatturatoMensile ?? null,
+      targetLeadSettimana: body.targetLeadSettimana ?? null,
+      targetAppuntamentiSettimana: body.targetAppuntamentiSettimana ?? null,
     });
   } catch (err) {
     return NextResponse.json(

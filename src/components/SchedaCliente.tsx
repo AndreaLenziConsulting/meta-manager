@@ -6,6 +6,7 @@ import { Accordion, type AccordionItemDef } from "@/components/Accordion";
 import { KpiSection } from "@/components/KpiSection";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
+import { ReportVenditaTab } from "@/components/ReportVenditaTab";
 
 type Props = {
   code?: string;
@@ -81,6 +82,14 @@ export function SchedaCliente({
             content: clienteId ? (
               <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} consulenti={consulenti} nomeConsulenteCorrente={nomeConsulenteCorrente} />
             ) : null,
+          },
+          {
+            id: "vendita",
+            label: "Vendita",
+            // Sola lettura, mai sul link pubblico — stesso gate `!code` di Attività sopra. Il
+            // Calcolatore Budget compilato dal commerciale prima della vendita, altrimenti
+            // irraggiungibile per il consulente: vedi ReportVenditaTab.tsx.
+            content: clienteId ? <ReportVenditaTab clienteId={clienteId} /> : null,
           },
         ]
       : []),

@@ -53,8 +53,10 @@ export type CalcolatoreBudgetOutput = {
 
 // Settimane medie in un mese (365.25/7/12) — stesso valore già in uso per le medie settimanali del
 // tab KPI (vedi kpiSettimanale.ts), riusato qui per "appuntamenti attesi a settimana" a partire da
-// un dato mensile.
-const SETTIMANE_PER_MESE = 4.33;
+// un dato mensile. Esportata: ConvertiProspectModal.tsx la riusa per derivare "lead a settimana"
+// (che calcolaCalcolatoreBudget non calcola direttamente, solo numeroLead mensile) quando
+// precompila i target della Sede alla conversione — vedi POST /api/prospect/converti.
+export const SETTIMANE_PER_MESE = 4.33;
 
 /**
  * Calcolatore Budget del Report Commerciale — proiezione "al contrario" rispetto a
