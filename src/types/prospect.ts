@@ -77,6 +77,25 @@ export type ScenarioRoi = {
   valoreMedioVendita: number | null;
 };
 
+/**
+ * Input del Calcolatore Budget nel Report Commerciale — sostituisce (11/2026) i 2 scenari
+ * ScenarioRoi affiancati con un unico calcolo "al contrario": parte da un fatturato mensile
+ * obiettivo (non da un budget) e deriva quante vendite/appuntamenti/lead servono e quale budget
+ * media serve per raggiungerlo — vedi calcolaCalcolatoreBudget/calcolaPianoAnnualeBudget in
+ * src/lib/roiSimulatore.ts. ScenarioRoi sopra resta invariato: lo usa ancora
+ * PerformancePrevisionale.tsx (proiezione in avanti da un budget dato, nel tab KPI di un cliente
+ * già attivo — tutt'altra funzionalità, non toccata da questa sostituzione).
+ */
+export type CalcolatoreBudgetInput = {
+  fatturatoMensile: number | null; // € di fatturato mensile obiettivo
+  ticketMedio: number | null; // € valore medio di una vendita
+  margine: number | null; // % di utile medio sul fatturato, 0-100
+  cpl: number | null; // € costo per lead atteso
+  tassoAppuntamento: number | null; // % lead -> appuntamento fissato, 0-100
+  tassoChiusura: number | null; // % appuntamento -> vendita, 0-100
+  variazioneStagionale: number | null; // % ampiezza della curva stagionale, 0 = costante, 50 = curva piena
+};
+
 export type ReportCommercialeDataLoose = {
   titolo?: string;
   data?: string; // "DD/MM/YYYY", stessa convenzione di MeetingDataLoose.date
@@ -99,9 +118,8 @@ export type ReportCommercialeDataLoose = {
   livelloProdotto?: string;
   prossimiPassi?: string;
 
-  // Mai estratta dal modello — sempre compilata a mano nell'editor, vedi src/lib/roiSimulatore.ts.
-  scenarioA?: ScenarioRoi;
-  scenarioB?: ScenarioRoi;
+  // Mai estratto dal modello — sempre compilato a mano nell'editor, vedi src/lib/roiSimulatore.ts.
+  calcolatoreBudget?: CalcolatoreBudgetInput;
 };
 
 /** Riga così com'è persistita/letta dalla tab ReportCommerciale. */

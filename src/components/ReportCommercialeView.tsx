@@ -108,12 +108,11 @@ export function ReportCommercialeView({
         </section>
 
         <section>
-          <SectionTitle>Simulazione ROI</SectionTitle>
-          <p className="text-xs text-ink-500 mt-0.5">Mai estratta dalla chiamata — proiezione da compilare, sempre modificabile.</p>
+          <SectionTitle>Calcolatore Budget</SectionTitle>
+          <p className="text-xs text-ink-500 mt-0.5">Mai estratto dalla chiamata — proiezione da compilare, sempre modificabile.</p>
           <SimulatoreRoi
-            scenarioA={report.scenarioA ?? null}
-            scenarioB={report.scenarioB ?? null}
-            onChange={(a, b) => set({ scenarioA: a, scenarioB: b })}
+            value={report.calcolatoreBudget ?? null}
+            onChange={(v) => set({ calcolatoreBudget: v })}
             editable={editable}
           />
         </section>

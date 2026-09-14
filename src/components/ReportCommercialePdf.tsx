@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage, Svg, Path, Rect, Circle, Line, Polygon } from "@react-pdf/renderer";
 import React from "react";
-import { calcolaScenarioRoi } from "@/lib/roiSimulatore";
+import { calcolaCalcolatoreBudget } from "@/lib/roiSimulatore";
 import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
 import { FONT_BODY, FONT_HEADING, FONT_LABEL, registraFontPdf } from "@/lib/pdfFonts";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
@@ -99,17 +99,17 @@ const styles = StyleSheet.create({
   compareBody: { paddingVertical: 8, paddingHorizontal: 9 },
   compareBodyText: { fontSize: 8.5, color: INK_700, lineHeight: 1.5 },
 
-  // Tabella Simulazione ROI — header pieno brand (testo bianco) + righe zebrate, invece del
-  // semplice header tinta chiara di prima: stesso registro visivo della "Simulazione Economica"
-  // degli esempi allegati.
+  // Tabella Calcolatore Budget — header pieno brand (testo bianco) + righe zebrate, singola colonna
+  // valore (uno scenario solo, non più 2 scenari affiancati): stesso registro visivo della
+  // "Simulazione Economica" degli esempi allegati.
   roiTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
   roiHeaderRow: { flexDirection: "row", backgroundColor: BRAND_COLOR, wrap: false },
   roiRow: { flexDirection: "row", wrap: false },
-  roiCellLabel: { flex: 1.3, fontSize: 8, color: INK_700, padding: 6 },
-  roiCellHeaderLabel: { flex: 1.3, fontSize: 7, padding: 6 },
+  roiCellLabel: { flex: 2, fontSize: 8, color: INK_700, padding: 6 },
+  roiCellHeaderLabel: { flex: 2, fontSize: 7, padding: 6 },
   roiCellHeader: { flex: 1, fontSize: 8, fontFamily: FONT_BODY, fontWeight: 700, color: "#ffffff", padding: 6, textAlign: "right" },
   roiCellValue: { flex: 1, fontSize: 8.5, color: INK_900, padding: 6, textAlign: "right" },
-  roiCellValueStrong: { flex: 1, fontSize: 8.5, fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT, padding: 6, textAlign: "right" },
+  roiCellValueStrong: { flex: 1, fontSize: 9, fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT, padding: 6, textAlign: "right" },
 
   footer: { position: "absolute", bottom: 18, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: INK_300, paddingTop: 8 },
   footerLeft: { fontSize: 7, color: INK_400 },
@@ -255,26 +255,27 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
   ];
   const haDefRows = defRows.some(([, , v]) => v.trim());
 
-  const nomeA = report.scenarioA?.nome || "Scenario A";
-  const nomeB = report.scenarioB?.nome || "Scenario B";
-  const outA = report.scenarioA ? calcolaScenarioRoi(report.scenarioA) : null;
-  const outB = report.scenarioB ? calcolaScenarioRoi(report.scenarioB) : null;
-  const haRoi = !!(report.scenarioA || report.scenarioB);
+  const calcolatore = report.calcolatoreBudget ?? null;
+  const outputBudget = calcolatore ? calcolaCalcolatoreBudget(calcolatore) : null;
+  const haRoi = !!calcolatore;
   // I tassi sono salvati come 0-100 (percentuale "umana"), formatPercentuale si aspetta 0-1.
   const formatTasso = (v: number | null | undefined) => formatPercentuale(v == null ? null : v / 100);
-  const roiRighe: Array<[string, string, string]> = [
-    ["Budget mensile", formatEuro(report.scenarioA?.budgetMensile ?? null), formatEuro(report.scenarioB?.budgetMensile ?? null)],
-    ["Costo per lead (CPL)", formatEuro(report.scenarioA?.cpl ?? null), formatEuro(report.scenarioB?.cpl ?? null)],
-    ["Lead generati / mese", formatNumero(outA?.numeroLead ?? null), formatNumero(outB?.numeroLead ?? null)],
-    ["Tasso lead / appuntamento", formatTasso(report.scenarioA?.tassoAppuntamento), formatTasso(report.scenarioB?.tassoAppuntamento)],
-    ["Appuntamenti fissati", formatNumero(outA?.numeroAppuntamenti ?? null), formatNumero(outB?.numeroAppuntamenti ?? null)],
-    ["Tasso di chiusura", formatTasso(report.scenarioA?.tassoChiusura), formatTasso(report.scenarioB?.tassoChiusura)],
-    ["Vendite generate", formatNumero(outA?.numeroVendite ?? null), formatNumero(outB?.numeroVendite ?? null)],
-    ["Costo per acquisizione (CPA)", formatEuro(outA?.cpa ?? null), formatEuro(outB?.cpa ?? null)],
+  const roiRighe: Array<[string, string]> = [
+    ["Fatturato mensile obiettivo", formatEuro(calcolatore?.fatturatoMensile ?? null)],
+    ["Ticket medio", formatEuro(calcolatore?.ticketMedio ?? null)],
+    ["Margine atteso", formatTasso(calcolatore?.margine)],
+    ["Costo per lead (CPL)", formatEuro(calcolatore?.cpl ?? null)],
+    ["Tasso lead / appuntamento", formatTasso(calcolatore?.tassoAppuntamento)],
+    ["Tasso di chiusura", formatTasso(calcolatore?.tassoChiusura)],
+    ["Vendite necessarie / mese", formatNumero(outputBudget?.numeroVendite ?? null)],
+    ["Appuntamenti necessari / mese", formatNumero(outputBudget?.numeroAppuntamenti ?? null)],
+    ["Lead necessari / mese", formatNumero(outputBudget?.numeroLead ?? null)],
+    ["Costo per appuntamento", formatEuro(outputBudget?.costoPerAppuntamento ?? null)],
   ];
-  const roiRigheFinali: Array<[string, string, string]> = [
-    ["Fatturato atteso", formatEuro(outA?.fatturatoAtteso ?? null), formatEuro(outB?.fatturatoAtteso ?? null)],
-    ["ROAS", formatRoas(outA?.roas ?? null), formatRoas(outB?.roas ?? null)],
+  const roiRigheFinali: Array<[string, string]> = [
+    ["Budget media necessario / mese", formatEuro(outputBudget?.budgetMensile ?? null)],
+    ["Margine mensile atteso", formatEuro(outputBudget?.margineMensile ?? null)],
+    ["ROAS", formatRoas(outputBudget?.roas ?? null)],
   ];
 
   const prossimiPassiLines = splitLines(report.prossimiPassi ?? "");
@@ -366,33 +367,30 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeading, { number: 8, title: "Simulazione ROI" }),
+              h(SectionHeading, { number: 8, title: "Calcolatore Budget" }),
               h(
                 View,
                 { style: styles.roiTable },
                 h(
                   View,
                   { style: styles.roiHeaderRow },
-                  h(View, { style: { flex: 1.3, flexDirection: "row", alignItems: "center", padding: 6 } }, h(Icon, { name: "bars", color: "#ffffff", size: 9 })),
-                  h(Text, { style: styles.roiCellHeader }, nomeA),
-                  h(Text, { style: styles.roiCellHeader }, nomeB)
+                  h(View, { style: { flex: 2, flexDirection: "row", alignItems: "center", padding: 6 } }, h(Icon, { name: "bars", color: "#ffffff", size: 9 })),
+                  h(Text, { style: styles.roiCellHeader }, "Valore")
                 ),
-                ...roiRighe.map(([label, va, vb], i) =>
+                ...roiRighe.map(([label, valore], i) =>
                   h(
                     View,
                     { key: label, style: [styles.roiRow, { backgroundColor: i % 2 === 1 ? INK_100 : "#ffffff" }] },
                     h(Text, { style: styles.roiCellLabel }, label),
-                    h(Text, { style: styles.roiCellValue }, va),
-                    h(Text, { style: styles.roiCellValue }, vb)
+                    h(Text, { style: styles.roiCellValue }, valore)
                   )
                 ),
-                ...roiRigheFinali.map(([label, va, vb]) =>
+                ...roiRigheFinali.map(([label, valore]) =>
                   h(
                     View,
                     { key: label, style: [styles.roiRow, { backgroundColor: BRAND_SOFT, borderTopWidth: 1, borderTopColor: BRAND_MED }] },
                     h(Text, { style: [styles.roiCellLabel, { fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT }] }, label),
-                    h(Text, { style: styles.roiCellValueStrong }, va),
-                    h(Text, { style: styles.roiCellValueStrong }, vb)
+                    h(Text, { style: styles.roiCellValueStrong }, valore)
                   )
                 )
               )
