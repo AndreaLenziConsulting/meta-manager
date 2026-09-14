@@ -40,6 +40,9 @@ function formatUnaDecimale(value: number | null): string {
  * aggiorna live sia il riepilogo mensile sia il piano annuale stagionato, nessuna chiamata di rete.
  * Adattamento al design ALC esistente (Field/Input, colori ink-* e brand) di un mockup del collega
  * che usava stili inline, slider e font propri — la logica di calcolo/stagionalità è la sua.
+ * Fatturato mensile e annuo sono la stessa identica leva (annuo = mensile × 12): due campi che si
+ * aggiornano a vicenda, non due valori salvati separatamente — CalcolatoreBudgetInput ha un solo
+ * fatturatoMensile, vedi src/types/prospect.ts.
  */
 export function SimulatoreRoi({
   value,
@@ -51,7 +54,11 @@ export function SimulatoreRoi({
   editable: boolean;
 }) {
   const [vista, setVista] = useState<"mensile" | "annuale">("mensile");
-  const v = value ?? inputVuoto();
+  // Il check di "nascondi se vuoto" sotto deve restare sul dato grezzo (inputVuoto() puro): il
+  // valore di partenza 10.000€ del ticket medio è solo un suggerimento per chi sta compilando da
+  // zero (editable), non deve far comparire la sezione su un vecchio report mai toccato (sola
+  // lettura, value === null) come se avesse davvero un ticket medio salvato.
+  const v = value ?? (editable ? { ...inputVuoto(), ticketMedio: 10000 } : inputVuoto());
 
   if (!editable && !haValori(v)) return null;
 
@@ -67,8 +74,18 @@ export function SimulatoreRoi({
             <Field label="Fatturato mensile obiettivo (€)">
               <Input type="number" value={v.fatturatoMensile ?? ""} onChange={(e) => set({ fatturatoMensile: numOrNull(e.target.value) })} />
             </Field>
+            <Field label="Fatturato annuo obiettivo (€)" hint="Leva equivalente al mensile: modificane uno o l'altro">
+              <Input
+                type="number"
+                value={v.fatturatoMensile !== null ? v.fatturatoMensile * 12 : ""}
+                onChange={(e) => {
+                  const annuo = numOrNull(e.target.value);
+                  set({ fatturatoMensile: annuo !== null ? Math.round(annuo / 12) : null });
+                }}
+              />
+            </Field>
             <Field label="Ticket medio (€)">
-              <Input type="number" value={v.ticketMedio ?? ""} onChange={(e) => set({ ticketMedio: numOrNull(e.target.value) })} />
+              <Input type="number" min={2000} max={100000} value={v.ticketMedio ?? ""} onChange={(e) => set({ ticketMedio: numOrNull(e.target.value) })} />
             </Field>
             <Field label="Margine (%)">
               <Input type="number" value={v.margine ?? ""} onChange={(e) => set({ margine: numOrNull(e.target.value) })} />
