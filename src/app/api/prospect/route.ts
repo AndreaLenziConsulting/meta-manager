@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaProspect, creaProspect, getCommerciali, getConsulenti, getProspect } from "@/lib/sheets";
-import { generaProspectId } from "@/lib/accessCode";
+import { aggiornaProspect, getCommerciali, getConsulenti, getProspect } from "@/lib/sheets";
 import { puoVedereProspect } from "@/lib/authz";
-import { assicuraCartelleProspect } from "@/lib/drive";
+import { condividiCartellaConConsulente, prospectDaCondividere } from "@/lib/driveAccesso";
+import { creaProspectConCartellaDrive } from "@/lib/prospectCreazione";
 import type { CalcolatoreBudgetInput } from "@/types/prospect";
 
 export const runtime = "nodejs";
@@ -40,6 +40,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ragione sociale obbligatoria" }, { status: 400 });
   }
 
+  const commerciali = await getCommerciali();
+
   let commercialeId: string;
   if (sessione.ruolo === "commerciale") {
     if (!sessione.commercialeId) {
@@ -51,41 +53,27 @@ export async function POST(req: NextRequest) {
     if (!richiesto) {
       return NextResponse.json({ error: "Commerciale di riferimento obbligatorio" }, { status: 400 });
     }
-    const commerciali = await getCommerciali();
     if (!commerciali.some((c) => c.commercialeId === richiesto && c.attivo)) {
       return NextResponse.json({ error: "Commerciale non valido" }, { status: 400 });
     }
     commercialeId = richiesto;
   }
 
-  const esistenti = await getProspect();
-  const prospectId = generaProspectId(ragioneSociale, new Set(esistenti.map((p) => p.prospectId)));
-
+  let prospectId: string;
   try {
-    await creaProspect({
-      prospectId,
-      ragioneSociale,
-      tipoBusiness: body.tipoBusiness?.trim(),
-      fatturato: body.fatturato?.trim(),
-      sedi: body.sedi?.trim(),
-      email: body.email?.trim(),
-      commercialeId,
-      creatoIl: new Date().toISOString(),
-    });
+    prospectId = await creaProspectConCartellaDrive(
+      {
+        ragioneSociale,
+        tipoBusiness: body.tipoBusiness?.trim(),
+        fatturato: body.fatturato?.trim(),
+        sedi: body.sedi?.trim(),
+        email: body.email?.trim(),
+        commercialeId,
+      },
+      commerciali
+    );
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 502 });
-  }
-
-  // Cartella Drive del prospect (hand-off commerciale) — mai bloccante: un prospect creato con
-  // successo resta creato anche se Drive non è raggiungibile o lo shared drive non è configurato;
-  // driveFolderUrl resta vuota e la cartella si può ancora impostare/ricreare a mano dopo (vedi
-  // ProspectDatiCommerciali.tsx) o verrà ritentata al primo report caricato (assicuraCartelleProspect
-  // è idempotente, vedi drive.ts).
-  try {
-    const cartelle = await assicuraCartelleProspect(ragioneSociale);
-    await aggiornaProspect({ prospectId, driveFolderUrl: cartelle.principaleUrl });
-  } catch (err) {
-    console.error("Creazione cartella Drive del prospect fallita (non bloccante):", err);
   }
 
   return NextResponse.json({ prospectId }, { status: 201 });
@@ -177,10 +165,12 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  const driveFolderUrlNuovo = body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined;
+
   try {
     await aggiornaProspect({
       prospectId,
-      driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
+      driveFolderUrl: driveFolderUrlNuovo,
       mediaBudgetMensile: body.mediaBudgetMensile,
       targetCpl: body.targetCpl,
       targetCpaAppuntamento: body.targetCpaAppuntamento,
@@ -191,6 +181,22 @@ export async function PATCH(req: NextRequest) {
       consulenteSuggeritoId,
       calcolatoreBudget: body.calcolatoreBudget,
     });
+
+    // Cartella Drive impostata/corretta a mano (vedi ProspectDatiCommerciali.tsx) — stessa
+    // condivisione col commerciale assegnato applicata alla creazione (POST sopra), altrimenti un
+    // prospect il cui link viene sistemato a mano dopo resterebbe senza.
+    if (driveFolderUrlNuovo) {
+      const prospect = tutti.find((p) => p.prospectId === prospectId);
+      if (prospect) {
+        const commerciali = await getCommerciali();
+        const emailPerCommerciale = new Map(commerciali.map((c) => [c.commercialeId, c.email]));
+        const decisione = prospectDaCondividere({ driveFolderUrl: driveFolderUrlNuovo, commercialeId: prospect.commercialeId }, emailPerCommerciale);
+        if (decisione) {
+          await condividiCartellaConConsulente(driveFolderUrlNuovo, decisione.emailCommerciale).catch(() => {});
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nel salvataggio" }, { status: 502 });

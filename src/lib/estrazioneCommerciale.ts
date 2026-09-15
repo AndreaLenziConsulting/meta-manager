@@ -15,10 +15,13 @@ import type { ReportCommercialeDataLoose } from "@/types/prospect";
  * Estrazione dati Report Commerciale: stessa meccanica di scraping+estrazione AI di
  * estrazione.ts (Playwright/Chromium per la pagina di condivisione Fathom/Circleback/Loom, poi
  * Groq con tool calling forzato) — riusata as-is (`renderPage`/`detectSource`/`isAuthWall`/
- * `isPaginaConErroreCaricamento`/`toStrArray`), solo prompt e schema del tool cambiano: qui non
- * si estrae un recap di meeting di delivery, ma le 9 sezioni di un report di vendita (dati del
- * prospect, criticità/pain/obiettivi, soluzione proposta, prossimi passi). La Simulazione ROI
- * NON è tra i campi estratti: è sempre una proiezione compilata a mano dal commerciale, vedi
+ * `isPaginaConErroreCaricamento`/`toStrArray`), solo prompt e schema del tool cambiano: qui non si
+ * estrae un recap di meeting di delivery, ma il racconto di una chiamata di vendita — dati del
+ * prospect, quadro emerso (criticità + tentativi già fatti + pain, fusi in un'unica sezione
+ * narrativa), obiettivi aziendali, strategia proposta, soluzione, prossimi passi (11/2026:
+ * struttura rivista, sostituisce le vecchie sezioni separate Criticità/Tentate Soluzioni/PAIN/
+ * Comunicazione Corretta secondo AL — vedi types/prospect.ts). Il Calcolatore Budget NON è tra i
+ * campi estratti: è sempre una proiezione compilata a mano dal commerciale sul prospect, vedi
  * src/lib/roiSimulatore.ts.
  */
 
@@ -36,9 +39,8 @@ const EXTRACTION_TOOL_COMMERCIALE = {
     parameters: {
       type: "object" as const,
       required: [
-        "title", "date", "participants", "ragioneSociale", "tipoBusiness", "fatturato", "sedi",
-        "criticita", "tentateSoluzioni", "pain", "obiettivi", "soluzioneProposta",
-        "livelloProblema", "livelloProdotto", "prossimiPassi",
+        "title", "date", "participants", "ragioneSociale", "nomeContatto", "tipoBusiness", "fatturato", "sedi",
+        "quadroEmerso", "obiettivi", "strategiaProposta", "soluzioneProposta", "prossimiPassi",
       ],
       properties: {
         title: { type: "string", description: "Titolo della chiamata così come mostrato sulla piattaforma" },
@@ -48,41 +50,32 @@ const EXTRACTION_TOOL_COMMERCIALE = {
         // vale identico qui). toStrArray/toStr a valle gestiscono già entrambe le forme.
         participants: { type: ["array", "string"], items: { type: "string" }, description: "Nomi dei partecipanti alla chiamata (commerciale ALC + persone del prospect)" },
         ragioneSociale: { type: "string", description: "Nome/ragione sociale dell'azienda prospect (MAI Andrea Lenzi Consulting)" },
+        nomeContatto: { type: "string", description: "Nome e cognome della persona di contatto/referente del prospect (chi parla per l'azienda), se identificabile. Stringa vuota se non chiaro." },
         tipoBusiness: { type: "string", description: "Che tipo di business fa il prospect, in breve (es. 'agenzia immobiliare', 'ristorazione', 'e-commerce moda')" },
         fatturato: { type: "string", description: "Fatturato dichiarato o stimato dal prospect, come menzionato in chiamata (es. '~500k€/anno', 'non specificato'). Stringa vuota se mai discusso." },
         sedi: { type: "string", description: "Quante sedi/punti vendita ha il prospect e dove, se menzionato. Stringa vuota se non discusso." },
-        criticita: {
+        quadroEmerso: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Le criticità del prospect emerse in chiamata — cosa non funziona oggi nel suo marketing/vendite. Una voce argomentata per riga (1-3 frasi, spiega il perché), linguaggio semplice — vedi istruzioni sopra.",
-        },
-        tentateSoluzioni: {
-          type: ["array", "string"],
-          items: { type: "string" },
-          description: "Cosa il prospect ha già provato per risolvere le sue criticità (altre agenzie, tool, tentativi interni) e perché non ha funzionato, se detto. Argomentato in 1-3 frasi, linguaggio semplice.",
-        },
-        pain: {
-          type: ["array", "string"],
-          items: { type: "string" },
-          description: "Il PAIN reale del prospect — l'impatto concreto/emotivo delle criticità (es. 'perde clienti a favore della concorrenza', 'non riesce a scalare oltre un certo fatturato'), non solo la criticità tecnica in sé. Argomentato in 1-3 frasi, linguaggio semplice.",
+          description:
+            "Il quadro della situazione emerso in chiamata: cosa non funziona oggi nel marketing/nelle vendite del prospect, cosa ha già provato per risolverlo e perché non ha funzionato, e l'impatto reale/emotivo che questo ha su di lui (il PAIN — non solo il problema tecnico, ma cosa comporta davvero: clienti persi, stress, fatturato bloccato). Un racconto unico, non 3 liste separate: ogni voce è un piccolo paragrafo argomentato (1-3 frasi) scritto nel linguaggio/vissuto del prospect (le sue parole, cosa lo preoccupa davvero), non in gergo tecnico. Una voce per riga.",
         },
         obiettivi: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Cosa vuole ottenere il prospect (es. 'raddoppiare i lead in 6 mesi', 'aprire una seconda sede'). Con numeri/orizzonti temporali se menzionati, argomentato in 1-3 frasi.",
+          description: "Gli obiettivi aziendali del prospect — cosa vuole ottenere (es. 'raddoppiare i lead in 6 mesi', 'aprire una seconda sede'). Con numeri/orizzonti temporali se menzionati, argomentato in 1-3 frasi per voce.",
+        },
+        strategiaProposta: {
+          type: ["array", "string"],
+          items: { type: "string" },
+          description:
+            "La strategia/il ragionamento che il commerciale ALC ha proposto in risposta al quadro emerso e agli obiettivi — il COME e il PERCHÉ di quell'approccio, prima del dettaglio del servizio (che va in soluzioneProposta sotto). Argomentato in 1-3 frasi per voce, linguaggio semplice.",
         },
         soluzioneProposta: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Cosa il commerciale ALC ha proposto in risposta a criticità/pain/obiettivi del prospect — l'offerta discussa in chiamata. Argomentato in 1-3 frasi, linguaggio semplice: spiega perché quella proposta risponde a quel problema specifico.",
-        },
-        livelloProblema: {
-          type: "string",
-          description: "Come il commerciale ha inquadrato/dovrebbe inquadrare il PROBLEMA del prospect nella comunicazione (il linguaggio del cliente: cosa lo tiene sveglio la notte), secondo il metodo di comunicazione di Andrea Lenzi Consulting (Livello Problema vs Livello Prodotto). Stringa vuota se non ricavabile dalla chiamata.",
-        },
-        livelloProdotto: {
-          type: "string",
-          description: "Come il commerciale ha inquadrato/dovrebbe inquadrare la SOLUZIONE/il prodotto ALC in risposta (il linguaggio tecnico/di prodotto), in contrasto col Livello Problema sopra. Stringa vuota se non ricavabile dalla chiamata.",
+          description:
+            "Il dettaglio concreto del servizio/offerta proposta — cosa è incluso, come funziona in pratica (diverso da strategiaProposta sopra, che è il ragionamento generale, non il dettaglio operativo). Argomentato in 1-3 frasi per voce, linguaggio semplice.",
         },
         prossimiPassi: {
           type: ["array", "string"],
@@ -98,21 +91,19 @@ const SYSTEM_PROMPT_COMMERCIALE = `Sei un assistente che estrae dati strutturati
 
 Riceverai il contenuto testuale reso dal browser di una pagina di condivisione Fathom, Circleback o Loom (registrazione/trascrizione della chiamata). Se il testo è organizzato in sezioni marcate "=== TRANSCRIPT ===", "=== SUMMARY ===", "=== ACTION ITEMS ===", "=== CHAPTERS ===" (tipico di Loom), la trascrizione è la fonte più completa e autorevole — usa summary/action items come contesto aggiuntivo, non come sostituto.
 
-Nella chiamata parlano tipicamente due parti: il **commerciale** di Andrea Lenzi Consulting (chi conduce la vendita, presenta l'offerta) e il **prospect** (l'azienda potenziale cliente, che racconta la propria situazione). Devi ricostruire, in italiano:
+Nella chiamata parlano tipicamente due parti: il **commerciale** di Andrea Lenzi Consulting (chi conduce la vendita, presenta l'offerta) e il **prospect** (l'azienda potenziale cliente, che racconta la propria situazione). Devi ricostruire, in italiano, il report in questa struttura:
 
-1. **Dati del prospect**: ragione sociale, che tipo di business fa, fatturato (se menzionato, anche solo come stima), quante sedi/punti vendita ha.
-2. **Criticità**: cosa non funziona oggi nel marketing/nelle vendite del prospect, dal suo punto di vista.
-3. **Tentate soluzioni**: cosa ha già provato (altre agenzie, tool, tentativi interni) e perché non ha funzionato, se emerso.
-4. **PAIN**: l'impatto reale/emotivo delle criticità — non la criticità tecnica in sé, ma cosa comporta per il prospect (perdita di clienti, stress, fatturato bloccato, ecc.).
-5. **Obiettivi**: cosa vuole ottenere il prospect, con numeri/orizzonti temporali se menzionati.
-6. **Soluzione proposta**: cosa il commerciale ha proposto in risposta.
-7. **Comunicazione a due livelli** (metodo Andrea Lenzi Consulting): "Livello Problema" è come inquadrare la situazione nel linguaggio/vissuto del prospect (l'emozione, cosa lo preoccupa); "Livello Prodotto" è come si inquadra la soluzione/il prodotto ALC in risposta, in modo tecnico. Ricostruiscili dal tono e dal contenuto della chiamata, anche se non sono etichettati esplicitamente così nel testo.
-8. **Prossimi passi**: cosa è stato concordato per il seguito (invio proposta, prossima call, ecc.).
+1. **Dati del prospect**: ragione sociale, nome e cognome della persona di contatto (se identificabile), che tipo di business fa, fatturato (se menzionato, anche solo come stima), quante sedi/punti vendita ha.
+2. **Quadro emerso**: il racconto UNICO di cosa non funziona oggi nel marketing/nelle vendite del prospect, cosa ha già provato per risolverlo e perché non ha funzionato, e l'impatto reale — non solo il problema tecnico, ma cosa comporta davvero per lui (clienti persi, stress, fatturato bloccato, crescita ferma). Scrivi questa sezione nel linguaggio/vissuto del prospect stesso (le sue parole, cosa lo preoccupa davvero la notte), non in gergo tecnico o di prodotto — è il suo punto di vista, non quello dell'agenzia.
+3. **Obiettivi aziendali**: cosa vuole ottenere il prospect, con numeri/orizzonti temporali se menzionati.
+4. **Strategia proposta**: il ragionamento/approccio che il commerciale ha proposto in risposta al quadro emerso — il COME e il PERCHÉ, prima del dettaglio operativo.
+5. **Soluzione**: il dettaglio concreto del servizio/offerta discussa — cosa è incluso, come funziona in pratica (diverso dalla strategia sopra, che è il ragionamento generale).
+6. **Prossimi passi**: cosa è stato concordato per il seguito (invio proposta, prossima call, ecc.).
 
 Linee guida:
 - Rispondi sempre in italiano, anche se la chiamata è in un'altra lingua.
 - Se un'informazione non è presente, metti stringa vuota (campi string) o array vuoto (campi lista) — non inventare mai dati non supportati dal contenuto.
-- Per i campi lista (criticità, tentate soluzioni, PAIN, obiettivi, soluzione proposta, prossimi passi): una voce per riga, ma ogni voce è un piccolo paragrafo argomentato (1-3 frasi), non un titolo telegrafico — spiega il PERCHÉ/il contesto dietro il punto usando quello che è stato detto in chiamata, non solo il fatto nudo. Esempio: non "Poca visibilità online" ma "Il prospect fatica a farsi trovare online: chi cerca il suo servizio nella zona trova prima i concorrenti, e questo si traduce in clienti persi senza nemmeno saperlo". Argomenta con sostanza reale dalla chiamata, mai per allungare a vuoto.
+- Per i campi lista (quadro emerso, obiettivi aziendali, strategia proposta, soluzione, prossimi passi): una voce per riga, ma ogni voce è un piccolo paragrafo argomentato (1-3 frasi), non un titolo telegrafico — spiega il PERCHÉ/il contesto dietro il punto usando quello che è stato detto in chiamata, non solo il fatto nudo. Esempio: non "Poca visibilità online" ma "Il prospect fatica a farsi trovare online: chi cerca il suo servizio nella zona trova prima i concorrenti, e questo si traduce in clienti persi senza nemmeno saperlo". Argomenta con sostanza reale dalla chiamata, mai per allungare a vuoto. Per "quadro emerso" in particolare, le voci devono leggersi come un racconto che si tiene insieme (criticità → cosa già provato → l'impatto vero), non 3 liste indipendenti mescolate a caso.
 - Linguaggio SEMPRE semplice, come lo spiegheresti a chi non lavora nel marketing: mai gergo tecnico non spiegato (non "CTR basso" ma "poche persone che vedono l'annuncio ci cliccano sopra"; non "funnel" ma "il percorso che un cliente fa da quando ti scopre a quando compra"). Se in chiamata è stato usato un termine tecnico, traducilo in parole semplici invece di ricopiarlo.
 - La data in formato DD/MM/YYYY.
 - Chiama SEMPRE il tool "save_report_commerciale" con i dati estratti, anche se alcuni campi restano vuoti.`;
@@ -277,16 +268,14 @@ ${testo}
       partecipanti: toStrArray(raw.participants),
       rawUrl: url,
       ragioneSociale: typeof raw.ragioneSociale === "string" ? raw.ragioneSociale : "",
+      nomeContatto: typeof raw.nomeContatto === "string" ? raw.nomeContatto : "",
       tipoBusiness: typeof raw.tipoBusiness === "string" ? raw.tipoBusiness : "",
       fatturato: typeof raw.fatturato === "string" ? raw.fatturato : "",
       sedi: typeof raw.sedi === "string" ? raw.sedi : "",
-      criticita: toStr(raw.criticita),
-      tentateSoluzioni: toStr(raw.tentateSoluzioni),
-      pain: toStr(raw.pain),
+      quadroEmerso: toStr(raw.quadroEmerso),
       obiettivi: toStr(raw.obiettivi),
+      strategiaProposta: toStr(raw.strategiaProposta),
       soluzioneProposta: toStr(raw.soluzioneProposta),
-      livelloProblema: typeof raw.livelloProblema === "string" ? raw.livelloProblema : "",
-      livelloProdotto: typeof raw.livelloProdotto === "string" ? raw.livelloProdotto : "",
       prossimiPassi: toStr(raw.prossimiPassi),
     },
     troncamento,

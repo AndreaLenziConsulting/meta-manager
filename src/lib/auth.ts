@@ -33,6 +33,18 @@ export function verifyCronSecret(authHeader: string | null): boolean {
   return timingSafeStringEqual(authHeader ?? "", `Bearer ${expected}`);
 }
 
+/**
+ * Come verifyCronSecret sopra, ma per il webhook GHL "prospect da appuntamento" (vedi POST
+ * /api/ghl/webhook-prospect, 11/2026): stesso schema Authorization: Bearer, stesso fail-closed se
+ * GHL_WEBHOOK_SECRET non è configurato — una richiesta in arrivo da fuori (GHL, non un utente
+ * loggato) va autenticata comunque, non solo autorizzata come per una sessione.
+ */
+export function verifyGhlWebhookSecret(authHeader: string | null): boolean {
+  const expected = process.env.GHL_WEBHOOK_SECRET;
+  if (!expected) return false;
+  return timingSafeStringEqual(authHeader ?? "", `Bearer ${expected}`);
+}
+
 // Il secondo campo del payload è l'id del ruolo (consulenteId o commercialeId, mai entrambi) — un
 // solo slot generico, coerente con Sessione che non è una union discriminata.
 export function createSessionCookieValue(sessione: Sessione): string {

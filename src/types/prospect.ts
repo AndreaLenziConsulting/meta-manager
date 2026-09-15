@@ -23,6 +23,11 @@ export type Commerciale = {
 export type Prospect = {
   prospectId: string;
   ragioneSociale: string;
+  // Nome e cognome della persona di contatto (il referente con cui si parla), oltre alla ragione
+  // sociale dell'azienda — stesso schema di ragioneSociale/tipoBusiness/fatturato/sedi sotto: mai
+  // chiesto in fase di creazione (vedi NuovoProspectForm.tsx), popolato/aggiornato dal report
+  // (estrazione o a mano), sincronizzato sul prospect a ogni salvataggio.
+  nomeContatto: string;
   tipoBusiness: string;
   fatturato: string; // testo libero (spesso una stima/range, non un numero preciso auto-dichiarato)
   sedi: string; // testo libero — quante/quali sedi ha il business del prospect, non l'entità Sede dell'app
@@ -111,21 +116,29 @@ export type ReportCommercialeDataLoose = {
   data?: string; // "DD/MM/YYYY", stessa convenzione di MeetingDataLoose.date
   partecipanti?: string[];
   rawUrl?: string;
+  // Appuntamento di chiusura (con presentazione di un'offerta) o di scoperta — mai estratto dal
+  // modello: richiede un giudizio esplicito del commerciale su COME si è svolta la chiamata, non
+  // deducibile con sicurezza dal solo contenuto. `undefined`/`false` = scoperta (il default).
+  chiamataDiChiusura?: boolean;
 
   // Dati del cliente — pre-compilati dal Prospect salvato, sovrascritti da quanto trovato
   // nell'estrazione se non vuoto; editabili in ogni caso prima di salvare.
   ragioneSociale?: string;
+  nomeContatto?: string; // nome e cognome del referente, oltre alla ragione sociale
   tipoBusiness?: string;
   fatturato?: string;
   sedi?: string;
 
-  criticita?: string;
-  tentateSoluzioni?: string;
-  pain?: string;
-  obiettivi?: string;
-  soluzioneProposta?: string;
-  livelloProblema?: string;
-  livelloProdotto?: string;
+  // Il "racconto" della chiamata in 4 sezioni narrative (11/2026 — sostituisce le vecchie sezioni
+  // Criticità/Tentate Soluzioni/PAIN/Comunicazione Corretta secondo AL, fuse qui invece di restare
+  // separate: un report più scorrevole da leggere, richiesta esplicita dell'utente). Il "Livello
+  // Problema" del vecchio metodo di comunicazione ALC non è sparito nella sostanza: il prompt di
+  // estrazione (estrazioneCommerciale.ts) chiede comunque a quadroEmerso/strategiaProposta di
+  // essere scritti nel linguaggio/vissuto del prospect, non tecnico — solo non è più un campo a sé.
+  quadroEmerso?: string; // criticità + cosa ha già provato + il pain reale, in un racconto unico
+  obiettivi?: string; // obiettivi aziendali del prospect
+  strategiaProposta?: string; // il ragionamento/approccio proposto in risposta al quadro emerso
+  soluzioneProposta?: string; // dettaglio concreto del servizio/offerta proposta
   prossimiPassi?: string;
 
   // Target commerciali — due numeri semplici inseriti a mano dal commerciale, mai calcolati (per

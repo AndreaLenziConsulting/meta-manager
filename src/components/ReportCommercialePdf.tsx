@@ -10,14 +10,18 @@ registraFontPdf();
  * Componente PDF del Report Commerciale — v2, riscritta su richiesta dell'utente dopo il primo
  * test reale ("mi aspetto una cosa più elaborata"), con in allegato 4 esempi di recap commerciali
  * ALC già in uso (documento a sezioni numerate, box colorati per tono, tabelle a righe zebrate,
- * icone). Stessa shell di base di MeetingReportPdf.tsx (margini, regole wrap:false sui blocchi
- * atomici — react-pdf ripagina un blocco a metà senza) ma sezioni numerate 1-9, box colorati per
- * tono (Criticità/PAIN in ambra/rosso, Obiettivi in verde, Soluzione Proposta/Prossimi Passi nel
- * blu del brand), tabella comparativa Livello Prodotto/Livello Problema in stile ✗/✓, footer con
+ * icone). Struttura rivista 11/2026 (richiesta esplicita dell'utente, "più discorsivo" + un
+ * indice): le vecchie sezioni separate Criticità/Tentate Soluzioni/PAIN/Comunicazione Corretta
+ * secondo AL sono sostituite da un Indice + 4 sezioni narrative (Quadro Emerso, Obiettivi
+ * Aziendali, Strategia Proposta, Soluzione) — vedi il commento su ReportCommercialeDataLoose in
+ * types/prospect.ts. Stessa shell di base di MeetingReportPdf.tsx (margini, regole wrap:false sui
+ * blocchi atomici — react-pdf ripagina un blocco a metà senza), box colorati per tono, footer con
  * numero di pagina ripetuto. Il Calcolatore Budget vero e proprio (proiezione al contrario da un
- * fatturato obiettivo) non è più qui: è una sezione a parte del prospect (vedi
+ * fatturato obiettivo) non è qui: è una sezione a parte del prospect (vedi
  * Prospect.calcolatoreBudget in types/prospect.ts) — qui restano solo i 2 target commerciali
- * inseriti a mano dal commerciale (sezione 8, stessa tabella label/valore di "Dati del Cliente").
+ * inseriti a mano dal commerciale ("Target Commerciali", stessa tabella label/valore di "Dati del
+ * Cliente"). Le sezioni sono numerate dinamicamente (solo quelle con contenuto contano un numero,
+ * vedi il calcolo di numDatiCliente/numeriSezioniNarrative/ecc. più sotto), non con indici fissi.
  *
  * Le icone sono forme vettoriali (Svg/Path/Rect/Circle) invece di emoji: i font PDF core
  * (Helvetica, senza font embedding) non hanno glifi emoji — renderebbero caselle vuote — mentre
@@ -43,12 +47,11 @@ const INK_400 = "#9ca3af";
 const INK_300 = "#e5e7eb";
 const INK_100 = "#f6f7f9";
 
-type Tone = "brand" | "warning" | "danger" | "success" | "neutral";
+type Tone = "brand" | "warning" | "success" | "neutral";
 
 const TONES: Record<Tone, { text: string; accent: string; bg: string; border: string }> = {
   brand: { text: BRAND_TEXT, accent: BRAND_COLOR, bg: BRAND_SOFT, border: "#bcdcf1" },
   warning: { text: "#92400e", accent: "#d97706", bg: "#fef8ec", border: "#f2d8a0" },
-  danger: { text: "#991b1b", accent: "#dc2626", bg: "#fdf1f1", border: "#f1c2c2" },
   success: { text: "#166534", accent: "#16a34a", bg: "#eefbf3", border: "#b9e6c9" },
   neutral: { text: INK_700, accent: "#4b5563", bg: INK_100, border: INK_300 },
 };
@@ -106,15 +109,13 @@ const styles = StyleSheet.create({
   bulletDot: { width: 5, height: 5, borderRadius: 3, marginTop: 4, marginRight: 7, flexShrink: 0 },
   bulletText: { fontSize: 9, color: INK_700, lineHeight: 1.5, flex: 1 },
 
-  // Tabella comparativa "Comunicazione corretta secondo AL" — colonna Livello Prodotto (✗, da
-  // evitare) contro Livello Problema (✓, corretto), stesso schema rosso/verde degli esempi allegati.
-  compareTable: { flexDirection: "row", gap: 8 },
-  compareCol: { flex: 1, borderWidth: 0.75, borderRadius: 5, overflow: "hidden" },
-  compareHead: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 9 },
-  compareHeadIcon: { marginRight: 6 },
-  compareHeadText: { fontSize: 8.5, fontFamily: FONT_BODY, fontWeight: 700 },
-  compareBody: { paddingVertical: 8, paddingHorizontal: 9 },
-  compareBodyText: { fontSize: 8.5, color: INK_700, lineHeight: 1.5 },
+  // Indice — elenco numerato delle sezioni realmente presenti in questo report (i numeri
+  // coincidono con quelli dei relativi SectionHeading più sotto, vedi come sono calcolati nel
+  // corpo di ReportCommercialePdf).
+  indiceBox: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, backgroundColor: INK_100, paddingVertical: 8, paddingHorizontal: 10 },
+  indiceRow: { flexDirection: "row", marginBottom: 3 },
+  indiceNum: { width: 16, fontSize: 8.5, fontFamily: FONT_LABEL, fontWeight: 700, color: BRAND_COLOR },
+  indiceTitle: { fontSize: 8.5, color: INK_700, fontFamily: FONT_BODY, fontWeight: 500 },
 
   footer: { position: "absolute", bottom: 18, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: INK_300, paddingTop: 8 },
   footerLeft: { fontSize: 7, color: INK_400 },
@@ -128,7 +129,7 @@ function splitLines(text: string): string[] {
 const h = React.createElement;
 
 // ─── Icone vettoriali (path Feather Icons, MIT) ──────────────────────────────
-type IconName = "calendar" | "users" | "link" | "briefcase" | "grid" | "dollar" | "pin" | "alert" | "retry" | "target" | "zap" | "check" | "x" | "bars" | "checkSquare";
+type IconName = "calendar" | "users" | "link" | "briefcase" | "grid" | "dollar" | "pin" | "alert" | "retry" | "target" | "zap" | "check" | "x" | "bars" | "checkSquare" | "flag";
 
 function Icon({ name, color, size = 10 }: { name: IconName; color: string; size?: number }) {
   const p = { stroke: color, strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
@@ -187,6 +188,8 @@ function Icon({ name, color, size = 10 }: { name: IconName; color: string; size?
       return svg(h(Rect, { x: 3, y: 12, width: 4.5, height: 9, fill: color, stroke: "none" }), h(Rect, { x: 9.75, y: 6, width: 4.5, height: 15, fill: color, stroke: "none" }), h(Rect, { x: 16.5, y: 9, width: 4.5, height: 12, fill: color, stroke: "none" }));
     case "checkSquare":
       return svg(h(Path, { d: "M9 11l3 3 10-10", ...p }), h(Path, { d: "M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11", ...p }));
+    case "flag":
+      return svg(h(Path, { d: "M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z", ...p }), h(Line, { x1: 4, y1: 22, x2: 4, y2: 15, ...p }));
     default:
       return null;
   }
@@ -221,13 +224,18 @@ function DefRow({ icon, label, value, last }: { icon: IconName; label: string; v
   );
 }
 
-function CalloutSection({ number, title, tone, text }: { number: number; title: string; tone: Tone; text: string }) {
-  const lines = splitLines(text);
+function CalloutSection({ number, title, tone, lines }: { number: number; title: string; tone: Tone; lines: string[] }) {
   if (lines.length === 0) return null;
   const t = TONES[tone];
   return h(
     View,
-    { style: styles.section },
+    // wrap:false sul WRAPPER, non solo su SectionHeading al suo interno: minPresenceAhead sulla
+    // sola intestazione (vedi sopra) le garantisce spazio libero dopo di sé, ma non impedisce al
+    // box colorato che segue — un elemento fratello distinto — di traboccare da solo sulla pagina
+    // successiva, lasciando l'intestazione orfana in fondo alla pagina precedente (bug osservato
+    // dal vivo con una sezione da 2 righe che superava di poco i 90pt riservati). wrap:false qui
+    // sposta l'intera unità intestazione+box in blocco se non ci sta, mai solo l'intestazione.
+    { style: styles.section, wrap: false },
     h(SectionHeading, { number, title, tone }),
     h(
       View,
@@ -254,6 +262,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
 
   const defRows: Array<[IconName, string, string]> = [
     ["briefcase", "Ragione sociale", report.ragioneSociale ?? ""],
+    ["users", "Nome contatto", report.nomeContatto ?? ""],
     ["grid", "Tipo business", report.tipoBusiness ?? ""],
     ["dollar", "Fatturato", report.fatturato ?? ""],
     ["pin", "Sedi", report.sedi ?? ""],
@@ -269,7 +278,35 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
   ];
   const haTargetRows = report.budgetMedioMensile != null || report.fatturatoAttesoMensile != null;
 
+  // Le 4 sezioni narrative — vedi il commento su ReportCommercialeDataLoose in types/prospect.ts:
+  // sostituiscono le vecchie Criticità/Tentate Soluzioni/PAIN/Comunicazione Corretta secondo AL.
+  const sezioniNarrative: Array<{ title: string; tone: Tone; lines: string[] }> = [
+    { title: "Quadro Emerso", tone: "warning", lines: splitLines(report.quadroEmerso ?? "") },
+    { title: "Obiettivi Aziendali", tone: "success", lines: splitLines(report.obiettivi ?? "") },
+    { title: "Strategia Proposta", tone: "neutral", lines: splitLines(report.strategiaProposta ?? "") },
+    { title: "Soluzione", tone: "brand", lines: splitLines(report.soluzioneProposta ?? "") },
+  ];
+
   const prossimiPassiLines = splitLines(report.prossimiPassi ?? "");
+  const haProssimiPassi = prossimiPassiLines.length > 0;
+
+  // Numerazione sequenziale calcolata SOLO sulle sezioni che verranno davvero renderizzate (una
+  // sezione narrativa vuota non consuma un numero) — alimenta sia i badge di SectionHeading sia
+  // l'Indice sotto, che restano quindi sempre coerenti tra loro senza mai avere un salto.
+  let contatore = 0;
+  const numDatiCliente = haDefRows ? ++contatore : 0;
+  const numeriSezioniNarrative = sezioniNarrative.map((s) => (s.lines.length > 0 ? ++contatore : 0));
+  const numTarget = haTargetRows ? ++contatore : 0;
+  const numProssimiPassi = haProssimiPassi ? ++contatore : 0;
+
+  const indiceVoci: Array<[number, string]> = [
+    ...(numDatiCliente ? ([[numDatiCliente, "Dati del Cliente"]] as Array<[number, string]>) : []),
+    ...sezioniNarrative
+      .map((s, i): [number, string] => [numeriSezioniNarrative[i], s.title])
+      .filter(([num]) => num > 0),
+    ...(numTarget ? ([[numTarget, "Target Commerciali"]] as Array<[number, string]>) : []),
+    ...(numProssimiPassi ? ([[numProssimiPassi, "Prossimi Passi"]] as Array<[number, string]>) : []),
+  ];
 
   return h(
     Document,
@@ -298,6 +335,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
         { style: styles.metaStrip, wrap: false },
         h(MetaChip, { icon: "calendar", label: "Data", value: report.data || "—" }),
         h(MetaChip, { icon: "users", label: "Partecipanti", value: partecipanti.length > 0 ? partecipanti.join(", ") : "—" }),
+        h(MetaChip, { icon: "flag", label: "Appuntamento", value: report.chiamataDiChiusura ? "Di chiusura" : "Di scoperta" }),
         h(MetaChip, { icon: "link", label: "Registrazione", value: sourceLabel(report.rawUrl) })
       ),
 
@@ -305,69 +343,46 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
         View,
         { style: styles.content },
 
-        haDefRows
+        indiceVoci.length > 0
           ? h(
               View,
-              { style: styles.section },
-              h(SectionHeading, { number: 1, title: "Dati del Cliente" }),
-              h(View, { style: styles.defTable }, ...defRows.map(([icon, label, value], i) => h(DefRow, { key: label, icon, label, value, last: i === defRows.length - 1 })))
-            )
-          : null,
-
-        h(CalloutSection, { number: 2, title: "Criticità del Cliente", tone: "warning", text: report.criticita ?? "" }),
-        h(CalloutSection, { number: 3, title: "Tentate Soluzioni", tone: "neutral", text: report.tentateSoluzioni ?? "" }),
-        h(CalloutSection, { number: 4, title: "PAIN", tone: "danger", text: report.pain ?? "" }),
-        h(CalloutSection, { number: 5, title: "Obiettivi", tone: "success", text: report.obiettivi ?? "" }),
-        h(CalloutSection, { number: 6, title: "Soluzione Proposta", tone: "brand", text: report.soluzioneProposta ?? "" }),
-
-        report.livelloProblema || report.livelloProdotto
-          ? h(
-              View,
-              { style: styles.section },
-              h(SectionHeading, { number: 7, title: "Comunicazione Corretta secondo AL" }),
+              { style: styles.section, wrap: false },
+              h(Text, { style: [styles.sectionTitle, { marginBottom: 6 }] }, "Indice"),
               h(
                 View,
-                { style: styles.compareTable, wrap: false },
-                h(
-                  View,
-                  { style: [styles.compareCol, { borderColor: TONES.danger.border }] },
-                  h(
-                    View,
-                    { style: [styles.compareHead, { backgroundColor: TONES.danger.bg }] },
-                    h(View, { style: styles.compareHeadIcon }, h(Icon, { name: "x", color: TONES.danger.accent, size: 10 })),
-                    h(Text, { style: [styles.compareHeadText, { color: TONES.danger.text }] }, "Livello Prodotto")
-                  ),
-                  h(View, { style: styles.compareBody }, h(Text, { style: styles.compareBodyText }, report.livelloProdotto || "—"))
-                ),
-                h(
-                  View,
-                  { style: [styles.compareCol, { borderColor: TONES.success.border }] },
-                  h(
-                    View,
-                    { style: [styles.compareHead, { backgroundColor: TONES.success.bg }] },
-                    h(View, { style: styles.compareHeadIcon }, h(Icon, { name: "check", color: TONES.success.accent, size: 10 })),
-                    h(Text, { style: [styles.compareHeadText, { color: TONES.success.text }] }, "Livello Problema")
-                  ),
-                  h(View, { style: styles.compareBody }, h(Text, { style: styles.compareBodyText }, report.livelloProblema || "—"))
+                { style: styles.indiceBox },
+                ...indiceVoci.map(([num, title]) =>
+                  h(View, { key: title, style: styles.indiceRow }, h(Text, { style: styles.indiceNum }, `${num}.`), h(Text, { style: styles.indiceTitle }, title))
                 )
               )
             )
           : null,
 
+        haDefRows
+          ? h(
+              View,
+              { style: styles.section, wrap: false },
+              h(SectionHeading, { number: numDatiCliente, title: "Dati del Cliente" }),
+              h(View, { style: styles.defTable }, ...defRows.map(([icon, label, value], i) => h(DefRow, { key: label, icon, label, value, last: i === defRows.length - 1 })))
+            )
+          : null,
+
+        ...sezioniNarrative.map((s, i) => h(CalloutSection, { key: s.title, number: numeriSezioniNarrative[i], title: s.title, tone: s.tone, lines: s.lines })),
+
         haTargetRows
           ? h(
               View,
-              { style: styles.section },
-              h(SectionHeading, { number: 8, title: "Target Commerciali" }),
+              { style: styles.section, wrap: false },
+              h(SectionHeading, { number: numTarget, title: "Target Commerciali" }),
               h(View, { style: styles.defTable }, ...targetRows.map(([icon, label, value], i) => h(DefRow, { key: label, icon, label, value, last: i === targetRows.length - 1 })))
             )
           : null,
 
-        prossimiPassiLines.length > 0
+        haProssimiPassi
           ? h(
               View,
-              { style: styles.section },
-              h(SectionHeading, { number: 9, title: "Prossimi Passi", tone: "brand" }),
+              { style: styles.section, wrap: false },
+              h(SectionHeading, { number: numProssimiPassi, title: "Prossimi Passi", tone: "brand" }),
               h(
                 View,
                 { style: [styles.callout, { backgroundColor: TONES.brand.bg, borderColor: TONES.brand.border }] },

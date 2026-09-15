@@ -41,7 +41,10 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <div>
-        <h2 className="font-heading font-bold text-2xl text-ink-900">{p.ragioneSociale}</h2>
+        <Link href="/dashboard/commerciale" className="text-xs font-semibold text-brand hover:underline">
+          ← Tutti i prospect
+        </Link>
+        <h2 className="font-heading font-bold text-2xl text-ink-900 mt-2">{p.ragioneSociale}</h2>
         <p className="text-sm text-ink-500 mt-1">
           {[p.tipoBusiness, p.fatturato, p.sedi].filter(Boolean).join(" · ") || "Nessun dato anagrafico ancora — verrà popolato dal primo report."}
         </p>

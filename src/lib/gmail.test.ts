@@ -34,4 +34,15 @@ describe("costruisciOpzioniEmail", () => {
       contentType: "application/pdf",
     });
   });
+
+  it("genera anche una parte html, con i titoli **tra doppi asterischi** in grassetto", () => {
+    const opts = costruisciOpzioniEmail({ ...INPUT_TEST, corpo: "Ciao,\n\n**I tuoi obiettivi**\n• Crescere" });
+    expect(opts.html).toContain("<b>I tuoi obiettivi</b>");
+    expect(opts.html).not.toContain("**");
+  });
+
+  it("nell'html esegue l'escaping di & < > del testo, prima di applicare il grassetto", () => {
+    const opts = costruisciOpzioniEmail({ ...INPUT_TEST, corpo: "Tom & Jerry <script>" });
+    expect(opts.html).toContain("Tom &amp; Jerry &lt;script&gt;");
+  });
 });

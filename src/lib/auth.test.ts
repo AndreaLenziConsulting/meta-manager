@@ -5,6 +5,7 @@ import {
   parseSessionCookieValue,
   verifyConsulentePassword,
   verifyCronSecret,
+  verifyGhlWebhookSecret,
   verifyTeamPassword,
 } from "./auth";
 
@@ -12,6 +13,7 @@ beforeEach(() => {
   process.env.SESSION_SECRET = "test-secret-non-in-produzione";
   process.env.TEAM_PASSWORD = "password-team-test";
   process.env.CRON_SECRET = "cron-secret-test";
+  process.env.GHL_WEBHOOK_SECRET = "ghl-webhook-secret-test";
 });
 
 describe("sessione firmata: round-trip e resistenza alla manomissione", () => {
@@ -87,5 +89,20 @@ describe("verifyCronSecret", () => {
     delete process.env.CRON_SECRET;
     expect(verifyCronSecret("Bearer undefined")).toBe(false);
     expect(verifyCronSecret(null)).toBe(false);
+  });
+});
+
+describe("verifyGhlWebhookSecret", () => {
+  it("accetta solo l'header Bearer esatto", () => {
+    expect(verifyGhlWebhookSecret("Bearer ghl-webhook-secret-test")).toBe(true);
+    expect(verifyGhlWebhookSecret("Bearer sbagliato")).toBe(false);
+    expect(verifyGhlWebhookSecret(null)).toBe(false);
+    expect(verifyGhlWebhookSecret("ghl-webhook-secret-test")).toBe(false); // manca il prefisso "Bearer "
+  });
+
+  it("fail-closed se GHL_WEBHOOK_SECRET non è configurato", () => {
+    delete process.env.GHL_WEBHOOK_SECRET;
+    expect(verifyGhlWebhookSecret("Bearer undefined")).toBe(false);
+    expect(verifyGhlWebhookSecret(null)).toBe(false);
   });
 });

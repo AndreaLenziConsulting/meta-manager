@@ -54,6 +54,52 @@ async function trovaOCreaCartella(parentId: string, nome: string): Promise<strin
   return (await trovaCartella(parentId, nome)) ?? (await creaCartella(parentId, nome));
 }
 
+/** Come trovaOCreaCartella, ma segnala anche se la cartella è stata creata ora o già esisteva —
+ * serve a assicuraCartelleProspect sotto per copiare i materiali modello una volta sola, al primo
+ * get-or-create che crea davvero la cartella (mai a una successiva chiamata idempotente). */
+async function trovaOCreaCartellaConFlag(parentId: string, nome: string): Promise<{ id: string; creata: boolean }> {
+  const esistente = await trovaCartella(parentId, nome);
+  if (esistente) return { id: esistente, creata: false };
+  return { id: await creaCartella(parentId, nome), creata: true };
+}
+
+// Nome fisso della cartella "modello" (testimonianze e altri materiali utili da avere già pronti
+// per ogni prospect, richiesta utente 11/2026) dentro lo shared drive del team — l'utente ne cura
+// il contenuto a mano in Drive, l'app la legge per nome, mai per id (nessuna configurazione env
+// aggiuntiva). Se non esiste ancora (nessuno l'ha creata) la copia è semplicemente saltata, non un
+// errore: è un arricchimento facoltativo della cartella prospect, non un suo prerequisito.
+const NOME_CARTELLA_MODELLO = "Materiali prospect (modello)";
+
+/** Copia (ricorsivamente, sottocartelle incluse) il contenuto di `sorgenteId` dentro
+ * `destinazioneId` — un file alla volta via files.copy, l'API Drive non offre un "copia cartella"
+ * unico. Best-effort dal chiamante: qui lascia propagare eventuali errori, li assorbe
+ * copiaCartellaModello sotto. */
+async function copiaContenutoCartella(sorgenteId: string, destinazioneId: string): Promise<void> {
+  const drive = getDrive();
+  const res = await drive.files.list({
+    q: `'${sorgenteId}' in parents and trashed = false`,
+    fields: "files(id,name,mimeType)",
+    includeItemsFromAllDrives: true,
+    supportsAllDrives: true,
+    pageSize: 1000,
+  });
+  for (const file of res.data.files ?? []) {
+    if (!file.id || !file.name) continue;
+    if (file.mimeType === MIME_FOLDER) {
+      const sottocartella = await creaCartella(destinazioneId, file.name);
+      await copiaContenutoCartella(file.id, sottocartella);
+    } else {
+      await drive.files.copy({ fileId: file.id, requestBody: { name: file.name, parents: [destinazioneId] }, supportsAllDrives: true });
+    }
+  }
+}
+
+async function copiaCartellaModello(sharedDriveId: string, destinazioneId: string): Promise<void> {
+  const modelloId = await trovaCartella(sharedDriveId, NOME_CARTELLA_MODELLO);
+  if (!modelloId) return;
+  await copiaContenutoCartella(modelloId, destinazioneId);
+}
+
 /**
  * Get-or-create della sottocartella "Report chiamate | <ragione sociale>" dentro una cartella
  * principale già nota (id ricavato da Prospect.driveFolderUrl — vedi idCartellaDaUrl in
@@ -76,8 +122,21 @@ export type CartelleProspect = { principaleId: string; principaleUrl: string; re
  */
 export async function assicuraCartelleProspect(ragioneSociale: string): Promise<CartelleProspect> {
   const sharedDriveId = getSharedDriveId();
-  const principaleId = await trovaOCreaCartella(sharedDriveId, nomeCartellaPrincipale(ragioneSociale));
+  const { id: principaleId, creata } = await trovaOCreaCartellaConFlag(sharedDriveId, nomeCartellaPrincipale(ragioneSociale));
   const reportFolderId = await trovaOCreaCartellaReport(principaleId, ragioneSociale);
+
+  // Solo alla creazione vera e propria della cartella principale, mai a una successiva chiamata
+  // idempotente: altrimenti ogni upload di report su un prospect già esistente riverserebbe di
+  // nuovo gli stessi materiali modello. Best-effort: una cartella prospect resta valida anche senza
+  // materiali precaricati.
+  if (creata) {
+    try {
+      await copiaCartellaModello(sharedDriveId, principaleId);
+    } catch (err) {
+      console.error("Copia dei materiali modello nella cartella prospect fallita (non bloccante):", err);
+    }
+  }
+
   return {
     principaleId,
     principaleUrl: `https://drive.google.com/drive/folders/${principaleId}`,

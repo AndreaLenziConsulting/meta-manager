@@ -24,23 +24,41 @@ export function buildEmailTextCommerciale(report: ReportCommercialeDataLoose, ra
   push(`grazie per il tempo dedicato alla chiamata di ${data ? `oggi (${data})` : "oggi"} — ti riassumo quanto discusso.`);
   push();
 
+  // Titoli di sezione tra **doppi asterischi**: convenzione markdown-like riconosciuta da
+  // gmail.ts (vedi testoAHtml) per mettere in grassetto solo questi nell'html effettivamente
+  // inviato — nella bozza testuale (questa stringa, editabile a mano prima dell'invio, vedi
+  // ProspectTab.tsx) restano visibili come marcatori leggeri, non rumore.
+  const quadroEmerso = righe(report.quadroEmerso);
+  if (quadroEmerso.length > 0) {
+    push("**Quadro emerso**");
+    for (const r of quadroEmerso) push(`• ${r}`);
+    push();
+  }
+
   const obiettivi = righe(report.obiettivi);
   if (obiettivi.length > 0) {
-    push("I tuoi obiettivi, per come li abbiamo raccolti:");
+    push("**I tuoi obiettivi**");
     for (const o of obiettivi) push(`• ${o}`);
+    push();
+  }
+
+  const strategia = righe(report.strategiaProposta);
+  if (strategia.length > 0) {
+    push("**La strategia che ti proponiamo**");
+    for (const s of strategia) push(`• ${s}`);
     push();
   }
 
   const soluzione = righe(report.soluzioneProposta);
   if (soluzione.length > 0) {
-    push("La soluzione che ti proponiamo:");
+    push("**Il servizio nel dettaglio**");
     for (const s of soluzione) push(`• ${s}`);
     push();
   }
 
   const prossimiPassi = righe(report.prossimiPassi);
   if (prossimiPassi.length > 0) {
-    push("Prossimi passi:");
+    push("**Prossimi passi**");
     prossimiPassi.forEach((p, i) => push(`${i + 1}. ${p}`));
     push();
   }

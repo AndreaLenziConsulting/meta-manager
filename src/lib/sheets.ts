@@ -264,12 +264,35 @@ export function normalizeMese(value: CellValue): string {
   return asText(value).slice(0, 7);
 }
 
+/** Lettera colonna A1 (1-indexed): 1→"A", 26→"Z", 27→"AA". Solo per appendRows sotto. */
+function colonnaA1(indice1: number): string {
+  let n = indice1;
+  let lettera = "";
+  while (n > 0) {
+    const resto = (n - 1) % 26;
+    lettera = String.fromCharCode(65 + resto) + lettera;
+    n = Math.floor((n - 1) / 26);
+  }
+  return lettera;
+}
+
+/**
+ * `range` è volutamente ristretto a A:<ultima colonna scritta da QUESTA chiamata>, mai un più
+ * comodo `A:Z` fisso — bug riprodotto dal vivo (11/2026): con un range aperto, `values.append`
+ * ancora l'inserimento (riga E colonna) alla colonna più a destra che ha MAI avuto un valore in
+ * QUALSIASI riga della tab, non alla colonna A — se una riga precedente ha un valore in una
+ * colonna a destra di quelle scritte qui (es. una tab con colonne aggiunte in coda via
+ * aggiornaProspect/set(), come Prospect.nomeContatto in colonna U), la riga appesa finisce
+ * silenziosamente spostata a destra, con le colonne A→(prima colonna reale) lasciate vuote.
+ * Restringere il range esattamente alla larghezza della riga scritta elimina l'ambiguità.
+ */
 async function appendRows(tabName: string, rows: (string | number)[][]) {
   if (rows.length === 0) return;
   const { sheets, sheetId } = getSheetsClient();
+  const numColonne = Math.max(...rows.map((r) => r.length));
   await sheets.spreadsheets.values.append({
     spreadsheetId: sheetId,
-    range: `${tabName}!A:Z`,
+    range: `${tabName}!A:${colonnaA1(numColonne)}`,
     valueInputOption: "USER_ENTERED",
     requestBody: { values: rows },
   });
@@ -1547,13 +1570,13 @@ export async function eliminaMeeting(meetingId: string): Promise<void> {
   ]);
 }
 
-// Tab Prospect, colonne A→T: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
+// Tab Prospect, colonne A→U: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
 // commercialeId, attivo, creatoIl, driveFolderUrl, mediaBudgetMensile, targetCpl,
 // targetCpaAppuntamento, targetLeadSettimana, targetAppuntamentiSettimana, targetFatturatoMensile,
-// targetMargineVenditaPct, clienteId, consulenteSuggeritoId, calcolatoreBudget (JSON, colonna T) —
-// anagrafica persistente del prospect, vedi types/prospect.ts. Le colonne J→T sono più recenti
-// delle prime 9: righe create prima della loro introduzione le leggono vuote (toNumberOrNull
-// (undefined) → null, asText(undefined) → ""), mai un crash.
+// targetMargineVenditaPct, clienteId, consulenteSuggeritoId, calcolatoreBudget (JSON, colonna T),
+// nomeContatto (colonna U) — anagrafica persistente del prospect, vedi types/prospect.ts. Le
+// colonne J→U sono più recenti delle prime 9: righe create prima della loro introduzione le
+// leggono vuote (toNumberOrNull(undefined) → null, asText(undefined) → ""), mai un crash.
 export async function getProspect(): Promise<Prospect[]> {
   const rows = await readTab(TAB.prospect, { noCache: true });
   return rows
@@ -1589,6 +1612,7 @@ export async function getProspect(): Promise<Prospect[]> {
         clienteId: asText(r[17]),
         consulenteSuggeritoId: asText(r[18]),
         calcolatoreBudget,
+        nomeContatto: asText(r[20]),
       };
     });
 }
@@ -1604,7 +1628,18 @@ export type NuovoProspectInput = {
   creatoIl: string;
 };
 
-/** Crea un nuovo prospect (sempre attivo). Rifiuta esplicitamente un prospectId già in uso. */
+/**
+ * Crea un nuovo prospect (sempre attivo). Rifiuta esplicitamente un prospectId già in uso. Scrive
+ * SOLO le prime 9 colonne (A→I) — mai un array con colonne J→U "buttate lì" vuote solo per
+ * raggiungere una colonna più a destra (es. U per nomeContatto): verificato dal vivo che
+ * values.append su un range aperto (A:Z) può ancorare l'inserimento a una colonna sbagliata quando
+ * l'ultima riga della tab ha celle vuote intervallate da una colonna popolata più a destra (bug
+ * riprodotto in test, righe finite scritte a partire da colonna U invece che A). nomeContatto va
+ * quindi sempre impostato con un aggiornaProspect separato DOPO la creazione (stesso identico
+ * meccanismo, collaudato, di driveFolderUrl — vedi creaProspectConCartellaDrive in
+ * prospectCreazione.ts): un update mirato su una riga già esistente, mai un append, non soffre di
+ * questo problema.
+ */
 export async function creaProspect(input: NuovoProspectInput): Promise<void> {
   const esistenti = await getProspect();
   if (esistenti.some((p) => p.prospectId === input.prospectId)) {
@@ -1644,15 +1679,16 @@ export type AggiornaProspectInput = {
   clienteId?: string;
   consulenteSuggeritoId?: string;
   calcolatoreBudget?: CalcolatoreBudgetInput | null;
+  nomeContatto?: string;
 };
 
 /**
  * Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato). Usata
  * sia dal modulo di gestione prospect (anagrafica + dati commerciali, vedi PATCH /api/prospect) sia
- * — per i 4 campi anagrafici soltanto — a ogni salvataggio di un report (vedi POST
- * /api/report-commerciale): tenerli allineati all'ultimo report evita di doverli re-inserire al
- * report successivo. `clienteId`/`attivo` insieme sono l'esito della conversione in cliente (vedi
- * POST /api/prospect/converti).
+ * — per i 5 campi anagrafici soltanto (ragioneSociale/nomeContatto/tipoBusiness/fatturato/sedi) —
+ * a ogni salvataggio di un report (vedi POST /api/report-commerciale): tenerli allineati
+ * all'ultimo report evita di doverli re-inserire al report successivo. `clienteId`/`attivo`
+ * insieme sono l'esito della conversione in cliente (vedi POST /api/prospect/converti).
  */
 export async function aggiornaProspect(input: AggiornaProspectInput): Promise<void> {
   const { sheets, sheetId } = getSheetsClient();
@@ -1688,6 +1724,7 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   if (input.clienteId !== undefined) set("R", input.clienteId);
   if (input.consulenteSuggeritoId !== undefined) set("S", input.consulenteSuggeritoId);
   if (input.calcolatoreBudget !== undefined) set("T", input.calcolatoreBudget ? JSON.stringify(input.calcolatoreBudget) : "");
+  if (input.nomeContatto !== undefined) set("U", input.nomeContatto);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

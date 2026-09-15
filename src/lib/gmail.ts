@@ -43,6 +43,26 @@ export type InvioEmailMeetingInput = {
 // non deve comparire nell'intestazione vista dal destinatario esterno (cliente o prospect).
 const DESTINATARIO_SEMPRE_IN_COPIA = "info@andrealenziconsulting.com";
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Converte il corpo testuale dell'email in html, con le sole righe titolo marcate
+ * `**così**` (vedi reportCommercialeEmail.ts) in grassetto — il resto passa invariato. Genera la
+ * parte `html` di un'email multipart: i client che la supportano (praticamente tutti) mostrano
+ * quella, `text` resta il fallback per i pochissimi che non la supportano — mai lasciarla vuota,
+ * anche se un chiamante (es. meetingEmail.ts) non usa affatto i marcatori: si ottiene comunque un
+ * html equivalente al testo semplice, a capo compresi.
+ */
+function testoAHtml(corpo: string): string {
+  const righeHtml = corpo
+    .split("\n")
+    .map((riga) => escapeHtml(riga).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>"))
+    .join("<br>");
+  return `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;white-space:pre-wrap;">${righeHtml}</div>`;
+}
+
 /** Costruisce le opzioni per MailComposer — pura, testabile senza I/O. */
 export function costruisciOpzioniEmail(input: InvioEmailMeetingInput) {
   return {
@@ -51,6 +71,7 @@ export function costruisciOpzioniEmail(input: InvioEmailMeetingInput) {
     bcc: DESTINATARIO_SEMPRE_IN_COPIA,
     subject: input.oggetto,
     text: input.corpo,
+    html: testoAHtml(input.corpo),
     attachments: [
       {
         filename: input.nomeAllegato,

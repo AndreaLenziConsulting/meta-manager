@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { getGoogleOAuth2Client } from "@/lib/googleAuth";
 import { idCartellaDaUrl } from "@/lib/driveNomi";
 import type { Cliente, Consulente } from "@/types/kpi";
+import type { Commerciale, Prospect } from "@/types/prospect";
 
 /**
  * Accesso automatico del consulente assegnato alla cartella Drive del cliente (richiesta utente
@@ -43,10 +44,11 @@ export function clienteDaCondividere(
 }
 
 /**
- * Concede l'accesso come collaboratore (ruolo Drive "writer") sulla cartella cliente all'email
- * del consulente — idempotente: se l'email ha già un permesso "writer" o "owner" su quella
+ * Concede l'accesso come collaboratore (ruolo Drive "writer") su una cartella (cliente O prospect
+ * — generica, riusata identica sotto per condividiCartelleProspectEsistenti/il commerciale)
+ * all'email data — idempotente: se l'email ha già un permesso "writer" o "owner" su quella
  * cartella, non lo riscrive né rimanda una seconda notifica. `sendNotificationEmail: true` per
- * decisione esplicita dell'utente — il consulente deve accorgersi di aver ricevuto l'accesso.
+ * decisione esplicita dell'utente — il destinatario deve accorgersi di aver ricevuto l'accesso.
  *
  * Best-effort per il chiamante: un errore qui (tipicamente la cartella non condivisa in scrittura
  * con l'account del team — stesso caso limite già documentato in appuntamentiFile.ts) non deve
@@ -106,6 +108,56 @@ export async function condividiCartelleClientiEsistenti(
       risultati.push({
         clienteId: cliente.clienteId,
         nome: cliente.nome,
+        esito: "errore",
+        dettaglio: err instanceof Error ? err.message : "errore sconosciuto",
+      });
+    }
+  }
+
+  return risultati;
+}
+
+/**
+ * Equivalenti a clienteDaCondividere/condividiCartelleClientiEsistenti sopra ma per i PROSPECT
+ * (cartella creata da assicuraCartelleProspect in drive.ts, shared drive del team) e il loro
+ * COMMERCIALE assegnato invece del consulente — richiesta utente 11/2026 ("Google drive non è
+ * condiviso con Stefano"): a differenza delle cartelle cliente, quelle prospect non avevano mai
+ * avuto una condivisione esplicita, l'accesso dipendeva solo dall'appartenenza allo shared drive.
+ */
+export function prospectDaCondividere(
+  prospect: { driveFolderUrl: string; commercialeId: string },
+  emailPerCommerciale: Map<string, string>
+): { emailCommerciale: string } | null {
+  if (!prospect.driveFolderUrl.trim()) return null;
+  const email = emailPerCommerciale.get(prospect.commercialeId)?.trim();
+  if (!email) return null;
+  return { emailCommerciale: email };
+}
+
+export type RigaEsitoCondivisioneProspect = { prospectId: string; nome: string; esito: EsitoCondivisione | "errore"; dettaglio?: string };
+
+/** Backfill una tantum sui prospect esistenti — vedi /api/admin/condividi-cartelle-prospect. */
+export async function condividiCartelleProspectEsistenti(
+  prospectList: Pick<Prospect, "prospectId" | "ragioneSociale" | "driveFolderUrl" | "commercialeId">[],
+  commerciali: Pick<Commerciale, "commercialeId" | "email">[]
+): Promise<RigaEsitoCondivisioneProspect[]> {
+  const emailPerCommerciale = new Map(commerciali.map((c) => [c.commercialeId, c.email]));
+  const risultati: RigaEsitoCondivisioneProspect[] = [];
+
+  for (const prospect of prospectList) {
+    const decisione = prospectDaCondividere(prospect, emailPerCommerciale);
+    if (!prospect.driveFolderUrl.trim()) continue; // nessuna cartella collegata: nulla da riportare
+    if (!decisione) {
+      risultati.push({ prospectId: prospect.prospectId, nome: prospect.ragioneSociale, esito: "saltato", dettaglio: "commerciale senza email nota" });
+      continue;
+    }
+    try {
+      const esito = await condividiCartellaConConsulente(prospect.driveFolderUrl, decisione.emailCommerciale);
+      risultati.push({ prospectId: prospect.prospectId, nome: prospect.ragioneSociale, esito });
+    } catch (err) {
+      risultati.push({
+        prospectId: prospect.prospectId,
+        nome: prospect.ragioneSociale,
         esito: "errore",
         dettaglio: err instanceof Error ? err.message : "errore sconosciuto",
       });

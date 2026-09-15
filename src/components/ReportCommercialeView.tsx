@@ -2,18 +2,30 @@
 
 import Image from "next/image";
 import { EditableInline } from "@/components/ui/EditableInline";
-import { EditableTextarea } from "@/components/ui/EditableTextarea";
 import { MultilineEditor } from "@/components/ui/MultilineEditor";
 import { formatEuro } from "@/lib/format";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
 
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
+// Definisce l'ordine reale delle sezioni narrative — usato SIA per generare l'Indice sia per gli
+// id di scroll (#quadro-emerso ecc.) sotto: un solo elenco, mai due liste che possono disallinearsi.
+const SEZIONI: Array<{ id: string; titolo: string }> = [
+  { id: "quadro-emerso", titolo: "Quadro emerso" },
+  { id: "obiettivi-aziendali", titolo: "Obiettivi aziendali" },
+  { id: "strategia-proposta", titolo: "Strategia proposta" },
+  { id: "soluzione", titolo: "Soluzione" },
+  { id: "prossimi-passi", titolo: "Prossimi passi" },
+];
+
 /**
  * Vista "report" del Report Commerciale — stessa impostazione di MeetingReportView.tsx (report
  * brandizzato, leggibile in pagina, modificabile inline sezione per sezione se `onChange` è
- * passato) ma con le 9 sezioni del report di vendita invece del recap di un meeting di delivery.
- * Riusa gli editor generici così come sono (EditableInline/EditableTextarea/MultilineEditor).
+ * passato). Struttura rivista 11/2026 (richiesta esplicita dell'utente, "più discorsivo"): le
+ * vecchie sezioni separate Criticità/Tentate Soluzioni/PAIN/Comunicazione Corretta secondo AL
+ * sono fuse in un unico "Quadro emerso" narrativo — vedi il commento su
+ * ReportCommercialeDataLoose in types/prospect.ts per il perché. Riusa gli editor generici così
+ * come sono (EditableInline/MultilineEditor).
  */
 export function ReportCommercialeView({
   report,
@@ -63,47 +75,84 @@ export function ReportCommercialeView({
               {partecipanti.join(", ")}
             </MetaItem>
           )}
+          <MetaItem>
+            <FlagIcon />
+            {editable ? (
+              <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={!!report.chiamataDiChiusura}
+                  onChange={(e) => set({ chiamataDiChiusura: e.target.checked })}
+                  className="rounded"
+                />
+                Chiamata di chiusura (con presentazione dell&apos;offerta)
+              </label>
+            ) : (
+              <span>{report.chiamataDiChiusura ? "Chiamata di chiusura" : "Chiamata di scoperta"}</span>
+            )}
+          </MetaItem>
         </div>
       </div>
 
       <div className="px-6 sm:px-10 py-7 sm:py-8 space-y-7">
         <section className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <InfoBlock label="Ragione sociale" value={report.ragioneSociale ?? ""} onChange={(v) => set({ ragioneSociale: v })} editable={editable} />
+          <InfoBlock label="Nome e cognome" value={report.nomeContatto ?? ""} onChange={(v) => set({ nomeContatto: v })} editable={editable} />
           <InfoBlock label="Tipo business" value={report.tipoBusiness ?? ""} onChange={(v) => set({ tipoBusiness: v })} editable={editable} />
           <InfoBlock label="Fatturato" value={report.fatturato ?? ""} onChange={(v) => set({ fatturato: v })} editable={editable} />
           <InfoBlock label="Sedi" value={report.sedi ?? ""} onChange={(v) => set({ sedi: v })} editable={editable} />
         </section>
 
-        <section>
-          <SectionTitle>Criticità</SectionTitle>
-          <MultilineEditor value={report.criticita ?? ""} onChange={(v) => set({ criticita: v })} editable={editable} placeholder="Cosa non funziona oggi, una riga per criticità" />
+        {/* Indice — sola navigazione, mai modificabile: riflette sempre l'ordine reale delle
+            sezioni sotto (stesso elenco SEZIONI usato per gli id di scroll). */}
+        <nav aria-label="Indice del report" className="rounded-xl border border-ink-300/60 bg-surface px-4 py-3">
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-500 mb-2">Indice</p>
+          <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
+            {SEZIONI.map((s, i) => (
+              <li key={s.id}>
+                <a href={`#${s.id}`} className="text-brand hover:underline">
+                  {i + 1}. {s.titolo}
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+
+        <section id="quadro-emerso">
+          <SectionTitle>Quadro emerso</SectionTitle>
+          <MultilineEditor
+            value={report.quadroEmerso ?? ""}
+            onChange={(v) => set({ quadroEmerso: v })}
+            editable={editable}
+            placeholder="Criticità, cosa ha già provato e l'impatto reale sul prospect — un racconto unico"
+          />
         </section>
 
-        <section>
-          <SectionTitle>Tentate soluzioni</SectionTitle>
-          <MultilineEditor value={report.tentateSoluzioni ?? ""} onChange={(v) => set({ tentateSoluzioni: v })} editable={editable} placeholder="Cosa ha già provato il prospect, e perché non ha funzionato" />
-        </section>
-
-        <section>
-          <SectionTitle>PAIN</SectionTitle>
-          <MultilineEditor value={report.pain ?? ""} onChange={(v) => set({ pain: v })} editable={editable} placeholder="L'impatto reale delle criticità, non solo il problema tecnico" />
-        </section>
-
-        <section>
-          <SectionTitle>Obiettivi</SectionTitle>
+        <section id="obiettivi-aziendali">
+          <SectionTitle>Obiettivi aziendali</SectionTitle>
           <MultilineEditor value={report.obiettivi ?? ""} onChange={(v) => set({ obiettivi: v })} editable={editable} placeholder="Cosa vuole ottenere il prospect" />
         </section>
 
-        <section>
-          <SectionTitle>Soluzione proposta</SectionTitle>
-          <MultilineEditor value={report.soluzioneProposta ?? ""} onChange={(v) => set({ soluzioneProposta: v })} editable={editable} placeholder="Cosa è stato proposto in risposta" />
+        <section id="strategia-proposta">
+          <SectionTitle>Strategia proposta</SectionTitle>
+          <MultilineEditor
+            value={report.strategiaProposta ?? ""}
+            onChange={(v) => set({ strategiaProposta: v })}
+            editable={editable}
+            placeholder="Il ragionamento/approccio proposto in risposta al quadro emerso"
+          />
         </section>
 
-        <section>
-          <SectionTitle>Comunicazione corretta secondo AL</SectionTitle>
-          <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <ComunicazioneBlock label="Livello Problema" text={report.livelloProblema ?? ""} onChange={(v) => set({ livelloProblema: v })} editable={editable} />
-            <ComunicazioneBlock label="Livello Prodotto" text={report.livelloProdotto ?? ""} onChange={(v) => set({ livelloProdotto: v })} editable={editable} />
+        <section id="soluzione">
+          <SectionTitle>Soluzione</SectionTitle>
+          <p className="text-xs text-ink-500 mt-0.5">Dettaglio del servizio proposto.</p>
+          <div className="mt-3">
+            <MultilineEditor
+              value={report.soluzioneProposta ?? ""}
+              onChange={(v) => set({ soluzioneProposta: v })}
+              editable={editable}
+              placeholder="Cosa è incluso, come funziona in pratica"
+            />
           </div>
         </section>
 
@@ -131,7 +180,7 @@ export function ReportCommercialeView({
           </section>
         )}
 
-        <section>
+        <section id="prossimi-passi">
           <SectionTitle>Prossimi passi</SectionTitle>
           <MultilineEditor value={report.prossimiPassi ?? ""} onChange={(v) => set({ prossimiPassi: v })} editable={editable} placeholder="Cosa è stato concordato per il seguito" />
         </section>
@@ -220,28 +269,6 @@ function NumeroBlock({
   );
 }
 
-function ComunicazioneBlock({
-  label,
-  text,
-  onChange,
-  editable,
-}: {
-  label: string;
-  text: string;
-  onChange: (v: string) => void;
-  editable: boolean;
-}) {
-  if (!editable && !text) return null;
-  return (
-    <div className="rounded-xl border border-ink-300/60 p-4 bg-surface-card">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">{label}</p>
-      <div className="mt-2">
-        <EditableTextarea value={text} onChange={onChange} editable={editable} className="text-sm text-ink-700 leading-relaxed" placeholder="—" />
-      </div>
-    </div>
-  );
-}
-
 function DateIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -260,6 +287,15 @@ function PeopleIcon() {
       <circle cx="9" cy="7" r="4" />
       <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
       <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </svg>
+  );
+}
+
+function FlagIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="flex-shrink-0">
+      <path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" />
+      <line x1="4" y1="22" x2="4" y2="15" />
     </svg>
   );
 }

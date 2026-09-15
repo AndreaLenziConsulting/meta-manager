@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
 }
 
 /**
- * Salva (o aggiorna) un report confermato dall'anteprima, e allinea i 4 campi anagrafici del
+ * Salva (o aggiorna) un report confermato dall'anteprima, e allinea i 5 campi anagrafici del
  * prospect a quanto risulta nel report — così non vanno re-inseriti al report successivo.
  */
 export async function POST(req: NextRequest) {
@@ -89,6 +89,7 @@ export async function POST(req: NextRequest) {
     await aggiornaProspect({
       prospectId,
       ragioneSociale: report.ragioneSociale,
+      nomeContatto: report.nomeContatto,
       tipoBusiness: report.tipoBusiness,
       fatturato: report.fatturato,
       sedi: report.sedi,
