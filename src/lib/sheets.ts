@@ -2,6 +2,7 @@ import { google } from "googleapis";
 import { generaSedeId } from "@/lib/accessCode";
 import { getGoogleOAuth2Client } from "@/lib/googleAuth";
 import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
+import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
 import type {
   AttivitaClienteRow,
   Campagna,
@@ -1522,8 +1523,28 @@ export async function salvaMeeting(record: MeetingClienteRow): Promise<{ aggiorn
 
 /** Elimina definitivamente un meeting (cancella la riga dal foglio, non un soft-delete) — SOLO
  * admin, vedi /api/meeting/elimina. */
+/**
+ * Elimina un meeting E le attività generate da esso (vedi generaAttivitaDaMeeting/
+ * estraiMeetingIdDaTaskId in meeting.ts, taskId "m-"/"tm-" prefissato col meetingId) — bug corretto:
+ * prima cancellava solo la riga MeetingCliente, lasciando orfane per sempre le righe AttivitaCliente
+ * generate da quel meeting (visibili nel tab Attività anche se il meeting che le aveva prodotte non
+ * esisteva più — segnalato dall'utente). Un solo batchUpdate atomico, stesso schema di eliminaCliente.
+ */
 export async function eliminaMeeting(meetingId: string): Promise<void> {
-  await eliminaRigaPerId(TAB.meetingCliente, meetingId);
+  const [righeMeeting, righeAttivita] = await Promise.all([
+    readTab(TAB.meetingCliente, { noCache: true }),
+    readTab(TAB.attivitaCliente, { noCache: true }),
+  ]);
+  const numeroRigaMeeting = trovaIndiceRiga(righeMeeting, meetingId);
+  if (numeroRigaMeeting === null) {
+    throw new Error(`Riga non trovata in ${TAB.meetingCliente}: ${meetingId}`);
+  }
+  const numeriRigaAttivita = trovaTuttiIndiciRiga(righeAttivita, (r) => estraiMeetingIdDaTaskId(asText(r[3])) === meetingId);
+
+  await eliminaRigheBatch([
+    { tab: TAB.meetingCliente, numeriRiga: [numeroRigaMeeting] },
+    { tab: TAB.attivitaCliente, numeriRiga: numeriRigaAttivita },
+  ]);
 }
 
 // Tab Prospect, colonne A→Q: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
