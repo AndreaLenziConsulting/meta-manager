@@ -1,6 +1,7 @@
 import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage } from "@react-pdf/renderer";
 import React from "react";
-import { FONT_BODY, FONT_HEADING, FONT_LABEL, registraFontPdf } from "@/lib/pdfFonts";
+import { FONT_LABEL, registraFontPdf, temaPdfCliente } from "@/lib/pdfFonts";
+import type { CampiTema } from "@/lib/temaCliente";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 registraFontPdf();
@@ -15,115 +16,130 @@ registraFontPdf();
  * - `clienteNome` è una prop separata, risolta server-side da `clienteId` — mai `meeting.cliente`
  *   (testo libero dedotto dall'LLM, sempre ignorato, vedi types/meeting.ts).
  *
- * Font dell'immagine coordinata ALC (src/lib/pdfFonts.ts, stesso criterio di ReportCommercialePdf.tsx)
- * invece di Helvetica: League Spartan Bold per il titolo del meeting, Oswald per eyebrow/intestazioni
- * di sezione e i numeri degli action item (condensato, si presta meglio a corpo piccolo), Roboto per
- * tutto il resto — valori ed enfasi in grassetto inclusi, perché sono contenuto e non titolazione.
+ * Font/colori: default dell'immagine coordinata ALC (src/lib/pdfFonts.ts, stesso criterio di
+ * ReportCommercialePdf.tsx) — League Spartan Bold per il titolo del meeting, Oswald per eyebrow/
+ * intestazioni di sezione e i numeri degli action item, Roboto per tutto il resto — SOSTITUITI dal
+ * colore/font del cliente quando la prop `cliente` ne ha uno impostato (vedi temaPdfCliente in
+ * pdfFonts.ts): stesso principio di styleTemaCliente per la scheda cliente sul web, qui in versione
+ * PDF. Per questo `styles` è una funzione (non più un oggetto module-level): react-pdf non ha
+ * bisogno che StyleSheet.create sia chiamato una sola volta, e qui serve un set diverso di colori/
+ * font per ogni cliente — costruito una volta per render, non per singolo elemento.
  */
 
-// react-pdf non può leggere le CSS custom property di globals.css (fonte di verità per il resto
-// dell'app) — questi hex vanno tenuti allineati a mano a --brand-primary/--brand-primary-light lì.
-const BRAND_COLOR = "#1a74bc";
-const BRAND_LIGHT = "#d6e8f5"; // tinta media, per il risalto degli action item
-const BRAND_SOFT = "#e8f1f9"; // = --brand-primary-light in globals.css, per i box informativi
+const BRAND_COLOR_DEFAULT = "#1a74bc";
+const BRAND_LIGHT_DEFAULT = "#d6e8f5"; // tinta media, per il risalto degli action item
+const BRAND_SOFT_DEFAULT = "#e8f1f9"; // = --brand-primary-light in globals.css, per i box informativi
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
-const styles = StyleSheet.create({
-  // Margine di pagina impostato QUI (non sulle singole sezioni): @react-pdf/renderer reapplica lo
-  // style di Page a ogni pagina generata dall'auto-paginazione. Prima paddingTop/paddingHorizontal
-  // stavano solo su header/infoRow/content, quindi la pagina 1 "sembrava" avere un margine (per il
-  // padding interno di quelle sezioni) ma la pagina 2+ ripartiva a ridosso del bordo — bug segnalato.
-  page: { fontFamily: FONT_BODY, fontWeight: 400, backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 50 },
+function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: string; fontHeading: string; fontBody: string }) {
+  const { colore, coloreChiaro, coloreMedio, fontHeading, fontBody } = tema;
+  return StyleSheet.create({
+    // Margine di pagina impostato QUI (non sulle singole sezioni): @react-pdf/renderer reapplica lo
+    // style di Page a ogni pagina generata dall'auto-paginazione. Prima paddingTop/paddingHorizontal
+    // stavano solo su header/infoRow/content, quindi la pagina 1 "sembrava" avere un margine (per il
+    // padding interno di quelle sezioni) ma la pagina 2+ ripartiva a ridosso del bordo — bug segnalato.
+    page: { fontFamily: fontBody, fontWeight: 400, backgroundColor: "#ffffff", paddingTop: 28, paddingHorizontal: 36, paddingBottom: 50 },
 
-  header: {
-    paddingBottom: 18,
-    borderBottomWidth: 2,
-    borderBottomColor: BRAND_COLOR,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-  },
-  headerLeft: { flex: 1, marginRight: 16 },
-  headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
-  headerTitle: { fontSize: 18, fontFamily: FONT_HEADING, fontWeight: 700, color: "#111827", lineHeight: 1.25 },
-  headerMeta: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
-  headerMetaItem: { fontSize: 9, color: "#6b7280" },
-  headerLogo: { width: 110, height: 44, objectFit: "contain" },
+    header: {
+      paddingBottom: 18,
+      borderBottomWidth: 2,
+      borderBottomColor: colore,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "flex-start",
+    },
+    headerLeft: { flex: 1, marginRight: 16 },
+    headerLabel: { fontSize: 7, color: colore, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
+    headerTitle: { fontSize: 18, fontFamily: fontHeading, fontWeight: 700, color: "#111827", lineHeight: 1.25 },
+    headerMeta: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
+    headerMetaItem: { fontSize: 9, color: "#6b7280" },
+    headerLogo: { width: 110, height: 44, objectFit: "contain" },
 
-  infoRow: { flexDirection: "row", gap: 10, paddingTop: 16 },
-  infoBox: { flex: 1, backgroundColor: BRAND_SOFT, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
-  infoLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.5, fontFamily: FONT_LABEL, fontWeight: 500 },
-  infoValue: { fontSize: 11, color: "#111827", fontFamily: FONT_BODY, fontWeight: 700, marginTop: 3 },
+    infoRow: { flexDirection: "row", gap: 10, paddingTop: 16 },
+    infoBox: { flex: 1, backgroundColor: coloreChiaro, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
+    infoLabel: { fontSize: 7, color: colore, letterSpacing: 0.5, fontFamily: FONT_LABEL, fontWeight: 500 },
+    infoValue: { fontSize: 11, color: "#111827", fontFamily: fontBody, fontWeight: 700, marginTop: 3 },
 
-  content: { paddingTop: 16 },
-  // wrap: false su tutti i blocchi "atomici" sotto: senza, l'auto-paginazione può tagliare un
-  // singolo action item / bullet / KPI esattamente a metà tra due pagine (l'altro sintomo
-  // segnalato, "viene tagliato") — con wrap:false l'intero blocco si sposta in blocco a pagina nuova.
-  section: { marginBottom: 14 },
-  sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6, wrap: false },
-  sectionBar: { width: 3, height: 13, backgroundColor: BRAND_COLOR, borderRadius: 2, marginRight: 7 },
-  sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: "#111827" },
-  bodyText: { fontSize: 9, color: "#374151", lineHeight: 1.6 },
+    content: { paddingTop: 16 },
+    section: { marginBottom: 14 },
+    // wrap/minPresenceAhead NON vanno qui dentro: @react-pdf/layout li legge da node.props, non da
+    // style (mergeStyles per i nodi View/Text non li riversa in props — verificato leggendo
+    // @react-pdf/layout/lib/index.js — a differenza degli elementi Svg). Passati come prop react
+    // vere e proprie a ogni h(View, {style, wrap: ...}) sotto. minPresenceAhead 90 (non 40,
+    // verificato dal vivo insufficiente): deve coprire intestazione + almeno la prima riga/bullet
+    // del contenuto sotto — altrimenti l'intestazione resta sola in fondo pagina col corpo che
+    // riparte sulla successiva.
+    sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+    sectionBar: { width: 3, height: 13, backgroundColor: colore, borderRadius: 2, marginRight: 7 },
+    sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: "#111827" },
+    bodyText: { fontSize: 9, color: "#374151", lineHeight: 1.6 },
 
-  participantRow: { flexDirection: "row", flexWrap: "wrap" },
-  participantBadge: {
-    backgroundColor: BRAND_COLOR,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    marginRight: 5,
-    marginBottom: 5,
-    wrap: false,
-  },
-  participantText: { fontSize: 8, color: "#ffffff", fontFamily: FONT_BODY, fontWeight: 700 },
+    participantRow: { flexDirection: "row", flexWrap: "wrap" },
+    participantBadge: {
+      backgroundColor: colore,
+      paddingHorizontal: 8,
+      paddingVertical: 3,
+      borderRadius: 10,
+      marginRight: 5,
+      marginBottom: 5,
+    },
+    participantText: { fontSize: 8, color: "#ffffff", fontFamily: fontBody, fontWeight: 700 },
 
-  bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start", wrap: false },
-  bullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: BRAND_COLOR, marginTop: 4, marginRight: 7, flexShrink: 0 },
-  bulletText: { fontSize: 9, color: "#374151", lineHeight: 1.5, flex: 1 },
+    // wrap:false (passato come prop a ogni chiamata, vedi nota sopra su sectionHeader): senza, un
+    // bullet lungo (pallino + testo su più righe) può spezzarsi esattamente al bordo pagina
+    // lasciando il pallino solo in fondo a una pagina col testo che ricomincia sulla successiva
+    // senza il suo pallino. wrap:false forza l'intero bullet (pallino+testo) a spostarsi in blocco
+    // sulla pagina nuova se non ci sta — corretto per contenuto reale (poche frasi), che non arriva
+    // mai vicino all'altezza di una pagina intera. Stesso ragionamento in ReportCommercialePdf.tsx.
+    bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start" },
+    bullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: colore, marginTop: 4, marginRight: 7, flexShrink: 0 },
+    bulletText: { fontSize: 9, color: "#374151", lineHeight: 1.5, flex: 1 },
 
-  actionItem: {
-    flexDirection: "row",
-    marginBottom: 4,
-    backgroundColor: BRAND_LIGHT,
-    borderRadius: 4,
-    minHeight: 24,
-    overflow: "hidden",
-    wrap: false,
-  },
-  actionNumberBox: {
-    width: 24,
-    backgroundColor: BRAND_COLOR,
-    justifyContent: "center",
-    alignItems: "center",
-    flexShrink: 0,
-    paddingVertical: 6,
-  },
-  actionNumberText: { fontSize: 7, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
-  actionBody: { flex: 1, paddingHorizontal: 8, paddingVertical: 5 },
-  actionText: { fontSize: 8.5, color: "#1e3a5f", lineHeight: 1.4 },
-  actionAssignee: { fontSize: 7.5, color: BRAND_COLOR, fontFamily: FONT_BODY, fontWeight: 700, marginTop: 2 },
+    // actionItem resta atomico (wrap:false passato come prop sotto): un action item è per natura
+    // una riga corta (un impegno, non un paragrafo) — non lo stesso rischio di bulletItem sopra.
+    actionItem: {
+      flexDirection: "row",
+      marginBottom: 4,
+      backgroundColor: coloreMedio,
+      borderRadius: 4,
+      minHeight: 24,
+      overflow: "hidden",
+    },
+    actionNumberBox: {
+      width: 24,
+      backgroundColor: colore,
+      justifyContent: "center",
+      alignItems: "center",
+      flexShrink: 0,
+      paddingVertical: 6,
+    },
+    actionNumberText: { fontSize: 7, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
+    actionBody: { flex: 1, paddingHorizontal: 8, paddingVertical: 5 },
+    actionText: { fontSize: 8.5, color: "#1e3a5f", lineHeight: 1.4 },
+    actionAssignee: { fontSize: 7.5, color: colore, fontFamily: fontBody, fontWeight: 700, marginTop: 2 },
 
-  kpiGrid: { flexDirection: "row", flexWrap: "wrap" },
-  kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5, wrap: false },
-  kpiInner: { borderWidth: 0.75, borderColor: "#e5e7eb", borderRadius: 4, padding: 8, minHeight: 70 },
-  kpiLabel: { fontSize: 7, letterSpacing: 0.5, color: BRAND_COLOR, fontFamily: FONT_LABEL, fontWeight: 500, marginBottom: 4 },
-  kpiValue: { fontSize: 8.5, color: "#374151", lineHeight: 1.5 },
+    kpiGrid: { flexDirection: "row", flexWrap: "wrap" },
+    kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5 },
+    kpiInner: { borderWidth: 0.75, borderColor: "#e5e7eb", borderRadius: 4, padding: 8, minHeight: 70 },
+    kpiLabel: { fontSize: 7, letterSpacing: 0.5, color: colore, fontFamily: FONT_LABEL, fontWeight: 500, marginBottom: 4 },
+    kpiValue: { fontSize: 8.5, color: "#374151", lineHeight: 1.5 },
 
-  footer: {
-    position: "absolute",
-    bottom: 18,
-    left: 36,
-    right: 36,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderTopWidth: 0.5,
-    borderTopColor: "#e5e7eb",
-    paddingTop: 8,
-  },
-  footerLeft: { fontSize: 7, color: "#9ca3af" },
-  footerLink: { fontSize: 7, color: BRAND_COLOR, fontFamily: FONT_BODY, fontWeight: 500 },
-});
+    footer: {
+      position: "absolute",
+      bottom: 18,
+      left: 36,
+      right: 36,
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      borderTopWidth: 0.5,
+      borderTopColor: "#e5e7eb",
+      paddingTop: 8,
+    },
+    footerLeft: { fontSize: 7, color: "#9ca3af" },
+    footerLink: { fontSize: 7, color: colore, fontFamily: fontBody, fontWeight: 500 },
+  });
+}
 
 function splitLines(text: string): string[] {
   return text.split("\n").map((l) => l.trim()).filter(Boolean);
@@ -131,25 +147,30 @@ function splitLines(text: string): string[] {
 
 const h = React.createElement;
 
-function SectionHeader({ title }: { title: string }) {
-  return h(View, { style: styles.sectionHeader }, h(View, { style: styles.sectionBar }), h(Text, { style: styles.sectionTitle }, title));
+// `styles` non è più un oggetto module-level (vedi buildStyles sopra: un set diverso per
+// cliente, costruito per render) — questi helper, definiti fuori dal componente, lo ricevono
+// come prop invece di chiuderlo per closure.
+type Styles = ReturnType<typeof buildStyles>;
+
+function SectionHeader({ title, styles }: { title: string; styles: Styles }) {
+  return h(View, { style: styles.sectionHeader, wrap: false, minPresenceAhead: 90 }, h(View, { style: styles.sectionBar }), h(Text, { style: styles.sectionTitle }, title));
 }
 
-function BulletSection({ title, text }: { title: string; text: string }) {
+function BulletSection({ title, text, styles }: { title: string; text: string; styles: Styles }) {
   const lines = splitLines(text);
   if (lines.length === 0) return null;
   return h(
     View,
     { style: styles.section },
-    h(SectionHeader, { title }),
-    ...lines.map((line, i) => h(View, { key: i, style: styles.bulletItem }, h(View, { style: styles.bullet }), h(Text, { style: styles.bulletText }, line)))
+    h(SectionHeader, { title, styles }),
+    ...lines.map((line, i) => h(View, { key: i, style: styles.bulletItem, wrap: false }, h(View, { style: styles.bullet }), h(Text, { style: styles.bulletText }, line)))
   );
 }
 
-function KpiCell({ label, value }: { label: string; value: string }) {
+function KpiCell({ label, value, styles }: { label: string; value: string; styles: Styles }) {
   return h(
     View,
-    { style: styles.kpiCell },
+    { style: styles.kpiCell, wrap: false },
     h(View, { style: styles.kpiInner }, h(Text, { style: styles.kpiLabel }, label.toUpperCase()), h(Text, { style: styles.kpiValue }, value))
   );
 }
@@ -158,11 +179,22 @@ export function MeetingReportPdf({
   meeting,
   clienteNome,
   logoBuf,
+  cliente,
 }: {
   meeting: MeetingDataLoose;
   clienteNome: string;
   logoBuf: Buffer | null;
+  // Colore/font personalizzati del cliente (vedi temaPdfCliente in pdfFonts.ts) — assente o senza
+  // alcun campo valido = resta sui default ALC, stesso comportamento di styleTemaCliente sul web.
+  cliente?: CampiTema;
 }) {
+  const tema = temaPdfCliente(cliente ?? { colorePrimario: "", coloreSecondario: "", fontPersonalizzato: "" }, {
+    colore: BRAND_COLOR_DEFAULT,
+    coloreChiaro: BRAND_SOFT_DEFAULT,
+    coloreMedio: BRAND_LIGHT_DEFAULT,
+  });
+  const styles = buildStyles(tema);
+
   const participants = meeting.participants ?? [];
   const highlights = meeting.highlights ?? [];
   const actionItems = meeting.actionItems ?? [];
@@ -201,7 +233,7 @@ export function MeetingReportPdf({
         ),
         logoBuf
           ? h(PDFImage, { src: logoBuf, style: styles.headerLogo })
-          : h(Text, { style: { fontSize: 9, fontFamily: FONT_HEADING, fontWeight: 700, color: BRAND_COLOR } }, COMPANY_NAME)
+          : h(Text, { style: { fontSize: 9, fontFamily: tema.fontHeading, fontWeight: 700, color: tema.colore } }, COMPANY_NAME)
       ),
 
       // Cliente / Referente
@@ -223,35 +255,35 @@ export function MeetingReportPdf({
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeader, { title: "Partecipanti" }),
-              h(View, { style: styles.participantRow }, ...participants.map((p, i) => h(View, { key: i, style: styles.participantBadge }, h(Text, { style: styles.participantText }, p))))
+              h(SectionHeader, { title: "Partecipanti", styles }),
+              h(View, { style: styles.participantRow }, ...participants.map((p, i) => h(View, { key: i, style: styles.participantBadge, wrap: false }, h(Text, { style: styles.participantText }, p))))
             )
           : null,
 
-        meeting.summary ? h(View, { style: styles.section }, h(SectionHeader, { title: "Sommario" }), h(Text, { style: styles.bodyText }, meeting.summary)) : null,
+        meeting.summary ? h(View, { style: styles.section }, h(SectionHeader, { title: "Sommario", styles }), h(Text, { style: styles.bodyText }, meeting.summary)) : null,
 
         highlights.length > 0
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeader, { title: "Punti salienti" }),
-              ...highlights.map((hl, i) => h(View, { key: i, style: styles.bulletItem }, h(View, { style: styles.bullet }), h(Text, { style: styles.bulletText }, hl)))
+              h(SectionHeader, { title: "Punti salienti", styles }),
+              ...highlights.map((hl, i) => h(View, { key: i, style: styles.bulletItem, wrap: false }, h(View, { style: styles.bullet }), h(Text, { style: styles.bulletText }, hl)))
             )
           : null,
 
-        h(BulletSection, { title: "Task della settimana", text: meeting.taskSettimana ?? "" }),
-        h(BulletSection, { title: "Task del mese", text: meeting.taskMese ?? "" }),
-        h(BulletSection, { title: "Programma del trimestre", text: meeting.programmaTrimestre ?? "" }),
+        h(BulletSection, { title: "Task della settimana", text: meeting.taskSettimana ?? "", styles }),
+        h(BulletSection, { title: "Task del mese", text: meeting.taskMese ?? "", styles }),
+        h(BulletSection, { title: "Programma del trimestre", text: meeting.programmaTrimestre ?? "", styles }),
 
         actionItems.length > 0
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeader, { title: "Action items" }),
+              h(SectionHeader, { title: "Action items", styles }),
               ...actionItems.map((item, i) =>
                 h(
                   View,
-                  { key: i, style: styles.actionItem },
+                  { key: i, style: styles.actionItem, wrap: false },
                   h(View, { style: styles.actionNumberBox }, h(Text, { style: styles.actionNumberText }, String(i + 1))),
                   h(
                     View,
@@ -268,8 +300,8 @@ export function MeetingReportPdf({
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeader, { title: "KPI" }),
-              h(View, { style: styles.kpiGrid }, ...kpis.map(([label, value]) => h(KpiCell, { key: label, label, value })))
+              h(SectionHeader, { title: "KPI", styles }),
+              h(View, { style: styles.kpiGrid }, ...kpis.map(([label, value]) => h(KpiCell, { key: label, label, value, styles })))
             )
           : null
       ),

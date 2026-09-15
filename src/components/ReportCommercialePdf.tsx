@@ -61,7 +61,7 @@ const styles = StyleSheet.create({
   headerSubtitle: { fontSize: 10, color: INK_500, marginTop: 3 },
   headerLogo: { width: 120, height: 48, objectFit: "contain" },
 
-  metaStrip: { flexDirection: "row", gap: 8, paddingTop: 14, wrap: false },
+  metaStrip: { flexDirection: "row", gap: 8, paddingTop: 14 },
   metaChip: { flex: 1, flexDirection: "row", alignItems: "center", backgroundColor: BRAND_SOFT, borderRadius: 5, paddingVertical: 7, paddingHorizontal: 9 },
   metaIconCircle: { width: 18, height: 18, borderRadius: 9, backgroundColor: BRAND_MED, alignItems: "center", justifyContent: "center", marginRight: 7, flexShrink: 0 },
   metaTextWrap: { flex: 1 },
@@ -71,7 +71,15 @@ const styles = StyleSheet.create({
   content: { paddingTop: 18 },
   section: { marginBottom: 15 },
 
-  sectionHeading: { flexDirection: "row", alignItems: "center", marginBottom: 7, wrap: false },
+  // wrap/minPresenceAhead NON vanno qui dentro: @react-pdf/layout li legge da node.props, non da
+  // style (mergeStyles per i nodi View/Text — a differenza degli elementi Svg — non li riversa in
+  // props, verificato leggendo @react-pdf/layout/lib/index.js: erano lettera morta anche prima di
+  // questa riscrittura). Passati come prop react vere e proprie a ogni h(View, {style, wrap: ...}).
+  // minPresenceAhead 90 (non 40, verificato dal vivo insufficiente): deve coprire intestazione +
+  // almeno il primo bullet/riga del box sotto (pallino + 2-3 righe di testo), non solo
+  // l'intestazione stessa — altrimenti l'intestazione resta sola in fondo pagina col box che parte
+  // subito dopo, quasi vuoto, e il resto del contenuto continua sulla pagina successiva.
+  sectionHeading: { flexDirection: "row", alignItems: "center", marginBottom: 7 },
   sectionBadge: { width: 17, height: 17, borderRadius: 9, alignItems: "center", justifyContent: "center", marginRight: 8, flexShrink: 0 },
   sectionBadgeText: { fontSize: 8, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
   sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: INK_900 },
@@ -79,19 +87,26 @@ const styles = StyleSheet.create({
   // Tabella "Dati del cliente" — righe etichetta/valore con icona, non più box affiancati: più
   // vicina alla tabella definizioni degli esempi allegati (label a sinistra, valore in grassetto).
   defTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
-  defRow: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 10, wrap: false },
+  defRow: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 10 },
   defIconCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: BRAND_MED, alignItems: "center", justifyContent: "center", marginRight: 8, flexShrink: 0 },
   defLabel: { width: 92, fontSize: 8, color: INK_500, fontFamily: FONT_BODY, fontWeight: 700 },
   defValue: { flex: 1, fontSize: 9, color: INK_900, fontFamily: FONT_BODY, fontWeight: 700 },
 
   callout: { borderWidth: 0.75, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
-  bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start", wrap: false },
+  // wrap:false (passato come prop a ogni chiamata, vedi nota sopra su sectionHeading): senza, un
+  // bullet lungo (pallino + testo su più righe) può spezzarsi esattamente al bordo pagina lasciando
+  // il pallino solo in fondo a una pagina col testo che ricomincia sulla successiva senza il suo
+  // pallino. wrap:false forza l'intero bullet (pallino+testo) a spostarsi in blocco sulla pagina
+  // nuova se non ci sta — corretto per un paragrafo di poche frasi (il tetto imposto ora al prompt
+  // AI, vedi estrazioneCommerciale.ts: "1-3 frasi"), che non arriva mai vicino all'altezza di una
+  // pagina intera.
+  bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start" },
   bulletDot: { width: 5, height: 5, borderRadius: 3, marginTop: 4, marginRight: 7, flexShrink: 0 },
   bulletText: { fontSize: 9, color: INK_700, lineHeight: 1.5, flex: 1 },
 
   // Tabella comparativa "Comunicazione corretta secondo AL" — colonna Livello Prodotto (✗, da
   // evitare) contro Livello Problema (✓, corretto), stesso schema rosso/verde degli esempi allegati.
-  compareTable: { flexDirection: "row", gap: 8, wrap: false },
+  compareTable: { flexDirection: "row", gap: 8 },
   compareCol: { flex: 1, borderWidth: 0.75, borderRadius: 5, overflow: "hidden" },
   compareHead: { flexDirection: "row", alignItems: "center", paddingVertical: 6, paddingHorizontal: 9 },
   compareHeadIcon: { marginRight: 6 },
@@ -103,8 +118,8 @@ const styles = StyleSheet.create({
   // valore (uno scenario solo, non più 2 scenari affiancati): stesso registro visivo della
   // "Simulazione Economica" degli esempi allegati.
   roiTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
-  roiHeaderRow: { flexDirection: "row", backgroundColor: BRAND_COLOR, wrap: false },
-  roiRow: { flexDirection: "row", wrap: false },
+  roiHeaderRow: { flexDirection: "row", backgroundColor: BRAND_COLOR },
+  roiRow: { flexDirection: "row" },
   roiCellLabel: { flex: 2, fontSize: 8, color: INK_700, padding: 6 },
   roiCellHeaderLabel: { flex: 2, fontSize: 7, padding: 6 },
   roiCellHeader: { flex: 1, fontSize: 8, fontFamily: FONT_BODY, fontWeight: 700, color: "#ffffff", padding: 6, textAlign: "right" },
@@ -200,7 +215,7 @@ function SectionHeading({ number, title, tone = "brand" }: { number: number; tit
   const t = TONES[tone];
   return h(
     View,
-    { style: styles.sectionHeading },
+    { style: styles.sectionHeading, wrap: false, minPresenceAhead: 90 },
     h(View, { style: [styles.sectionBadge, { backgroundColor: t.accent }] }, h(Text, { style: styles.sectionBadgeText }, String(number))),
     h(Text, { style: styles.sectionTitle }, title)
   );
@@ -209,7 +224,7 @@ function SectionHeading({ number, title, tone = "brand" }: { number: number; tit
 function DefRow({ icon, label, value, last }: { icon: IconName; label: string; value: string; last: boolean }) {
   return h(
     View,
-    { style: [styles.defRow, !last ? { borderBottomWidth: 0.5, borderBottomColor: INK_300 } : undefined] },
+    { style: [styles.defRow, !last ? { borderBottomWidth: 0.5, borderBottomColor: INK_300 } : undefined], wrap: false },
     h(View, { style: styles.defIconCircle }, h(Icon, { name: icon, color: BRAND_COLOR, size: 8 })),
     h(Text, { style: styles.defLabel }, label),
     h(Text, { style: styles.defValue }, value || "—")
@@ -228,7 +243,7 @@ function CalloutSection({ number, title, tone, text }: { number: number; title: 
       View,
       { style: [styles.callout, { backgroundColor: t.bg, borderColor: t.border }] },
       ...lines.map((line, i) =>
-        h(View, { key: i, style: styles.bulletItem }, h(View, { style: [styles.bulletDot, { backgroundColor: t.accent }] }), h(Text, { style: styles.bulletText }, line))
+        h(View, { key: i, style: styles.bulletItem, wrap: false }, h(View, { style: [styles.bulletDot, { backgroundColor: t.accent }] }), h(Text, { style: styles.bulletText }, line))
       )
     )
   );
@@ -304,7 +319,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
 
       h(
         View,
-        { style: styles.metaStrip },
+        { style: styles.metaStrip, wrap: false },
         h(MetaChip, { icon: "calendar", label: "Data", value: report.data || "—" }),
         h(MetaChip, { icon: "users", label: "Partecipanti", value: partecipanti.length > 0 ? partecipanti.join(", ") : "—" }),
         h(MetaChip, { icon: "link", label: "Registrazione", value: sourceLabel(report.rawUrl) })
@@ -336,7 +351,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
               h(SectionHeading, { number: 7, title: "Comunicazione Corretta secondo AL" }),
               h(
                 View,
-                { style: styles.compareTable },
+                { style: styles.compareTable, wrap: false },
                 h(
                   View,
                   { style: [styles.compareCol, { borderColor: TONES.danger.border }] },
@@ -373,14 +388,14 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
                 { style: styles.roiTable },
                 h(
                   View,
-                  { style: styles.roiHeaderRow },
+                  { style: styles.roiHeaderRow, wrap: false },
                   h(View, { style: { flex: 2, flexDirection: "row", alignItems: "center", padding: 6 } }, h(Icon, { name: "bars", color: "#ffffff", size: 9 })),
                   h(Text, { style: styles.roiCellHeader }, "Valore")
                 ),
                 ...roiRighe.map(([label, valore], i) =>
                   h(
                     View,
-                    { key: label, style: [styles.roiRow, { backgroundColor: i % 2 === 1 ? INK_100 : "#ffffff" }] },
+                    { key: label, style: [styles.roiRow, { backgroundColor: i % 2 === 1 ? INK_100 : "#ffffff" }], wrap: false },
                     h(Text, { style: styles.roiCellLabel }, label),
                     h(Text, { style: styles.roiCellValue }, valore)
                   )
@@ -388,7 +403,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
                 ...roiRigheFinali.map(([label, valore]) =>
                   h(
                     View,
-                    { key: label, style: [styles.roiRow, { backgroundColor: BRAND_SOFT, borderTopWidth: 1, borderTopColor: BRAND_MED }] },
+                    { key: label, style: [styles.roiRow, { backgroundColor: BRAND_SOFT, borderTopWidth: 1, borderTopColor: BRAND_MED }], wrap: false },
                     h(Text, { style: [styles.roiCellLabel, { fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT }] }, label),
                     h(Text, { style: styles.roiCellValueStrong }, valore)
                   )
@@ -408,7 +423,7 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
                 ...prossimiPassiLines.map((line, i) =>
                   h(
                     View,
-                    { key: i, style: styles.bulletItem },
+                    { key: i, style: styles.bulletItem, wrap: false },
                     h(Icon, { name: "checkSquare", color: BRAND_COLOR, size: 10 }),
                     h(Text, { style: [styles.bulletText, { marginLeft: 7 }] }, line)
                   )

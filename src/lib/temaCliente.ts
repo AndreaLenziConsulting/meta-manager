@@ -12,7 +12,7 @@ export function isFontClienteValido(v: string): v is FontCliente {
   return (FONT_CLIENTE_DISPONIBILI as readonly string[]).includes(v);
 }
 
-type CampiTema = Pick<Cliente, "colorePrimario" | "coloreSecondario" | "fontPersonalizzato">;
+export type CampiTema = Pick<Cliente, "colorePrimario" | "coloreSecondario" | "fontPersonalizzato">;
 
 /**
  * Custom properties CSS da iniettare (via style inline) sul contenitore che avvolge le schermate

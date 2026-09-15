@@ -54,27 +54,27 @@ const EXTRACTION_TOOL_COMMERCIALE = {
         criticita: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Le criticità del prospect emerse in chiamata — cosa non funziona oggi nel suo marketing/vendite. Una voce concreta per riga.",
+          description: "Le criticità del prospect emerse in chiamata — cosa non funziona oggi nel suo marketing/vendite. Una voce argomentata per riga (1-3 frasi, spiega il perché), linguaggio semplice — vedi istruzioni sopra.",
         },
         tentateSoluzioni: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Cosa il prospect ha già provato per risolvere le sue criticità (altre agenzie, tool, tentativi interni) e perché non ha funzionato, se detto.",
+          description: "Cosa il prospect ha già provato per risolvere le sue criticità (altre agenzie, tool, tentativi interni) e perché non ha funzionato, se detto. Argomentato in 1-3 frasi, linguaggio semplice.",
         },
         pain: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Il PAIN reale del prospect — l'impatto concreto/emotivo delle criticità (es. 'perde clienti a favore della concorrenza', 'non riesce a scalare oltre un certo fatturato'), non solo la criticità tecnica in sé.",
+          description: "Il PAIN reale del prospect — l'impatto concreto/emotivo delle criticità (es. 'perde clienti a favore della concorrenza', 'non riesce a scalare oltre un certo fatturato'), non solo la criticità tecnica in sé. Argomentato in 1-3 frasi, linguaggio semplice.",
         },
         obiettivi: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Cosa vuole ottenere il prospect (es. 'raddoppiare i lead in 6 mesi', 'aprire una seconda sede'). Con numeri/orizzonti temporali se menzionati.",
+          description: "Cosa vuole ottenere il prospect (es. 'raddoppiare i lead in 6 mesi', 'aprire una seconda sede'). Con numeri/orizzonti temporali se menzionati, argomentato in 1-3 frasi.",
         },
         soluzioneProposta: {
           type: ["array", "string"],
           items: { type: "string" },
-          description: "Cosa il commerciale ALC ha proposto in risposta a criticità/pain/obiettivi del prospect — l'offerta discussa in chiamata.",
+          description: "Cosa il commerciale ALC ha proposto in risposta a criticità/pain/obiettivi del prospect — l'offerta discussa in chiamata. Argomentato in 1-3 frasi, linguaggio semplice: spiega perché quella proposta risponde a quel problema specifico.",
         },
         livelloProblema: {
           type: "string",
@@ -112,7 +112,8 @@ Nella chiamata parlano tipicamente due parti: il **commerciale** di Andrea Lenzi
 Linee guida:
 - Rispondi sempre in italiano, anche se la chiamata è in un'altra lingua.
 - Se un'informazione non è presente, metti stringa vuota (campi string) o array vuoto (campi lista) — non inventare mai dati non supportati dal contenuto.
-- Per i campi lista (criticità, tentate soluzioni, PAIN, obiettivi, soluzione proposta, prossimi passi) una voce concreta per riga, non un unico paragrafo generico.
+- Per i campi lista (criticità, tentate soluzioni, PAIN, obiettivi, soluzione proposta, prossimi passi): una voce per riga, ma ogni voce è un piccolo paragrafo argomentato (1-3 frasi), non un titolo telegrafico — spiega il PERCHÉ/il contesto dietro il punto usando quello che è stato detto in chiamata, non solo il fatto nudo. Esempio: non "Poca visibilità online" ma "Il prospect fatica a farsi trovare online: chi cerca il suo servizio nella zona trova prima i concorrenti, e questo si traduce in clienti persi senza nemmeno saperlo". Argomenta con sostanza reale dalla chiamata, mai per allungare a vuoto.
+- Linguaggio SEMPRE semplice, come lo spiegheresti a chi non lavora nel marketing: mai gergo tecnico non spiegato (non "CTR basso" ma "poche persone che vedono l'annuncio ci cliccano sopra"; non "funnel" ma "il percorso che un cliente fa da quando ti scopre a quando compra"). Se in chiamata è stato usato un termine tecnico, traducilo in parole semplici invece di ricopiarlo.
 - La data in formato DD/MM/YYYY.
 - Chiama SEMPRE il tool "save_report_commerciale" con i dati estratti, anche se alcuni campi restano vuoti.`;
 

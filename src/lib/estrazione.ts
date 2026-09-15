@@ -162,6 +162,7 @@ Riceverai il contenuto testuale reso dal browser della pagina di condivisione Fa
 
 Linee guida:
 - Rispondi sempre in italiano.
+- Linguaggio semplice e concreto: evita gergo tecnico non spiegato (es. non "CTR"/"funnel" nudi e crudi, spiega cosa vogliono dire in parole semplici) — chi legge il report non lavora per forza nel marketing.
 - Se un'informazione non è presente, metti stringa vuota (per i campi string) o array vuoto.
 - Non inventare dati. Estrai solo ciò che è supportato dal contenuto.
 - Per taskSettimana/Mese/etc. usa una task per riga, formato "<Nome>: <azione>" quando possibile.
@@ -207,6 +208,7 @@ Linee guida per Circleback:
 - La sezione "Key Topics" o "Highlights" mappa bene sul campo highlights.
 - Se Circleback mostra una sezione "Next Steps", includila in taskSettimana/taskMese.
 - Rispondi sempre in italiano.
+- Linguaggio semplice e concreto: evita gergo tecnico non spiegato (es. non "CTR"/"funnel" nudi e crudi, spiega cosa vogliono dire in parole semplici) — chi legge il report non lavora per forza nel marketing.
 - Se un'informazione non è presente, metti stringa vuota (per i campi string) o array vuoto.
 - Non inventare dati. Estrai solo ciò che è supportato dal contenuto.
 - Per taskSettimana/Mese/etc. usa una task per riga, formato "<Nome>: <azione>" quando possibile.
@@ -253,6 +255,7 @@ Estrazione durata Loom:
 
 Note operative:
 - Rispondi sempre in italiano.
+- Linguaggio semplice e concreto: evita gergo tecnico non spiegato (es. non "CTR"/"funnel" nudi e crudi, spiega cosa vogliono dire in parole semplici) — chi legge il report non lavora per forza nel marketing.
 - Se un'informazione non è presente, metti stringa vuota o array vuoto.
 - Non inventare dati. Estrai solo ciò che è supportato dal contenuto.
 - Per taskSettimana/Mese/etc. usa una task per riga, formato "<Nome>: <azione>" quando possibile.

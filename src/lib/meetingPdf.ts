@@ -2,6 +2,7 @@ import path from "path";
 import { renderToBuffer } from "@react-pdf/renderer";
 import React from "react";
 import { MeetingReportPdf } from "@/components/MeetingReportPdf";
+import type { CampiTema } from "@/lib/temaCliente";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 /**
@@ -19,9 +20,9 @@ async function getLogoBuffer(): Promise<Buffer | null> {
   }
 }
 
-export async function renderMeetingPdfBuffer(clienteNome: string, meeting: MeetingDataLoose): Promise<Buffer> {
+export async function renderMeetingPdfBuffer(clienteNome: string, meeting: MeetingDataLoose, cliente?: CampiTema): Promise<Buffer> {
   const logoBuf = await getLogoBuffer();
-  const doc = React.createElement(MeetingReportPdf, { meeting, clienteNome, logoBuf });
+  const doc = React.createElement(MeetingReportPdf, { meeting, clienteNome, logoBuf, cliente });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfBuffer = await renderToBuffer(doc as any);
   return Buffer.from(pdfBuffer);

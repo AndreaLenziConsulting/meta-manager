@@ -151,7 +151,7 @@ export async function POST(req: NextRequest) {
       if (!consulente?.email) throw new Error("Il consulente assegnato non ha un'email configurata");
 
       const { oggetto, corpo } = separaOggettoECorpo(testoEmailBozza ?? buildEmailText(meeting, clienteNome));
-      const pdfBuffer = await renderMeetingPdfBuffer(clienteNome, meeting);
+      const pdfBuffer = await renderMeetingPdfBuffer(clienteNome, meeting, cliente);
       await inviaEmailMeeting({
         consulenteNome: consulente.nome,
         consulenteEmail: consulente.email,

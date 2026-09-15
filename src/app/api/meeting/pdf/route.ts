@@ -31,10 +31,11 @@ export async function POST(req: NextRequest) {
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
   }
-  const clienteNome = clienti.find((c) => c.clienteId === clienteId)?.nome ?? clienteId;
+  const cliente = clienti.find((c) => c.clienteId === clienteId);
+  const clienteNome = cliente?.nome ?? clienteId;
 
   try {
-    const pdfBuffer = await renderMeetingPdfBuffer(clienteNome, meeting);
+    const pdfBuffer = await renderMeetingPdfBuffer(clienteNome, meeting, cliente);
     const filename = `report-${(clienteNome || meeting.title || "meeting")
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
