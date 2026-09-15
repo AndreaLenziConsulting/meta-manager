@@ -4,6 +4,7 @@ import { aggiornaProspect, creaProspect, getCommerciali, getConsulenti, getProsp
 import { generaProspectId } from "@/lib/accessCode";
 import { puoVedereProspect } from "@/lib/authz";
 import { assicuraCartelleProspect } from "@/lib/drive";
+import type { CalcolatoreBudgetInput } from "@/types/prospect";
 
 export const runtime = "nodejs";
 
@@ -104,6 +105,11 @@ type BodyPatch = {
   // propri prospect, "" per ritirarla. Non basta a creare il Cliente: solo un suggerimento, la
   // conversione vera resta un'azione admin (POST /api/prospect/converti).
   consulenteSuggeritoId?: string;
+  // Calcolatore Budget del prospect (sezione a parte, vedi /dashboard/commerciale/[prospectId]/calcolatore
+  // e CalcolatoreBudgetProspect.tsx) — un oggetto intero sovrascritto ogni volta (mai un merge
+  // parziale campo per campo come i numeri sopra), stesso schema di salvaReportCommerciale per
+  // ReportCommerciale.dati. `null` esplicito cancella il calcolatore compilato.
+  calcolatoreBudget?: CalcolatoreBudgetInput | null;
 };
 
 const CAMPI_NUMERICI = [
@@ -115,6 +121,15 @@ const CAMPI_NUMERICI = [
   "targetFatturatoMensile",
   "targetMargineVenditaPct",
 ] as const;
+
+const CAMPI_CALCOLATORE = ["fatturatoMensile", "ticketMedio", "margine", "cpl", "tassoAppuntamento", "tassoChiusura", "variazioneStagionale"] as const;
+
+/** True se `v` ha la forma di CalcolatoreBudgetInput — solo le chiavi attese, ognuna number|null. */
+function isCalcolatoreBudgetValido(v: unknown): v is CalcolatoreBudgetInput {
+  if (v === null || typeof v !== "object") return false;
+  const obj = v as Record<string, unknown>;
+  return CAMPI_CALCOLATORE.every((campo) => obj[campo] === null || typeof obj[campo] === "number");
+}
 
 /**
  * Modifica i dati commerciali di un prospect esistente (cartella Drive + parametri target, vedi
@@ -151,6 +166,9 @@ export async function PATCH(req: NextRequest) {
   if (body.targetMargineVenditaPct != null && (body.targetMargineVenditaPct < 0 || body.targetMargineVenditaPct > 100)) {
     return NextResponse.json({ error: "targetMargineVenditaPct deve essere tra 0 e 100" }, { status: 400 });
   }
+  if (body.calcolatoreBudget !== undefined && body.calcolatoreBudget !== null && !isCalcolatoreBudgetValido(body.calcolatoreBudget)) {
+    return NextResponse.json({ error: "calcolatoreBudget non valido" }, { status: 400 });
+  }
   const consulenteSuggeritoId = body.consulenteSuggeritoId !== undefined ? body.consulenteSuggeritoId.trim() : undefined;
   if (consulenteSuggeritoId) {
     const consulenti = await getConsulenti();
@@ -171,6 +189,7 @@ export async function PATCH(req: NextRequest) {
       targetFatturatoMensile: body.targetFatturatoMensile,
       targetMargineVenditaPct: body.targetMargineVenditaPct,
       consulenteSuggeritoId,
+      calcolatoreBudget: body.calcolatoreBudget,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

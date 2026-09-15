@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Prospect, ReportCommercialeRow } from "@/types/prospect";
+import { useState } from "react";
+import type { Prospect } from "@/types/prospect";
 import { formatEuro } from "@/lib/format";
 import { calcolaCalcolatoreBudget, SETTIMANE_PER_MESE } from "@/lib/roiSimulatore";
 import { Modal } from "@/components/ui/Modal";
@@ -22,10 +22,10 @@ function arrotondaUnDecimale(value: number): number {
  * consulente/prodotto/ad account/target ads non hanno un corrispettivo sul prospect e vanno scelti
  * qui da zero. Il vecchio pannello "dati commerciali del prospect" sotto resta solo di riferimento,
  * mai copiato in automatico (vedi il suo commento) — ma i 4 target della Sede (budget/fatturato
- * mensile, lead/appuntamenti a settimana) SONO precompilati dal Calcolatore Budget dell'ultimo
- * report del prospect quando disponibile (fetch nell'useEffect sotto), sempre modificabili prima
- * di confermare: sono la stessa identica "anagrafica" che il consulente ritroverà nel tab KPI del
- * cliente, non uno storico da consultare a parte come il pannello di sotto.
+ * mensile, lead/appuntamenti a settimana) SONO precompilati dal Calcolatore Budget del prospect
+ * (Prospect.calcolatoreBudget, sezione a parte, già una prop qui — nessun fetch necessario), sempre
+ * modificabili prima di confermare: sono la stessa identica "anagrafica" che il consulente
+ * ritroverà nel tab KPI del cliente, non uno storico da consultare a parte come il pannello sotto.
  */
 export function ConvertiProspectModal({
   prospect,
@@ -49,15 +49,26 @@ export function ConvertiProspectModal({
   const [targetCpa, setTargetCpa] = useState("");
   const [targetCpl, setTargetCpl] = useState("");
 
-  // Target commerciali della Sede — precompilati (se disponibili) dal Calcolatore Budget del
-  // report più recente del prospect, ma sempre modificabili prima di confermare: stesso principio
-  // già in uso per targetCpa/targetCpl sopra e per il pannello "solo di riferimento" sotto, mai
-  // applicati alla cieca. Restano vuoti finché il fetch sotto non trova un calcolo completo.
-  const [targetBudgetMensile, setTargetBudgetMensile] = useState("");
-  const [targetFatturatoMensileSede, setTargetFatturatoMensileSede] = useState("");
-  const [targetLeadSettimana, setTargetLeadSettimana] = useState("");
-  const [targetAppuntamentiSettimana, setTargetAppuntamentiSettimana] = useState("");
-  const [precompilatoDaCalcolatore, setPrecompilatoDaCalcolatore] = useState(false);
+  // Target commerciali della Sede — precompilati (se disponibile) dal Calcolatore Budget del
+  // prospect, ma sempre modificabili prima di confermare: stesso principio già in uso per
+  // targetCpa/targetCpl sopra e per il pannello "solo di riferimento" sotto, mai applicati alla
+  // cieca. Calcolo sincrono (niente fetch: il prospect, calcolatore incluso, è già una prop).
+  const cb = prospect.calcolatoreBudget;
+  const outputCalcolatore = cb ? calcolaCalcolatoreBudget(cb) : null;
+  const precompilatoDaCalcolatore = outputCalcolatore?.budgetMensile != null;
+
+  const [targetBudgetMensile, setTargetBudgetMensile] = useState(
+    outputCalcolatore?.budgetMensile != null ? String(Math.round(outputCalcolatore.budgetMensile)) : ""
+  );
+  const [targetFatturatoMensileSede, setTargetFatturatoMensileSede] = useState(
+    cb?.fatturatoMensile != null ? String(cb.fatturatoMensile) : ""
+  );
+  const [targetLeadSettimana, setTargetLeadSettimana] = useState(
+    outputCalcolatore?.numeroLead != null ? String(arrotondaUnDecimale(outputCalcolatore.numeroLead / SETTIMANE_PER_MESE)) : ""
+  );
+  const [targetAppuntamentiSettimana, setTargetAppuntamentiSettimana] = useState(
+    outputCalcolatore?.appuntamentiSettimana != null ? String(arrotondaUnDecimale(outputCalcolatore.appuntamentiSettimana)) : ""
+  );
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -67,37 +78,6 @@ export function ConvertiProspectModal({
     prospect.targetCpl !== null ||
     prospect.targetCpaAppuntamento !== null ||
     prospect.targetFatturatoMensile !== null;
-
-  useEffect(() => {
-    let annullato = false;
-    fetch(`/api/report-commerciale?prospectId=${encodeURIComponent(prospect.prospectId)}`)
-      .then((res) => res.json())
-      .then((data: { report: ReportCommercialeRow[] }) => {
-        if (annullato) return;
-        // Già ordinati dal più recente (vedi GET /api/report-commerciale) — prendo il primo con un
-        // Calcolatore Budget abbastanza compilato da produrre un budget necessario reale, non il
-        // primo report in assoluto (potrebbe non aver mai toccato il calcolatore).
-        const report = data.report?.find((r) => {
-          const cb = r.dati.calcolatoreBudget;
-          return cb && calcolaCalcolatoreBudget(cb).budgetMensile !== null;
-        });
-        const cb = report?.dati.calcolatoreBudget;
-        if (!cb) return;
-        const output = calcolaCalcolatoreBudget(cb);
-        if (output.budgetMensile !== null) setTargetBudgetMensile(String(Math.round(output.budgetMensile)));
-        if (cb.fatturatoMensile !== null) setTargetFatturatoMensileSede(String(cb.fatturatoMensile));
-        if (output.numeroLead !== null) setTargetLeadSettimana(String(arrotondaUnDecimale(output.numeroLead / SETTIMANE_PER_MESE)));
-        if (output.appuntamentiSettimana !== null) setTargetAppuntamentiSettimana(String(arrotondaUnDecimale(output.appuntamentiSettimana)));
-        setPrecompilatoDaCalcolatore(true);
-      })
-      .catch(() => {
-        // Nessun blocco della conversione se il fetch fallisce: i campi restano vuoti, esattamente
-        // come prima di questa precompilazione — la conversione stessa non dipende da questa chiamata.
-      });
-    return () => {
-      annullato = true;
-    };
-  }, [prospect.prospectId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -176,7 +156,7 @@ export function ConvertiProspectModal({
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500 mb-2">
             Target commerciali della sede (opzionali)
-            {precompilatoDaCalcolatore && " — precompilati dal Calcolatore Budget del report più recente, verificali"}
+            {precompilatoDaCalcolatore && " — precompilati dal Calcolatore Budget del prospect, verificali"}
           </p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Budget mensile (€)">

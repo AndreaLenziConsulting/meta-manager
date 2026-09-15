@@ -18,7 +18,7 @@ import type {
   TemplateTask,
 } from "@/types/kpi";
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
-import type { Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
+import type { CalcolatoreBudgetInput, Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
 import type { GhlConnessione } from "@/types/ghl";
 import type { ConnessioneCanale } from "@/types/connessioniCanale";
 
@@ -1547,37 +1547,50 @@ export async function eliminaMeeting(meetingId: string): Promise<void> {
   ]);
 }
 
-// Tab Prospect, colonne A→Q: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
+// Tab Prospect, colonne A→T: prospectId, ragioneSociale, tipoBusiness, fatturato, sedi, email,
 // commercialeId, attivo, creatoIl, driveFolderUrl, mediaBudgetMensile, targetCpl,
 // targetCpaAppuntamento, targetLeadSettimana, targetAppuntamentiSettimana, targetFatturatoMensile,
-// targetMargineVenditaPct — anagrafica persistente del prospect, vedi types/prospect.ts. Le colonne
-// J→Q sono più recenti delle prime 9: righe create prima della loro introduzione le leggono vuote
-// (toNumberOrNull(undefined) → null, asText(undefined) → ""), mai un crash.
+// targetMargineVenditaPct, clienteId, consulenteSuggeritoId, calcolatoreBudget (JSON, colonna T) —
+// anagrafica persistente del prospect, vedi types/prospect.ts. Le colonne J→T sono più recenti
+// delle prime 9: righe create prima della loro introduzione le leggono vuote (toNumberOrNull
+// (undefined) → null, asText(undefined) → ""), mai un crash.
 export async function getProspect(): Promise<Prospect[]> {
   const rows = await readTab(TAB.prospect, { noCache: true });
   return rows
     .filter((r) => r[0])
-    .map((r) => ({
-      prospectId: asText(r[0]),
-      ragioneSociale: asText(r[1]),
-      tipoBusiness: asText(r[2]),
-      fatturato: asText(r[3]),
-      sedi: asText(r[4]),
-      email: asText(r[5]),
-      commercialeId: asText(r[6]),
-      attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
-      creatoIl: asText(r[8]),
-      driveFolderUrl: asText(r[9]),
-      mediaBudgetMensile: toNumberOrNull(r[10]),
-      targetCpl: toNumberOrNull(r[11]),
-      targetCpaAppuntamento: toNumberOrNull(r[12]),
-      targetLeadSettimana: toNumberOrNull(r[13]),
-      targetAppuntamentiSettimana: toNumberOrNull(r[14]),
-      targetFatturatoMensile: toNumberOrNull(r[15]),
-      targetMargineVenditaPct: toNumberOrNull(r[16]),
-      clienteId: asText(r[17]),
-      consulenteSuggeritoId: asText(r[18]),
-    }));
+    .map((r) => {
+      let calcolatoreBudget: Prospect["calcolatoreBudget"] = null;
+      const raw = asText(r[19]);
+      if (raw) {
+        try {
+          calcolatoreBudget = JSON.parse(raw) as Prospect["calcolatoreBudget"];
+        } catch {
+          calcolatoreBudget = null;
+        }
+      }
+      return {
+        prospectId: asText(r[0]),
+        ragioneSociale: asText(r[1]),
+        tipoBusiness: asText(r[2]),
+        fatturato: asText(r[3]),
+        sedi: asText(r[4]),
+        email: asText(r[5]),
+        commercialeId: asText(r[6]),
+        attivo: asText(r[7]).trim().toUpperCase() === "TRUE",
+        creatoIl: asText(r[8]),
+        driveFolderUrl: asText(r[9]),
+        mediaBudgetMensile: toNumberOrNull(r[10]),
+        targetCpl: toNumberOrNull(r[11]),
+        targetCpaAppuntamento: toNumberOrNull(r[12]),
+        targetLeadSettimana: toNumberOrNull(r[13]),
+        targetAppuntamentiSettimana: toNumberOrNull(r[14]),
+        targetFatturatoMensile: toNumberOrNull(r[15]),
+        targetMargineVenditaPct: toNumberOrNull(r[16]),
+        clienteId: asText(r[17]),
+        consulenteSuggeritoId: asText(r[18]),
+        calcolatoreBudget,
+      };
+    });
 }
 
 export type NuovoProspectInput = {
@@ -1630,6 +1643,7 @@ export type AggiornaProspectInput = {
   targetMargineVenditaPct?: number | null;
   clienteId?: string;
   consulenteSuggeritoId?: string;
+  calcolatoreBudget?: CalcolatoreBudgetInput | null;
 };
 
 /**
@@ -1673,6 +1687,7 @@ export async function aggiornaProspect(input: AggiornaProspectInput): Promise<vo
   if (input.targetMargineVenditaPct !== undefined) set("Q", input.targetMargineVenditaPct ?? "");
   if (input.clienteId !== undefined) set("R", input.clienteId);
   if (input.consulenteSuggeritoId !== undefined) set("S", input.consulenteSuggeritoId);
+  if (input.calcolatoreBudget !== undefined) set("T", input.calcolatoreBudget ? JSON.stringify(input.calcolatoreBudget) : "");
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

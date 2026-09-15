@@ -35,9 +35,8 @@ export type Prospect = {
   // Cliente vero e proprio (il collegamento prospect→cliente è la conversione sopra, ma questi
   // target NON vengono copiati automaticamente sul Cliente: sono metriche commerciali — CPL,
   // CPA-appuntamento — diverse per definizione dai target ads di una Sede, vedi POST
-  // /api/prospect/converti): pensati per alimentare, in un giro successivo, sia il Simulatore ROI
-  // (oggi compilato a mano ogni volta, vedi ScenarioRoi sotto) sia gli indicatori di performance
-  // reali una volta collegati a una Sede — qui solo lo storage, non ancora consumati.
+  // /api/prospect/converti). Compilati a mano, restano di solo riferimento (mai un calcolo
+  // automatico) — per quello vedi calcolatoreBudget sotto.
   driveFolderUrl: string; // link alla cartella Drive del prospect — creato in automatico alla
   // creazione del prospect (vedi assicuraCartelleProspect in drive.ts), sovrascrivibile a mano
   mediaBudgetMensile: number | null; // € di spesa ads mensile pianificata/concordata
@@ -66,6 +65,15 @@ export type Prospect = {
   // Sopravvive alla conversione (non viene ripulito): resta come nota storica di chi era stato
   // suggerito, ClienteId sopra è il segnale definitivo di "già convertito".
   consulenteSuggeritoId: string;
+
+  // Calcolatore Budget del prospect — una sezione a parte (non più dentro il report, vedi
+  // ReportCommercialeDataLoose sotto), raggiungibile da /dashboard/commerciale/[prospectId]/calcolatore.
+  // UN calcolatore per prospect (non uno per report/chiamata): la stessa proiezione che il
+  // commerciale affina nel tempo, non uno snapshot per singola call. Alimenta la precompilazione
+  // dei target della Sede alla conversione (vedi ConvertiProspectModal.tsx/POST
+  // /api/prospect/converti) e resta consultabile per intero dal consulente post-vendita nel tab
+  // "Vendita" della scheda cliente (vedi GET /api/clienti/report-vendita).
+  calcolatoreBudget: CalcolatoreBudgetInput | null;
 };
 
 export type ScenarioRoi = {
@@ -78,13 +86,15 @@ export type ScenarioRoi = {
 };
 
 /**
- * Input del Calcolatore Budget nel Report Commerciale — sostituisce (11/2026) i 2 scenari
- * ScenarioRoi affiancati con un unico calcolo "al contrario": parte da un fatturato mensile
- * obiettivo (non da un budget) e deriva quante vendite/appuntamenti/lead servono e quale budget
- * media serve per raggiungerlo — vedi calcolaCalcolatoreBudget/calcolaPianoAnnualeBudget in
- * src/lib/roiSimulatore.ts. ScenarioRoi sopra resta invariato: lo usa ancora
- * PerformancePrevisionale.tsx (proiezione in avanti da un budget dato, nel tab KPI di un cliente
- * già attivo — tutt'altra funzionalità, non toccata da questa sostituzione).
+ * Input del Calcolatore Budget del prospect (Prospect.calcolatoreBudget sopra) — un calcolo "al
+ * contrario": parte da un fatturato mensile obiettivo (non da un budget) e deriva quante
+ * vendite/appuntamenti/lead servono e quale budget media serve per raggiungerlo — vedi
+ * calcolaCalcolatoreBudget/calcolaPianoAnnualeBudget in src/lib/roiSimulatore.ts. Vive sul
+ * prospect (11/2026: prima era dentro ogni singolo ReportCommerciale — spostato in una sezione a
+ * parte, vedi ReportCommercialeDataLoose sotto, così resta UNA proiezione per prospect invece di
+ * una per chiamata). ScenarioRoi sopra resta invariato: lo usa ancora PerformancePrevisionale.tsx
+ * (proiezione in avanti da un budget dato, nel tab KPI di un cliente già attivo — tutt'altra
+ * funzionalità).
  */
 export type CalcolatoreBudgetInput = {
   fatturatoMensile: number | null; // € di fatturato mensile obiettivo
@@ -118,8 +128,11 @@ export type ReportCommercialeDataLoose = {
   livelloProdotto?: string;
   prossimiPassi?: string;
 
-  // Mai estratto dal modello — sempre compilato a mano nell'editor, vedi src/lib/roiSimulatore.ts.
-  calcolatoreBudget?: CalcolatoreBudgetInput;
+  // Target commerciali — due numeri semplici inseriti a mano dal commerciale, mai calcolati (per
+  // il calcolo vero vedi Prospect.calcolatoreBudget, sezione a parte): un "promemoria" rapido di
+  // cosa concordato in questa chiamata, non una proiezione. Mai estratti dal modello.
+  budgetMedioMensile?: number | null;
+  fatturatoAttesoMensile?: number | null;
 };
 
 /** Riga così com'è persistita/letta dalla tab ReportCommerciale. */

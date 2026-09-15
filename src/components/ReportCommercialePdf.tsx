@@ -1,7 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage, Svg, Path, Rect, Circle, Line, Polygon } from "@react-pdf/renderer";
 import React from "react";
-import { calcolaCalcolatoreBudget } from "@/lib/roiSimulatore";
-import { formatEuro, formatNumero, formatPercentuale, formatRoas } from "@/lib/format";
+import { formatEuro } from "@/lib/format";
 import { FONT_BODY, FONT_HEADING, FONT_LABEL, registraFontPdf } from "@/lib/pdfFonts";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
 
@@ -14,8 +13,11 @@ registraFontPdf();
  * icone). Stessa shell di base di MeetingReportPdf.tsx (margini, regole wrap:false sui blocchi
  * atomici — react-pdf ripagina un blocco a metà senza) ma sezioni numerate 1-9, box colorati per
  * tono (Criticità/PAIN in ambra/rosso, Obiettivi in verde, Soluzione Proposta/Prossimi Passi nel
- * blu del brand), tabella comparativa Livello Prodotto/Livello Problema in stile ✗/✓, tabella ROI
- * estesa con header brand pieno e righe zebrate, footer con numero di pagina ripetuto.
+ * blu del brand), tabella comparativa Livello Prodotto/Livello Problema in stile ✗/✓, footer con
+ * numero di pagina ripetuto. Il Calcolatore Budget vero e proprio (proiezione al contrario da un
+ * fatturato obiettivo) non è più qui: è una sezione a parte del prospect (vedi
+ * Prospect.calcolatoreBudget in types/prospect.ts) — qui restano solo i 2 target commerciali
+ * inseriti a mano dal commerciale (sezione 8, stessa tabella label/valore di "Dati del Cliente").
  *
  * Le icone sono forme vettoriali (Svg/Path/Rect/Circle) invece di emoji: i font PDF core
  * (Helvetica, senza font embedding) non hanno glifi emoji — renderebbero caselle vuote — mentre
@@ -113,18 +115,6 @@ const styles = StyleSheet.create({
   compareHeadText: { fontSize: 8.5, fontFamily: FONT_BODY, fontWeight: 700 },
   compareBody: { paddingVertical: 8, paddingHorizontal: 9 },
   compareBodyText: { fontSize: 8.5, color: INK_700, lineHeight: 1.5 },
-
-  // Tabella Calcolatore Budget — header pieno brand (testo bianco) + righe zebrate, singola colonna
-  // valore (uno scenario solo, non più 2 scenari affiancati): stesso registro visivo della
-  // "Simulazione Economica" degli esempi allegati.
-  roiTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
-  roiHeaderRow: { flexDirection: "row", backgroundColor: BRAND_COLOR },
-  roiRow: { flexDirection: "row" },
-  roiCellLabel: { flex: 2, fontSize: 8, color: INK_700, padding: 6 },
-  roiCellHeaderLabel: { flex: 2, fontSize: 7, padding: 6 },
-  roiCellHeader: { flex: 1, fontSize: 8, fontFamily: FONT_BODY, fontWeight: 700, color: "#ffffff", padding: 6, textAlign: "right" },
-  roiCellValue: { flex: 1, fontSize: 8.5, color: INK_900, padding: 6, textAlign: "right" },
-  roiCellValueStrong: { flex: 1, fontSize: 9, fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT, padding: 6, textAlign: "right" },
 
   footer: { position: "absolute", bottom: 18, left: 36, right: 36, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderTopWidth: 0.5, borderTopColor: INK_300, paddingTop: 8 },
   footerLeft: { fontSize: 7, color: INK_400 },
@@ -270,28 +260,14 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
   ];
   const haDefRows = defRows.some(([, , v]) => v.trim());
 
-  const calcolatore = report.calcolatoreBudget ?? null;
-  const outputBudget = calcolatore ? calcolaCalcolatoreBudget(calcolatore) : null;
-  const haRoi = !!calcolatore;
-  // I tassi sono salvati come 0-100 (percentuale "umana"), formatPercentuale si aspetta 0-1.
-  const formatTasso = (v: number | null | undefined) => formatPercentuale(v == null ? null : v / 100);
-  const roiRighe: Array<[string, string]> = [
-    ["Fatturato mensile obiettivo", formatEuro(calcolatore?.fatturatoMensile ?? null)],
-    ["Ticket medio", formatEuro(calcolatore?.ticketMedio ?? null)],
-    ["Margine atteso", formatTasso(calcolatore?.margine)],
-    ["Costo per lead (CPL)", formatEuro(calcolatore?.cpl ?? null)],
-    ["Tasso lead / appuntamento", formatTasso(calcolatore?.tassoAppuntamento)],
-    ["Tasso di chiusura", formatTasso(calcolatore?.tassoChiusura)],
-    ["Vendite necessarie / mese", formatNumero(outputBudget?.numeroVendite ?? null)],
-    ["Appuntamenti necessari / mese", formatNumero(outputBudget?.numeroAppuntamenti ?? null)],
-    ["Lead necessari / mese", formatNumero(outputBudget?.numeroLead ?? null)],
-    ["Costo per appuntamento", formatEuro(outputBudget?.costoPerAppuntamento ?? null)],
+  // Target commerciali — 2 numeri semplici inseriti a mano, mai calcolati (il calcolo vero vive
+  // nel Calcolatore Budget del prospect, sezione a parte). Stessa tabella label/valore di "Dati
+  // del Cliente" sopra.
+  const targetRows: Array<[IconName, string, string]> = [
+    ["dollar", "Budget medio mensile", formatEuro(report.budgetMedioMensile ?? null)],
+    ["target", "Fatturato atteso mensile", formatEuro(report.fatturatoAttesoMensile ?? null)],
   ];
-  const roiRigheFinali: Array<[string, string]> = [
-    ["Budget media necessario / mese", formatEuro(outputBudget?.budgetMensile ?? null)],
-    ["Margine mensile atteso", formatEuro(outputBudget?.margineMensile ?? null)],
-    ["ROAS", formatRoas(outputBudget?.roas ?? null)],
-  ];
+  const haTargetRows = report.budgetMedioMensile != null || report.fatturatoAttesoMensile != null;
 
   const prossimiPassiLines = splitLines(report.prossimiPassi ?? "");
 
@@ -378,37 +354,12 @@ export function ReportCommercialePdf({ report, logoBuf }: { report: ReportCommer
             )
           : null,
 
-        haRoi
+        haTargetRows
           ? h(
               View,
               { style: styles.section },
-              h(SectionHeading, { number: 8, title: "Calcolatore Budget" }),
-              h(
-                View,
-                { style: styles.roiTable },
-                h(
-                  View,
-                  { style: styles.roiHeaderRow, wrap: false },
-                  h(View, { style: { flex: 2, flexDirection: "row", alignItems: "center", padding: 6 } }, h(Icon, { name: "bars", color: "#ffffff", size: 9 })),
-                  h(Text, { style: styles.roiCellHeader }, "Valore")
-                ),
-                ...roiRighe.map(([label, valore], i) =>
-                  h(
-                    View,
-                    { key: label, style: [styles.roiRow, { backgroundColor: i % 2 === 1 ? INK_100 : "#ffffff" }], wrap: false },
-                    h(Text, { style: styles.roiCellLabel }, label),
-                    h(Text, { style: styles.roiCellValue }, valore)
-                  )
-                ),
-                ...roiRigheFinali.map(([label, valore]) =>
-                  h(
-                    View,
-                    { key: label, style: [styles.roiRow, { backgroundColor: BRAND_SOFT, borderTopWidth: 1, borderTopColor: BRAND_MED }], wrap: false },
-                    h(Text, { style: [styles.roiCellLabel, { fontFamily: FONT_BODY, fontWeight: 700, color: BRAND_TEXT }] }, label),
-                    h(Text, { style: styles.roiCellValueStrong }, valore)
-                  )
-                )
-              )
+              h(SectionHeading, { number: 8, title: "Target Commerciali" }),
+              h(View, { style: styles.defTable }, ...targetRows.map(([icon, label, value], i) => h(DefRow, { key: label, icon, label, value, last: i === targetRows.length - 1 })))
             )
           : null,
 

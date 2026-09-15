@@ -4,7 +4,7 @@ import Image from "next/image";
 import { EditableInline } from "@/components/ui/EditableInline";
 import { EditableTextarea } from "@/components/ui/EditableTextarea";
 import { MultilineEditor } from "@/components/ui/MultilineEditor";
-import { SimulatoreRoi } from "@/components/SimulatoreRoi";
+import { formatEuro } from "@/lib/format";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";
 
 const COMPANY_NAME = "Andrea Lenzi Consulting";
@@ -107,15 +107,29 @@ export function ReportCommercialeView({
           </div>
         </section>
 
-        <section>
-          <SectionTitle>Calcolatore Budget</SectionTitle>
-          <p className="text-xs text-ink-500 mt-0.5">Mai estratto dalla chiamata — proiezione da compilare, sempre modificabile.</p>
-          <SimulatoreRoi
-            value={report.calcolatoreBudget ?? null}
-            onChange={(v) => set({ calcolatoreBudget: v })}
-            editable={editable}
-          />
-        </section>
+        {(editable || report.budgetMedioMensile != null || report.fatturatoAttesoMensile != null) && (
+          <section>
+            <SectionTitle>Target commerciali</SectionTitle>
+            <p className="text-xs text-ink-500 mt-0.5">
+              Stima a mano del commerciale — per il calcolo automatico (budget/appuntamenti/lead necessari) vedi il
+              Calcolatore Budget del prospect.
+            </p>
+            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <NumeroBlock
+                label="Budget medio mensile"
+                value={report.budgetMedioMensile ?? null}
+                onChange={(v) => set({ budgetMedioMensile: v })}
+                editable={editable}
+              />
+              <NumeroBlock
+                label="Fatturato atteso mensile"
+                value={report.fatturatoAttesoMensile ?? null}
+                onChange={(v) => set({ fatturatoAttesoMensile: v })}
+                editable={editable}
+              />
+            </div>
+          </section>
+        )}
 
         <section>
           <SectionTitle>Prossimi passi</SectionTitle>
@@ -172,6 +186,35 @@ function InfoBlock({
         />
       ) : (
         <p className="mt-1 text-sm font-semibold text-ink-900">{value || "—"}</p>
+      )}
+    </div>
+  );
+}
+
+function NumeroBlock({
+  label,
+  value,
+  onChange,
+  editable,
+}: {
+  label: string;
+  value: number | null;
+  onChange: (v: number | null) => void;
+  editable: boolean;
+}) {
+  return (
+    <div className="rounded-xl bg-brand-light px-4 py-3">
+      <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">{label}</p>
+      {editable ? (
+        <input
+          type="number"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
+          placeholder="—"
+        />
+      ) : (
+        <p className="mt-1 text-sm font-semibold text-ink-900">{value !== null ? formatEuro(value) : "—"}</p>
       )}
     </div>
   );
