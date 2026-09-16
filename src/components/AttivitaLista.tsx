@@ -612,11 +612,14 @@ function RigaAttivita({
         {/* Date-picker nativo reso invisibile (mai sostituito: resta accessibile/apribile con un
             click ovunque nella cella) sotto un'etichetta sempre in italiano — "08/14/2026" era il
             problema, non il calendario stesso. Rosso + testo esplicito se scaduta (stesso rosso di
-            STILE_LIVELLO.critico, mai un colore inventato qui). */}
+            STILE_LIVELLO.critico, mai un colore inventato qui). showPicker() esplicito su click —
+            vedi lo stesso commento in NuovaAttivitaForm.tsx: Chrome/Edge recenti possono non aprire
+            più il calendario nativo al solo click su un input opacity:0. */}
         <input
           type="date"
           value={attivita.dataFine}
           onChange={(e) => e.target.value && onCambiaScadenza(e.target.value)}
+          onClick={(e) => e.currentTarget.showPicker?.()}
           aria-label="Cambia scadenza"
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />

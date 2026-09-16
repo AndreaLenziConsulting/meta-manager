@@ -197,12 +197,20 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
         <div>
           <label className={labelClass}>Data inizio</label>
           {/* Date-picker nativo invisibile sotto un'etichetta sempre in italiano, stessa tecnica di
-              AttivitaLista.tsx — mai un formato assoluto americano tipo "08/14/2026". */}
+              AttivitaLista.tsx — mai un formato assoluto americano tipo "08/14/2026". showPicker()
+              esplicito su click (bug osservato dal vivo, 09/2026): Chrome/Edge recenti possono
+              rifiutarsi di aprire il calendario nativo al click su un input completamente
+              invisibile (opacity:0), come misura anti-clickjacking — il click continua a dare
+              focus regolarmente, solo il popup non compariva più. showPicker() lo richiede in modo
+              esplicito, innescato dallo stesso gesto utente: funziona a prescindere da quella
+              euristica. Optional chaining: niente-op sui browser che non lo supportano ancora,
+              ricade sul comportamento di prima. */}
           <div className={`relative ${inputClass}`}>
             <input
               type="date"
               value={dataInizio}
               onChange={(e) => setDataInizio(e.target.value)}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
             <span className="pointer-events-none block truncate">{formatDataRelativa(dataInizio)}</span>
@@ -215,6 +223,7 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
               type="date"
               value={dataFine}
               onChange={(e) => setDataFine(e.target.value)}
+              onClick={(e) => e.currentTarget.showPicker?.()}
               className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
             />
             <span className="pointer-events-none block truncate text-ink-900">
