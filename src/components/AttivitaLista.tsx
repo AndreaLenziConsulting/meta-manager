@@ -186,7 +186,7 @@ export function AttivitaLista({
             <IntestazioneOrdinabile colonna="descrizione" sort={sort} onClick={handleClickColonna} className="flex-1 text-left">
               Task
             </IntestazioneOrdinabile>
-            <IntestazioneOrdinabile colonna="responsabile" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_RESPONSABILE} text-left`}>
+            <IntestazioneOrdinabile colonna="responsabile" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ml-4 ${COL_RESPONSABILE} text-left`}>
               Assegnatari
             </IntestazioneOrdinabile>
             <IntestazioneOrdinabile colonna="dataFine" sort={sort} onClick={handleClickColonna} className={`flex-shrink-0 ${COL_SCADENZA} text-left`}>
@@ -545,7 +545,7 @@ function RigaAttivita({
       />
 
       <div className="min-w-0 flex-1">
-        <p className={`text-ink-900 truncate ${compatta ? "text-sm" : "text-base"}`}>{attivita.descrizione}</p>
+        <p className="text-ink-900 truncate text-sm">{attivita.descrizione}</p>
         {/* Seconda riga (badge cliente/fase/meeting/nota) nascosta in modalità compatta — solo il
             titolo resta, per far entrare più righe a schermo (blocco 4 del redesign). */}
         {!compatta && (
@@ -596,7 +596,7 @@ function RigaAttivita({
         )}
       </div>
 
-      <div className={`relative flex-shrink-0 ${COL_RESPONSABILE}`}>
+      <div className={`relative flex-shrink-0 ml-4 ${COL_RESPONSABILE}`}>
         <StackAssegnatari assegnatari={attivita.assegnatari} onClick={onApriPopoverAssegnatari} />
         {popoverAssegnatariAperto && (
           <PopoverAssegnatari
@@ -623,8 +623,12 @@ function RigaAttivita({
           aria-label="Cambia scadenza"
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />
+        {/* Niente padding orizzontale qui (a differenza dei badge fase/cliente sopra, che sono vere
+            pillole con sfondo): senza uno sfondo dietro, px-1 spostava solo il testo di qualche
+            pixel rispetto all'intestazione "Scadenza" sopra, allineata a sinistra senza padding —
+            colonna e valore sembravano disallineati. */}
         <span
-          className={`pointer-events-none block text-xs px-1 py-0.5 rounded-md truncate ${
+          className={`pointer-events-none block text-xs py-0.5 truncate ${
             scadenza.scaduta ? "text-red-600 font-semibold" : "text-ink-500"
           }`}
         >
