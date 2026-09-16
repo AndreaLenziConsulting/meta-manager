@@ -94,6 +94,16 @@ describe("ordinaPerPriorita", () => {
     ordinaPerPriorita(input);
     expect(input).toEqual([a, b]); // ordine originale intatto
   });
+
+  it("a parità di bucket/severità ordina alfabeticamente per nome cliente, non per ordine di riga", () => {
+    const zeta = item({ cliente: cliente({ clienteId: "1", nome: "Zeta Srl" }), valutazione: { stato: "mantieni", metricaUsata: "lead", valoreAttuale: 5, targetUsato: 5 } });
+    const alfa = item({ cliente: cliente({ clienteId: "2", nome: "Alfa Srl" }), valutazione: { stato: "mantieni", metricaUsata: "lead", valoreAttuale: 5, targetUsato: 5 } });
+    const beta = item({ cliente: cliente({ clienteId: "3", nome: "Beta Srl" }), valutazione: { stato: "mantieni", metricaUsata: "lead", valoreAttuale: 5, targetUsato: 5 } });
+
+    const risultato = ordinaPerPriorita([zeta, alfa, beta]);
+
+    expect(risultato.map((i) => i.cliente.nome)).toEqual(["Alfa Srl", "Beta Srl", "Zeta Srl"]);
+  });
 });
 
 describe("raggruppaPerConsulente", () => {
@@ -134,5 +144,24 @@ describe("raggruppaPerConsulente", () => {
     const consulenti = [consulente({ consulenteId: "z", nome: "Zeta" }), consulente({ consulenteId: "a", nome: "Alfa" })];
     const { gruppi } = raggruppaPerConsulente([], consulenti);
     expect(gruppi.map((g) => g.consulente.nome)).toEqual(["Alfa", "Zeta"]);
+  });
+
+  it("i clienti dentro ogni gruppo sono ordinati alfabeticamente, non per ordine di riga", () => {
+    const consulenti = [consulente({ consulenteId: "mario" })];
+    const items = [
+      item({ cliente: cliente({ clienteId: "1", nome: "Zeta Srl", consulenteId: "mario" }) }),
+      item({ cliente: cliente({ clienteId: "2", nome: "Alfa Srl", consulenteId: "mario" }) }),
+    ];
+    const { gruppi } = raggruppaPerConsulente(items, consulenti);
+    expect(gruppi[0].items.map((i) => i.cliente.nome)).toEqual(["Alfa Srl", "Zeta Srl"]);
+  });
+
+  it("nonAssegnati è ordinato alfabeticamente", () => {
+    const items = [
+      item({ cliente: cliente({ clienteId: "1", nome: "Zeta Srl", consulenteId: "non-esiste" }) }),
+      item({ cliente: cliente({ clienteId: "2", nome: "Alfa Srl", consulenteId: "non-esiste" }) }),
+    ];
+    const { nonAssegnati } = raggruppaPerConsulente(items, []);
+    expect(nonAssegnati.map((i) => i.cliente.nome)).toEqual(["Alfa Srl", "Zeta Srl"]);
   });
 });

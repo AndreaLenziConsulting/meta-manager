@@ -64,12 +64,20 @@ const ORDINE_STATO_ADS: Record<string, number> = {
   "no-target": 4,
 };
 
+/** Ordine alfabetico per nome cliente — tie-breaker di default ovunque un ordinamento primario
+ * (priorità, carico per consulente, ...) lascia dei pari merito, così l'ordine non dipende più
+ * dall'ordine di riga nel foglio (richiesta utente: "clienti in un ordine non ben delineato"). */
+function perNomeCliente(a: SaluteClienteItem, b: SaluteClienteItem): number {
+  return a.cliente.nome.localeCompare(b.cliente.nome, "it", { sensitivity: "base" });
+}
+
 /**
  * Ordina per urgenza combinata, senza mutare l'array in input:
  * 1. entrambi i problemi (ads da intervenire E attività in ritardo)
  * 2. solo ads da intervenire
  * 3. solo attività in ritardo (più ne ha, più urgente)
  * 4. il resto, nello stesso ordine di severità ads già in uso prima di questa funzionalità
+ * A parità di bucket/severità, alfabetico per nome cliente (vedi perNomeCliente sopra).
  */
 export function ordinaPerPriorita(items: SaluteClienteItem[]): SaluteClienteItem[] {
   const bucket = (item: SaluteClienteItem): number => {
@@ -85,8 +93,9 @@ export function ordinaPerPriorita(items: SaluteClienteItem[]): SaluteClienteItem
     const bucketA = bucket(a);
     const bucketB = bucket(b);
     if (bucketA !== bucketB) return bucketA - bucketB;
-    if (bucketA === 2) return b.attivitaInRitardo.length - a.attivitaInRitardo.length;
-    return ORDINE_STATO_ADS[a.valutazione.stato] - ORDINE_STATO_ADS[b.valutazione.stato];
+    if (bucketA === 2) return b.attivitaInRitardo.length - a.attivitaInRitardo.length || perNomeCliente(a, b);
+    if (bucketA === 3) return ORDINE_STATO_ADS[a.valutazione.stato] - ORDINE_STATO_ADS[b.valutazione.stato] || perNomeCliente(a, b);
+    return perNomeCliente(a, b);
   });
 }
 
@@ -118,10 +127,13 @@ export function raggruppaPerConsulente(items: SaluteClienteItem[], consulenti: C
 
   const gruppi = consulenti
     .filter((c) => c.attivo)
-    .map((consulente) => ({ consulente, items: perConsulente.get(consulente.consulenteId) ?? [] }))
+    .map((consulente) => ({
+      consulente,
+      items: (perConsulente.get(consulente.consulenteId) ?? []).slice().sort(perNomeCliente),
+    }))
     .sort((a, b) => b.items.length - a.items.length || a.consulente.nome.localeCompare(b.consulente.nome));
 
-  const nonAssegnati = items.filter((i) => !idAttivi.has(i.cliente.consulenteId));
+  const nonAssegnati = items.filter((i) => !idAttivi.has(i.cliente.consulenteId)).slice().sort(perNomeCliente);
 
   return { gruppi, nonAssegnati };
 }
