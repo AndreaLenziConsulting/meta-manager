@@ -108,6 +108,11 @@ body {
      attivo vs in perdita è un vero stato, non un'identità di serie), non una ripetizione arbitraria. */
   --pos: #22c55e;
   --neg: #f87171;
+  /* Terzo stato "in ritardo ma recuperabile" per il grafico target mensili (blocco 6, opzione
+     "pacing") — stesso giallo di statusStyles.ts#attenzione. Come pos/neg, invariato tra
+     chiaro/scuro: una palette di stato è un piccolo insieme fisso a significato riservato, non una
+     rampa che deve adattarsi al tema. */
+  --warn: #eab308;
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) .viz-root {
@@ -134,6 +139,7 @@ body {
     --funnel-4: #7fc4f5;
     --pos: #22c55e;
     --neg: #f87171;
+    --warn: #eab308;
   }
 }
 :root[data-theme="dark"] .viz-root {
@@ -158,4 +164,5 @@ body {
   --funnel-4: #7fc4f5;
   --pos: #22c55e;
   --neg: #f87171;
+  --warn: #eab308;
 }

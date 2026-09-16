@@ -680,6 +680,21 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               numeroVendite: overlayGhl?.numeroVendite.valore ?? dati.totale.numeroVendite,
             }}
             trendSettimanaleConOverlay={trendSettimanaleConOverlay}
+            // Mai sul link pubblico `code`, stesso motivo per cui dati.sede.target* non è mai
+            // valorizzato lì (vedi /api/kpi route.ts, campo `internal`).
+            pacing={
+              clienteId
+                ? {
+                    clienteId,
+                    sedeId: dati.sede.sedeId,
+                    haConnessioneGhl: Boolean(haConnessioneGhl),
+                    targetBudgetMensile: dati.sede.targetBudgetMensile ?? null,
+                    targetFatturatoMensile: dati.sede.targetFatturatoMensile ?? null,
+                    targetLeadSettimana: dati.sede.targetLeadSettimana ?? null,
+                    targetAppuntamentiSettimana: dati.sede.targetAppuntamentiSettimana ?? null,
+                  }
+                : undefined
+            }
           />
 
           <DettaglioCampagneEsteso

@@ -6,15 +6,32 @@ import { FunnelConversioneChart } from "@/components/FunnelConversioneChart";
 import { CostoPerRisultatoChart } from "@/components/CostoPerRisultatoChart";
 import { SaldoNettoCumulatoChart } from "@/components/SaldoNettoCumulatoChart";
 import { AndamentoAppuntamentiChart } from "@/components/AndamentoAppuntamentiChart";
+import { PacingTargetChart } from "@/components/PacingTargetChart";
 
-type TipoGrafico = "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoAppuntamenti";
+type TipoGrafico = "pacing" | "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoAppuntamenti";
 
-const OPZIONI: { id: TipoGrafico; label: string; descrizione: string }[] = [
+const OPZIONI_BASE: { id: TipoGrafico; label: string; descrizione: string }[] = [
   { id: "funnel", label: "Funnel di conversione", descrizione: "Lead → appuntamenti fissati → effettuati → vendite" },
   { id: "costoPerRisultato", label: "Costo per Risultato", descrizione: "Spesa, costo/lead, costo/appuntamento e CAC per settimana" },
   { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Contrattualizzato meno investimento, nel periodo selezionato" },
   { id: "andamentoAppuntamenti", label: "Andamento appuntamenti", descrizione: "Fissati vs effettuati per settimana" },
 ];
+
+const OPZIONE_PACING: { id: TipoGrafico; label: string; descrizione: string } = {
+  id: "pacing",
+  label: "Target mensili",
+  descrizione: "Ritmo di spesa/fatturato/lead/appuntamenti rispetto a oggi",
+};
+
+type PropsPacing = {
+  clienteId: string;
+  sedeId: string;
+  haConnessioneGhl: boolean;
+  targetBudgetMensile: number | null;
+  targetFatturatoMensile: number | null;
+  targetLeadSettimana: number | null;
+  targetAppuntamentiSettimana: number | null;
+};
 
 type SerieSettimanaleOverlay = {
   settimana: string;
@@ -28,17 +45,30 @@ type SerieSettimanaleOverlay = {
 
 /**
  * Blocco 6 del redesign KPI — un solo riquadro, un menù a tendina vero (non pillole tab, scelta
- * esplicita di design del blocco 6) per scegliere quale dei 4 grafici mostrare alla volta. Stesso
+ * esplicita di design del blocco 6) per scegliere quale dei grafici mostrare alla volta. Stesso
  * pattern open/close/click-fuori già scritto in CampagneFilter.tsx, non reinventato qui.
+ *
+ * "Target mensili" (richiesta utente, 11/2026) è l'unica opzione che riceve una prop dedicata
+ * (`pacing`) invece di leggere `funnel`/`trendSettimanaleConOverlay` come le altre: guarda SEMPRE
+ * il mese in corso, un concetto indipendente dal periodo scelto nel filtro sopra (che qui può
+ * essere un mese passato o un intervallo di più mesi) — vedi PacingTargetChart.tsx, che fa il
+ * proprio fetch invece di derivare dai dati già scaricati per il periodo selezionato. Assente
+ * (`pacing` non passata) sul link pubblico cliente `code`, stesso motivo per cui i target non sono
+ * mai esposti lì (vedi /api/kpi route.ts, campo `internal`) — l'opzione compare in tendina e
+ * diventa quella di default SOLO quando `pacing` è presente, altrimenti l'elenco/default restano
+ * quelli di sempre.
  */
 export function BoxGrafici({
   funnel,
   trendSettimanaleConOverlay,
+  pacing,
 }: {
   funnel: { numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number };
   trendSettimanaleConOverlay: SerieSettimanaleOverlay[];
+  pacing?: PropsPacing;
 }) {
-  const [selezionato, setSelezionato] = useState<TipoGrafico>("funnel");
+  const OPZIONI = pacing ? [OPZIONE_PACING, ...OPZIONI_BASE] : OPZIONI_BASE;
+  const [selezionato, setSelezionato] = useState<TipoGrafico>(pacing ? "pacing" : "funnel");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +81,7 @@ export function BoxGrafici({
     return () => document.removeEventListener("mousedown", handleClick);
   }, [open]);
 
-  const attivo = OPZIONI.find((o) => o.id === selezionato)!;
+  const attivo = OPZIONI.find((o) => o.id === selezionato) ?? OPZIONI[0];
 
   return (
     <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
@@ -95,6 +125,7 @@ export function BoxGrafici({
         </div>
       </div>
 
+      {selezionato === "pacing" && pacing && <PacingTargetChart {...pacing} />}
       {selezionato === "funnel" && <FunnelConversioneChart {...funnel} />}
       {selezionato === "costoPerRisultato" && <CostoPerRisultatoChart serieSettimanale={trendSettimanaleConOverlay} />}
       {selezionato === "andamentoAppuntamenti" && <AndamentoAppuntamentiChart serieSettimanale={trendSettimanaleConOverlay} />}
