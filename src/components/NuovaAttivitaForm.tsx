@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { oggiIso } from "@/lib/roadmap";
 import { formatDataRelativa } from "@/lib/format";
 import { ETICHETTA_CLIENTE, RUOLI_INTERNI, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
@@ -141,18 +142,7 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
       </div>
       <div>
         <label className={labelClass}>Fase</label>
-        <input
-          className={inputClass}
-          value={fase}
-          onChange={(e) => setFase(e.target.value)}
-          placeholder="Fase in corso, o una nuova"
-          list="fasi-disponibili"
-        />
-        <datalist id="fasi-disponibili">
-          {fasiDisponibili.map((f) => (
-            <option key={f} value={f} />
-          ))}
-        </datalist>
+        <SelettoreFase value={fase} onChange={setFase} opzioni={fasiDisponibili} />
       </div>
       <div>
         <label className={labelClass}>Assegnatari (opzionale — vuoto = &quot;Da assegnare&quot;)</label>
@@ -250,6 +240,80 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
           Annulla
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * "Fase" era un `<input list>` + `<datalist>` nativo — un combobox solo sulla carta: la
+ * tendina di suggerimenti non compare finché non inizi a digitare (nessun modo di "aprire e
+ * scorrere" come un vero menu), inconsistente da browser a browser, e senza alcuna indicazione
+ * visiva di essere altro che un campo di testo — bug segnalato dal vivo (11/2026, "è un campo di
+ * inserimento anziché un menù a tendina"). Sostituito da un combobox vero (click/focus apre la
+ * tendina con tutte le fasi esistenti, digitare filtra la lista) che resta comunque testo libero:
+ * una fase nuova mai vista prima si digita e basta, esattamente come prima — stesso spirito di
+ * ComboboxMultiSelect.tsx (stesso schema click-fuori-per-chiudere), ma a selezione singola e con
+ * inserimento libero, che quel componente non supporta.
+ */
+function SelettoreFase({ value, onChange, opzioni }: { value: string; onChange: (v: string) => void; opzioni: string[] }) {
+  const [aperto, setAperto] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  const filtrate = useMemo(() => {
+    const q = value.trim().toLowerCase();
+    if (!q) return opzioni;
+    return opzioni.filter((f) => f.toLowerCase().includes(q));
+  }, [opzioni, value]);
+
+  useEffect(() => {
+    if (!aperto) return;
+    function handleClick(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setAperto(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [aperto]);
+
+  return (
+    <div className="relative" ref={rootRef}>
+      {/* Non riusa `inputClass` direttamente sul contenitore: quella classe include focus:ring-2/
+          focus:border-brand pensate per un <input> vero, ma qui è un <div> che non riceve mai il
+          focus (l'<input> dentro sì) — focus-within: al posto di focus: perché il bordo/anello
+          reagisca comunque quando si digita. */}
+      <div className="relative flex items-center w-full rounded-xl border border-ink-300 px-3 py-2 pr-8 focus-within:ring-2 focus-within:ring-brand/30 focus-within:border-brand transition">
+        <input
+          value={value}
+          onChange={(e) => {
+            onChange(e.target.value);
+            setAperto(true);
+          }}
+          onFocus={() => setAperto(true)}
+          placeholder="Fase in corso, o una nuova"
+          className="w-full outline-none bg-transparent text-sm"
+        />
+        <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 pointer-events-none" />
+      </div>
+      {aperto && opzioni.length > 0 && (
+        <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1">
+          {filtrate.length > 0 ? (
+            filtrate.map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => {
+                  onChange(f);
+                  setAperto(false);
+                }}
+                className="w-full text-left px-3 py-1.5 text-xs text-ink-700 hover:bg-surface cursor-pointer"
+              >
+                {f}
+              </button>
+            ))
+          ) : (
+            <p className="px-3 py-1.5 text-xs text-ink-500">Nessuna fase esistente corrisponde — verrà creata una nuova.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
