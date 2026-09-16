@@ -320,28 +320,48 @@ export function toNumberOrNull(value: CellValue): number | null {
 // Le colonne C (adAccountId), G/H (targetCpa/targetCpl) ed L (tipoConversioneLead) restano
 // fisicamente sulla tab Clienti (niente shift su un foglio che il team guarda/modifica a mano) ma
 // sono vestigiali: da quando esiste Sede, questi valori vivono lì (uno per sede, non per cliente).
+//
+// noCache: true (11/2026, bug segnalato dal vivo: "la cartella Drive non sempre è visibile nel
+// pop-up di modifica") — stesso identico bug già risolto per Prospect/ReportCommerciale/
+// Commerciali/GhlConnessioni/ConnessioniCanale: senza, un salvataggio e la rilettura immediatamente
+// successiva (es. PATCH /api/clienti da ClienteHeader.tsx poi l'apertura di ModificaClienteModal)
+// possono finire su istanze serverless Vercel diverse — l'invalidazione della cache lato scrittura
+// non raggiunge la cache dell'istanza che serve la lettura, che mostra dati vecchi fino a 30s.
 export async function getClienti(): Promise<Cliente[]> {
-  const rows = await readTab(TAB.clienti);
+  const rows = await readTab(TAB.clienti, { noCache: true });
   return rows
     .filter((r) => r[0])
-    .map((r) => ({
-      clienteId: asText(r[0]),
-      nome: asText(r[1]),
-      accessCode: asText(r[3]),
-      attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
-      consulenteId: asText(r[5]),
-      mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
-      prodottoId: asText(r[9]),
-      dataInizioProgetto: normalizeData(r[10]) || null,
-      email: asText(r[12]),
-      logoUrl: asText(r[13]),
-      colorePrimario: asText(r[14]),
-      coloreSecondario: asText(r[15]),
-      fontPersonalizzato: asText(r[16]),
-      driveFolderUrl: asText(r[17]),
-      landingPageUrl: asText(r[18]),
-      appuntamentiFileUrl: asText(r[19]),
-    }));
+    .map((r) => {
+      let funnels: Cliente["funnels"] = [];
+      const raw = asText(r[20]);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) funnels = parsed;
+        } catch {
+          funnels = [];
+        }
+      }
+      return {
+        clienteId: asText(r[0]),
+        nome: asText(r[1]),
+        accessCode: asText(r[3]),
+        attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
+        consulenteId: asText(r[5]),
+        mostraTabExtra: asText(r[8]).trim().toUpperCase() === "TRUE",
+        prodottoId: asText(r[9]),
+        dataInizioProgetto: normalizeData(r[10]) || null,
+        email: asText(r[12]),
+        logoUrl: asText(r[13]),
+        colorePrimario: asText(r[14]),
+        coloreSecondario: asText(r[15]),
+        fontPersonalizzato: asText(r[16]),
+        driveFolderUrl: asText(r[17]),
+        landingPageUrl: asText(r[18]),
+        appuntamentiFileUrl: asText(r[19]),
+        funnels,
+      };
+    });
 }
 
 export type NuovoClienteInput = {
@@ -390,6 +410,7 @@ export async function creaCliente(input: NuovoClienteInput): Promise<void> {
       input.driveFolderUrl ?? "",
       input.landingPageUrl ?? "",
       input.appuntamentiFileUrl ?? "",
+      "", // colonna U, funnels — sempre vuoto alla creazione, si aggiungono dopo dall'header
     ],
   ]);
 }
@@ -408,6 +429,7 @@ export type AggiornaClienteInput = {
   driveFolderUrl?: string;
   landingPageUrl?: string;
   appuntamentiFileUrl?: string;
+  funnels?: Cliente["funnels"];
 };
 
 /** Numero di riga (1-based, riga 1 = header) della prima riga con quel clienteId, o null. */
@@ -424,7 +446,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.clienti}!A2:T`,
+    range: `${TAB.clienti}!A2:U`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -449,6 +471,7 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
   if (input.driveFolderUrl !== undefined) set("R", input.driveFolderUrl);
   if (input.landingPageUrl !== undefined) set("S", input.landingPageUrl);
   if (input.appuntamentiFileUrl !== undefined) set("T", input.appuntamentiFileUrl);
+  if (input.funnels !== undefined) set("U", JSON.stringify(input.funnels));
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({
@@ -456,6 +479,28 @@ export async function aggiornaCliente(input: AggiornaClienteInput): Promise<void
     requestBody: { valueInputOption: "USER_ENTERED", data },
   });
   invalidateTabCache(TAB.clienti);
+}
+
+/**
+ * Migrazione una tantum (11/2026, overhaul "landing page" → funnel multipli): per ogni cliente con
+ * `landingPageUrl` valorizzata ma `funnels` ancora vuoto, crea un funnel "Landing page" da quel
+ * link — così un cliente che aveva già un link impostato non lo perde di vista passando alla nuova
+ * UI. Idempotente: un cliente già migrato (funnels non vuoto) viene saltato, sicura da rilanciare.
+ * `landingPageUrl` stessa resta intatta (mai svuotata) — sola lettura da qui in poi, vedi il
+ * commento su Cliente.landingPageUrl in types/kpi.ts.
+ */
+export async function migraFunnelClientiEsistenti(): Promise<{ migrati: number }> {
+  const clienti = await getClienti();
+  let migrati = 0;
+  for (const c of clienti) {
+    if (c.funnels.length > 0 || !c.landingPageUrl.trim()) continue;
+    await aggiornaCliente({
+      clienteId: c.clienteId,
+      funnels: [{ id: crypto.randomUUID(), nome: "Landing page", url: c.landingPageUrl.trim() }],
+    });
+    migrati++;
+  }
+  return { migrati };
 }
 
 /**

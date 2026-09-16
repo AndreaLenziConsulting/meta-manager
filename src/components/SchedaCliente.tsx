@@ -19,9 +19,8 @@ type Props = {
   // dashboard/cliente/[clienteId]/page.tsx, mai sul link pubblico (code), stesso motivo del resto.
   settimanaProgetto?: number | null;
   driveFolderUrl?: string;
-  landingPageUrl?: string;
   // File di compilazione appuntamenti (get-or-create automatico, vedi ClienteHeader.tsx) — arriva
-  // già letto da Cliente.appuntamentiFileUrl, stesso schema di driveFolderUrl/landingPageUrl sopra.
+  // già letto da Cliente.appuntamentiFileUrl, stesso schema di driveFolderUrl sopra.
   appuntamentiFileUrl?: string;
   tuttiITab: boolean;
   // Se almeno una sede del cliente ha una connessione GHL/Squadd attiva — calcolato lato server in
@@ -55,7 +54,6 @@ export function SchedaCliente({
   clienteLogoUrl,
   settimanaProgetto,
   driveFolderUrl,
-  landingPageUrl,
   appuntamentiFileUrl,
   tuttiITab,
   haConnessioneGhl,
@@ -136,7 +134,6 @@ export function SchedaCliente({
         clienteLogoUrl={clienteLogoUrl}
         settimanaProgetto={settimanaProgetto}
         driveFolderUrl={driveFolderUrl}
-        landingPageUrl={landingPageUrl}
         appuntamentiFileUrl={appuntamentiFileUrl}
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={ruoloAdmin}

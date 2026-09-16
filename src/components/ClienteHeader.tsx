@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ClipboardList, Folder, ExternalLink, Pencil } from "lucide-react";
+import { ArrowLeft, ClipboardList, Filter, Folder, Pencil, Trash2 } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
 import { TopbarPortal } from "@/components/TopbarSlot";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
-import type { Cliente, Consulente, Sede } from "@/types/kpi";
+import type { Cliente, Consulente, Funnel, Sede } from "@/types/kpi";
 
 /**
  * Prima cosa visibile sulla scheda di un cliente: il nome (o il suo logo, se personalizzato — vedi
@@ -30,12 +30,16 @@ import type { Cliente, Consulente, Sede } from "@/types/kpi";
  * sempre alla stessa. Fallback a /dashboard solo se non c'è cronologia (arrivo diretto via URL,
  * link pubblico incluso raro ma possibile).
  *
- * `settimanaProgetto`/`driveFolderUrl`/`landingPageUrl` sono le stesse aggiunte "anagrafiche" del
- * cliente (mai sul link pubblico, stesso motivo del resto dell'header) — link rapidi e contesto
- * temporale che il consulente vuole avere sotto mano senza aprire "Modifica cliente". Se un link
- * non è ancora impostato, l'admin può aggiungerlo qui stesso (LinkRapido sotto, mini-form inline,
- * stesso pattern di "+ Aggiungi ad account" in KpiSection.tsx) invece di dover aprire l'intero
- * modale — richiesta esplicita dell'utente ("non c'è modo di arrivarci se non dalla modifica").
+ * `settimanaProgetto`/`driveFolderUrl` sono le stesse aggiunte "anagrafiche" del cliente (mai sul
+ * link pubblico, stesso motivo del resto dell'header) — contesto temporale e link rapido che il
+ * consulente vuole avere sotto mano senza aprire "Modifica cliente". Se il link non è ancora
+ * impostato, si può aggiungere qui stesso (LinkRapido sotto, mini-form inline, stesso pattern di
+ * "+ Aggiungi ad account" in KpiSection.tsx) invece di dover aprire l'intero modale — richiesta
+ * esplicita dell'utente ("non c'è modo di arrivarci se non dalla modifica"). La landing page
+ * singola di un tempo è diventata FunnelPopover sotto (11/2026, overhaul "la maggior parte dei
+ * clienti avrà più di un funnel attivo"): elenco di funnel con link ciascuno, in un popover invece
+ * di una singola pillola — legge `cliente.funnels` invece di un prop a parte, dato che `cliente`
+ * arriva comunque qui per il pennino "Modifica cliente".
  *
  * `appuntamentiFileUrl` invece non è mai impostato a mano (nessun LinkRapido "+ Appuntamenti"): è
  * un get-or-create automatico dentro driveFolderUrl (vedi /api/clienti/file-appuntamenti +
@@ -50,7 +54,6 @@ export function ClienteHeader({
   clienteLogoUrl,
   settimanaProgetto,
   driveFolderUrl,
-  landingPageUrl,
   appuntamentiFileUrl,
   haConnessioneGhl,
   ruoloAdmin,
@@ -63,7 +66,6 @@ export function ClienteHeader({
   clienteLogoUrl?: string;
   settimanaProgetto?: number | null;
   driveFolderUrl?: string;
-  landingPageUrl?: string;
   appuntamentiFileUrl?: string;
   haConnessioneGhl?: boolean;
   ruoloAdmin?: boolean;
@@ -84,9 +86,8 @@ export function ClienteHeader({
   // pattern "contesto" di sedeScelta/filtroCampagne in KpiSection.tsx: senza questo confronto, se
   // il componente non si smonta passando a un altro cliente (transizione client-side), l'override
   // del cliente precedente resterebbe visibile su quello nuovo.
-  const [linkSalvati, setLinkSalvati] = useState<{ clienteId: string; driveFolderUrl?: string; landingPageUrl?: string }>({ clienteId });
+  const [linkSalvati, setLinkSalvati] = useState<{ clienteId: string; driveFolderUrl?: string }>({ clienteId });
   const driveFolderUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.driveFolderUrl : undefined) ?? driveFolderUrl;
-  const landingPageUrlEffettivo = (linkSalvati.clienteId === clienteId ? linkSalvati.landingPageUrl : undefined) ?? landingPageUrl;
 
   // Stato del get-or-create automatico del file appuntamenti — stesso schema "contesto" di
   // linkSalvati sopra, ma qui la fonte è un fetch automatico, non un salvataggio dell'utente.
@@ -117,15 +118,15 @@ export function ClienteHeader({
     return () => controller.abort();
   }, [clienteId, haConnessioneGhl, appuntamentiFileUrl]);
 
-  async function salvaLinkRapido(campo: "driveFolderUrl" | "landingPageUrl", valore: string) {
+  async function salvaDriveFolderUrl(valore: string) {
     const res = await fetch("/api/clienti", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clienteId, [campo]: valore }),
+      body: JSON.stringify({ clienteId, driveFolderUrl: valore }),
     });
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
-    setLinkSalvati((prev) => ({ ...(prev.clienteId === clienteId ? prev : { clienteId }), [campo]: valore }));
+    setLinkSalvati({ clienteId, driveFolderUrl: valore });
   }
 
   function tornaIndietro() {
@@ -186,19 +187,11 @@ export function ClienteHeader({
           placeholder="https://drive.google.com/…"
           // Chiunque arriva su ClienteHeader è admin o il consulente assegnato a QUESTO cliente
           // (mai un altro ruolo, mai sul link pubblico code — vedi puoVedereCliente lato server):
-          // entrambi possono salvare questi due link, PATCH /api/clienti li accetta per entrambi.
+          // entrambi possono salvare questo link, PATCH /api/clienti lo accetta per entrambi.
           puoModificare={true}
-          onSalva={(valore) => salvaLinkRapido("driveFolderUrl", valore)}
+          onSalva={salvaDriveFolderUrl}
         />
-        <LinkRapido
-          label="Landing page"
-          icona={ExternalLink}
-          url={landingPageUrlEffettivo}
-          titleApri="Apri la landing page del cliente"
-          placeholder="https://…"
-          puoModificare={true}
-          onSalva={(valore) => salvaLinkRapido("landingPageUrl", valore)}
-        />
+        {cliente && <FunnelPopover clienteId={clienteId} funnelsIniziali={cliente.funnels} />}
         {!haConnessioneGhl && appuntamentiFileUrlEffettivo && (
           <a
             href={appuntamentiFileUrlEffettivo}
@@ -343,6 +336,144 @@ function LinkRapido({
         Annulla
       </button>
       {errore && <span className="text-red-600 text-[11px]">{errore}</span>}
+    </div>
+  );
+}
+
+/**
+ * Elenco funnel/landing page del cliente (overhaul 11/2026: "la maggior parte dei clienti avrà
+ * più di un funnel attivo" — sostituisce la singola pillola "Landing page" di prima). Pillola
+ * "Funnel (N)" che apre un popover con un link per ciascuno + un mini-form per aggiungerne uno
+ * nuovo, stesso pattern di PopoverAssegnatari/GhlCalendariPicker altrove nell'app: nessuna chiusura
+ * al click fuori (nessun popover di questo codebase lo fa), si chiude ricliccando la pillola o con
+ * "Chiudi". L'intero array viene sempre riscritto per intero via PATCH /api/clienti — vedi
+ * erroreFunnels in quella route.
+ */
+function FunnelPopover({ clienteId, funnelsIniziali }: { clienteId: string; funnelsIniziali: Funnel[] }) {
+  const [aperto, setAperto] = useState(false);
+  // Stesso pattern "override scoped al clienteId" di linkSalvati sopra in ClienteHeader.
+  const [override, setOverride] = useState<{ clienteId: string; funnels: Funnel[] } | null>(null);
+  const funnels = override?.clienteId === clienteId ? override.funnels : funnelsIniziali;
+
+  const [nomeBozza, setNomeBozza] = useState("");
+  const [urlBozza, setUrlBozza] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function salva(nuovi: Funnel[]) {
+    setErrore(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/clienti", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clienteId, funnels: nuovi }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      setOverride({ clienteId, funnels: nuovi });
+      return true;
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+      return false;
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  async function aggiungi() {
+    const nome = nomeBozza.trim();
+    const url = urlBozza.trim();
+    if (!nome) {
+      setErrore("Il nome è obbligatorio");
+      return;
+    }
+    if (!/^https?:\/\//.test(url)) {
+      setErrore("L'url deve iniziare con http:// o https://");
+      return;
+    }
+    const ok = await salva([...funnels, { id: crypto.randomUUID(), nome, url }]);
+    if (ok) {
+      setNomeBozza("");
+      setUrlBozza("");
+    }
+  }
+
+  function elimina(id: string) {
+    salva(funnels.filter((f) => f.id !== id));
+  }
+
+  return (
+    <div className="relative">
+      <button type="button" onClick={() => setAperto((v) => !v)} className={classePillo}>
+        <Filter size={14} /> Funnel{funnels.length > 0 ? ` (${funnels.length})` : ""}
+      </button>
+      {aperto && (
+        <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2.5">
+          <p className="text-xs font-semibold text-ink-900">Funnel attivi</p>
+          {funnels.length > 0 ? (
+            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
+              {funnels.map((f) => (
+                <div key={f.id} className="flex items-center gap-1.5 group">
+                  <a
+                    href={f.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title={f.url}
+                    className="flex-1 min-w-0 truncate text-xs font-medium text-ink-700 hover:text-brand hover:underline"
+                  >
+                    {f.nome}
+                  </a>
+                  <button
+                    type="button"
+                    onClick={() => elimina(f.id)}
+                    title={`Elimina "${f.nome}"`}
+                    className="text-ink-300 hover:text-red-600 transition cursor-pointer opacity-0 group-hover:opacity-100 flex-shrink-0"
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-ink-500">Nessun funnel ancora — aggiungine uno sotto.</p>
+          )}
+          <div className="space-y-1.5 pt-2 border-t border-ink-300/40">
+            <input
+              value={nomeBozza}
+              onChange={(e) => setNomeBozza(e.target.value)}
+              placeholder="Nome (es. Funnel webinar)"
+              className="w-full rounded-lg border border-ink-300 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+            />
+            <input
+              value={urlBozza}
+              onChange={(e) => setUrlBozza(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  aggiungi();
+                }
+              }}
+              placeholder="https://…"
+              className="w-full rounded-lg border border-ink-300 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+            />
+            {errore && <p className="text-[11px] text-red-600">{errore}</p>}
+            <div className="flex justify-end gap-2">
+              <button type="button" onClick={() => setAperto(false)} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
+                Chiudi
+              </button>
+              <button
+                type="button"
+                onClick={aggiungi}
+                disabled={salvando}
+                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-cta hover:bg-cta-dark disabled:opacity-50 text-white cursor-pointer"
+              >
+                {salvando ? "Salvataggio…" : "+ Aggiungi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

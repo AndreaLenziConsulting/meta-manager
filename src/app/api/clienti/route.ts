@@ -16,6 +16,7 @@ import {
   getSedi,
   getTemplateAttivita,
 } from "@/lib/sheets";
+import type { Funnel } from "@/types/kpi";
 
 export const runtime = "nodejs";
 
@@ -75,6 +76,18 @@ function erroreLinkRapidi(body: LinkRapidi): string | null {
   }
   if (body.landingPageUrl && !/^https?:\/\//.test(body.landingPageUrl.trim())) {
     return "URL landing page non valido: deve iniziare con http:// o https://";
+  }
+  return null;
+}
+
+/** L'intero array viene sempre sostituito per intero (mai un merge parziale) — stesso schema di
+ * CalcolatoreBudgetInput su Prospect: il chiamante (FunnelPopover.tsx) manda sempre l'elenco
+ * completo aggiornato, aggiunta o eliminazione che sia. */
+function erroreFunnels(funnels: Funnel[] | undefined): string | null {
+  if (funnels === undefined) return null;
+  for (const f of funnels) {
+    if (!f.id || !f.nome?.trim()) return "Ogni funnel deve avere un nome";
+    if (!/^https?:\/\//.test(f.url?.trim() ?? "")) return `URL non valido per "${f.nome}": deve iniziare con http:// o https://`;
   }
   return null;
 }
@@ -227,6 +240,7 @@ type BodyPatch = {
   fontPersonalizzato?: string;
   driveFolderUrl?: string;
   landingPageUrl?: string;
+  funnels?: Funnel[];
 };
 
 /**
@@ -259,7 +273,7 @@ export async function PATCH(req: NextRequest) {
   if (nome !== undefined && !nome) {
     return NextResponse.json({ error: "Nome obbligatorio" }, { status: 400 });
   }
-  const erroreValidazione = erroreCampiPersonalizzazione(body) ?? erroreLinkRapidi(body);
+  const erroreValidazione = erroreCampiPersonalizzazione(body) ?? erroreLinkRapidi(body) ?? erroreFunnels(body.funnels);
   if (erroreValidazione) {
     return NextResponse.json({ error: erroreValidazione }, { status: 400 });
   }
@@ -308,6 +322,7 @@ export async function PATCH(req: NextRequest) {
       fontPersonalizzato: body.fontPersonalizzato !== undefined ? body.fontPersonalizzato.trim() : undefined,
       driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
       landingPageUrl: body.landingPageUrl !== undefined ? body.landingPageUrl.trim() : undefined,
+      funnels: body.funnels,
     });
 
     // Solo se questa modifica ha toccato la cartella o il consulente — non ha senso rifare la

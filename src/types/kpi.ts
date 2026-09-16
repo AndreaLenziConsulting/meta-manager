@@ -1,3 +1,9 @@
+/** Una landing page/funnel attivo di un cliente — la maggior parte dei clienti ne ha più di uno
+ * (richiesta utente 11/2026, overhaul del vecchio Cliente.landingPageUrl singolo). `id` solo per
+ * la key React/per identificare la riga da eliminare, mai mostrato: generato lato client
+ * (crypto.randomUUID) alla creazione, mai riassegnato. */
+export type Funnel = { id: string; nome: string; url: string };
+
 export type Cliente = {
   clienteId: string;
   nome: string;
@@ -26,6 +32,10 @@ export type Cliente = {
   // Link rapidi anagrafici, mostrati in ClienteHeader — mai obbligatori, vuoto = nessun link mostrato.
   // Colonne R/S del tab Clienti, aggiunte dopo le Q colonne di personalizzazione sopra.
   driveFolderUrl: string;
+  // Landing page singola — deprecata a favore di `funnels` sotto, non più mostrata/editabile in
+  // ClienteHeader (era colonna S). Lasciata sul tipo/foglio solo perché migraFunnelClientiEsistenti
+  // (sheets.ts) la legge una tantum per popolare `funnels` dei clienti già esistenti — non scritta
+  // mai più da nessun punto dell'app dopo quella migrazione.
   landingPageUrl: string;
   // Colonna T — file di compilazione appuntamenti (Mese/Richieste/Appuntamenti fissati/effettuati/
   // Vendite/Fatturato), creato in automatico dentro driveFolderUrl al primo bisogno e poi
@@ -33,6 +43,11 @@ export type Cliente = {
   // in ClienteHeader SOLO per sedi senza connessione GHL attiva — un cliente GHL non deve
   // compilare a mano ciò che l'app già legge in diretta. Vuoto finché non è mai stato generato.
   appuntamentiFileUrl: string;
+  // Colonna U — elenco funnel/landing page attivi (JSON, stesso schema di
+  // Prospect.calcolatoreBudget in types/prospect.ts: un oggetto/array strutturato in una singola
+  // cella, niente tab dedicata per un elenco così piccolo). Array vuoto = nessun funnel impostato,
+  // mai null.
+  funnels: Funnel[];
 };
 
 /**
