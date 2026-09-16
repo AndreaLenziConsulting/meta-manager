@@ -230,18 +230,23 @@ type BodyPatch = {
 };
 
 /**
- * Modifica l'anagrafica di un cliente esistente (dalla Dashboard Amministratore). Aggiornamento
- * parziale: solo i campi presenti nel body vengono validati/scritti. Esclude deliberatamente
- * prodottoId/dataInizioProgetto (flusso roadmap dedicato) e accessCode (mai riassegnabile). Ad
- * account/target/tipo-conversione-lead si modificano da /api/sedi, non più da qui. Solo admin.
+ * Modifica l'anagrafica di un cliente esistente. Aggiornamento parziale: solo i campi presenti nel
+ * body vengono validati/scritti. Esclude deliberatamente prodottoId/dataInizioProgetto (flusso
+ * roadmap dedicato) e accessCode (mai riassegnabile). Ad account/target/tipo-conversione-lead si
+ * modificano da /api/sedi, non più da qui.
+ *
+ * Admin: qualunque cliente, ogni campo. Consulente (11/2026, richiesta esplicita dell'utente per
+ * il pennino di modifica nell'header scheda cliente): solo il PROPRIO cliente assegnato, e mai
+ * `consulenteId` (riassegnazione) né `attivo` ((dis)attivazione) — restano azioni amministrative,
+ * stesso principio già in uso per "Elimina cliente"/"Elimina sede" (gated su ruoloAdmin lato UI).
  */
 export async function PATCH(req: NextRequest) {
   const sessione = await getSessione();
   if (!sessione) {
     return NextResponse.json({ error: "Non autenticato" }, { status: 401 });
   }
-  if (sessione.ruolo !== "admin") {
-    return NextResponse.json({ error: "Solo l'amministratore può modificare i clienti" }, { status: 403 });
+  if (sessione.ruolo !== "admin" && sessione.ruolo !== "consulente") {
+    return NextResponse.json({ error: "Non autorizzato a modificare i clienti" }, { status: 403 });
   }
 
   const body = (await req.json().catch(() => ({}))) as BodyPatch;
@@ -260,9 +265,27 @@ export async function PATCH(req: NextRequest) {
   }
 
   const [clienti, consulenti] = await Promise.all([getClienti(), getConsulenti()]);
-  if (!clienti.some((c) => c.clienteId === clienteId)) {
+  const clienteEsistente = clienti.find((c) => c.clienteId === clienteId);
+  if (!clienteEsistente) {
     return NextResponse.json({ error: "Cliente non trovato" }, { status: 404 });
   }
+
+  if (sessione.ruolo === "consulente") {
+    if (clienteEsistente.consulenteId !== sessione.consulenteId) {
+      return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
+    }
+    if (body.consulenteId !== undefined && body.consulenteId !== clienteEsistente.consulenteId) {
+      return NextResponse.json({ error: "Solo l'amministratore può riassegnare un cliente" }, { status: 403 });
+    }
+    // Come consulenteId sopra: rifiuta solo un tentativo di CAMBIARLO, non il semplice reinvio
+    // dello stesso valore corrente — il form del consulente lo manda comunque ad ogni salvataggio
+    // (checkbox di sola lettura per lui, vedi ModificaClienteModal.tsx), altrimenti ogni salvataggio
+    // di un consulente (anche solo un link Drive) fallirebbe qui.
+    if (body.attivo !== undefined && body.attivo !== clienteEsistente.attivo) {
+      return NextResponse.json({ error: "Solo l'amministratore può attivare/disattivare un cliente" }, { status: 403 });
+    }
+  }
+
   // A differenza della creazione (POST), qui il consulente non deve per forza essere attivo: un
   // cliente può già avere assegnato un consulente nel frattempo disattivato, e l'admin deve poter
   // salvare gli altri campi senza esserne bloccato. Se invece ne assegna uno nuovo esplicitamente,
@@ -291,9 +314,8 @@ export async function PATCH(req: NextRequest) {
     // chiamata Drive ad ogni salvataggio (es. un semplice cambio colore). Best-effort come in POST:
     // un fallimento qui non deve far sembrare fallito il salvataggio, già andato a buon fine sopra.
     if (body.driveFolderUrl !== undefined || body.consulenteId !== undefined) {
-      const clienteEsistente = clienti.find((c) => c.clienteId === clienteId);
-      const driveFolderUrlFinale = body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : clienteEsistente?.driveFolderUrl ?? "";
-      const consulenteIdFinale = body.consulenteId !== undefined ? body.consulenteId : clienteEsistente?.consulenteId ?? "";
+      const driveFolderUrlFinale = body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : clienteEsistente.driveFolderUrl ?? "";
+      const consulenteIdFinale = body.consulenteId !== undefined ? body.consulenteId : clienteEsistente.consulenteId ?? "";
       const emailPerConsulente = new Map(consulenti.map((c) => [c.consulenteId, c.email]));
       const decisione = clienteDaCondividere({ driveFolderUrl: driveFolderUrlFinale, consulenteId: consulenteIdFinale }, emailPerConsulente);
       if (decisione) {

@@ -117,25 +117,41 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           <Input type="email" multiple value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
 
-        <Field label="Consulente di riferimento">
-          <Select value={consulenteId} onChange={(e) => setConsulenteId(e.target.value)} required>
-            {consulenti.map((c) => (
-              <option key={c.consulenteId} value={c.consulenteId}>
-                {c.nome}
-                {!c.attivo ? " (disattivato)" : ""}
-              </option>
-            ))}
-          </Select>
-        </Field>
+        {/* Riassegnazione e (dis)attivazione restano azioni amministrative — un consulente può
+            modificare solo il proprio cliente assegnato, mai spostarlo su qualcun altro né
+            disattivarlo (vedi PATCH /api/clienti). Mostrate come sola lettura invece che nascoste:
+            il consulente vede comunque a chi è assegnato e se il cliente è attivo. */}
+        {ruoloAdmin ? (
+          <Field label="Consulente di riferimento">
+            <Select value={consulenteId} onChange={(e) => setConsulenteId(e.target.value)} required>
+              {consulenti.map((c) => (
+                <option key={c.consulenteId} value={c.consulenteId}>
+                  {c.nome}
+                  {!c.attivo ? " (disattivato)" : ""}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <Field label="Consulente di riferimento">
+            <p className="text-sm text-ink-700 px-3 py-2">{consulenti.find((c) => c.consulenteId === consulenteId)?.nome ?? consulenteId}</p>
+          </Field>
+        )}
 
         <div className="space-y-2 pt-1">
           <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
             <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="accent-current text-brand" />
             Il cliente vede anche il tab Meeting (oltre a KPI)
           </label>
-          <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-            <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />
-            Cliente attivo
+          <label className={`flex items-center gap-2 text-xs text-ink-700 ${ruoloAdmin ? "cursor-pointer" : "opacity-70"}`}>
+            <input
+              type="checkbox"
+              checked={attivo}
+              onChange={(e) => setAttivo(e.target.checked)}
+              disabled={!ruoloAdmin}
+              className="accent-current text-brand disabled:cursor-not-allowed"
+            />
+            Cliente attivo{!ruoloAdmin && " (solo l'amministratore può cambiarlo)"}
           </label>
         </div>
 

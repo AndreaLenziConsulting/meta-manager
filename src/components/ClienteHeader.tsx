@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ClipboardList, Folder, ExternalLink } from "lucide-react";
+import { ArrowLeft, ClipboardList, Folder, ExternalLink, Pencil } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
 import { TopbarPortal } from "@/components/TopbarSlot";
+import { ModificaClienteModal } from "@/components/ModificaClienteModal";
+import type { Cliente, Consulente, Sede } from "@/types/kpi";
 
 /**
  * Prima cosa visibile sulla scheda di un cliente: il nome (o il suo logo, se personalizzato — vedi
@@ -52,6 +54,9 @@ export function ClienteHeader({
   appuntamentiFileUrl,
   haConnessioneGhl,
   ruoloAdmin,
+  cliente,
+  sedi,
+  consulenti,
 }: {
   clienteId: string;
   clienteNome: string;
@@ -62,8 +67,18 @@ export function ClienteHeader({
   appuntamentiFileUrl?: string;
   haConnessioneGhl?: boolean;
   ruoloAdmin?: boolean;
+  // Solo per il pennino "Modifica cliente" (richiesta utente 11/2026, "consulente e admin devono
+  // poterlo editare direttamente dalla sua interfaccia") — assenti sul link pubblico (code), dove
+  // ClienteHeader non viene mai renderizzato affatto (vedi il gate in SchedaCliente.tsx). Il
+  // consulente arriva qui SOLO sul proprio cliente assegnato (puoVedereCliente in
+  // dashboard/cliente/[clienteId]/page.tsx) — nessun controllo di ruolo aggiuntivo qui, il vero
+  // cancello è lato server (PATCH /api/clienti, aggiornato in coppia con questo pennino).
+  cliente?: Cliente;
+  sedi?: Sede[];
+  consulenti?: Consulente[];
 }) {
   const router = useRouter();
+  const [modificaAperta, setModificaAperta] = useState(false);
 
   // Override ottimistico dopo un salvataggio riuscito, scoped al clienteId corrente — stesso
   // pattern "contesto" di sedeScelta/filtroCampagne in KpiSection.tsx: senza questo confronto, se
@@ -142,6 +157,17 @@ export function ClienteHeader({
             className={clienteLogoUrl ? "h-8 w-auto object-contain" : "font-heading font-bold text-lg text-ink-900 truncate"}
           />
         </h1>
+        {cliente && sedi && consulenti && (
+          <button
+            type="button"
+            onClick={() => setModificaAperta(true)}
+            aria-label="Modifica cliente"
+            title="Modifica cliente"
+            className="flex items-center justify-center w-7 h-7 rounded-lg text-ink-400 hover:text-brand hover:bg-brand-light transition shrink-0 cursor-pointer"
+          >
+            <Pencil size={15} />
+          </button>
+        )}
       </TopbarPortal>
 
       <div className="flex items-center gap-3 flex-wrap">
@@ -158,7 +184,10 @@ export function ClienteHeader({
           url={driveFolderUrlEffettivo}
           titleApri="Apri la cartella Drive del cliente"
           placeholder="https://drive.google.com/…"
-          puoModificare={Boolean(ruoloAdmin)}
+          // Chiunque arriva su ClienteHeader è admin o il consulente assegnato a QUESTO cliente
+          // (mai un altro ruolo, mai sul link pubblico code — vedi puoVedereCliente lato server):
+          // entrambi possono salvare questi due link, PATCH /api/clienti li accetta per entrambi.
+          puoModificare={true}
           onSalva={(valore) => salvaLinkRapido("driveFolderUrl", valore)}
         />
         <LinkRapido
@@ -167,7 +196,7 @@ export function ClienteHeader({
           url={landingPageUrlEffettivo}
           titleApri="Apri la landing page del cliente"
           placeholder="https://…"
-          puoModificare={Boolean(ruoloAdmin)}
+          puoModificare={true}
           onSalva={(valore) => salvaLinkRapido("landingPageUrl", valore)}
         />
         {!haConnessioneGhl && appuntamentiFileUrlEffettivo && (
@@ -194,6 +223,20 @@ export function ClienteHeader({
         )}
         </div>
       </div>
+
+      {modificaAperta && cliente && sedi && consulenti && (
+        <ModificaClienteModal
+          cliente={cliente}
+          sedi={sedi}
+          consulenti={consulenti}
+          ruoloAdmin={ruoloAdmin}
+          onClose={() => setModificaAperta(false)}
+          onSalvato={() => {
+            setModificaAperta(false);
+            router.refresh();
+          }}
+        />
+      )}
     </>
   );
 }

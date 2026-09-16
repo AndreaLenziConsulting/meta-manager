@@ -7,6 +7,7 @@ import { KpiSection } from "@/components/KpiSection";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
 import { ReportVenditaTab } from "@/components/ReportVenditaTab";
+import type { Cliente, Consulente, Sede } from "@/types/kpi";
 
 type Props = {
   code?: string;
@@ -33,8 +34,14 @@ type Props = {
   // sul link pubblico cliente (code), mai per un consulente che vede il cliente ma non può
   // modificarlo. Calcolato lato server in dashboard/cliente/[clienteId]/page.tsx.
   ruoloAdmin?: boolean;
-  // Identità note per il popover di editing assegnatari del tab Attività — vedi AttivitaLista.tsx.
-  consulenti?: { consulenteId: string; nome: string }[];
+  // Oggetto completo + sedi del cliente — servono solo al pennino "Modifica cliente" nell'header
+  // (vedi ClienteHeader.tsx), assenti sul link pubblico (code) dove quel pennino non compare mai.
+  cliente?: Cliente;
+  sedi?: Sede[];
+  // Elenco completo consulenti: alimenta sia l'autocomplete assegnatari del tab Attività (che usa
+  // solo consulenteId/nome) sia il select "Consulente di riferimento" del pennino sopra (che usa
+  // anche attivo) — un solo prop invece di due liste separate con la stessa fonte.
+  consulenti?: Consulente[];
   // Nome del consulente della sessione corrente, per il quick-filter "Le mie task" del tab
   // Attività — vedi lo stesso prop in AttivitaTab.tsx.
   nomeConsulenteCorrente?: string;
@@ -53,6 +60,8 @@ export function SchedaCliente({
   tuttiITab,
   haConnessioneGhl,
   ruoloAdmin,
+  cliente,
+  sedi = [],
   consulenti = [],
   nomeConsulenteCorrente,
 }: Props) {
@@ -131,6 +140,9 @@ export function SchedaCliente({
         appuntamentiFileUrl={appuntamentiFileUrl}
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={ruoloAdmin}
+        cliente={cliente}
+        sedi={sedi}
+        consulenti={consulenti}
       />
     ) : null;
 

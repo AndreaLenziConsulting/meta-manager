@@ -24,7 +24,8 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   // KPI vengono lette in diretta da GHL solo se almeno una sede di questo cliente ha una
   // connessione attiva — vedi src/lib/kpiGhlOverlay.ts.
   const [sedi, connessioniGhl, consulenti] = await Promise.all([getSedi(), getGhlConnessioni(), getConsulenti()]);
-  const sediIdsCliente = new Set(sedi.filter((s) => s.clienteId === clienteId).map((s) => s.sedeId));
+  const sediCliente = sedi.filter((s) => s.clienteId === clienteId);
+  const sediIdsCliente = new Set(sediCliente.map((s) => s.sedeId));
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);
 
   const settimanaProgetto = cliente?.dataInizioProgetto ? settimanaCorrente(cliente.dataInizioProgetto) : null;
@@ -55,7 +56,12 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         tuttiITab
         haConnessioneGhl={haConnessioneGhl}
         ruoloAdmin={sessione.ruolo === "admin"}
-        consulenti={consulenti.map((c) => ({ consulenteId: c.consulenteId, nome: c.nome }))}
+        // Oggetto completo (non più solo consulenteId/nome) + sedi del cliente: servono al pennino
+        // "Modifica cliente" nell'header (ClienteHeader.tsx → ModificaClienteModal), non solo
+        // all'autocomplete assegnatari del tab Attività che li consumava finora.
+        cliente={cliente}
+        sedi={sediCliente}
+        consulenti={consulenti}
         nomeConsulenteCorrente={nomeConsulenteCorrente}
       />
     </div>
