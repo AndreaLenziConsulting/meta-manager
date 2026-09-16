@@ -382,7 +382,6 @@ function SedeRow({
           <Button
             type="button"
             size="sm"
-            variant="ghost"
             onClick={salva}
             disabled={salvando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}
           >
