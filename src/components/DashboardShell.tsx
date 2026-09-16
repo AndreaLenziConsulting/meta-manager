@@ -92,7 +92,11 @@ export function DashboardShell({
             onCloseMobile={() => setMobileOpen(false)}
           />
           <div className="flex-1 min-w-0 flex flex-col">
-            <div className="sticky top-0 z-10 h-14 flex items-center justify-between gap-3 bg-surface-card border-b border-[var(--glass-border-soft)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome-strong)] px-6 sm:px-8">
+            {/* "Bubble" flottante (richiesta utente, 09/2026, su mockup di riferimento) invece della
+                barra piatta a tutta larghezza di prima: margine su tutti i lati (incluso sopra,
+                anche da ferma in cima allo scroll) + bordi arrotondati + ombra pannello, così la
+                tela puntinata di sfondo resta visibile intorno, non solo sotto. */}
+            <div className="sticky top-4 z-10 mx-4 sm:mx-6 h-14 flex items-center justify-between gap-3 rounded-2xl bg-surface-card border border-[var(--glass-border-soft)] shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome-strong)] px-6">
               <button
                 type="button"
                 onClick={() => setMobileOpen(true)}

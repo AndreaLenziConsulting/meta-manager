@@ -117,25 +117,30 @@ export function SchedaCliente({
     return <KpiSection code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />;
   }
 
+  // Mai sul link pubblico (code): quella pagina ha già il proprio <h2> col nome cliente sopra
+  // SchedaCliente (src/app/report/[code]/page.tsx) — qui comparirebbe raddoppiato.
+  const header =
+    clienteId && clienteNome ? (
+      <ClienteHeader
+        clienteId={clienteId}
+        clienteNome={clienteNome}
+        clienteLogoUrl={clienteLogoUrl}
+        settimanaProgetto={settimanaProgetto}
+        driveFolderUrl={driveFolderUrl}
+        landingPageUrl={landingPageUrl}
+        appuntamentiFileUrl={appuntamentiFileUrl}
+        haConnessioneGhl={haConnessioneGhl}
+        ruoloAdmin={ruoloAdmin}
+      />
+    ) : null;
+
   return (
     <div className="space-y-6">
-      {/* Mai sul link pubblico (code): quella pagina ha già il proprio <h2> col nome cliente sopra
-          SchedaCliente (src/app/report/[code]/page.tsx) — qui comparirebbe raddoppiato. */}
-      {clienteId && clienteNome && (
-        <ClienteHeader
-          clienteId={clienteId}
-          clienteNome={clienteNome}
-          clienteLogoUrl={clienteLogoUrl}
-          settimanaProgetto={settimanaProgetto}
-          driveFolderUrl={driveFolderUrl}
-          landingPageUrl={landingPageUrl}
-          appuntamentiFileUrl={appuntamentiFileUrl}
-          haConnessioneGhl={haConnessioneGhl}
-          ruoloAdmin={ruoloAdmin}
-        />
-      )}
-
-      <Accordion items={items} aperto={tabAttivo} onChange={setTabAttivo} />
+      {/* ClienteHeader porta torna-indietro + nome cliente nella barra sticky (via TopbarPortal) e
+          restituisce anche la riga "Settimana N" + link rapidi — passata qui come `trailing` così
+          finisce sulla STESSA riga delle tab sotto, allineata a destra (richiesta utente, 09/2026),
+          invece che in una riga tutta sua sopra. */}
+      <Accordion items={items} aperto={tabAttivo} onChange={setTabAttivo} trailing={header} />
     </div>
   );
 }

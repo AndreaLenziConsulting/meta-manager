@@ -130,12 +130,15 @@ export function Sidebar({
       <aside
         className={cn(
           "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome)] transition-[width] duration-200",
-          collapsed ? "w-16" : "w-64"
+          collapsed ? "w-16" : "w-56"
         )}
       >
-        <div className="h-16 flex items-center px-4 border-b border-[var(--glass-border-soft)] overflow-hidden">
+        {/* Logo disteso sull'intera larghezza del blocco (richiesta utente, 09/2026), non più una
+            piccola immagine con largo margine intorno — solo px-3 di respiro dai bordi, w-full così
+            scala insieme alla rail invece di restare a dimensione fissa. */}
+        <div className="h-16 flex items-center px-3 border-b border-[var(--glass-border-soft)] overflow-hidden">
           {!collapsed && (
-            <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={110} height={38} className="object-contain h-8 w-auto" />
+            <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={220} height={56} className="object-contain w-full h-auto" />
           )}
         </div>
         <nav className="flex-1 px-2 py-4 space-y-1">{renderNav(!collapsed)}</nav>
