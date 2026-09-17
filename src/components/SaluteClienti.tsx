@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil, Frown } from "lucide-react";
 import type { Consulente, Salute } from "@/types/kpi";
-import type { SaluteClienteItem } from "@/lib/dashboardAdmin";
+import { perNomeCliente, type SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
 import type { LivelloStato } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
@@ -202,7 +202,12 @@ export function SaluteClienti({
   const nomeConsulentePer = new Map(consulenti.map((c) => [c.consulenteId, c.nome]));
 
   // Bucket per urgenza sull'array già ordinato da ordinaPerPriorita (dashboard/page.tsx) — .filter()
-  // preserva l'ordine relativo esistente, nessuna nuova logica di ordinamento qui.
+  // preserva l'ordine relativo esistente nelle prime due zone, dove il conteggio ritardi/severità
+  // ads è un criterio di lettura voluto (più urgente = più in alto). Nella terza zona invece quello
+  // stesso criterio non ha senso: "In linea o senza segnali" è per definizione "nessuna azione
+  // richiesta ora", quindi un cliente con ads sano ma qualche attività in ritardo NON va comunque in
+  // cima — segnalato dall'utente ("Questi non sono ancora in ordine alfabetico"): qui l'ordine
+  // globale per priorità va esplicitamente scartato a favore del solo alfabetico.
   const zone: Zona[] = [
     {
       key: "interveni",
@@ -226,7 +231,7 @@ export function SaluteClienti({
       criterio: "nessuna azione richiesta ora",
       titoloClasse: "text-ink-700",
       compatta: true,
-      items: items.filter((i) => ["scala", "dati-insufficienti", "no-target"].includes(i.valutazione.stato)),
+      items: items.filter((i) => ["scala", "dati-insufficienti", "no-target"].includes(i.valutazione.stato)).sort(perNomeCliente),
     },
   ].filter((z) => z.items.length > 0);
 

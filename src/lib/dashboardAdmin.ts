@@ -67,7 +67,7 @@ const ORDINE_STATO_ADS: Record<string, number> = {
 /** Ordine alfabetico per nome cliente — tie-breaker di default ovunque un ordinamento primario
  * (priorità, carico per consulente, ...) lascia dei pari merito, così l'ordine non dipende più
  * dall'ordine di riga nel foglio (richiesta utente: "clienti in un ordine non ben delineato"). */
-function perNomeCliente(a: SaluteClienteItem, b: SaluteClienteItem): number {
+export function perNomeCliente(a: SaluteClienteItem, b: SaluteClienteItem): number {
   return a.cliente.nome.localeCompare(b.cliente.nome, "it", { sensitivity: "base" });
 }
 
