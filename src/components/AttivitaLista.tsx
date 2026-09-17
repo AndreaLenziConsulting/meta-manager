@@ -545,7 +545,12 @@ function RigaAttivita({
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-ink-900 truncate text-sm">{attivita.descrizione}</p>
+        {/* line-clamp (non più truncate a 1 riga) — segnalato dall'utente: i task lunghi (la norma,
+            non l'eccezione) restavano illeggibili tagliati alla prima riga. 2 righe bastano per la
+            stragrande maggioranza dei titoli reali; title= resta come rete per il residuo più lungo. */}
+        <p className="text-ink-900 text-sm line-clamp-2 break-words" title={attivita.descrizione}>
+          {attivita.descrizione}
+        </p>
         {/* Seconda riga (badge cliente/fase/meeting/nota) nascosta in modalità compatta — solo il
             titolo resta, per far entrare più righe a schermo (blocco 4 del redesign). */}
         {!compatta && (
