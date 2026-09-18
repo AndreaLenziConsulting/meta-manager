@@ -31,10 +31,14 @@ type Props = {
  * AttivitaTab.tsx (dove viveva non esportata) e generalizzata con un `clienteId` opzionale per
  * riuso anche in AttivitaGlobali.tsx (redesign Attività, 08/09/2026, blocco "creazione rapida
  * mancante" — lì non c'è un cliente di contesto, va scelto). Stesso pattern toggle-apri/annulla di
- * "+ Nuovo meeting" in MeetingTab.tsx. `fase` ha un `<datalist>` con le fasi già presenti
- * (fasiDisponibili) ma resta testo libero. Dopo la creazione richiama `onCreata` (il chiamante
- * ricarica dati reali, non un aggiornamento ottimistico: il nuovo task può appartenere a una fase
- * non ancora presente nei dati locali).
+ * "+ Nuovo meeting" in MeetingTab.tsx. `fase` si sceglie con SelettoreFase sotto (le fasi già
+ * presenti, fasiDisponibili, più testo libero per una nuova) — OPZIONALE (segnalato dall'utente
+ * 18/09/2026: obbligarla in fase di creazione era fuorviante, un'attività aggiunta al volo spesso
+ * non appartiene a nessuna fase precisa). Una fase vuota non compare come badge in AttivitaLista.tsx
+ * né come lane nel Gantt (RoadmapGantt.tsx la mostra come "Senza fase"), e non entra mai in
+ * fasiDisponibili (mai un suggerimento vuoto in tendina). Dopo la creazione richiama `onCreata` (il
+ * chiamante ricarica dati reali, non un aggiornamento ottimistico: il nuovo task può appartenere a
+ * una fase non ancora presente nei dati locali).
  */
 export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fasiDisponibili, consulenti = [], onCreata }: Props) {
   const [aperto, setAperto] = useState(false);
@@ -141,7 +145,7 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
         />
       </div>
       <div>
-        <label className={labelClass}>Fase</label>
+        <label className={labelClass}>Fase (opzionale)</label>
         <SelettoreFase value={fase} onChange={setFase} opzioni={fasiDisponibili} />
       </div>
       <div>
@@ -227,7 +231,7 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
         <button
           type="button"
           onClick={handleSalva}
-          disabled={salvando || !clienteId || !descrizione.trim() || !fase.trim() || !dataFine}
+          disabled={salvando || !clienteId || !descrizione.trim() || !dataFine}
           className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
         >
           {salvando ? "Salvataggio…" : "Aggiungi attività"}

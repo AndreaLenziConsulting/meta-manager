@@ -234,7 +234,9 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
   // Stesso schema, per l'autocomplete di NuovaAttivitaForm sotto: un'attività aggiunta a mano finisce
   // più spesso in una fase già in corso che in una nuova lane dedicata (mai un elenco fisso: "fase"
   // è testo libero, ogni cliente ha le proprie).
-  const fasiDisponibili = Array.from(new Set(dati.gruppi.map((g) => g.fase))).sort((a, b) => a.localeCompare(b));
+  // Filtra la stringa vuota (fase ora opzionale, richiesta utente 18/09/2026): mai un suggerimento
+  // vuoto e cliccabile nella tendina di SelettoreFase.
+  const fasiDisponibili = Array.from(new Set(dati.gruppi.map((g) => g.fase).filter(Boolean))).sort((a, b) => a.localeCompare(b));
   const passaFiltro = (a: { assegnatari: string[] }) =>
     (responsabiliFiltro === null || a.assegnatari.some((x) => responsabiliFiltro.has(x))) &&
     (!soloOrfane || taskOrfana(a.assegnatari)) &&

@@ -62,7 +62,10 @@ export async function POST(req: NextRequest) {
   // sostituito). Non bloccante: un errore qui non deve far fallire l'aggiornamento dello stato,
   // che è già andato a buon fine sopra — stesso principio di appendReportOperativita.
   const stessaFaseDopo = stessaFasePrima.map((a) => (a.attivitaId === attivitaId ? { ...a, stato: stato as StatoAttivita } : a));
-  if (!completataPrima && faseCompletata(stessaFaseDopo)) {
+  // riga.fase vuota (opzionale in creazione, richiesta utente 18/09/2026) non è una vera fase da
+  // festeggiare — "raggruppamento residuo dei task senza fase" non è la stessa cosa di una tappa
+  // della roadmap completata, mai una riga FasiCompletate/banner per quel caso.
+  if (riga.fase && !completataPrima && faseCompletata(stessaFaseDopo)) {
     try {
       await registraFaseCompletata(clienteId, riga.fase, oggiIso());
     } catch {

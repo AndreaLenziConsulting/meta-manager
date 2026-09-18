@@ -582,15 +582,19 @@ function RigaAttivita({
               {faseCompatta(attivita.fase, true)}
             </button>
           ) : (
-            <span
-              className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[220px] ${
-                isMeeting ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-ink-300/40 text-ink-500 border border-ink-300"
-              }`}
-              title={attivita.fase}
-            >
-              {isMeeting && <Calendar size={11} className="flex-shrink-0" />}
-              {faseCompatta(attivita.fase, isMeeting)}
-            </span>
+            // Fase opzionale (richiesta utente 18/09/2026): un task manuale può non averne una —
+            // nessun badge vuoto al posto di quello col nome fase, mai un pill senza contenuto.
+            attivita.fase && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[220px] ${
+                  isMeeting ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-ink-300/40 text-ink-500 border border-ink-300"
+                }`}
+                title={attivita.fase}
+              >
+                {isMeeting && <Calendar size={11} className="flex-shrink-0" />}
+                {faseCompatta(attivita.fase, isMeeting)}
+              </span>
+            )
           )}
           {attivita.notaTeam && (
             <span className="text-[10px] text-red-500 italic truncate max-w-[200px]" title={attivita.notaTeam}>

@@ -19,9 +19,9 @@ const DATA_ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
  * roadmap di un proprio cliente è già un'azione che il consulente può fare, aggiungere un task ad
  * hoc non è diverso da cambiarne lo stato o la scadenza.
  *
- * `fase` è testo libero (non un id): il chiamante suggerisce le fasi già presenti nella roadmap del
- * cliente (autocomplete lato UI), ma può anche digitarne una nuova — un'attività aggiunta a mano
- * finisce più spesso in una fase già in corso che in una nuova lane dedicata. `ordine` = il
+ * `fase` è testo libero (non un id) ed è OPZIONALE (segnalato dall'utente 18/09/2026: obbligarla era
+ * fuorviante) — il chiamante suggerisce le fasi già presenti nella roadmap del cliente (autocomplete
+ * lato UI), ma può anche digitarne una nuova o lasciarla vuota. `ordine` = il
  * successivo assoluto sull'intero foglio (mai un secondo scan per-fase): risultato pratico, dentro
  * la fase scelta il nuovo task va sempre in fondo, che è esattamente il comportamento voluto.
  */
@@ -42,12 +42,12 @@ export async function POST(req: NextRequest) {
   };
   const clienteId = body.clienteId?.trim();
   const descrizione = body.descrizione?.trim();
-  const fase = body.fase?.trim();
+  const fase = body.fase?.trim() ?? "";
   const dataFine = body.dataFine?.trim();
   const dataInizio = body.dataInizio?.trim() || oggiIso();
 
-  if (!clienteId || !descrizione || !fase || !dataFine) {
-    return NextResponse.json({ error: "clienteId, descrizione, fase e dataFine sono obbligatori" }, { status: 400 });
+  if (!clienteId || !descrizione || !dataFine) {
+    return NextResponse.json({ error: "clienteId, descrizione e dataFine sono obbligatori" }, { status: 400 });
   }
   if (!DATA_ISO_RE.test(dataFine) || !DATA_ISO_RE.test(dataInizio)) {
     return NextResponse.json({ error: "Data non valida (formato atteso GGGG-MM-GG)" }, { status: 400 });

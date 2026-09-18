@@ -226,7 +226,9 @@ export function AttivitaGlobali({ consulenti = [], nomeConsulenteCorrente }: Pro
   // Stesso schema di AttivitaTab.tsx, per l'autocomplete di NuovaAttivitaForm sotto — qui però su
   // tutte le fasi di tutti i clienti visibili, non solo di uno: coerente col fatto che qui si scelga
   // anche il cliente.
-  const fasiDisponibili = Array.from(new Set(dati.attivita.map((a) => a.fase))).sort((a, b) => a.localeCompare(b));
+  // Filtra la stringa vuota (fase ora opzionale, richiesta utente 18/09/2026): mai un suggerimento
+  // vuoto e cliccabile nella tendina di SelettoreFase.
+  const fasiDisponibili = Array.from(new Set(dati.attivita.map((a) => a.fase).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const passaFiltro = (a: AttivitaClienteRow) =>
     (clientiFiltro === null || clientiFiltro.has(a.clienteId)) &&

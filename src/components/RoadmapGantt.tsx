@@ -143,7 +143,9 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
                   >
                     <span className="flex items-center gap-2 text-xs font-semibold text-ink-700">
                       <ChevronIcon aperta={aperta} />
-                      {gruppo.fase}
+                      {/* Fase opzionale in creazione (richiesta utente 18/09/2026): un task manuale
+                          senza fase finisce comunque in una lane, mai un'intestazione vuota. */}
+                      {gruppo.fase || "Senza fase"}
                     </span>
                     <span className="text-[11px] text-ink-500 whitespace-nowrap">
                       {conteggi.done}/{gruppo.attivita.length} fatte
