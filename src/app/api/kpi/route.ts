@@ -6,13 +6,16 @@ import {
   getClienteByAccessCode,
   getClienti,
   getRisultatiCommerciali,
+  getRisultatiVenditori,
   getMetaDaily,
   getSedi,
   getUltimoCambioPerCampagna,
+  getVenditori,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { chiaveCampagna, computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
+import { aggregaRisultatiVenditori } from "@/lib/venditori";
 import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -85,15 +88,18 @@ export async function GET(req: NextRequest) {
   }
   const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
-  const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna, categorieCommerciali] = await Promise.all([
-    getMetaDaily({ noCache }),
-    getCampagne({ noCache }),
-    getRisultatiCommerciali({ noCache }),
-    getUltimoCambioPerCampagna({ noCache }),
-    // Letta sempre (anche sul ramo `code`, scartata sotto se non internal): costo trascurabile,
-    // stesso schema di risultatiCommerciali sopra — evita un secondo giro di fetch condizionale.
-    getCategorieCommerciali({ noCache }),
-  ]);
+  const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna, categorieCommerciali, venditoriSede, risultatiVenditori] =
+    await Promise.all([
+      getMetaDaily({ noCache }),
+      getCampagne({ noCache }),
+      getRisultatiCommerciali({ noCache }),
+      getUltimoCambioPerCampagna({ noCache }),
+      // Lette sempre (anche sul ramo `code`, scartate sotto se non internal): costo trascurabile,
+      // stesso schema di risultatiCommerciali sopra — evita un secondo giro di fetch condizionale.
+      getCategorieCommerciali({ noCache }),
+      getVenditori({ noCache }),
+      getRisultatiVenditori({ noCache }),
+    ]);
 
   // Interseca il filtro canale (se presente) dentro campagneSelezionate: dopo questo punto i due
   // compute* sotto continuano a ricevere l'unico Set che già conoscevano, senza saperne nulla.
@@ -171,6 +177,10 @@ export async function GET(req: NextRequest) {
           targetAppuntamentiSettimana: sede.targetAppuntamentiSettimana,
           targetFatturatoMensile: sede.targetFatturatoMensile,
           categorie: categorieCommerciali.filter((c) => c.sedeId === sede.sedeId && c.attivo),
+          venditori: venditoriSede.filter((v) => v.sedeId === sede.sedeId && v.attivo),
+          risultatiVenditoriPeriodo: Array.from(aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da, a).entries()).map(
+            ([venditoreId, agg]) => ({ venditoreId, ...agg })
+          ),
         }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),

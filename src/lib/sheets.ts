@@ -12,11 +12,13 @@ import type {
   Consulente,
   FaseCompletataRow,
   RisultatoCommercialeRow,
+  RisultatoVenditoreRow,
   MetaDailyRow,
   Prodotto,
   Sede,
   StatoAttivita,
   TemplateTask,
+  Venditore,
 } from "@/types/kpi";
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 import type { CalcolatoreBudgetInput, Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
@@ -54,6 +56,13 @@ const TAB = {
   // targetFatturatoMensile) prima che getCategorieCommerciali funzioni — stesso prerequisito già
   // valso per ConnessioniCanale/Sedi.
   categorieCommerciali: "CategorieCommerciali",
+  // Fase 2 venditori — vedi Venditore/RisultatoVenditoreRow in types/kpi.ts. Due tab NUOVE: Venditori
+  // (anagrafica, colonne A→E: venditoreId, sedeId, nome, capienzaAppuntamentiMensile, attivo) e
+  // RisultatiVenditori (a sola lettura come RisultatiCommerciali, colonne A→F: mese, sedeId,
+  // venditoreId, appuntamentiFissati, vendite, fatturato) — devono esistere fisicamente sul foglio
+  // Google prima che getVenditori/getRisultatiVenditori funzionino.
+  venditori: "Venditori",
+  risultatiVenditori: "RisultatiVenditori",
 } as const;
 
 // Client riusato tra le chiamate (nella stessa istanza serverless "calda"): evita di rifare
@@ -511,25 +520,28 @@ export async function migraFunnelClientiEsistenti(): Promise<{ migrati: number }
 }
 
 /**
- * Elimina definitivamente un cliente — cascade completo su Sedi, le Connessioni GHL e le Categorie
- * commerciali di quelle sedi, AttivitaCliente, MeetingCliente, FasiCompletate e RisultatiCommerciali
- * (tutte per clienteId, tranne GhlConnessioni/CategorieCommerciali che sono per sedeId). ESCLUSI
- * DELIBERATAMENTE: Campagne, MetaDaily, StoricoStatoCampagne — storico ads Meta, resta nel foglio ma
- * orfano, invisibile ovunque nell'app (decisione utente 09/09/2026, stessa filosofia già applicata a
- * eliminaSede). Un solo batchUpdate per l'intera cascata (vedi eliminaRigheBatch): 8 letture in
- * parallelo, poi tutte le deleteDimension insieme — o va via tutto o niente resta a metà.
+ * Elimina definitivamente un cliente — cascade completo su Sedi, le Connessioni GHL, le Categorie
+ * commerciali e i Venditori di quelle sedi, AttivitaCliente, MeetingCliente, FasiCompletate e
+ * RisultatiCommerciali (tutte per clienteId, tranne GhlConnessioni/CategorieCommerciali/Venditori
+ * che sono per sedeId). ESCLUSI DELIBERATAMENTE: Campagne, MetaDaily, StoricoStatoCampagne,
+ * RisultatiVenditori — storico, resta nel foglio ma orfano, invisibile ovunque nell'app (decisione
+ * utente 09/09/2026, stessa filosofia già applicata a eliminaSede). Un solo batchUpdate per l'intera
+ * cascata (vedi eliminaRigheBatch): 9 letture in parallelo, poi tutte le deleteDimension insieme —
+ * o va via tutto o niente resta a metà.
  */
 export async function eliminaCliente(clienteId: string): Promise<void> {
-  const [righeSedi, righeGhl, righeCategorie, righeAttivita, righeMeeting, righeFasi, righeRisultati, righeClienti] = await Promise.all([
-    readTab(TAB.sedi, { noCache: true }),
-    readTab(TAB.ghlConnessioni, { noCache: true }),
-    readTab(TAB.categorieCommerciali, { noCache: true }),
-    readTab(TAB.attivitaCliente, { noCache: true }),
-    readTab(TAB.meetingCliente, { noCache: true }),
-    readTab(TAB.fasiCompletate, { noCache: true }),
-    readTab(TAB.risultatiCommerciali, { noCache: true }),
-    readTab(TAB.clienti, { noCache: true }),
-  ]);
+  const [righeSedi, righeGhl, righeCategorie, righeVenditori, righeAttivita, righeMeeting, righeFasi, righeRisultati, righeClienti] =
+    await Promise.all([
+      readTab(TAB.sedi, { noCache: true }),
+      readTab(TAB.ghlConnessioni, { noCache: true }),
+      readTab(TAB.categorieCommerciali, { noCache: true }),
+      readTab(TAB.venditori, { noCache: true }),
+      readTab(TAB.attivitaCliente, { noCache: true }),
+      readTab(TAB.meetingCliente, { noCache: true }),
+      readTab(TAB.fasiCompletate, { noCache: true }),
+      readTab(TAB.risultatiCommerciali, { noCache: true }),
+      readTab(TAB.clienti, { noCache: true }),
+    ]);
 
   const sediIdDelCliente = new Set(
     righeSedi.filter((r) => asText(r[1]) === clienteId).map((r) => asText(r[0]))
@@ -543,9 +555,10 @@ export async function eliminaCliente(clienteId: string): Promise<void> {
   await eliminaRigheBatch([
     { tab: TAB.sedi, numeriRiga: trovaTuttiIndiciRiga(righeSedi, (r) => asText(r[1]) === clienteId) },
     { tab: TAB.ghlConnessioni, numeriRiga: trovaTuttiIndiciRiga(righeGhl, (r) => sediIdDelCliente.has(asText(r[1]))) },
-    // Categorie commerciali, come GhlConnessioni sopra: config della sede, mai lasciata orfana
-    // (a differenza dello storico ads/RisultatiCommerciali sotto, deliberatamente escluso).
+    // Categorie commerciali e Venditori, come GhlConnessioni sopra: config della sede, mai lasciata
+    // orfana (a differenza dello storico ads/RisultatiCommerciali/RisultatiVenditori, deliberatamente esclusi).
     { tab: TAB.categorieCommerciali, numeriRiga: trovaTuttiIndiciRiga(righeCategorie, (r) => sediIdDelCliente.has(asText(r[1]))) },
+    { tab: TAB.venditori, numeriRiga: trovaTuttiIndiciRiga(righeVenditori, (r) => sediIdDelCliente.has(asText(r[1]))) },
     { tab: TAB.attivitaCliente, numeriRiga: trovaTuttiIndiciRiga(righeAttivita, (r) => asText(r[1]) === clienteId) },
     { tab: TAB.meetingCliente, numeriRiga: trovaTuttiIndiciRiga(righeMeeting, (r) => asText(r[1]) === clienteId) },
     { tab: TAB.fasiCompletate, numeriRiga: trovaTuttiIndiciRiga(righeFasi, (r) => asText(r[0]) === clienteId) },
@@ -666,21 +679,24 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
 }
 
 /**
- * Elimina definitivamente una sede — cascade sulla sua/e connessione/i GHL e sulle sue categorie
- * commerciali (predicato su sedeId, non su un id deterministico, per robustezza). NON tocca
- * Campagne/RisultatiCommerciali/StoricoStatoCampagne di questa sede: restano nel foglio ma orfane,
- * invisibili ovunque nell'app — stessa filosofia "storico ads lasciato orfano" di eliminaCliente
- * sotto. Il guard "non è l'unica sede del cliente" resta nella ROUTE (mai qui): stesso schema di
- * creaSede/aggiornaSede, che non validano il cliente — è la route a farlo.
+ * Elimina definitivamente una sede — cascade sulla sua/e connessione/i GHL, sulle sue categorie
+ * commerciali e sui suoi venditori (predicato su sedeId, non su un id deterministico, per
+ * robustezza). NON tocca Campagne/RisultatiCommerciali/RisultatiVenditori/StoricoStatoCampagne di
+ * questa sede: restano nel foglio ma orfane, invisibili ovunque nell'app — stessa filosofia "storico
+ * ads lasciato orfano" di eliminaCliente sotto. Il guard "non è l'unica sede del cliente" resta
+ * nella ROUTE (mai qui): stesso schema di creaSede/aggiornaSede, che non validano il cliente — è la
+ * route a farlo.
  */
 export async function eliminaSede(sedeId: string): Promise<void> {
-  const [righeGhl, righeCategorie, righeSedi] = await Promise.all([
+  const [righeGhl, righeCategorie, righeVenditori, righeSedi] = await Promise.all([
     readTab(TAB.ghlConnessioni, { noCache: true }),
     readTab(TAB.categorieCommerciali, { noCache: true }),
+    readTab(TAB.venditori, { noCache: true }),
     readTab(TAB.sedi, { noCache: true }),
   ]);
   const numeriRigaGhl = trovaTuttiIndiciRiga(righeGhl, (r) => asText(r[1]) === sedeId);
   const numeriRigaCategorie = trovaTuttiIndiciRiga(righeCategorie, (r) => asText(r[1]) === sedeId);
+  const numeriRigaVenditori = trovaTuttiIndiciRiga(righeVenditori, (r) => asText(r[1]) === sedeId);
   const numeroRigaSede = trovaIndiceRiga(righeSedi, sedeId);
   if (numeroRigaSede === null) {
     throw new Error(`Sede non trovata: ${sedeId}`);
@@ -689,6 +705,7 @@ export async function eliminaSede(sedeId: string): Promise<void> {
   await eliminaRigheBatch([
     { tab: TAB.ghlConnessioni, numeriRiga: numeriRigaGhl },
     { tab: TAB.categorieCommerciali, numeriRiga: numeriRigaCategorie },
+    { tab: TAB.venditori, numeriRiga: numeriRigaVenditori },
     { tab: TAB.sedi, numeriRiga: [numeroRigaSede] },
   ]);
 }
@@ -907,6 +924,101 @@ export async function aggiornaCategoriaCommerciale(input: AggiornaCategoriaComme
  * admin, vedi /api/categorie-commerciali/elimina. */
 export async function eliminaCategoriaCommerciale(categoriaId: string): Promise<void> {
   await eliminaRigaPerId(TAB.categorieCommerciali, categoriaId);
+}
+
+// Tab Venditori, colonne A→E: venditoreId, sedeId, nome, capienzaAppuntamentiMensile, attivo — vedi
+// Venditore in types/kpi.ts. Cache di default (anagrafica, non riletta di continuo come i risultati
+// sotto) — noCache: true solo nel flusso crea-poi-rileggi-subito di ModificaClienteModal, stesso
+// schema di getCategorieCommerciali sopra.
+export async function getVenditori(opts?: { noCache?: boolean }): Promise<Venditore[]> {
+  const rows = await readTab(TAB.venditori, opts);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      venditoreId: asText(r[0]),
+      sedeId: asText(r[1]),
+      nome: asText(r[2]),
+      capienzaAppuntamentiMensile: toNumber(r[3]),
+      attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
+    }));
+}
+
+export type NuovoVenditoreInput = {
+  venditoreId: string;
+  sedeId: string;
+  nome: string;
+  capienzaAppuntamentiMensile: number;
+};
+
+/** Crea un nuovo venditore (sempre attivo). Rifiuta esplicitamente un venditoreId già in uso. */
+export async function creaVenditore(input: NuovoVenditoreInput): Promise<void> {
+  const esistenti = await getVenditori();
+  if (esistenti.some((v) => v.venditoreId === input.venditoreId)) {
+    throw new Error(`Esiste già un venditore con id "${input.venditoreId}"`);
+  }
+  await appendRows(TAB.venditori, [[input.venditoreId, input.sedeId, input.nome, input.capienzaAppuntamentiMensile, "TRUE"]]);
+}
+
+export type AggiornaVenditoreInput = {
+  venditoreId: string;
+  nome?: string;
+  capienzaAppuntamentiMensile?: number;
+  attivo?: boolean;
+};
+
+/** Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di un venditore esistente. */
+export async function aggiornaVenditore(input: AggiornaVenditoreInput): Promise<void> {
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.venditori}!A2:E`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const rowNumber = trovaIndiceRiga(righe, input.venditoreId);
+  if (rowNumber === null) {
+    throw new Error(`Venditore non trovato: ${input.venditoreId}`);
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [];
+  const set = (colonna: string, valore: string | number) =>
+    data.push({ range: `${TAB.venditori}!${colonna}${rowNumber}`, values: [[valore]] });
+
+  if (input.nome !== undefined) set("C", input.nome);
+  if (input.capienzaAppuntamentiMensile !== undefined) set("D", input.capienzaAppuntamentiMensile);
+  if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
+
+  if (data.length === 0) return;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "USER_ENTERED", data },
+  });
+  invalidateTabCache(TAB.venditori);
+}
+
+/** Elimina definitivamente un venditore (cancella la riga, non un soft-delete). SOLO admin, vedi
+ * /api/venditori/elimina. I suoi RisultatiVenditori storici restano nel foglio ma orfani —
+ * stessa filosofia di RisultatiCommerciali/eliminaSede sotto. */
+export async function eliminaVenditore(venditoreId: string): Promise<void> {
+  await eliminaRigaPerId(TAB.venditori, venditoreId);
+}
+
+// Tab RisultatiVenditori, colonne A→F: mese, sedeId, venditoreId, appuntamentiFissati, vendite,
+// fatturato — vedi RisultatoVenditoreRow in types/kpi.ts. A SOLA LETTURA (nessuna funzione crea/
+// aggiorna/elimina): inserita a mano nel foglio esattamente come RisultatiCommerciali, stessa
+// filosofia "niente form in-app per dati operativi ricorrenti" già in uso lì.
+export async function getRisultatiVenditori(opts?: { noCache?: boolean }): Promise<RisultatoVenditoreRow[]> {
+  const rows = await readTab(TAB.risultatiVenditori, opts);
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({
+      mese: normalizeMese(r[0]),
+      sedeId: asText(r[1]),
+      venditoreId: asText(r[2]),
+      appuntamentiFissati: toNumber(r[3]),
+      vendite: toNumber(r[4]),
+      fatturato: toNumber(r[5]),
+    }));
 }
 
 // Tab ConnessioniCanale, colonne A→H: connessioneId, sedeId, canale, accountId,

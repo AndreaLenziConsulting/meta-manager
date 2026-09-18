@@ -105,6 +105,45 @@ export type CategoriaCommerciale = {
   targetFatturatoMensile: number | null;
 };
 
+/**
+ * Un venditore/commerciale del CLIENTE stesso (chi in pratica fissa/chiude gli appuntamenti per
+ * quella sede) — Fase 2, 11/2026, "risultati assegnabili a persona, target di squadra ripartiti
+ * per capienza". NON va confuso con Consulente sotto: quello è il team ALC (chi segue il cliente),
+ * questo è il personale di vendita DEL cliente (es. un centro estetico con 2 receptionist che
+ * fissano appuntamenti) — ruoli completamente diversi, un cliente non ha mai a che fare con
+ * l'anagrafica Consulenti. `capienzaAppuntamentiMensile` è la quota di carico sostenibile
+ * dichiarata (stesso concetto di "App./mese" nel cruscotto di riferimento): il target di squadra
+ * (Sede.targetAppuntamentiSettimana/targetFatturatoMensile) si ripartisce tra i venditori attivi in
+ * proporzione a questo numero — vedi calcolaQuoteVenditori in lib/venditori.ts. Una sede senza
+ * venditori configurati non mostra alcuna vista "Performance venditori" (stessa regola "invisibile
+ * con zero configurato" di CategoriaCommerciale sopra).
+ */
+export type Venditore = {
+  venditoreId: string;
+  sedeId: string;
+  nome: string;
+  capienzaAppuntamentiMensile: number;
+  attivo: boolean;
+};
+
+/**
+ * Risultati mensili di UN venditore — tab a sola lettura, inserita a mano nel foglio esattamente
+ * come RisultatoCommercialeRow sotto (stessa filosofia: nessun form in-app per dati operativi
+ * ricorrenti, solo per l'anagrafica Venditore sopra, che è config). `vendite` è qui solo
+ * informativo (percentuale di chiusura appuntamenti->vendite mostrata nella UI): a differenza di
+ * appuntamentiFissati/fatturato, l'app non ha mai un target "numero vendite" da nessuna parte
+ * (deliberato, vedi il commento su targetCommerciali.ts — nessun dato di profitto/chiusura target
+ * tracciato oggi), quindi vendite non viene mai "paceggiato" contro un obiettivo, solo mostrato.
+ */
+export type RisultatoVenditoreRow = {
+  mese: string; // YYYY-MM
+  sedeId: string;
+  venditoreId: string;
+  appuntamentiFissati: number;
+  vendite: number;
+  fatturato: number;
+};
+
 export type Consulente = {
   consulenteId: string;
   nome: string;
@@ -262,6 +301,12 @@ export type KpiResponse = {
     // categoria: il chiamante (PacingTargetChart.tsx) continua a mostrare solo il target piatto
     // della sede, comportamento invariato.
     categorie?: CategoriaCommerciale[];
+    // Venditori (Fase 2, 11/2026) — anagrafica attiva della sede più i loro risultati GIÀ
+    // aggregati per venditoreId nel periodo `periodo.da`/`periodo.a` richiesto (stesso schema di
+    // `gruppi` sopra, aggregazione lato server: vedi aggregaRisultatiVenditori in lib/venditori.ts).
+    // [] = nessun venditore configurato: il chiamante (PacingVenditoriChart.tsx) non mostra nulla.
+    venditori?: Venditore[];
+    risultatiVenditoriPeriodo?: { venditoreId: string; appuntamentiFissati: number; vendite: number; fatturato: number }[];
   };
   // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
   sediDisponibili: { sedeId: string; nome: string }[];

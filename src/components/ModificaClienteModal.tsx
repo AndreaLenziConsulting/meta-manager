@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
-import type { CategoriaCommerciale, Cliente, Consulente, Sede } from "@/types/kpi";
+import type { CategoriaCommerciale, Cliente, Consulente, Sede, Venditore } from "@/types/kpi";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
@@ -92,6 +92,25 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
       });
     return () => controller.abort();
   }, [cliente.clienteId, categorieTick]);
+
+  // Venditori (Fase 2, 11/2026) — stesso schema di categoriePerSede sopra.
+  const [venditoriPerSede, setVenditoriPerSede] = useState<Record<string, Venditore[]>>({});
+  const [venditoriTick, setVenditoriTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/venditori?clienteId=${encodeURIComponent(cliente.clienteId)}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((body: { venditori?: Venditore[] }) => {
+        const mappa: Record<string, Venditore[]> = {};
+        for (const v of body.venditori ?? []) (mappa[v.sedeId] ??= []).push(v);
+        setVenditoriPerSede(mappa);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, [cliente.clienteId, venditoriTick]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -234,6 +253,8 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
               categorie={categoriePerSede[sede.sedeId] ?? []}
               onCategorieSalvato={() => setCategorieTick((t) => t + 1)}
+              venditori={venditoriPerSede[sede.sedeId] ?? []}
+              onVenditoriSalvato={() => setVenditoriTick((t) => t + 1)}
               ruoloAdmin={ruoloAdmin}
               numeroSediCliente={sedi.length}
             />
@@ -290,6 +311,8 @@ function SedeRow({
   onGhlSalvato,
   categorie,
   onCategorieSalvato,
+  venditori,
+  onVenditoriSalvato,
   ruoloAdmin,
   numeroSediCliente,
 }: {
@@ -297,6 +320,8 @@ function SedeRow({
   ghlConnessione?: GhlConnessioneVista;
   onGhlSalvato: () => void;
   categorie: CategoriaCommerciale[];
+  venditori: Venditore[];
+  onVenditoriSalvato: () => void;
   onCategorieSalvato: () => void;
   ruoloAdmin?: boolean;
   numeroSediCliente: number;
@@ -441,6 +466,10 @@ function SedeRow({
 
       <div className="pt-2 mt-1 border-t border-ink-300/60">
         <CategorieCommercialiBlock sedeId={sede.sedeId} categorie={categorie} onSalvato={onCategorieSalvato} ruoloAdmin={ruoloAdmin} />
+      </div>
+
+      <div className="pt-2 mt-1 border-t border-ink-300/60">
+        <VenditoriBlock sedeId={sede.sedeId} venditori={venditori} onSalvato={onVenditoriSalvato} ruoloAdmin={ruoloAdmin} />
       </div>
 
       {mostraConfermaElimina && (
@@ -950,6 +979,210 @@ function NuovaCategoriaCommercialeForm({
       <div className="flex gap-2">
         <Button type="button" size="sm" onClick={crea} disabled={creando || !nome.trim()}>
           {creando ? "Creazione…" : "Crea categoria"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onAnnulla}>
+          Annulla
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Venditori/commerciali DEL CLIENTE (Fase 2, 11/2026) — non i Consulenti ALC, vedi il commento su
+ * Venditore in types/kpi.ts. Nessun tetto di quantità (a differenza delle categorie sopra, per cui
+ * l'utente ha esplicitamente chiesto "fino a 3"): qui non c'è un limite dichiarato. Stesso
+ * trattamento server-side dei target della sede (solo admin, vedi /api/venditori) e stessa UI non
+ * specialmente gate-ata per consulente delle Categorie sopra.
+ */
+function VenditoriBlock({
+  sedeId,
+  venditori,
+  onSalvato,
+  ruoloAdmin,
+}: {
+  sedeId: string;
+  venditori: Venditore[];
+  onSalvato: () => void;
+  ruoloAdmin?: boolean;
+}) {
+  const [attiva, setAttiva] = useState(false);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Venditori</p>
+      {venditori.length === 0 && !attiva && (
+        <p className="text-xs text-ink-500">
+          Nessuno — la vista &quot;Performance venditori&quot; (tab KPI) resta vuota finché non ne aggiungi almeno uno.
+        </p>
+      )}
+      <div className="space-y-2">
+        {venditori.map((v) => (
+          <VenditoreRow key={v.venditoreId} venditore={v} onSalvato={onSalvato} ruoloAdmin={ruoloAdmin} />
+        ))}
+      </div>
+      {!attiva && (
+        <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(true)}>
+          + Aggiungi venditore
+        </Button>
+      )}
+      {attiva && (
+        <NuovoVenditoreForm
+          sedeId={sedeId}
+          onCreato={() => {
+            setAttiva(false);
+            onSalvato();
+          }}
+          onAnnulla={() => setAttiva(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function VenditoreRow({
+  venditore,
+  onSalvato,
+  ruoloAdmin,
+}: {
+  venditore: Venditore;
+  onSalvato: () => void;
+  ruoloAdmin?: boolean;
+}) {
+  const [nome, setNome] = useState(venditore.nome);
+  const [capienza, setCapienza] = useState(String(venditore.capienzaAppuntamentiMensile));
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const [salvato, setSalvato] = useState(false);
+  const [mostraConfermaElimina, setMostraConfermaElimina] = useState(false);
+
+  async function salva() {
+    setErrore(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/venditori", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ venditoreId: venditore.venditoreId, nome, capienzaAppuntamentiMensile: Number(capienza) }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      onSalvato();
+      setSalvato(true);
+      setTimeout(() => setSalvato(false), 2500);
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const capienzaValida = Number(capienza) > 0;
+
+  return (
+    <div className="rounded-lg border border-ink-300/60 p-2.5 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-2.5">
+        <Field label="Nome">
+          <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+        </Field>
+        <Field label="Appuntamenti/mese sostenibili">
+          <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} />
+        </Field>
+      </div>
+      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {salvato && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+              <CheckCircle2 size={14} /> Salvato
+            </span>
+          )}
+          <Button type="button" size="sm" onClick={salva} disabled={salvando || !nome.trim() || !capienzaValida}>
+            {salvando ? "Salvataggio…" : "Salva venditore"}
+          </Button>
+        </div>
+        {ruoloAdmin && (
+          <Button type="button" size="sm" variant="danger" onClick={() => setMostraConfermaElimina(true)}>
+            Elimina
+          </Button>
+        )}
+      </div>
+      {mostraConfermaElimina && (
+        <ConfermaEliminazioneModal
+          titolo="Eliminare questo venditore?"
+          messaggio={
+            <>
+              La sua quota di carico si ridistribuisce sugli altri venditori attivi della sede. I dati
+              storici (RisultatiVenditori) restano invariati nel foglio.
+            </>
+          }
+          onClose={() => setMostraConfermaElimina(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/venditori/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ venditoreId: venditore.venditoreId }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            setMostraConfermaElimina(false);
+            onSalvato();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NuovoVenditoreForm({
+  sedeId,
+  onCreato,
+  onAnnulla,
+}: {
+  sedeId: string;
+  onCreato: () => void;
+  onAnnulla: () => void;
+}) {
+  const [nome, setNome] = useState("");
+  const [capienza, setCapienza] = useState("");
+  const [creando, setCreando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function crea() {
+    setErrore(null);
+    setCreando(true);
+    try {
+      const res = await fetch("/api/venditori", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sedeId, nome, capienzaAppuntamentiMensile: Number(capienza) }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
+      onCreato();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  const capienzaValida = Number(capienza) > 0;
+
+  return (
+    <div className="rounded-lg border border-dashed border-ink-300 p-2.5 space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_200px] gap-2.5">
+        <Field label="Nome">
+          <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Mario Rossi" />
+        </Field>
+        <Field label="Appuntamenti/mese sostenibili">
+          <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} placeholder="es. 20" />
+        </Field>
+      </div>
+      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      <div className="flex gap-2">
+        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome.trim() || !capienzaValida}>
+          {creando ? "Creazione…" : "Crea venditore"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onAnnulla}>
           Annulla

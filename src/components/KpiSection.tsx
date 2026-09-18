@@ -695,6 +695,8 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
                   }
                 : undefined
             }
+            // Fase 2 venditori — stesso gate `clienteId` di pacing sopra (mai sul link pubblico code).
+            venditori={clienteId ? { clienteId, sedeId: dati.sede.sedeId } : undefined}
           />
 
           <DettaglioCampagneEsteso
