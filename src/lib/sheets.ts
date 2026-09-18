@@ -851,9 +851,11 @@ export type NuovaCategoriaCommercialeInput = {
   targetFatturatoMensile: number | null;
 };
 
-/** Crea una nuova categoria commerciale (sempre attiva, tagGhl vuoto — riservato a una fase
- * successiva). Il tetto di 3 per sede e l'unicità del nome dentro la sede sono validati dalla
- * ROUTE (stesso schema di creaSede: qui nessuna validazione di ownership/quantità). */
+/** Crea una nuova categoria commerciale (sempre attiva, tagGhl vuoto alla creazione — si imposta
+ * dopo, con aggiornaCategoriaCommerciale sotto, una volta noto il tag esatto usato in GHL: prima
+ * serve comunque creare la categoria per sapere quale nome cercare tra i tag reali). Il tetto di 3
+ * per sede e l'unicità del nome dentro la sede sono validati dalla ROUTE (stesso schema di
+ * creaSede: qui nessuna validazione di ownership/quantità). */
 export async function creaCategoriaCommerciale(input: NuovaCategoriaCommercialeInput): Promise<void> {
   const esistenti = await getCategorieCommerciali();
   if (esistenti.some((c) => c.categoriaId === input.categoriaId)) {
@@ -878,6 +880,10 @@ export async function creaCategoriaCommerciale(input: NuovaCategoriaCommercialeI
 export type AggiornaCategoriaCommercialeInput = {
   categoriaId: string;
   nome?: string;
+  // Fase 3 (11/2026): tag contatto GHL per l'assegnazione automatica — "" è un valore esplicito
+  // valido (rimuove l'automazione, torna ai RisultatiCommerciali manuali), diverso da undefined
+  // (non toccare), stesso schema di calendarIds in AggiornaGhlConnessioneInput.
+  tagGhl?: string;
   attivo?: boolean;
   ordine?: number;
   targetBudgetMensile?: number | null;
@@ -905,6 +911,7 @@ export async function aggiornaCategoriaCommerciale(input: AggiornaCategoriaComme
     data.push({ range: `${TAB.categorieCommerciali}!${colonna}${rowNumber}`, values: [[valore]] });
 
   if (input.nome !== undefined) set("C", input.nome);
+  if (input.tagGhl !== undefined) set("D", input.tagGhl);
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
   if (input.ordine !== undefined) set("F", input.ordine);
   if (input.targetBudgetMensile !== undefined) set("G", input.targetBudgetMensile ?? "");

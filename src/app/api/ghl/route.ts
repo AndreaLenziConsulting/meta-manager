@@ -1,19 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
+import { getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import {
   appuntamentiGhlPerSettimana,
   breakdownGhlPerCampagna,
   fatturatoGhlPerSettimana,
   fetchAppuntamenti,
+  fetchContattiPerTag,
   fetchOpportunita,
   mappaCampagnaPerContatto,
   primoAppuntamentoPerContatto,
   riepilogoAppuntamenti,
   riepilogoOpportunita,
+  riepilogoPerTag,
 } from "@/lib/ghl";
-import type { GhlRiepilogoResponse } from "@/types/ghl";
+import type { GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
 
@@ -35,6 +37,12 @@ function meseCorrente(): string {
  * filtro campagne di /api/kpi: campaignId separati da virgola) restringe appuntamenti/opportunità/
  * trend ai soli contatti attribuiti a quelle campagne, invece di disattivare il pannello come
  * faceva prima di questa feature.
+ *
+ * `perTag` (Fase 3, 11/2026) porta lo stesso riepilogo ma per categoria commerciale invece che per
+ * campagna Meta — join per tag contatto GHL (fetchContattiPerTag/riepilogoPerTag in lib/ghl.ts,
+ * verificato con chiamate reali: l'account usa tag come "mobilieri - cluster a (<500k)" per
+ * dividere i lead in cluster) invece che per attribuzione UTM. Sempre sul perimetro pieno della
+ * sede, mai ristretto dal filtro opzionale `campagne` sopra — sono due assi di lettura indipendenti.
  */
 export async function GET(req: NextRequest) {
   const sessione = await getSessione();
@@ -85,7 +93,7 @@ export async function GET(req: NextRequest) {
   const endMs = Date.UTC(annoA, meseANum, 1) - 1;
 
   try {
-    const [{ appuntamenti, calendariFalliti }, opportunitaGrezze] = await Promise.all([
+    const [{ appuntamenti, calendariFalliti }, opportunitaGrezze, categorieConTag] = await Promise.all([
       fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       // Nessun filtro status server-side (a differenza di prima di questa feature): serve TUTTA la
       // location per costruire mappaCampagna sotto — un contatto con appuntamento ma opportunità
@@ -93,12 +101,31 @@ export async function GET(req: NextRequest) {
       // solo "won". riepilogoOpportunita/fatturatoGhlPerSettimana filtrano "won" lato client come
       // già facevano, quindi il comportamento di vendite/fatturato non cambia.
       fetchOpportunita(connessione.locationId, connessione.privateToken, {}),
+      // Fase 3 (11/2026): solo le categorie di questa sede con un tagGhl impostato — vedi
+      // CategoriaCommerciale in types/kpi.ts. [] per una sede senza categorie/tag configurati,
+      // nessuna chiamata GHL aggiuntiva in quel caso (il .map sotto su un array vuoto è un no-op).
+      getCategorieCommerciali().then((tutte) => tutte.filter((c) => c.sedeId === sede.sedeId && c.attivo && c.tagGhl.trim())),
     ]);
 
     // Sempre applicata, non un filtro opzionale — vedi il commento su primoAppuntamentoPerContatto.
     const appuntamentiPrimi = primoAppuntamentoPerContatto(appuntamenti);
     const opportunitaVinte = opportunitaGrezze.filter((o) => o.status === "won");
     const mappaCampagna = mappaCampagnaPerContatto(opportunitaGrezze);
+
+    // Fase 3: un /contacts/search per categoria (in parallelo, tipicamente 1-3 chiamate — "fino a 3
+    // categorie per sede" di Fase 1) — MAI sullo scoping `campagne` sopra: il tag GHL è un'assegnazione
+    // di cluster indipendente dall'attribuzione a campagna Meta, stesso perimetro "tutta la sede" di
+    // perCampagna/appuntamentiPrimi/opportunitaVinte, non delle versioni "Scoped" sotto.
+    const vociPerTag = await Promise.all(
+      categorieConTag.map(async (categoria) => {
+        const contattiTag = await fetchContattiPerTag(connessione.locationId, connessione.privateToken, categoria.tagGhl.trim());
+        return [categoria.categoriaId, riepilogoPerTag(contattiTag, appuntamentiPrimi, opportunitaVinte, startMs, endMs)] as [
+          string,
+          GhlBreakdownTag,
+        ];
+      })
+    );
+    const perTag = Object.fromEntries(vociPerTag);
     // Sempre calcolato (non solo quando `campagne` è in query): alimenta la tabella "per singola
     // campagna" di DettaglioCampagneEsteso, che può essere aperta indipendentemente dal filtro
     // campagne delle tessere.
@@ -129,6 +156,7 @@ export async function GET(req: NextRequest) {
       calendariFalliti,
       perCampagna,
       campagneAttribuibili,
+      perTag,
     };
     return NextResponse.json(risposta);
   } catch (err) {

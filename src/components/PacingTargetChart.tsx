@@ -31,10 +31,14 @@ function meseCorrente(): string {
  * fetch qui — nessuna chiamata in più), un blocco di pacing per categoria si aggiunge PRIMA del
  * blocco esistente (ora etichettato "Totale sede" solo in quel caso). L'attuale per categoria viene
  * dal KpiGroup già raggruppato per tipoCampagna da computeKpi (dati.gruppi, join per nome===
- * tipoCampagna — vedi CategoriaCommerciale in types/kpi.ts) — DELIBERATAMENTE senza overlay GHL
- * (kpiGhlOverlay lavora solo sul totale sede, non ha un concetto di tipoCampagna): il blocco
- * "Totale sede" resta l'unico GHL-aware, i blocchi per categoria usano i RisultatiCommerciali grezzi
- * così come inseriti — una scelta di scope per questo giro, non un limite strutturale.
+ * tipoCampagna — vedi CategoriaCommerciale in types/kpi.ts).
+ *
+ * Fase 3 (11/2026, automazione da tag GHL): quando la categoria ha un tagGhl impostato E la sede è
+ * connessa a GHL, l'attuale di richieste/appuntamenti/fatturato viene sostituito con quello derivato
+ * dal tag contatto (ghlDati.perTag[categoria.categoriaId], vedi riepilogoPerTag in lib/ghl.ts) invece
+ * dei RisultatiCommerciali inseriti a mano per quella categoria — il budget resta SEMPRE da
+ * dati.gruppi (Meta ads), mai da GHL, che non ha un concetto di spesa pubblicitaria. Una categoria
+ * senza tagGhl (o una sede senza GHL connesso) si comporta esattamente come in Fase 1, invariata.
  */
 export function PacingTargetChart({
   clienteId,
@@ -141,13 +145,18 @@ export function PacingTargetChart({
   const gruppoPer = (nome: string): KpiGroup | undefined => dati.gruppi.find((g) => g.tipoCampagna === nome);
   const blocchiCategoria = categorie.map((categoria) => {
     const gruppo = gruppoPer(categoria.nome);
+    // Fase 3: presente solo se questa categoria ha un tagGhl configurato E la sede è connessa a GHL
+    // (vedi il commento in cima al file) — undefined per tutte le altre, fallback ai
+    // RisultatiCommerciali di gruppo esattamente come prima di questa fase.
+    const daGhl = ghlDati?.connesso ? ghlDati.perTag?.[categoria.categoriaId] : undefined;
     return {
       categoria,
+      daGhl: daGhl !== undefined,
       metriche: calcolaPacingMensile({
         investimentoMese: gruppo?.investimento ?? 0,
-        fatturatoMese: gruppo?.fatturato ?? 0,
-        leadMese: gruppo?.numeroLead ?? 0,
-        appuntamentiMese: gruppo?.appuntamentiFissati ?? 0,
+        fatturatoMese: daGhl ? daGhl.opportunita.fatturato : (gruppo?.fatturato ?? 0),
+        leadMese: daGhl ? daGhl.richieste : (gruppo?.numeroLead ?? 0),
+        appuntamentiMese: daGhl ? daGhl.appuntamenti.totali : (gruppo?.appuntamentiFissati ?? 0),
         targetBudgetMensile: categoria.targetBudgetMensile,
         targetFatturatoMensile: categoria.targetFatturatoMensile,
         targetLeadSettimana: categoria.targetLeadSettimana,
@@ -174,8 +183,14 @@ export function PacingTargetChart({
         Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.
       </p>
       <div className="space-y-5">
-        {blocchiCategoria.map(({ categoria, metriche }) => (
-          <BloccoPacing key={categoria.categoriaId} titolo={categoria.nome} metriche={metriche} fraz={fraz} />
+        {blocchiCategoria.map(({ categoria, metriche, daGhl }) => (
+          <BloccoPacing
+            key={categoria.categoriaId}
+            titolo={categoria.nome}
+            sottotitolo={daGhl ? "via tag GHL" : undefined}
+            metriche={metriche}
+            fraz={fraz}
+          />
         ))}
         <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
       </div>

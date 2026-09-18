@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
 type BodyPatch = {
   categoriaId?: string;
   nome?: string;
+  tagGhl?: string;
   targetBudgetMensile?: number | null;
   targetLeadSettimana?: number | null;
   targetAppuntamentiSettimana?: number | null;
@@ -136,6 +137,7 @@ export async function PATCH(req: NextRequest) {
     await aggiornaCategoriaCommerciale({
       categoriaId,
       nome,
+      tagGhl: body.tagGhl !== undefined ? body.tagGhl.trim() : undefined,
       targetBudgetMensile: body.targetBudgetMensile,
       targetLeadSettimana: body.targetLeadSettimana,
       targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,

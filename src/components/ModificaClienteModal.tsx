@@ -844,6 +844,7 @@ function CategoriaCommercialeRow({
   ruoloAdmin?: boolean;
 }) {
   const [nome, setNome] = useState(categoria.nome);
+  const [tagGhl, setTagGhl] = useState(categoria.tagGhl);
   const [target, setTarget] = useState<TargetCategoriaForm>(() => targetCategoriaDa(categoria));
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -860,6 +861,7 @@ function CategoriaCommercialeRow({
         body: JSON.stringify({
           categoriaId: categoria.categoriaId,
           nome,
+          tagGhl,
           targetBudgetMensile: target.budget ? Number(target.budget) : null,
           targetLeadSettimana: target.lead ? Number(target.lead) : null,
           targetAppuntamentiSettimana: target.appuntamenti ? Number(target.appuntamenti) : null,
@@ -882,6 +884,12 @@ function CategoriaCommercialeRow({
     <div className="rounded-lg border border-ink-300/60 p-2.5 space-y-2">
       <Field label="Nome (deve combaciare col Tipo campagna usato in Risultati commerciali)">
         <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <Field
+        label="Tag GHL (opzionale)"
+        hint="Se impostato e la sede è connessa a GHL, richieste/appuntamenti/fatturato di questa categoria vengono calcolati automaticamente dai contatti con questo tag, al posto di Risultati commerciali."
+      >
+        <Input value={tagGhl} onChange={(e) => setTagGhl(e.target.value)} placeholder="es. mobilieri - cluster a (<500k)" />
       </Field>
       <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
       {errore && <p className="text-xs text-red-600">{errore}</p>}

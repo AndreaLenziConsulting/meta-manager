@@ -106,6 +106,12 @@ export type GhlBreakdownCampagna = {
   opportunita: { vendite: number; fatturato: number };
 };
 
+/** Come GhlBreakdownCampagna, ma per UN tag contatto GHL (Fase 3 categorie commerciali, 11/2026) —
+ * vedi riepilogoPerTag in src/lib/ghl.ts. `richieste` in più rispetto a GhlBreakdownCampagna: qui
+ * il "lead" è il contatto stesso taggato (join diretto), mentre per una campagna Meta il lead è già
+ * contato altrove (dati.gruppi in /api/kpi) — CategoriaCommerciale non ha un equivalente. */
+export type GhlBreakdownTag = GhlBreakdownCampagna & { richieste: number };
+
 /** Riepilogo aggregato per un periodo — deliberatamente NON compatibile con KpiGroup, vedi kpi.ts. */
 export type GhlRiepilogoResponse =
   | { connesso: false }
@@ -145,4 +151,12 @@ export type GhlRiepilogoResponse =
       // ha ancora nessuna attribuzione campagna disponibile" (traffico non tracciato/non da Meta):
       // nel secondo caso un conteggio scoped-a-zero sarebbe un falso zero, vedi kpiGhlOverlay.ts.
       campagneAttribuibili: boolean;
+      // Riepilogo per categoria commerciale (Fase 3, 11/2026) — chiavi = categoriaId, solo per le
+      // categorie della sede con un tagGhl configurato (vedi CategoriaCommerciale in types/kpi.ts).
+      // Opzionale (come `categorie`/`venditori` in KpiResponse.sede) per non dover toccare ogni
+      // fixture di test esistente che costruisce questo tipo: assente = comportamento equivalente a
+      // {} (nessuna categoria con tag configurato). Consumato da PacingTargetChart.tsx per
+      // sostituire, categoria per categoria, l'attuale di RisultatiCommerciali con quello derivato
+      // da GHL quando disponibile.
+      perTag?: Record<string, GhlBreakdownTag>;
     };

@@ -1,5 +1,5 @@
 import { settimanaDiData } from "@/lib/kpi";
-import type { GhlAppuntamento, GhlBreakdownCampagna, GhlCalendario, GhlOpportunita } from "@/types/ghl";
+import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita } from "@/types/ghl";
 
 /**
  * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
@@ -34,6 +34,21 @@ async function ghlGet<T>(path: string, token: string, params: Record<string, str
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`GHL API error (${res.status}) su ${path}: ${body.slice(0, 300)}`);
+  }
+  return (await res.json()) as T;
+}
+
+/** Come ghlGet, ma per gli endpoint POST-come-query di GHL (es. /contacts/search — filtri
+ * strutturati nel body, non nella querystring: unico endpoint qui a richiederlo). */
+async function ghlPost<T>(path: string, token: string, body: unknown): Promise<T> {
+  const res = await fetch(GHL_API_BASE + path, {
+    method: "POST",
+    headers: { ...ghlHeaders(token), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const testo = await res.text().catch(() => "");
+    throw new Error(`GHL API error (${res.status}) su ${path}: ${testo.slice(0, 300)}`);
   }
   return (await res.json()) as T;
 }
@@ -416,4 +431,62 @@ export function breakdownGhlPerCampagna(
     };
   }
   return risultato;
+}
+
+/**
+ * GET (POST) /contacts/search filtrato per tag — Fase 3 categorie commerciali (11/2026): questo
+ * account divide i contatti in cluster tramite tag GHL (es. "mobilieri - cluster a (<500k)"),
+ * verificato con chiamate reali su un account vero. Endpoint nativo di ricerca per tag (filters:
+ * [{field:"tags", operator:"contains", value:tag}]) — MAI un fetch-tutti-i-contatti-e-filtra
+ * client-side, una location può averne migliaia. Paginazione a `page` (1-based) + `pageLimit`,
+ * verificata dal vivo (pagine successive senza sovrapposizioni) — diversa dal cursore
+ * startAfter/startAfterId di fetchOpportunita sopra, un endpoint GHL diverso con contratto diverso.
+ * Ritorna solo id + dateAdded: il minimo che serve a riepilogoPerTag sotto (il join con
+ * appuntamenti/opportunità passa per id, "richieste" del periodo passa per dateAdded).
+ */
+export async function fetchContattiPerTag(locationId: string, token: string, tag: string): Promise<{ id: string; dateAdded: string }[]> {
+  const risultato: { id: string; dateAdded: string }[] = [];
+  const PAGE_LIMIT = 100;
+  for (let page = 1; page <= 50; page++) {
+    const body = await ghlPost<{ contacts?: { id: string; dateAdded: string }[] }>("/contacts/search", token, {
+      locationId,
+      page,
+      pageLimit: PAGE_LIMIT,
+      filters: [{ field: "tags", operator: "contains", value: tag }],
+    });
+    const contatti = body.contacts ?? [];
+    risultato.push(...contatti.map((c) => ({ id: c.id, dateAdded: c.dateAdded })));
+    if (contatti.length < PAGE_LIMIT) break;
+  }
+  return risultato;
+}
+
+/**
+ * Riepilogo appuntamenti/opportunità/richieste per UN tag contatto (una categoria commerciale) —
+ * mirror di breakdownGhlPerCampagna sopra, ma la chiave di join è l'appartenenza al set di contatti
+ * taggati (fetchContattiPerTag) invece della mappa campagna. `richieste` = contatti taggati la cui
+ * dateAdded cade nel periodo, il diretto equivalente GHL di RisultatoCommercialeRow.richieste per
+ * questa categoria. `appuntamentiPrimi`/`opportunitaVinte` attesi già filtrati (stessa convenzione
+ * di breakdownGhlPerCampagna: primoAppuntamentoPerContatto/status="won" già applicati dal chiamante).
+ */
+export function riepilogoPerTag(
+  contattiTag: { id: string; dateAdded: string }[],
+  appuntamentiPrimi: GhlAppuntamento[],
+  opportunitaVinte: GhlOpportunita[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): GhlBreakdownTag {
+  const idTag = new Set(contattiTag.map((c) => c.id));
+  const richieste = contattiTag.filter((c) => {
+    const t = new Date(c.dateAdded).getTime();
+    return Number.isFinite(t) && t >= startMs && t <= endMs;
+  }).length;
+  const appuntamentiTag = appuntamentiPrimi.filter((a) => idTag.has(a.contactId));
+  const opportunitaTag = opportunitaVinte.filter((o) => idTag.has(o.contactId));
+  return {
+    richieste,
+    appuntamenti: riepilogoAppuntamenti(appuntamentiTag, startMs, endMs, oraAttualeMs),
+    opportunita: riepilogoOpportunita(opportunitaTag, startMs, endMs),
+  };
 }

@@ -8,6 +8,7 @@ import {
   primoAppuntamentoPerContatto,
   riepilogoAppuntamenti,
   riepilogoOpportunita,
+  riepilogoPerTag,
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 
@@ -364,5 +365,41 @@ describe("breakdownGhlPerCampagna", () => {
 
   it("nessuna campagna nella mappa -> oggetto vuoto", () => {
     expect(breakdownGhlPerCampagna([], [], new Map(), AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual({});
+  });
+});
+
+describe("riepilogoPerTag", () => {
+  it("richieste conta i contatti taggati con dateAdded nel periodo", () => {
+    const contattiTag = [
+      { id: "ct1", dateAdded: "2026-08-05T00:00:00Z" }, // dentro agosto
+      { id: "ct2", dateAdded: "2026-07-20T00:00:00Z" }, // fuori periodo
+    ];
+    const risultato = riepilogoPerTag(contattiTag, [], [], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato.richieste).toBe(1);
+  });
+
+  it("appuntamenti/opportunità solo dei contatti nel set taggato, per id", () => {
+    const contattiTag = [{ id: "ct1", dateAdded: "2026-08-05T00:00:00Z" }];
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "ct1", dateAdded: "2026-08-06T00:00:00Z" }),
+      appuntamento({ id: "a2", contactId: "ct-altro-tag", dateAdded: "2026-08-06T00:00:00Z" }),
+    ];
+    const opportunitaVinte = [
+      opportunita({ id: "o1", contactId: "ct1", status: "won", monetaryValue: 300, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+      opportunita({ id: "o2", contactId: "ct-altro-tag", status: "won", monetaryValue: 999, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+    ];
+    const risultato = riepilogoPerTag(contattiTag, appuntamenti, opportunitaVinte, AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato.appuntamenti.totali).toBe(1);
+    expect(risultato.opportunita.vendite).toBe(1);
+    expect(risultato.opportunita.fatturato).toBe(300);
+  });
+
+  it("nessun contatto taggato -> tutto a zero, mai un errore", () => {
+    const risultato = riepilogoPerTag([], [appuntamento()], [opportunita({ status: "won" })], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato).toEqual({
+      richieste: 0,
+      appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
+      opportunita: { vendite: 0, fatturato: 0 },
+    });
   });
 });
