@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
-import type { Cliente, Consulente, Sede } from "@/types/kpi";
+import type { CategoriaCommerciale, Cliente, Consulente, Sede } from "@/types/kpi";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
 import { Input, Select } from "@/components/ui/Input";
@@ -71,6 +71,27 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
       });
     return () => controller.abort();
   }, [cliente.clienteId, ghlTick]);
+
+  // Categorie commerciali (Fase 1, 11/2026) — stesso schema di ghlPerSede sopra: indicizzate per
+  // sedeId (qui un array, non un valore singolo: una sede può averne fino a 3), ricaricate dopo
+  // ogni creazione/modifica/eliminazione.
+  const [categoriePerSede, setCategoriePerSede] = useState<Record<string, CategoriaCommerciale[]>>({});
+  const [categorieTick, setCategorieTick] = useState(0);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/categorie-commerciali?clienteId=${encodeURIComponent(cliente.clienteId)}`, { signal: controller.signal })
+      .then((res) => res.json())
+      .then((body: { categorie?: CategoriaCommerciale[] }) => {
+        const mappa: Record<string, CategoriaCommerciale[]> = {};
+        for (const c of body.categorie ?? []) (mappa[c.sedeId] ??= []).push(c);
+        setCategoriePerSede(mappa);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+      });
+    return () => controller.abort();
+  }, [cliente.clienteId, categorieTick]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -211,6 +232,8 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
               sede={sede}
               ghlConnessione={ghlPerSede[sede.sedeId]}
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
+              categorie={categoriePerSede[sede.sedeId] ?? []}
+              onCategorieSalvato={() => setCategorieTick((t) => t + 1)}
               ruoloAdmin={ruoloAdmin}
               numeroSediCliente={sedi.length}
             />
@@ -265,12 +288,16 @@ function SedeRow({
   sede,
   ghlConnessione,
   onGhlSalvato,
+  categorie,
+  onCategorieSalvato,
   ruoloAdmin,
   numeroSediCliente,
 }: {
   sede: Sede;
   ghlConnessione?: GhlConnessioneVista;
   onGhlSalvato: () => void;
+  categorie: CategoriaCommerciale[];
+  onCategorieSalvato: () => void;
   ruoloAdmin?: boolean;
   numeroSediCliente: number;
 }) {
@@ -410,6 +437,10 @@ function SedeRow({
 
       <div className="pt-2 mt-1 border-t border-ink-300/60">
         <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
+      </div>
+
+      <div className="pt-2 mt-1 border-t border-ink-300/60">
+        <CategorieCommercialiBlock sedeId={sede.sedeId} categorie={categorie} onSalvato={onCategorieSalvato} ruoloAdmin={ruoloAdmin} />
       </div>
 
       {mostraConfermaElimina && (
@@ -673,6 +704,257 @@ function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnes
       <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
         {salvando ? "Salvataggio…" : "Salva calendari"}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Categorie commerciali (cluster) della sede — fino a 3, ciascuna coi propri target di
+ * lead/appuntamenti/fatturato/budget (Fase 1, 11/2026: "target diversi per fasce diverse di
+ * clienti/servizi", stesso spirito dei cluster A/B/C di ALC stessa). Alimentano un blocco di
+ * pacing per categoria nel tab KPI (vedi PacingTargetChart.tsx) — una sede senza categorie
+ * configurate continua a mostrare solo il target piatto esistente, invariato. Stesso trattamento
+ * server-side dei target della sede sopra (solo admin, vedi /api/categorie-commerciali): UI non
+ * specialmente gate-ata per consulente, stesso schema già in uso per i campi della sede stessa
+ * (solo l'eliminazione lo è, vedi sotto).
+ */
+function CategorieCommercialiBlock({
+  sedeId,
+  categorie,
+  onSalvato,
+  ruoloAdmin,
+}: {
+  sedeId: string;
+  categorie: CategoriaCommerciale[];
+  onSalvato: () => void;
+  ruoloAdmin?: boolean;
+}) {
+  const [attiva, setAttiva] = useState(false);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Categorie commerciali</p>
+      {categorie.length === 0 && !attiva && (
+        <p className="text-xs text-ink-500">
+          Nessuna — il ritmo mensile (tab KPI) mostra solo il totale sede.
+        </p>
+      )}
+      <div className="space-y-2">
+        {categorie.map((cat) => (
+          <CategoriaCommercialeRow key={cat.categoriaId} categoria={cat} onSalvato={onSalvato} ruoloAdmin={ruoloAdmin} />
+        ))}
+      </div>
+      {categorie.length < 3 && !attiva && (
+        <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(true)}>
+          + Aggiungi categoria
+        </Button>
+      )}
+      {attiva && (
+        <NuovaCategoriaCommercialeForm
+          sedeId={sedeId}
+          onCreata={() => {
+            setAttiva(false);
+            onSalvato();
+          }}
+          onAnnulla={() => setAttiva(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** I 4 target opzionali di una categoria — stesso set di campi di Sede sopra, solo scomposto per
+ * categoria invece che per l'intera sede. Un solo oggetto di stato + un onChange per campo (non 4
+ * coppie useState separate): riusato identico da CategoriaCommercialeRow (valori iniziali da una
+ * categoria esistente) e NuovaCategoriaCommercialeForm (valori iniziali vuoti). */
+type TargetCategoriaForm = { budget: string; lead: string; appuntamenti: string; fatturato: string };
+
+const TARGET_CATEGORIA_VUOTO: TargetCategoriaForm = { budget: "", lead: "", appuntamenti: "", fatturato: "" };
+
+function targetCategoriaDa(categoria: CategoriaCommerciale): TargetCategoriaForm {
+  return {
+    budget: categoria.targetBudgetMensile !== null ? String(categoria.targetBudgetMensile) : "",
+    lead: categoria.targetLeadSettimana !== null ? String(categoria.targetLeadSettimana) : "",
+    appuntamenti: categoria.targetAppuntamentiSettimana !== null ? String(categoria.targetAppuntamentiSettimana) : "",
+    fatturato: categoria.targetFatturatoMensile !== null ? String(categoria.targetFatturatoMensile) : "",
+  };
+}
+
+function CampiTargetCategoria({
+  valori,
+  onChange,
+}: {
+  valori: TargetCategoriaForm;
+  onChange: (campo: keyof TargetCategoriaForm, valore: string) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <Field label="Budget mensile (€, opz.)">
+        <Input type="number" step="0.01" value={valori.budget} onChange={(e) => onChange("budget", e.target.value)} />
+      </Field>
+      <Field label="Lead/settimana (opz.)">
+        <Input type="number" step="1" value={valori.lead} onChange={(e) => onChange("lead", e.target.value)} />
+      </Field>
+      <Field label="Appuntamenti/sett. (opz.)">
+        <Input type="number" step="1" value={valori.appuntamenti} onChange={(e) => onChange("appuntamenti", e.target.value)} />
+      </Field>
+      <Field label="Fatturato mensile (€, opz.)">
+        <Input type="number" step="0.01" value={valori.fatturato} onChange={(e) => onChange("fatturato", e.target.value)} />
+      </Field>
+    </div>
+  );
+}
+
+function CategoriaCommercialeRow({
+  categoria,
+  onSalvato,
+  ruoloAdmin,
+}: {
+  categoria: CategoriaCommerciale;
+  onSalvato: () => void;
+  ruoloAdmin?: boolean;
+}) {
+  const [nome, setNome] = useState(categoria.nome);
+  const [target, setTarget] = useState<TargetCategoriaForm>(() => targetCategoriaDa(categoria));
+  const [salvando, setSalvando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+  const [salvato, setSalvato] = useState(false);
+  const [mostraConfermaElimina, setMostraConfermaElimina] = useState(false);
+
+  async function salva() {
+    setErrore(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/categorie-commerciali", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          categoriaId: categoria.categoriaId,
+          nome,
+          targetBudgetMensile: target.budget ? Number(target.budget) : null,
+          targetLeadSettimana: target.lead ? Number(target.lead) : null,
+          targetAppuntamentiSettimana: target.appuntamenti ? Number(target.appuntamenti) : null,
+          targetFatturatoMensile: target.fatturato ? Number(target.fatturato) : null,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      onSalvato();
+      setSalvato(true);
+      setTimeout(() => setSalvato(false), 2500);
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-ink-300/60 p-2.5 space-y-2">
+      <Field label="Nome (deve combaciare col Tipo campagna usato in Risultati commerciali)">
+        <Input value={nome} onChange={(e) => setNome(e.target.value)} />
+      </Field>
+      <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
+      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {salvato && (
+            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+              <CheckCircle2 size={14} /> Salvato
+            </span>
+          )}
+          <Button type="button" size="sm" onClick={salva} disabled={salvando || !nome.trim()}>
+            {salvando ? "Salvataggio…" : "Salva categoria"}
+          </Button>
+        </div>
+        {ruoloAdmin && (
+          <Button type="button" size="sm" variant="danger" onClick={() => setMostraConfermaElimina(true)}>
+            Elimina
+          </Button>
+        )}
+      </div>
+      {mostraConfermaElimina && (
+        <ConfermaEliminazioneModal
+          titolo="Eliminare questa categoria?"
+          messaggio={
+            <>
+              Il ritmo mensile per questa categoria non sarà più mostrato nel tab KPI. I dati storici
+              (Risultati commerciali, campagne) restano invariati.
+            </>
+          }
+          onClose={() => setMostraConfermaElimina(false)}
+          onConferma={async () => {
+            const res = await fetch("/api/categorie-commerciali/elimina", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ categoriaId: categoria.categoriaId }),
+            });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || "Eliminazione non riuscita");
+            setMostraConfermaElimina(false);
+            onSalvato();
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NuovaCategoriaCommercialeForm({
+  sedeId,
+  onCreata,
+  onAnnulla,
+}: {
+  sedeId: string;
+  onCreata: () => void;
+  onAnnulla: () => void;
+}) {
+  const [nome, setNome] = useState("");
+  const [target, setTarget] = useState<TargetCategoriaForm>(TARGET_CATEGORIA_VUOTO);
+  const [creando, setCreando] = useState(false);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function crea() {
+    setErrore(null);
+    setCreando(true);
+    try {
+      const res = await fetch("/api/categorie-commerciali", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sedeId,
+          nome,
+          targetBudgetMensile: target.budget ? Number(target.budget) : null,
+          targetLeadSettimana: target.lead ? Number(target.lead) : null,
+          targetAppuntamentiSettimana: target.appuntamenti ? Number(target.appuntamenti) : null,
+          targetFatturatoMensile: target.fatturato ? Number(target.fatturato) : null,
+        }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
+      onCreata();
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setCreando(false);
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-ink-300 p-2.5 space-y-2">
+      <Field label="Nome (deve combaciare col Tipo campagna usato in Risultati commerciali)">
+        <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Acquisition" />
+      </Field>
+      <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
+      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      <div className="flex gap-2">
+        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome.trim()}>
+          {creando ? "Creazione…" : "Crea categoria"}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={onAnnulla}>
+          Annulla
+        </Button>
+      </div>
     </div>
   );
 }

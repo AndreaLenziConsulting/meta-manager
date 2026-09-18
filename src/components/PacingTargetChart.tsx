@@ -6,7 +6,7 @@ import { oggiIso } from "@/lib/roadmap";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
 import { calcolaPacingMensile, type MetricaPacing } from "@/lib/targetPacing";
-import type { KpiResponse } from "@/types/kpi";
+import type { KpiGroup, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 function meseCorrente(): string {
@@ -37,6 +37,16 @@ const COLORE_STATO: Record<MetricaPacing["stato"], string> = {
  * GHL non hanno mai dati per giorni futuri (non ancora accaduti), quindi computeKpi(da=a=mese
  * corrente) e /api/ghl con lo stesso mese restituiscono già solo l'accumulato fino ad oggi, senza
  * bisogno di troncare nulla qui.
+ *
+ * Categorie commerciali (Fase 1, 11/2026, "target diversi per fasce diverse di clienti/servizi"):
+ * se la sede ne ha configurate (dati.sede.categorie, già nella stessa risposta /api/kpi già in
+ * fetch qui — nessuna chiamata in più), un blocco di pacing per categoria si aggiunge PRIMA del
+ * blocco esistente (ora etichettato "Totale sede" solo in quel caso). L'attuale per categoria viene
+ * dal KpiGroup già raggruppato per tipoCampagna da computeKpi (dati.gruppi, join per nome===
+ * tipoCampagna — vedi CategoriaCommerciale in types/kpi.ts) — DELIBERATAMENTE senza overlay GHL
+ * (kpiGhlOverlay lavora solo sul totale sede, non ha un concetto di tipoCampagna): il blocco
+ * "Totale sede" resta l'unico GHL-aware, i blocchi per categoria usano i RisultatiCommerciali grezzi
+ * così come inseriti — una scelta di scope per questo giro, non un limite strutturale.
  */
 export function PacingTargetChart({
   clienteId,
@@ -126,7 +136,7 @@ export function PacingTargetChart({
   const giornoDelMese = Number(oggi.slice(-2));
   const giorniNelMese = Number(ultimoGiornoDelMese(meseAttuale).slice(-2));
 
-  const metriche = calcolaPacingMensile({
+  const metricheTotale = calcolaPacingMensile({
     investimentoMese: dati.totale.investimento,
     fatturatoMese: overlay.fatturato.valore,
     leadMese: dati.totale.numeroLead,
@@ -139,7 +149,28 @@ export function PacingTargetChart({
     giorniNelMese,
   });
 
-  if (metriche.length === 0) {
+  const categorie = dati.sede.categorie ?? [];
+  const gruppoPer = (nome: string): KpiGroup | undefined => dati.gruppi.find((g) => g.tipoCampagna === nome);
+  const blocchiCategoria = categorie.map((categoria) => {
+    const gruppo = gruppoPer(categoria.nome);
+    return {
+      categoria,
+      metriche: calcolaPacingMensile({
+        investimentoMese: gruppo?.investimento ?? 0,
+        fatturatoMese: gruppo?.fatturato ?? 0,
+        leadMese: gruppo?.numeroLead ?? 0,
+        appuntamentiMese: gruppo?.appuntamentiFissati ?? 0,
+        targetBudgetMensile: categoria.targetBudgetMensile,
+        targetFatturatoMensile: categoria.targetFatturatoMensile,
+        targetLeadSettimana: categoria.targetLeadSettimana,
+        targetAppuntamentiSettimana: categoria.targetAppuntamentiSettimana,
+        giornoDelMese,
+        giorniNelMese,
+      }),
+    };
+  });
+
+  if (metricheTotale.length === 0 && blocchiCategoria.every((b) => b.metriche.length === 0)) {
     return (
       <p className="text-sm text-ink-500">
         Nessun target commerciale impostato per questa sede — impostali da &quot;Modifica cliente&quot; per vedere qui il ritmo del mese.
@@ -154,13 +185,32 @@ export function PacingTargetChart({
       <p className="text-xs text-ink-500">
         Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.
       </p>
+      <div className="space-y-5">
+        {blocchiCategoria.map(({ categoria, metriche }) => (
+          <BloccoPacing key={categoria.categoriaId} titolo={categoria.nome} metriche={metriche} fraz={fraz} />
+        ))}
+        <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
+      </div>
+    </div>
+  );
+}
+
+/** Un blocco di pacing (titolo opzionale + marker "Oggi" + righe) — estratto per essere ripetuto una
+ * volta per categoria commerciale più una volta per il totale sede (vedi il commento sulle
+ * categorie sopra). Il marker si ripete identico in ogni blocco invece di uno condiviso per l'intero
+ * componente: stessa frazione di mese (`fraz` è lo stesso per tutti), ma bloccarlo a un'unica
+ * posizione assoluta attraverso un numero variabile di blocchi impilati (0-4) avrebbe richiesto un
+ * calcolo di altezza dinamico fragile per un guadagno visivo minimo. */
+function BloccoPacing({ titolo, metriche, fraz }: { titolo?: string; metriche: MetricaPacing[]; fraz: number }) {
+  if (metriche.length === 0) return null;
+  return (
+    <div>
+      {titolo && <p className="text-xs font-semibold text-ink-700 mb-2">{titolo}</p>}
       <div className="relative pt-5">
-        {/* Marker "Oggi" condiviso da tutte le righe: la stessa frazione di mese trascorsa vale per
-            ognuna (vedi il commento su MetricaPacing.attesoOggi in targetPacing.ts) — un solo
-            marker invece di ripeterlo su ogni riga. Colore da --baseline (var(--baseline)), lo
-            stesso token della guida verticale al passaggio del mouse in TrendChart.tsx — non una
-            classe Tailwind ink-*: qui il progetto ha solo gli step 900/700/500/300 mappati (vedi
-            globals.css), niente step intermedi come ink-400 utilizzabili come classe. */}
+        {/* Colore da --baseline (var(--baseline)), lo stesso token della guida verticale al
+            passaggio del mouse in TrendChart.tsx — non una classe Tailwind ink-*: qui il progetto ha
+            solo gli step 900/700/500/300 mappati (vedi globals.css), niente step intermedi come
+            ink-400 utilizzabili come classe. */}
         <div className="absolute top-5 bottom-0 w-px z-10 pointer-events-none" style={{ left: `${fraz * 100}%`, backgroundColor: "var(--baseline)" }} />
         <span
           className="absolute top-0 z-10 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap pointer-events-none"

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import {
   getCampagne,
+  getCategorieCommerciali,
   getClienteByAccessCode,
   getClienti,
   getRisultatiCommerciali,
@@ -84,11 +85,14 @@ export async function GET(req: NextRequest) {
   }
   const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
-  const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna] = await Promise.all([
+  const [metaDaily, campagne, risultatiCommerciali, ultimoCambioPerCampagna, categorieCommerciali] = await Promise.all([
     getMetaDaily({ noCache }),
     getCampagne({ noCache }),
     getRisultatiCommerciali({ noCache }),
     getUltimoCambioPerCampagna({ noCache }),
+    // Letta sempre (anche sul ramo `code`, scartata sotto se non internal): costo trascurabile,
+    // stesso schema di risultatiCommerciali sopra — evita un secondo giro di fetch condizionale.
+    getCategorieCommerciali({ noCache }),
   ]);
 
   // Interseca il filtro canale (se presente) dentro campagneSelezionate: dopo questo punto i due
@@ -166,6 +170,7 @@ export async function GET(req: NextRequest) {
           targetLeadSettimana: sede.targetLeadSettimana,
           targetAppuntamentiSettimana: sede.targetAppuntamentiSettimana,
           targetFatturatoMensile: sede.targetFatturatoMensile,
+          categorie: categorieCommerciali.filter((c) => c.sedeId === sede.sedeId && c.attivo),
         }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),

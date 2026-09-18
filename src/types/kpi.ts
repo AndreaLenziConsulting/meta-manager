@@ -80,6 +80,31 @@ export type Sede = {
   targetFatturatoMensile: number | null;
 };
 
+/**
+ * Categoria commerciale (cluster) di una Sede — fino a 3, richiesta esplicita dell'utente (11/2026):
+ * "vogliamo target diversi per fasce diverse di clienti/servizi, tipo i cluster A/B/C di ALC
+ * stessa". `nome` deve corrispondere ESATTAMENTE alla stringa già in uso in
+ * Campagna.tipoCampagna/RisultatoCommercialeRow.tipoCampagna per la stessa sede — nessuna nuova
+ * aggregazione: computeKpi (lib/kpi.ts) raggruppa già spesa Meta + RisultatiCommerciali per
+ * tipoCampagna in KpiGroup[], questa è solo la definizione dei target su un gruppo che esiste già.
+ * `tagGhl` è riservato a una fase successiva (assegnazione automatica da tag contatto GHL invece di
+ * inserimento manuale in RisultatiCommerciali) — vuoto e non ancora letto da nessuna parte oggi.
+ * Una sede senza categorie configurate si comporta esattamente come prima di questa funzionalità
+ * (solo il target piatto di Sede, invariato).
+ */
+export type CategoriaCommerciale = {
+  categoriaId: string;
+  sedeId: string;
+  nome: string;
+  tagGhl: string;
+  attivo: boolean;
+  ordine: number;
+  targetBudgetMensile: number | null;
+  targetLeadSettimana: number | null;
+  targetAppuntamentiSettimana: number | null;
+  targetFatturatoMensile: number | null;
+};
+
 export type Consulente = {
   consulenteId: string;
   nome: string;
@@ -232,6 +257,11 @@ export type KpiResponse = {
     targetLeadSettimana?: number | null;
     targetAppuntamentiSettimana?: number | null;
     targetFatturatoMensile?: number | null;
+    // Categorie commerciali (Fase 1, 11/2026) — presenti solo se questa sede ne ha configurate
+    // almeno una, stessa regola "solo nella richiesta interna" dei target sopra. [] = nessuna
+    // categoria: il chiamante (PacingTargetChart.tsx) continua a mostrare solo il target piatto
+    // della sede, comportamento invariato.
+    categorie?: CategoriaCommerciale[];
   };
   // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
   sediDisponibili: { sedeId: string; nome: string }[];
