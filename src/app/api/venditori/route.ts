@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   }
 }
 
-type BodyPatch = { venditoreId?: string; nome?: string; capienzaAppuntamentiMensile?: number; attivo?: boolean };
+type BodyPatch = { venditoreId?: string; nome?: string; ghlUserId?: string; capienzaAppuntamentiMensile?: number; attivo?: boolean };
 
 export async function PATCH(req: NextRequest) {
   const sessione = await getSessione();
@@ -114,6 +114,7 @@ export async function PATCH(req: NextRequest) {
     await aggiornaVenditore({
       venditoreId,
       nome,
+      ghlUserId: body.ghlUserId !== undefined ? body.ghlUserId.trim() : undefined,
       capienzaAppuntamentiMensile: body.capienzaAppuntamentiMensile,
       attivo: body.attivo,
     });

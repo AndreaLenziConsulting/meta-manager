@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi } from "@/lib/sheets";
+import { getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import {
   appuntamentiGhlPerSettimana,
@@ -14,8 +14,9 @@ import {
   riepilogoAppuntamenti,
   riepilogoOpportunita,
   riepilogoPerTag,
+  riepilogoPerVenditoreGhl,
 } from "@/lib/ghl";
-import type { GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
+import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,11 @@ function meseCorrente(): string {
  * verificato con chiamate reali: l'account usa tag come "mobilieri - cluster a (<500k)" per
  * dividere i lead in cluster) invece che per attribuzione UTM. Sempre sul perimetro pieno della
  * sede, mai ristretto dal filtro opzionale `campagne` sopra — sono due assi di lettura indipendenti.
+ *
+ * `perVenditore` (Fase 4, 11/2026) — stesso principio ma per venditore, join su
+ * assignedUserId/assignedTo (già presenti sugli oggetti GHL, zero chiamate in più a differenza di
+ * perTag). A differenza di perTag/perCampagna, conta OGNI appuntamento del venditore, non solo il
+ * primo per contatto — è carico di lavoro, non attribuzione marketing, vedi riepilogoPerVenditoreGhl.
  */
 export async function GET(req: NextRequest) {
   const sessione = await getSessione();
@@ -93,7 +99,7 @@ export async function GET(req: NextRequest) {
   const endMs = Date.UTC(annoA, meseANum, 1) - 1;
 
   try {
-    const [{ appuntamenti, calendariFalliti }, opportunitaGrezze, categorieConTag] = await Promise.all([
+    const [{ appuntamenti, calendariFalliti }, opportunitaGrezze, categorieConTag, venditoriConGhl] = await Promise.all([
       fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       // Nessun filtro status server-side (a differenza di prima di questa feature): serve TUTTA la
       // location per costruire mappaCampagna sotto — un contatto con appuntamento ma opportunità
@@ -105,6 +111,10 @@ export async function GET(req: NextRequest) {
       // CategoriaCommerciale in types/kpi.ts. [] per una sede senza categorie/tag configurati,
       // nessuna chiamata GHL aggiuntiva in quel caso (il .map sotto su un array vuoto è un no-op).
       getCategorieCommerciali().then((tutte) => tutte.filter((c) => c.sedeId === sede.sedeId && c.attivo && c.tagGhl.trim())),
+      // Fase 4 (11/2026): solo i venditori di questa sede con un ghlUserId impostato — vedi
+      // Venditore in types/kpi.ts. Nessuna chiamata GHL in più: assignedTo/assignedUserId sono già
+      // su appuntamenti/opportunitaGrezze già scaricati sopra, il join sotto è puro filtro locale.
+      getVenditori().then((tutti) => tutti.filter((v) => v.sedeId === sede.sedeId && v.attivo && v.ghlUserId.trim())),
     ]);
 
     // Sempre applicata, non un filtro opzionale — vedi il commento su primoAppuntamentoPerContatto.
@@ -126,6 +136,21 @@ export async function GET(req: NextRequest) {
       })
     );
     const perTag = Object.fromEntries(vociPerTag);
+
+    // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti
+    // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il
+    // carico di lavoro di un venditore ogni appuntamento tenuto conta, vedi riepilogoPerVenditoreGhl.
+    const perVenditore: Record<string, GhlBreakdownCampagna> = {};
+    for (const venditore of venditoriConGhl) {
+      perVenditore[venditore.venditoreId] = riepilogoPerVenditoreGhl(
+        venditore.ghlUserId.trim(),
+        appuntamenti,
+        opportunitaVinte,
+        startMs,
+        endMs
+      );
+    }
+
     // Sempre calcolato (non solo quando `campagne` è in query): alimenta la tabella "per singola
     // campagna" di DettaglioCampagneEsteso, che può essere aperta indipendentemente dal filtro
     // campagne delle tessere.
@@ -157,6 +182,7 @@ export async function GET(req: NextRequest) {
       perCampagna,
       campagneAttribuibili,
       perTag,
+      perVenditore,
     };
     return NextResponse.json(risposta);
   } catch (err) {

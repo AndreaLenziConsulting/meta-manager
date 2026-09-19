@@ -9,6 +9,7 @@ import {
   riepilogoAppuntamenti,
   riepilogoOpportunita,
   riepilogoPerTag,
+  riepilogoPerVenditoreGhl,
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 
@@ -398,6 +399,40 @@ describe("riepilogoPerTag", () => {
     const risultato = riepilogoPerTag([], [appuntamento()], [opportunita({ status: "won" })], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
     expect(risultato).toEqual({
       richieste: 0,
+      appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
+      opportunita: { vendite: 0, fatturato: 0 },
+    });
+  });
+});
+
+describe("riepilogoPerVenditoreGhl", () => {
+  it("filtra appuntamenti/opportunità per assignedUserId/assignedTo", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", assignedUserId: "u1", dateAdded: "2026-08-05T00:00:00Z" }),
+      appuntamento({ id: "a2", assignedUserId: "u2", dateAdded: "2026-08-06T00:00:00Z" }),
+    ];
+    const opportunitaVinte = [
+      opportunita({ id: "o1", assignedTo: "u1", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+      opportunita({ id: "o2", assignedTo: "u2", status: "won", monetaryValue: 999, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+    ];
+    const risultato = riepilogoPerVenditoreGhl("u1", appuntamenti, opportunitaVinte, AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato.appuntamenti.totali).toBe(1);
+    expect(risultato.opportunita.vendite).toBe(1);
+    expect(risultato.opportunita.fatturato).toBe(500);
+  });
+
+  it("conta OGNI appuntamento del venditore, mai deduplicato per contatto (carico di lavoro, non attribuzione marketing)", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "stesso-contatto", assignedUserId: "u1", dateAdded: "2026-08-05T00:00:00Z" }),
+      appuntamento({ id: "a2", contactId: "stesso-contatto", assignedUserId: "u1", dateAdded: "2026-08-12T00:00:00Z" }),
+    ];
+    const risultato = riepilogoPerVenditoreGhl("u1", appuntamenti, [], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato.appuntamenti.totali).toBe(2);
+  });
+
+  it("nessun appuntamento/opportunità assegnati a questo venditore -> tutto a zero", () => {
+    const risultato = riepilogoPerVenditoreGhl("u-mai-visto", [appuntamento()], [opportunita({ status: "won" })], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO);
+    expect(risultato).toEqual({
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
       opportunita: { vendite: 0, fatturato: 0 },
     });

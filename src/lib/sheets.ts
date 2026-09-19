@@ -933,10 +933,11 @@ export async function eliminaCategoriaCommerciale(categoriaId: string): Promise<
   await eliminaRigaPerId(TAB.categorieCommerciali, categoriaId);
 }
 
-// Tab Venditori, colonne A→E: venditoreId, sedeId, nome, capienzaAppuntamentiMensile, attivo — vedi
-// Venditore in types/kpi.ts. Cache di default (anagrafica, non riletta di continuo come i risultati
-// sotto) — noCache: true solo nel flusso crea-poi-rileggi-subito di ModificaClienteModal, stesso
-// schema di getCategorieCommerciali sopra.
+// Tab Venditori, colonne A→F: venditoreId, sedeId, nome, capienzaAppuntamentiMensile, attivo,
+// ghlUserId (Fase 4, colonna aggiunta in coda — stesso schema di tagGhl su CategorieCommerciali) —
+// vedi Venditore in types/kpi.ts. Cache di default (anagrafica, non riletta di continuo come i
+// risultati sotto) — noCache: true solo nel flusso crea-poi-rileggi-subito di ModificaClienteModal,
+// stesso schema di getCategorieCommerciali sopra.
 export async function getVenditori(opts?: { noCache?: boolean }): Promise<Venditore[]> {
   const rows = await readTab(TAB.venditori, opts);
   return rows
@@ -947,6 +948,7 @@ export async function getVenditori(opts?: { noCache?: boolean }): Promise<Vendit
       nome: asText(r[2]),
       capienzaAppuntamentiMensile: toNumber(r[3]),
       attivo: asText(r[4]).trim().toUpperCase() === "TRUE",
+      ghlUserId: asText(r[5]),
     }));
 }
 
@@ -957,13 +959,15 @@ export type NuovoVenditoreInput = {
   capienzaAppuntamentiMensile: number;
 };
 
-/** Crea un nuovo venditore (sempre attivo). Rifiuta esplicitamente un venditoreId già in uso. */
+/** Crea un nuovo venditore (sempre attivo, ghlUserId vuoto alla creazione — si imposta dopo con
+ * aggiornaVenditore sotto, stesso schema di creaCategoriaCommerciale/tagGhl). Rifiuta esplicitamente
+ * un venditoreId già in uso. */
 export async function creaVenditore(input: NuovoVenditoreInput): Promise<void> {
   const esistenti = await getVenditori();
   if (esistenti.some((v) => v.venditoreId === input.venditoreId)) {
     throw new Error(`Esiste già un venditore con id "${input.venditoreId}"`);
   }
-  await appendRows(TAB.venditori, [[input.venditoreId, input.sedeId, input.nome, input.capienzaAppuntamentiMensile, "TRUE"]]);
+  await appendRows(TAB.venditori, [[input.venditoreId, input.sedeId, input.nome, input.capienzaAppuntamentiMensile, "TRUE", ""]]);
 }
 
 export type AggiornaVenditoreInput = {
@@ -971,6 +975,9 @@ export type AggiornaVenditoreInput = {
   nome?: string;
   capienzaAppuntamentiMensile?: number;
   attivo?: boolean;
+  // Fase 4: "" è un valore esplicito valido (rimuove l'automazione), diverso da undefined (non
+  // toccare) — stesso schema di tagGhl in AggiornaCategoriaCommercialeInput.
+  ghlUserId?: string;
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di un venditore esistente. */
@@ -978,7 +985,7 @@ export async function aggiornaVenditore(input: AggiornaVenditoreInput): Promise<
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,
-    range: `${TAB.venditori}!A2:E`,
+    range: `${TAB.venditori}!A2:F`,
     valueRenderOption: "UNFORMATTED_VALUE",
   });
   const righe = (res.data.values as CellValue[][]) ?? [];
@@ -994,6 +1001,7 @@ export async function aggiornaVenditore(input: AggiornaVenditoreInput): Promise<
   if (input.nome !== undefined) set("C", input.nome);
   if (input.capienzaAppuntamentiMensile !== undefined) set("D", input.capienzaAppuntamentiMensile);
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
+  if (input.ghlUserId !== undefined) set("F", input.ghlUserId);
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({

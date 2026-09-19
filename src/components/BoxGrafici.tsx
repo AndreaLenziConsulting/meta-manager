@@ -45,7 +45,7 @@ type PropsPacing = {
   targetAppuntamentiSettimana: number | null;
 };
 
-type PropsVenditori = { clienteId: string; sedeId: string };
+type PropsVenditori = { clienteId: string; sedeId: string; haConnessioneGhl: boolean };
 
 type SerieSettimanaleOverlay = {
   settimana: string;

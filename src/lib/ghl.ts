@@ -490,3 +490,32 @@ export function riepilogoPerTag(
     opportunita: riepilogoOpportunita(opportunitaTag, startMs, endMs),
   };
 }
+
+/**
+ * Riepilogo appuntamenti/opportunità per UN venditore (Fase 4, 11/2026) — join diretto su
+ * assignedUserId/assignedTo, già presenti sull'oggetto GHL (verificato con una chiamata reale:
+ * nessun fetch /users/ o /contacts/ in più necessario, a differenza di riepilogoPerTag sopra).
+ *
+ * `appuntamenti` qui è DELIBERATAMENTE l'elenco grezzo, NON ridotto con
+ * primoAppuntamentoPerContatto come altrove in questo file: quel filtro serve a non gonfiare
+ * l'attribuzione MARKETING (un contatto che riprenota non è un nuovo lead generato), ma per il
+ * CARICO DI LAVORO di un venditore ogni appuntamento tenuto conta — 3 incontri di follow-up con lo
+ * stesso cliente sono 3 appuntamenti di lavoro fatti, non 1. `opportunitaVinte` resta invece
+ * l'elenco già filtrato a status="won" usato ovunque: un'opportunità non si "ripete" come un
+ * appuntamento, niente da dedurre qui.
+ */
+export function riepilogoPerVenditoreGhl(
+  ghlUserId: string,
+  appuntamenti: GhlAppuntamento[],
+  opportunitaVinte: GhlOpportunita[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): GhlBreakdownCampagna {
+  const appuntamentiVenditore = appuntamenti.filter((a) => a.assignedUserId === ghlUserId);
+  const opportunitaVenditore = opportunitaVinte.filter((o) => o.assignedTo === ghlUserId);
+  return {
+    appuntamenti: riepilogoAppuntamenti(appuntamentiVenditore, startMs, endMs, oraAttualeMs),
+    opportunita: riepilogoOpportunita(opportunitaVenditore, startMs, endMs),
+  };
+}

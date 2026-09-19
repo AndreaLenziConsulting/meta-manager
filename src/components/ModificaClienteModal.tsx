@@ -1058,6 +1058,7 @@ function VenditoreRow({
   ruoloAdmin?: boolean;
 }) {
   const [nome, setNome] = useState(venditore.nome);
+  const [ghlUserId, setGhlUserId] = useState(venditore.ghlUserId);
   const [capienza, setCapienza] = useState(String(venditore.capienzaAppuntamentiMensile));
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -1071,7 +1072,7 @@ function VenditoreRow({
       const res = await fetch("/api/venditori", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venditoreId: venditore.venditoreId, nome, capienzaAppuntamentiMensile: Number(capienza) }),
+        body: JSON.stringify({ venditoreId: venditore.venditoreId, nome, ghlUserId, capienzaAppuntamentiMensile: Number(capienza) }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
@@ -1097,6 +1098,12 @@ function VenditoreRow({
           <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} />
         </Field>
       </div>
+      <Field
+        label="GHL User ID (opzionale)"
+        hint="Se impostato e la sede è connessa a GHL, appuntamenti e vendite/fatturato di questo venditore vengono calcolati automaticamente dagli appuntamenti/opportunità assegnati a questo utente su GHL, al posto dei dati inseriti a mano."
+      >
+        <Input value={ghlUserId} onChange={(e) => setGhlUserId(e.target.value)} placeholder="id utente GHL" />
+      </Field>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">

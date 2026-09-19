@@ -124,6 +124,12 @@ export type Venditore = {
   nome: string;
   capienzaAppuntamentiMensile: number;
   attivo: boolean;
+  // Id utente GHL (Fase 4, 11/2026, "automazione da GHL anche per i venditori") — inserito a mano
+  // (nessuna chiamata /users/ disponibile con lo scope oggi attivo: l'admin lo recupera dalla
+  // propria location GHL). "" = nessuna automazione, i risultati restano quelli di
+  // RisultatoVenditoreRow inseriti a mano — stesso comportamento "invisibile finché non
+  // configurato" di CategoriaCommerciale.tagGhl.
+  ghlUserId: string;
 };
 
 /**

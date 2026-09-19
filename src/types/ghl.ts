@@ -54,6 +54,12 @@ export type GhlAppuntamento = {
   // non agenda futura) — vedi riepilogoAppuntamenti in src/lib/ghl.ts.
   dateAdded: string;
   deleted: boolean;
+  // Id utente GHL del calendario/appuntamento — presente direttamente sull'oggetto (verificato con
+  // una chiamata reale, nessuna chiamata /users/ o /contacts/ in più necessaria). Fase 4 (11/2026,
+  // "risultati per venditore da GHL"): join con Venditore.ghlUserId, vedi riepilogoPerVenditoreGhl
+  // in src/lib/ghl.ts. Assente/vuoto per un appuntamento non assegnato a nessuno, mai un dato
+  // inventato in quel caso.
+  assignedUserId?: string;
 };
 
 /**
@@ -96,6 +102,9 @@ export type GhlOpportunita = {
   // Assente/vuoto per un'opportunità senza sessione tracciata (es. creata a mano dal team, non da
   // un form/funnel) — mai un dato inventato in quel caso, vedi estraiCampaignIdAttribuzione.
   attributions?: GhlAttribuzione[];
+  // Id utente GHL a cui l'opportunità è assegnata (il venditore che la segue) — presente
+  // direttamente sull'oggetto, stesso commento di GhlAppuntamento.assignedUserId sopra. Fase 4.
+  assignedTo?: string;
 };
 
 /** Riepilogo appuntamenti/opportunità attribuiti a UNA campagna Meta (vedi breakdownGhlPerCampagna
@@ -159,4 +168,9 @@ export type GhlRiepilogoResponse =
       // sostituire, categoria per categoria, l'attuale di RisultatiCommerciali con quello derivato
       // da GHL quando disponibile.
       perTag?: Record<string, GhlBreakdownTag>;
+      // Riepilogo per venditore (Fase 4, 11/2026) — chiavi = venditoreId, solo per i venditori
+      // della sede con un ghlUserId configurato (vedi Venditore in types/kpi.ts). Opzionale per lo
+      // stesso motivo di `perTag` sopra. Consumato da PacingVenditoriChart.tsx per sostituire
+      // appuntamenti/fatturato dei RisultatiVenditori inseriti a mano con quelli derivati da GHL.
+      perVenditore?: Record<string, GhlBreakdownCampagna>;
     };

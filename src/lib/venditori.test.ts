@@ -15,7 +15,7 @@ function riga(overrides: Partial<RisultatoVenditoreRow> = {}): RisultatoVenditor
 }
 
 function venditore(overrides: Partial<Venditore> = {}): Venditore {
-  return { venditoreId: "v1", sedeId: "sede-1", nome: "Mario", capienzaAppuntamentiMensile: 10, attivo: true, ...overrides };
+  return { venditoreId: "v1", sedeId: "sede-1", nome: "Mario", capienzaAppuntamentiMensile: 10, attivo: true, ghlUserId: "", ...overrides };
 }
 
 describe("aggregaRisultatiVenditori", () => {
