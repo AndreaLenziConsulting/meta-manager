@@ -809,6 +809,15 @@ function targetCategoriaDa(categoria: CategoriaCommerciale): TargetCategoriaForm
   };
 }
 
+// I target lead/appuntamenti sono settimanali (come quelli di sede), ma un piano commerciale si
+// ragiona a mese (es. 80 lead/mese): l'equivalente mensile a fianco del campo rende il numero
+// leggibile e i decimali (18,5/sett ≈ 80/mese) non sembrano un errore. × 52/12 = settimane per mese.
+function equivalenteMensile(settimanale: string): string | undefined {
+  const n = Number(settimanale);
+  if (!settimanale || !(n > 0)) return undefined;
+  return `≈ ${Math.round((n * 52) / 12)} al mese`;
+}
+
 function CampiTargetCategoria({
   valori,
   onChange,
@@ -821,11 +830,11 @@ function CampiTargetCategoria({
       <Field label="Budget mensile (€, opz.)">
         <Input type="number" step="0.01" value={valori.budget} onChange={(e) => onChange("budget", e.target.value)} />
       </Field>
-      <Field label="Lead/settimana (opz.)">
-        <Input type="number" step="1" value={valori.lead} onChange={(e) => onChange("lead", e.target.value)} />
+      <Field label="Lead/settimana (opz.)" hint={equivalenteMensile(valori.lead)}>
+        <Input type="number" step="0.1" value={valori.lead} onChange={(e) => onChange("lead", e.target.value)} />
       </Field>
-      <Field label="Appuntamenti/sett. (opz.)">
-        <Input type="number" step="1" value={valori.appuntamenti} onChange={(e) => onChange("appuntamenti", e.target.value)} />
+      <Field label="Appuntamenti/sett. (opz.)" hint={equivalenteMensile(valori.appuntamenti)}>
+        <Input type="number" step="0.1" value={valori.appuntamenti} onChange={(e) => onChange("appuntamenti", e.target.value)} />
       </Field>
       <Field label="Fatturato mensile (€, opz.)">
         <Input type="number" step="0.01" value={valori.fatturato} onChange={(e) => onChange("fatturato", e.target.value)} />
