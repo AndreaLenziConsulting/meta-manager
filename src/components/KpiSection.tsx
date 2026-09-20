@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { SintesiTessere } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
-import { PlaceholderTab } from "@/components/PlaceholderTab";
+import { AndamentoCommerciale } from "@/components/AndamentoCommerciale";
 import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
@@ -695,8 +695,6 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
                   }
                 : undefined
             }
-            // Fase 2 venditori — stesso gate `clienteId` di pacing sopra (mai sul link pubblico code).
-            venditori={clienteId ? { clienteId, sedeId: dati.sede.sedeId, haConnessioneGhl: Boolean(haConnessioneGhl) } : undefined}
           />
 
           <DettaglioCampagneEsteso
@@ -709,13 +707,11 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             ghlPerCampagna={ghlDati?.connesso ? ghlDati.perCampagna : null}
           />
 
-          {/* Blocco 8 — solo un segnaposto per ora, nessuna funzionalità (richiesta esplicita).
-              Mai sul link pubblico `code`, stesso motivo del blocco 4 sopra. */}
+          {/* Blocco 8 — "Performance venditori" (Fase 2/4), spostato qui da BoxGrafici.tsx (richiesta
+              utente 20/09/2026: è andamento commerciale, non un grafico ads). Mai sul link pubblico
+              `code`, stesso motivo del blocco 4 sopra: i venditori/target non sono mai esposti lì. */}
           {clienteId && (
-            <PlaceholderTab
-              titolo="Andamento commerciale"
-              descrizione="Questa sezione arriverà più avanti — per ora riserva solo lo spazio nel layout."
-            />
+            <AndamentoCommerciale clienteId={clienteId} sedeId={dati.sede.sedeId} haConnessioneGhl={Boolean(haConnessioneGhl)} />
           )}
         </div>
       )}

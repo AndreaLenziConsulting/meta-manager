@@ -7,9 +7,8 @@ import { CostoPerRisultatoChart } from "@/components/CostoPerRisultatoChart";
 import { SaldoNettoCumulatoChart } from "@/components/SaldoNettoCumulatoChart";
 import { AndamentoAppuntamentiChart } from "@/components/AndamentoAppuntamentiChart";
 import { PacingTargetChart } from "@/components/PacingTargetChart";
-import { PacingVenditoriChart } from "@/components/PacingVenditoriChart";
 
-type TipoGrafico = "pacing" | "venditori" | "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoAppuntamenti";
+type TipoGrafico = "pacing" | "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoAppuntamenti";
 
 const OPZIONI_BASE: { id: TipoGrafico; label: string; descrizione: string }[] = [
   { id: "funnel", label: "Funnel di conversione", descrizione: "Lead → appuntamenti fissati → effettuati → vendite" },
@@ -24,17 +23,6 @@ const OPZIONE_PACING: { id: TipoGrafico; label: string; descrizione: string } = 
   descrizione: "Ritmo di spesa/fatturato/lead/appuntamenti rispetto a oggi",
 };
 
-// Fase 2, 11/2026 — stesso trattamento di OPZIONE_PACING sopra (mese in corso, own-fetch, assente
-// sul link pubblico `code`): compare in tendina solo quando la prop `venditori` è passata
-// (KpiSection.tsx, ramo interno). Il contenuto si autonasconde con un messaggio se la sede non ha
-// ancora venditori configurati — l'opzione in tendina resta comunque sempre visibile, stesso
-// principio di "Target mensili" che non sparisce per una sede senza target impostati.
-const OPZIONE_VENDITORI: { id: TipoGrafico; label: string; descrizione: string } = {
-  id: "venditori",
-  label: "Performance venditori",
-  descrizione: "Appuntamenti e fatturato per persona, in proporzione alla capienza dichiarata",
-};
-
 type PropsPacing = {
   clienteId: string;
   sedeId: string;
@@ -44,8 +32,6 @@ type PropsPacing = {
   targetLeadSettimana: number | null;
   targetAppuntamentiSettimana: number | null;
 };
-
-type PropsVenditori = { clienteId: string; sedeId: string; haConnessioneGhl: boolean };
 
 type SerieSettimanaleOverlay = {
   settimana: string;
@@ -62,29 +48,30 @@ type SerieSettimanaleOverlay = {
  * esplicita di design del blocco 6) per scegliere quale dei grafici mostrare alla volta. Stesso
  * pattern open/close/click-fuori già scritto in CampagneFilter.tsx, non reinventato qui.
  *
- * "Target mensili" (richiesta utente, 11/2026) e "Performance venditori" (Fase 2, stessa richiesta)
- * sono le uniche opzioni che ricevono una prop dedicata (`pacing`/`venditori`) invece di leggere
- * `funnel`/`trendSettimanaleConOverlay` come le altre: guardano SEMPRE il mese in corso, un concetto
- * indipendente dal periodo scelto nel filtro sopra (che qui può essere un mese passato o un
- * intervallo di più mesi) — vedi PacingTargetChart.tsx/PacingVenditoriChart.tsx, che fanno il
- * proprio fetch invece di derivare dai dati già scaricati per il periodo selezionato. Assenti
- * (`pacing`/`venditori` non passate) sul link pubblico cliente `code`, stesso motivo per cui i
- * target non sono mai esposti lì (vedi /api/kpi route.ts, campo `internal`) — le opzioni compaiono
- * in tendina solo quando la rispettiva prop è presente; "Target mensili" diventa il default SOLO
- * quando `pacing` è presente, altrimenti l'elenco/default restano quelli di sempre.
+ * "Target mensili" (richiesta utente, 11/2026) è l'unica opzione che riceve una prop dedicata
+ * (`pacing`) invece di leggere `funnel`/`trendSettimanaleConOverlay` come le altre: guarda SEMPRE
+ * il mese in corso, un concetto indipendente dal periodo scelto nel filtro sopra (che qui può
+ * essere un mese passato o un intervallo di più mesi) — vedi PacingTargetChart.tsx, che fa il
+ * proprio fetch invece di derivare dai dati già scaricati per il periodo selezionato. Assente
+ * (`pacing` non passata) sul link pubblico cliente `code`, stesso motivo per cui i target non sono
+ * mai esposti lì (vedi /api/kpi route.ts, campo `internal`) — l'opzione compare in tendina solo
+ * quando `pacing` è presente, e diventa il default SOLO in quel caso, altrimenti l'elenco/default
+ * restano quelli di sempre.
+ *
+ * "Performance venditori" (Fase 2/4) NON è più qui (richiesta utente 20/09/2026: "va nella sezione
+ * Andamento commerciale, non tra i grafici") — vedi AndamentoCommerciale.tsx sotto KpiSection.tsx,
+ * un blocco a parte invece di una quarta opzione in questa stessa tendina.
  */
 export function BoxGrafici({
   funnel,
   trendSettimanaleConOverlay,
   pacing,
-  venditori,
 }: {
   funnel: { numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number };
   trendSettimanaleConOverlay: SerieSettimanaleOverlay[];
   pacing?: PropsPacing;
-  venditori?: PropsVenditori;
 }) {
-  const OPZIONI = [...(pacing ? [OPZIONE_PACING] : []), ...(venditori ? [OPZIONE_VENDITORI] : []), ...OPZIONI_BASE];
+  const OPZIONI = [...(pacing ? [OPZIONE_PACING] : []), ...OPZIONI_BASE];
   const [selezionato, setSelezionato] = useState<TipoGrafico>(pacing ? "pacing" : "funnel");
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -143,7 +130,6 @@ export function BoxGrafici({
       </div>
 
       {selezionato === "pacing" && pacing && <PacingTargetChart {...pacing} />}
-      {selezionato === "venditori" && venditori && <PacingVenditoriChart {...venditori} />}
       {selezionato === "funnel" && <FunnelConversioneChart {...funnel} />}
       {selezionato === "costoPerRisultato" && <CostoPerRisultatoChart serieSettimanale={trendSettimanaleConOverlay} />}
       {selezionato === "andamentoAppuntamenti" && <AndamentoAppuntamentiChart serieSettimanale={trendSettimanaleConOverlay} />}
