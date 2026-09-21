@@ -6,6 +6,7 @@ import { ultimoGiornoDelMese } from "@/lib/kpi";
 import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
 import { calcolaPacingMensile } from "@/lib/targetPacing";
 import { BloccoPacing } from "@/components/BloccoPacing";
+import { BloccoSenzaCluster } from "@/components/BloccoSenzaCluster";
 import type { KpiGroup, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
@@ -39,6 +40,13 @@ function meseCorrente(): string {
  * dei RisultatiCommerciali inseriti a mano per quella categoria — il budget resta SEMPRE da
  * dati.gruppi (Meta ads), mai da GHL, che non ha un concetto di spesa pubblicitaria. Una categoria
  * senza tagGhl (o una sede senza GHL connesso) si comporta esattamente come in Fase 1, invariata.
+ *
+ * "Senza cluster" (20/09/2026, segnalato dall'utente: il totale sede non coincideva con la somma dei
+ * blocchi per categoria) — un blocco in più, dopo quelli per categoria e prima di "Totale sede", che
+ * mostra ghlDati.senzaTag (BloccoSenzaCluster.tsx): i conteggi dei contatti senza NESSUNO dei tag
+ * configurati, senza target/pacing — solo per non far sparire in silenzio numeri che il totale sede
+ * include ma nessun cluster cattura. Visibile solo se c'è almeno una categoria con tagGhl configurato
+ * (altrimenti "senza cluster" non è una domanda sensata) e solo se contiene almeno un dato non a zero.
  */
 export function PacingTargetChart({
   clienteId,
@@ -167,6 +175,14 @@ export function PacingTargetChart({
     };
   });
 
+  const senzaCluster = ghlDati?.connesso ? ghlDati.senzaTag : undefined;
+  const senzaClusterHaDati =
+    senzaCluster !== undefined &&
+    (senzaCluster.richieste > 0 ||
+      senzaCluster.appuntamenti.totali > 0 ||
+      senzaCluster.opportunita.vendite > 0 ||
+      senzaCluster.opportunita.fatturato > 0);
+
   if (metricheTotale.length === 0 && blocchiCategoria.every((b) => b.metriche.length === 0)) {
     return (
       <p className="text-sm text-ink-500">
@@ -192,6 +208,7 @@ export function PacingTargetChart({
             fraz={fraz}
           />
         ))}
+        {senzaClusterHaDati && senzaCluster && <BloccoSenzaCluster dati={senzaCluster} />}
         <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
       </div>
     </div>

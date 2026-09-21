@@ -168,6 +168,12 @@ export type GhlRiepilogoResponse =
       // sostituire, categoria per categoria, l'attuale di RisultatiCommerciali con quello derivato
       // da GHL quando disponibile.
       perTag?: Record<string, GhlBreakdownTag>;
+      // Complemento di `perTag` sopra (segnalato dall'utente, 20/09/2026): contatti/appuntamenti/
+      // opportunità che non hanno NESSUNO dei tag configurati — presente solo se la sede ha almeno
+      // una categoria con tagGhl impostato (altrimenti "senza cluster" non ha senso: non c'è nessun
+      // cluster da cui essere esclusi). Mai un target — PacingTargetChart.tsx lo mostra come sola
+      // visibilità del problema, non come un obiettivo da raggiungere.
+      senzaTag?: GhlBreakdownTag;
       // Riepilogo per venditore (Fase 4, 11/2026) — chiavi = venditoreId, solo per i venditori
       // della sede con un ghlUserId configurato (vedi Venditore in types/kpi.ts). Opzionale per lo
       // stesso motivo di `perTag` sopra. Consumato da PacingVenditoriChart.tsx per sostituire

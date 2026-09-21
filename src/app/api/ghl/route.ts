@@ -8,6 +8,7 @@ import {
   fatturatoGhlPerSettimana,
   fetchAppuntamenti,
   fetchContattiPerTag,
+  fetchContattiSenzaTag,
   fetchOpportunita,
   mappaCampagnaPerContatto,
   primoAppuntamentoPerContatto,
@@ -44,6 +45,12 @@ function meseCorrente(): string {
  * verificato con chiamate reali: l'account usa tag come "mobilieri - cluster a (<500k)" per
  * dividere i lead in cluster) invece che per attribuzione UTM. Sempre sul perimetro pieno della
  * sede, mai ristretto dal filtro opzionale `campagne` sopra — sono due assi di lettura indipendenti.
+ *
+ * `senzaTag` (20/09/2026, segnalato dall'utente: i totali di sede non coincidevano con la somma dei
+ * blocchi per categoria) — il complemento di `perTag`: contatti/appuntamenti/opportunità senza
+ * NESSUNO dei tag configurati, fetchContattiSenzaTag in lib/ghl.ts (filtro `not_contains`,
+ * verificato con una chiamata reale). Nessun target: solo per non far sparire in silenzio numeri
+ * che il totale sede include ma nessun cluster cattura.
  *
  * `perVenditore` (Fase 4, 11/2026) — stesso principio ma per venditore, join su
  * assignedUserId/assignedTo (già presenti sugli oggetti GHL, zero chiamate in più a differenza di
@@ -137,6 +144,19 @@ export async function GET(req: NextRequest) {
     );
     const perTag = Object.fromEntries(vociPerTag);
 
+    // Complemento di perTag sopra (segnalato dall'utente, 20/09/2026) — solo se la sede ha almeno
+    // una categoria con tag configurato: senza nessun cluster definito, "senza cluster" non è una
+    // domanda sensata. Un contatto "senza cluster" è per definizione escluso da OGNI tag già
+    // interrogato sopra — riuso categorieConTag.map(tagGhl) invariato, non serve un secondo giro.
+    const senzaTag =
+      categorieConTag.length > 0
+        ? await fetchContattiSenzaTag(
+            connessione.locationId,
+            connessione.privateToken,
+            categorieConTag.map((c) => c.tagGhl.trim())
+          ).then((contatti) => riepilogoPerTag(contatti, appuntamentiPrimi, opportunitaVinte, startMs, endMs))
+        : undefined;
+
     // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti
     // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il
     // carico di lavoro di un venditore ogni appuntamento tenuto conta, vedi riepilogoPerVenditoreGhl.
@@ -182,6 +202,7 @@ export async function GET(req: NextRequest) {
       perCampagna,
       campagneAttribuibili,
       perTag,
+      senzaTag,
       perVenditore,
     };
     return NextResponse.json(risposta);

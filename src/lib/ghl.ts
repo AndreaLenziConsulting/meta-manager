@@ -462,6 +462,38 @@ export async function fetchContattiPerTag(locationId: string, token: string, tag
 }
 
 /**
+ * Come fetchContattiPerTag sopra, ma il complemento: contatti che non hanno NESSUNO dei tag passati
+ * — segnalato dall'utente (20/09/2026): i lead più recenti a volte arrivano senza ancora un tag
+ * cluster assegnato (l'automazione GHL che lo assegna non li ha ancora presi), e sparivano in
+ * silenzio da tutti i blocchi per categoria pur contando nel totale sede. Un filtro `not_contains`
+ * per ciascun tag, in AND tra loro (verificato con una chiamata reale) — mai un fetch-tutti-e-
+ * filtra-client-side, stesso principio di fetchContattiPerTag.
+ *
+ * Deliberatamente SENZA filtro di data qui (a differenza di quanto si potrebbe pensare, dato che
+ * "richieste" guarda solo il periodo): un contatto vecchio mai taggato può comunque avere un
+ * appuntamento/opportunità NUOVA questo mese, e riepilogoPerTag sotto ha bisogno del suo id nel set
+ * per contarla — stesso motivo per cui fetchContattiPerTag non filtra per data. Su un account con
+ * molti contatti storici senza tag (qui: oltre mille) questo può paginare più a lungo delle chiamate
+ * per categoria — un compromesso deliberato a favore della correttezza, non un dettaglio trascurato.
+ */
+export async function fetchContattiSenzaTag(locationId: string, token: string, tags: string[]): Promise<{ id: string; dateAdded: string }[]> {
+  const risultato: { id: string; dateAdded: string }[] = [];
+  const PAGE_LIMIT = 100;
+  for (let page = 1; page <= 50; page++) {
+    const body = await ghlPost<{ contacts?: { id: string; dateAdded: string }[] }>("/contacts/search", token, {
+      locationId,
+      page,
+      pageLimit: PAGE_LIMIT,
+      filters: tags.map((tag) => ({ field: "tags", operator: "not_contains", value: tag })),
+    });
+    const contatti = body.contacts ?? [];
+    risultato.push(...contatti.map((c) => ({ id: c.id, dateAdded: c.dateAdded })));
+    if (contatti.length < PAGE_LIMIT) break;
+  }
+  return risultato;
+}
+
+/**
  * Riepilogo appuntamenti/opportunità/richieste per UN tag contatto (una categoria commerciale) —
  * mirror di breakdownGhlPerCampagna sopra, ma la chiave di join è l'appartenenza al set di contatti
  * taggati (fetchContattiPerTag) invece della mappa campagna. `richieste` = contatti taggati la cui
