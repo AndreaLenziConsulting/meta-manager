@@ -460,6 +460,12 @@ function SedeRow({
       </div>
       {errore && <p className="text-xs text-red-600">{errore}</p>}
 
+      {ruoloAdmin && sede.adAccountId && (
+        <div className="pt-2 mt-1 border-t border-ink-300/60">
+          <BackfillCampagneBlock sedeId={sede.sedeId} />
+        </div>
+      )}
+
       <div className="pt-2 mt-1 border-t border-ink-300/60">
         <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
       </div>
@@ -498,6 +504,60 @@ function SedeRow({
           }}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Recupero storico campagne (20/09/2026, segnalato dall'utente: campagne reali mancanti nel
+ * pannello KPI per un cliente) — la sincronizzazione ordinaria (pulsante "Aggiorna KPI" in
+ * KpiSection.tsx + cron giornaliero) guarda sempre e solo gli ultimi 3 giorni (GIORNI_ROLLING in
+ * lib/sync.ts): una campagna mai attiva in nessuna di quelle finestre non viene mai salvata, per
+ * nessun periodo. Azione manuale, solo admin, `since` scelto esplicitamente (mai un default
+ * silenzioso "da sempre" — vedi il commento su backfillSede in lib/sync.ts): un account con anni
+ * di storico può avere molto rumore che l'admin potrebbe non voler importare.
+ */
+function BackfillCampagneBlock({ sedeId }: { sedeId: string }) {
+  const [since, setSince] = useState(`${new Date().getFullYear()}-01-01`);
+  const [caricamento, setCaricamento] = useState(false);
+  const [risultato, setRisultato] = useState<string | null>(null);
+  const [errore, setErrore] = useState<string | null>(null);
+
+  async function recupera() {
+    setErrore(null);
+    setRisultato(null);
+    setCaricamento(true);
+    try {
+      const res = await fetch("/api/admin/backfill-campagne", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sedeId, since }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Recupero non riuscito");
+      setRisultato(`Recuperate ${body.righe} righe giornaliere da Meta — le campagne mancanti compaiono ora nei filtri.`);
+    } catch (err) {
+      setErrore(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setCaricamento(false);
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-ink-700">Recupero storico campagne</p>
+      <p className="text-[11px] text-ink-500">
+        La sincronizzazione automatica guarda solo gli ultimi giorni: una campagna in pausa da tempo può non essere mai
+        stata salvata, per nessun periodo. Recuperala una volta da qui — poi resta aggiornata da sola.
+      </p>
+      <div className="flex items-center gap-2">
+        <Input type="date" value={since} onChange={(e) => setSince(e.target.value)} className="w-auto" />
+        <Button type="button" size="sm" variant="ghost" onClick={recupera} disabled={caricamento || !since}>
+          {caricamento ? "Recupero…" : "Recupera storico"}
+        </Button>
+      </div>
+      {risultato && <p className="text-[11px] text-green-600">{risultato}</p>}
+      {errore && <p className="text-[11px] text-red-600">{errore}</p>}
     </div>
   );
 }
