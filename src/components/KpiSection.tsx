@@ -695,6 +695,25 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
                   }
                 : undefined
             }
+            // Decide SOLO il default della tendina (richiesta utente, 22/09/2026) — vero se la sede
+            // stessa o ALMENO una delle sue categorie commerciali ha un target impostato, stessa
+            // condizione combinata che decide se PacingTargetChart mostra dati veri o il messaggio
+            // "nessun target impostato" (vedi PacingTargetChart.tsx): un cliente come ALC stesso può
+            // avere zero target di sede ma target reali per categoria, il "Target mensili" di quel
+            // cliente non è affatto vuoto anche se i 4 campi sede sono null.
+            pacingHaTarget={
+              dati.sede.targetBudgetMensile !== null ||
+              dati.sede.targetFatturatoMensile !== null ||
+              dati.sede.targetLeadSettimana !== null ||
+              dati.sede.targetAppuntamentiSettimana !== null ||
+              (dati.sede.categorie ?? []).some(
+                (c) =>
+                  c.targetBudgetMensile !== null ||
+                  c.targetFatturatoMensile !== null ||
+                  c.targetLeadSettimana !== null ||
+                  c.targetAppuntamentiSettimana !== null
+              )
+            }
           />
 
           <DettaglioCampagneEsteso

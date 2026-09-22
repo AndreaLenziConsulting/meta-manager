@@ -55,8 +55,17 @@ type SerieSettimanaleOverlay = {
  * proprio fetch invece di derivare dai dati già scaricati per il periodo selezionato. Assente
  * (`pacing` non passata) sul link pubblico cliente `code`, stesso motivo per cui i target non sono
  * mai esposti lì (vedi /api/kpi route.ts, campo `internal`) — l'opzione compare in tendina solo
- * quando `pacing` è presente, e diventa il default SOLO in quel caso, altrimenti l'elenco/default
- * restano quelli di sempre.
+ * quando `pacing` è presente.
+ *
+ * Default (richiesta utente, 22/09/2026): "Target mensili" solo se `pacingHaTarget` è vero, cioè la
+ * sede o almeno una delle sue categorie commerciali ha un target impostato (altrimenti
+ * PacingTargetChart mostrerebbe solo il messaggio "nessun target impostato" — un default vuoto non
+ * è utile) — calcolato dal chiamante (KpiSection.tsx, che ha già dati.sede.categorie in memoria),
+ * non qui: `pacing` porta solo i 4 campi sede che servono a PacingTargetChart, non basterebbero da
+ * soli a decidere il default per un cliente con target solo a livello di categoria. Se `pacing` è
+ * presente ma `pacingHaTarget` è falso, il default è "Costo per Risultato" invece del vecchio
+ * "Target mensili" incondizionato. Sul link pubblico (`pacing` assente, nessun concetto di target
+ * lì) il default resta "Funnel di conversione", invariato.
  *
  * "Performance venditori" (Fase 2/4) NON è più qui (richiesta utente 20/09/2026: "va nella sezione
  * Andamento commerciale, non tra i grafici") — vedi AndamentoCommerciale.tsx sotto KpiSection.tsx,
@@ -66,13 +75,20 @@ export function BoxGrafici({
   funnel,
   trendSettimanaleConOverlay,
   pacing,
+  pacingHaTarget,
 }: {
   funnel: { numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number };
   trendSettimanaleConOverlay: SerieSettimanaleOverlay[];
   pacing?: PropsPacing;
+  // Vero se la sede (o una sua categoria) ha un target mensile/settimanale impostato — decide SOLO
+  // il default iniziale della tendina, vedi il commento sopra. Calcolato dal chiamante perché
+  // include dati.sede.categorie, che `pacing` non porta.
+  pacingHaTarget?: boolean;
 }) {
   const OPZIONI = [...(pacing ? [OPZIONE_PACING] : []), ...OPZIONI_BASE];
-  const [selezionato, setSelezionato] = useState<TipoGrafico>(pacing ? "pacing" : "funnel");
+  const [selezionato, setSelezionato] = useState<TipoGrafico>(
+    !pacing ? "funnel" : pacingHaTarget ? "pacing" : "costoPerRisultato"
+  );
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
