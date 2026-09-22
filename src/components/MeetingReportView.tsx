@@ -24,6 +24,12 @@ const COMPANY_NAME = "Andrea Lenzi Consulting";
  *   con fallback su `date` — va esposta ed editabile, non solo derivata);
  * - il campo data nell'header resta legato a `date` (non `dataConsulenza`): è quello che il server
  *   valida per salvare (`dataItalianaAIso`), quindi deve restare l'unico bound lì.
+ * - "Task della settimana" (`meeting.taskSettimana`) non ha una sezione qui, segnalato dall'utente
+ *   come ridondante con "Action items" — stesso contenuto, sorgente identica ("Task della
+ *   settimana" nella pagina originale), solo Action items diventa davvero Attività al salvataggio.
+ *   Il campo resta comunque estratto e salvato (vedi types/meeting.ts): serve ancora come fallback
+ *   Fathom in estrazione.ts e come colonna del foglio esterno Report Operatività
+ *   (reportOperativita.ts) — solo la doppia VISTA è stata rimossa, non il dato.
  */
 export function MeetingReportView({
   meeting,
@@ -155,18 +161,6 @@ export function MeetingReportView({
             placeholder="Aggiungi un punto saliente"
           />
         </section>
-
-        {(meeting.taskSettimana || editable) && (
-          <section>
-            <SectionTitle>Task della settimana</SectionTitle>
-            <MultilineEditor
-              value={meeting.taskSettimana ?? ""}
-              onChange={(v) => set({ taskSettimana: v })}
-              editable={editable}
-              placeholder="Una task per riga, formato 'Nome: azione'"
-            />
-          </section>
-        )}
 
         {(meeting.taskMese || editable) && (
           <section>

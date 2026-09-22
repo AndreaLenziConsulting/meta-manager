@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienti } from "@/lib/sheets";
+import { getClienti, getConsulenti } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { estraiMeetingData, EstrazioneError } from "@/lib/estrazione";
+
+// Titolo letterale che Google Meet assegna a una call avviata senza un evento calendario — Fathom/
+// Circleback lo importano così com'è, mai un titolo scelto da nessuno. Confrontato case-insensitive
+// e trim perché non c'è garanzia che la piattaforma lo restituisca sempre con lo stesso casing.
+const TITOLO_GOOGLE_MEET_SENZA_NOME = "impromptu google meet meeting";
 
 export const runtime = "nodejs";
 // Scraping Playwright + chiamata Groq, entrambi ora con un retry (vedi estrazione.ts — Fathom
@@ -39,6 +44,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const { dati, troncamento } = await estraiMeetingData(url);
+
+    // Referente: MAI dedotto dalla registrazione (vedi estrazione.ts) — il cliente/consulente
+    // assegnato sono già noti da qui (clienteId arriva dal contesto), stesso principio già in uso
+    // per `cliente` (vedi types/meeting.ts). "" se il cliente non ha un consulente assegnato:
+    // meglio vuoto che un nome sbagliato, l'admin lo compila a mano nell'anteprima se serve.
+    const cliente = clienti.find((c) => c.clienteId === clienteId);
+    const consulente = cliente ? (await getConsulenti()).find((c) => c.consulenteId === cliente.consulenteId) : undefined;
+    dati.referente = consulente?.nome ?? "";
+
+    // Titolo di default per le call Google Meet avviate senza invito calendario (vedi
+    // TITOLO_GOOGLE_MEET_SENZA_NOME sopra) — sostituito con qualcosa di leggibile nello storico
+    // meeting invece del titolo tecnico di Google Meet, che non dice né il cliente né quando.
+    if (dati.title?.trim().toLowerCase() === TITOLO_GOOGLE_MEET_SENZA_NOME && cliente) {
+      const data = dati.dataConsulenza || dati.date || "";
+      dati.title = `Follow-up meeting — ${cliente.nome}${data ? ` (${data})` : ""}`;
+    }
+
     return NextResponse.json({ dati, troncamento });
   } catch (err) {
     if (err instanceof EstrazioneError) {

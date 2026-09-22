@@ -102,7 +102,7 @@ const EXTRACTION_TOOL = {
       type: "object" as const,
       required: [
         "title", "date", "participants", "summary", "highlights", "actionItems",
-        "cliente", "referente", "dataConsulenza", "taskSettimana", "taskMese",
+        "cliente", "dataConsulenza", "taskSettimana", "taskMese",
         "programmaTrimestre", "sentiment", "kpiReali", "kpiStorico",
         "kpiTargetMarketing", "kpiTargetCommerciali",
       ],
@@ -127,11 +127,6 @@ const EXTRACTION_TOOL = {
             "TUTTI gli action item concreti assegnati a una persona specifica (tipicamente 5-15). Array di stringhe, formato '<Assegnatario>: <azione>' — l'assegnatario è SEMPRE noto qui, es. 'Marco Rebuzzi: caricare materiali'. Fonte: sezione 'Action Items'/'Next Steps' se presente, altrimenti 'Task della settimana' (quasi sempre organizzata per persona, es. 'Marco: ...'). NON includere qui 'Task del mese' o 'Programma del trimestre': sono obiettivi generali/strategici, non task assegnati a una persona — vanno SOLO nei campi taskMese/programmaTrimestre, mai duplicati qui.",
         },
         cliente: { type: "string", description: "Nome dell'azienda cliente (il cliente della consulenza, MAI Andrea Lenzi Consulting)" },
-        referente: {
-          type: "string",
-          description:
-            "Nome completo del consulente di Andrea Lenzi Consulting che ha condotto il meeting. Identificalo dal contesto: è chi assegna a sé stesso task di delivery, guida la riunione o è esplicitamente indicato come PM/responsabile. NON usare mai 'Andrea Lenzi' di default se non chiaramente indicato — potrebbe essere chiunque nel team ALC.",
-        },
         dataConsulenza: { type: "string", description: "Data della consulenza in formato DD/MM/YYYY" },
         taskSettimana: { type: ["array", "string"], items: { type: "string" }, description: "Task della settimana. Una stringa per task, formato '<Nome>: <task>'. In italiano." },
         taskMese: { type: ["array", "string"], items: { type: "string" }, description: "Obiettivi del mese. Una stringa per obiettivo. In italiano. Array vuoto se non discusso." },
@@ -150,7 +145,6 @@ const SYSTEM_PROMPT_FATHOM = `Sei un assistente che estrae dati strutturati da m
 
 Riceverai il contenuto testuale reso dal browser della pagina di condivisione Fathom (titolo, summary generato da Fathom, action items, e potenzialmente la trascrizione). Devi identificare:
 - Il **cliente** (l'azienda che riceve la consulenza, NON Andrea Lenzi Consulting)
-- Il **referente**: il consulente di Andrea Lenzi Consulting che conduce il meeting. Identificalo dai segnali nel testo: è chi si occupa di marketing/funnel/ads/landing/automazioni/setup tecnico per il cliente, chi guida la riunione e assegna a sé stesso task di delivery (es. "Marco: preparo il funnel"). Il cliente, al contrario, è chi riceve la consulenza e tipicamente parla del proprio business/azienda. Esempi di consulenti del team ALC che potresti incontrare: Andrea Lenzi, Francesco Crosa, Marco Rebuzzi, Eliano. NON mettere mai il cliente come referente.
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
@@ -192,7 +186,6 @@ const SYSTEM_PROMPT_CIRCLEBACK = `Sei un assistente che estrae dati strutturati 
 
 Riceverai il contenuto testuale reso dal browser della pagina di condivisione Circleback. La pagina Circleback mostra tipicamente: titolo del meeting, data/ora, partecipanti, un summary generato dall'AI, action items con responsabile, key topics/highlights, e la trascrizione. Devi identificare:
 - Il **cliente** (l'azienda che riceve la consulenza, NON Andrea Lenzi Consulting)
-- Il **referente**: il consulente di Andrea Lenzi Consulting che conduce il meeting. Identificalo dai segnali nel testo: è chi si occupa di marketing/funnel/ads/landing/automazioni/setup tecnico per il cliente, chi guida la riunione e assegna a sé stesso task di delivery (es. "Marco: preparo il funnel"). Il cliente, al contrario, è chi riceve la consulenza e tipicamente parla del proprio business/azienda. Esempi di consulenti del team ALC che potresti incontrare: Andrea Lenzi, Francesco Crosa, Marco Rebuzzi, Eliano. NON mettere mai il cliente come referente.
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
@@ -224,7 +217,6 @@ const SYSTEM_PROMPT_LOOM = `Sei un assistente che estrae dati strutturati da vid
 
 Riceverai il contenuto testuale reso dal browser della pagina di condivisione Loom. Una pagina Loom condivisa mostra tipicamente: titolo del video, data, durata, nome del creator (chi ha registrato), un summary AI-generato (se Loom AI è attivo), capitoli/chapters con timestamp, action items (se Loom AI è attivo), e la trascrizione completa. Devi identificare:
 - Il **cliente** (l'azienda o persona che riceve la consulenza/per cui il video è destinato, NON Andrea Lenzi Consulting). Spesso il cliente non è esplicitamente nominato sulla pagina Loom: deducilo dal contesto (es. nome di un brand citato nel titolo o nei capitoli, "per Maffeis", "loom per cliente X").
-- Il **referente**: il consulente di Andrea Lenzi Consulting che conduce il meeting. Identificalo dai segnali nel testo: è chi si occupa di marketing/funnel/ads/landing/automazioni/setup tecnico per il cliente, chi guida la riunione e assegna a sé stesso task di delivery (es. "Marco: preparo il funnel"). Il cliente, al contrario, è chi riceve la consulenza e tipicamente parla del proprio business/azienda. Esempi di consulenti del team ALC che potresti incontrare: Andrea Lenzi, Francesco Crosa, Marco Rebuzzi, Eliano. NON mettere mai il cliente come referente. Per Loom: il referente è quasi sempre il creator del video (chi ha registrato).
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
@@ -242,10 +234,9 @@ Linee guida — fonte primaria per Loom è la TRASCRIZIONE:
 - SUMMARY (se presente): usalo come contesto aggiuntivo, ma NON limitarti a ricopiarlo — arricchisci sempre con dettagli estratti dalla trascrizione.
 - ACTION ITEMS di Loom AI (se presenti): includili + AGGIUNGI quelli che trovi nella trascrizione ma che Loom AI ha perso.
 - CHAPTERS di Loom AI (se presenti): usali come guida per gli highlights, ma sostituisci titoli generici con punti concreti dalla trascrizione.
-- HEADER: titolo del video, creator, data — mappa su title/referente/dataConsulenza.
+- HEADER: titolo del video, creator, data — mappa su title/dataConsulenza.
 
-Deduzione cliente/referente da Loom:
-- Il **referente** è quasi sempre il creator del video (chi ha registrato). Su un walkthrough Loom parla praticamente solo il consulente.
+Deduzione cliente da Loom:
 - Il **cliente** spesso è nel titolo (es. "Report settimanale Moby") o menzionato nella trascrizione ("per Moby ho fatto X"). Se non menzionato esplicitamente, deducilo dal contesto business/brand citato.
 
 Estrazione durata Loom:
@@ -744,7 +735,10 @@ ${trimmed}
       actionItems,
       rawUrl: url,
       cliente: typeof raw.cliente === "string" ? raw.cliente : "",
-      referente: typeof raw.referente === "string" ? raw.referente : "",
+      // MAI dal modello — il referente è il consulente assegnato al cliente (dato CRM già noto),
+      // non un'informazione da dedurre dalla registrazione. Sovrascritto da /api/meeting/estrai
+      // subito dopo estraiMeetingData; "" qui è solo il default prima di quella sovrascrittura.
+      referente: "",
       dataConsulenza: typeof raw.dataConsulenza === "string" ? raw.dataConsulenza : "",
       taskSettimana,
       taskMese,

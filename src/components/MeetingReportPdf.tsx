@@ -271,7 +271,6 @@ export function MeetingReportPdf({
             )
           : null,
 
-        h(BulletSection, { title: "Task della settimana", text: meeting.taskSettimana ?? "", styles }),
         h(BulletSection, { title: "Task del mese", text: meeting.taskMese ?? "", styles }),
         h(BulletSection, { title: "Programma del trimestre", text: meeting.programmaTrimestre ?? "", styles }),
 
