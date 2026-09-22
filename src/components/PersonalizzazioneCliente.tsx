@@ -7,6 +7,7 @@ import { FONT_CLIENTE_DISPONIBILI } from "@/lib/temaCliente";
 
 const LABEL_FONT: Record<(typeof FONT_CLIENTE_DISPONIBILI)[number], string> = {
   poppins: "Poppins",
+  "dm-sans": "DM Sans",
 };
 
 type Props = {

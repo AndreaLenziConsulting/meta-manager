@@ -27,7 +27,7 @@ export type Cliente = {
   coloreSecondario: string; // hex #RRGGBB — genera --brand-primary-light (tinta di sfondo, mai
   // usato come testo diretto: vedi temaCliente.ts sul perché viene sempre schiarito)
   fontPersonalizzato: string; // solo valori nella whitelist FONT_CLIENTE_DISPONIBILI di
-  // temaCliente.ts (oggi solo "poppins") — mai un nome libero, next/font richiede un import statico
+  // temaCliente.ts — mai un nome libero, next/font richiede un import statico
 
   // Link rapidi anagrafici, mostrati in ClienteHeader — mai obbligatori, vuoto = nessun link mostrato.
   // Colonne R/S del tab Clienti, aggiunte dopo le Q colonne di personalizzazione sopra.

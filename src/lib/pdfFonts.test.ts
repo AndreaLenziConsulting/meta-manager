@@ -47,6 +47,12 @@ describe("temaPdfCliente", () => {
     expect(t.fontBody).toBe("Poppins");
   });
 
+  it("fontPersonalizzato valido (dm-sans) -> sostituisce SIA heading SIA body", () => {
+    const t = temaPdfCliente(cliente({ fontPersonalizzato: "dm-sans" }), FALLBACK);
+    expect(t.fontHeading).toBe("DM Sans");
+    expect(t.fontBody).toBe("DM Sans");
+  });
+
   it("fontPersonalizzato non in whitelist -> ignorato, resta sui default ALC", () => {
     const t = temaPdfCliente(cliente({ fontPersonalizzato: "comic-sans" }), FALLBACK);
     expect(t.fontHeading).toBe("League Spartan");

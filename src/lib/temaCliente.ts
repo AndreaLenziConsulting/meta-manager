@@ -5,7 +5,7 @@ import type { Cliente } from "@/types/kpi";
 /** Font aggiuntivi caricati staticamente in layout.tsx (next/font/google richiede un import fisso
  * per font — non può caricare a runtime un nome font arbitrario da un campo di testo libero).
  * Aggiungere un nuovo font: import in layout.tsx + nuovo case qui, mai un valore libero. */
-export const FONT_CLIENTE_DISPONIBILI = ["poppins"] as const;
+export const FONT_CLIENTE_DISPONIBILI = ["poppins", "dm-sans"] as const;
 export type FontCliente = (typeof FONT_CLIENTE_DISPONIBILI)[number];
 
 export function isFontClienteValido(v: string): v is FontCliente {

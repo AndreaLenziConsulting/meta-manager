@@ -33,15 +33,22 @@ export const FONT_HEADING = "League Spartan";
 export const FONT_LABEL = "Oswald";
 export const FONT_BODY = "Roboto";
 
-// Font cliente personalizzato (oggi solo "poppins", vedi FONT_CLIENTE_DISPONIBILI in
-// temaCliente.ts) — stesso trattamento .ttf statico subsettato dei font ALC sopra (fonttools
-// subset --layout-features-=liga,calt,dlig,hlig, scaricato da
-// raw.githubusercontent.com/google/fonts, verificato coi caratteri accentati italiani e l'€
-// ancora presenti). Registrato sempre, anche per i PDF che di fatto non lo useranno mai (stesso
-// principio già seguito per Oswald, usato solo da alcuni stili): costa solo una registrazione in
-// più, non un font in meno se un domani FONT_CLIENTE_DISPONIBILI cresce.
+// Font cliente personalizzato (vedi FONT_CLIENTE_DISPONIBILI in temaCliente.ts) — stesso
+// trattamento .ttf statico subsettato dei font ALC sopra (fonttools subset
+// --layout-features-=liga,calt,dlig,hlig, scaricato da raw.githubusercontent.com/google/fonts,
+// verificato coi caratteri accentati italiani e l'€ ancora presenti). Registrato sempre, anche
+// per i PDF che di fatto non lo useranno mai (stesso principio già seguito per Oswald, usato solo
+// da alcuni stili): costa solo una registrazione in più, non un font in meno se un domani
+// FONT_CLIENTE_DISPONIBILI cresce.
 const FONT_POPPINS = "Poppins";
-export const FONT_CLIENTE_PDF: Record<string, string> = { poppins: FONT_POPPINS };
+// DM Sans è distribuito da Google Fonts solo come font variabile (asse opsz+wght) — a differenza
+// di Poppins qui i due .ttf non sono scaricati direttamente ma generati a parte con
+// `fonttools varLib.instancer` (istanze statiche opsz=14/wght=400 e opsz=14/wght=700, gli stessi
+// valori delle istanze nominate "Regular"/"Bold" del font sorgente) prima dello stesso subset
+// --layout-features-=liga,calt,dlig,hlig di cui sopra — react-pdf/fontkit non supporta gli assi
+// variabili, userebbe solo l'istanza di default (wght=400) anche per il testo in grassetto.
+const FONT_DM_SANS = "DM Sans";
+export const FONT_CLIENTE_PDF: Record<string, string> = { poppins: FONT_POPPINS, "dm-sans": FONT_DM_SANS };
 
 let registrata = false;
 
@@ -77,6 +84,13 @@ export function registraFontPdf(): void {
     fonts: [
       { src: fontPath("Poppins-Regular.ttf"), fontWeight: 400 },
       { src: fontPath("Poppins-Bold.ttf"), fontWeight: 700 },
+    ],
+  });
+  Font.register({
+    family: FONT_DM_SANS,
+    fonts: [
+      { src: fontPath("DMSans-Regular.ttf"), fontWeight: 400 },
+      { src: fontPath("DMSans-Bold.ttf"), fontWeight: 700 },
     ],
   });
 }

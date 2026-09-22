@@ -44,6 +44,7 @@ describe("styleTemaCliente", () => {
 describe("isFontClienteValido", () => {
   it("accetta solo font nella whitelist", () => {
     expect(isFontClienteValido("poppins")).toBe(true);
+    expect(isFontClienteValido("dm-sans")).toBe(true);
     expect(isFontClienteValido("")).toBe(false);
     expect(isFontClienteValido("Poppins")).toBe(false); // case-sensitive, sempre minuscolo
   });
