@@ -245,6 +245,53 @@ describe("computeKpi", () => {
     });
   });
 
+  describe("computeKpi con da/a a livello di settimana (modalità settimana del selettore periodo, 25/09/2026)", () => {
+    it("filtra MetaDaily su un range di giorni reale, non sull'intero mese", () => {
+      // 2026-06-15 è un lunedì; la settimana finisce domenica 2026-06-21. META_DAILY ha righe il
+      // 15/16/20 giugno (dentro la settimana) e altre fuori (01 luglio, 01 maggio, altro cliente).
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, []);
+      expect(totale.investimento).toBe(350); // 100 (c1, 15/06) + 50 (c2, 16/06) + 200 (c3, 20/06)
+    });
+
+    it("un intervallo di più settimane copre il range corretto, escludendo la settimana successiva", () => {
+      const metaDaily: MetaDailyRow[] = [
+        { data: "2026-06-29", clienteId: "alc-01", campaignId: "c1", spesa: 10, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicLink: 0 },
+        { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9, clicLink: 0 }, // stessa settimana di 06-29
+        { data: "2026-07-06", clienteId: "alc-01", campaignId: "c1", spesa: 999, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicLink: 0 }, // settimana successiva, fuori
+      ];
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-29", "2026-06-29", metaDaily, CAMPAGNE, []);
+      expect(totale.investimento).toBe(100); // 10 + 90, non 999
+    });
+
+    it("una riga RisultatoCommercialeRow ancora mensile viene esclusa (mai un dato indovinato a livello di settimana)", () => {
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
+      ];
+      const { totale, gruppi } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      expect(totale.fatturato).toBe(0); // la riga mensile non conta in modalità settimana
+      expect(gruppi.find((g) => g.tipoCampagna === "Prospecting")?.fatturato ?? 0).toBe(0);
+    });
+
+    it("una riga già a settimana dentro il range richiesto viene inclusa, una fuori range no", () => {
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 5, appuntamentiFissati: 3, appuntamentiEffettuati: 2, vendite: 1, fatturato: 1500 },
+        { periodo: "2026-06-22", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 999 },
+      ];
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      expect(totale.fatturato).toBe(1500); // solo la settimana richiesta, non 999 dell'altra
+    });
+
+    it("un intervallo di più settimane somma solo le righe settimanali comprese nel range", () => {
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06-01", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 100 },
+        { periodo: "2026-06-08", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 200 },
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 400 }, // fuori range
+      ];
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-01", "2026-06-08", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      expect(totale.fatturato).toBe(300); // 100 + 200, non 400
+    });
+  });
+
   it("un periodo senza nessuna riga MetaDaily/RisultatiCommerciali produce comunque una griglia completa di settimane, fatturato null", () => {
     // Riproduce esattamente il bug segnalato ("agosto un solo punto"): prima di questo fix, un mese
     // senza nessuna riga MetaDaily reale avrebbe restituito un array vuoto, non una griglia completa.
@@ -366,6 +413,12 @@ describe("computeKpiPerCampagna", () => {
 
     const senzaMappa = computeKpiPerCampagna("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE);
     expect(senzaMappa.every((r) => r.statoDal === null)).toBe(true);
+  });
+
+  it("con da/a a livello di settimana, filtra su un range di giorni reale (modalità settimana, 25/09/2026)", () => {
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE);
+    const c1 = righe.find((r) => r.campaignId === "c1")!;
+    expect(c1.investimento).toBe(100); // solo 15/06, non anche 01/07
   });
 
   it("una campagna con spesa ma non mappata in Campagne (o mappata su un'altra sede) viene esclusa, non mostrata con fallback", () => {

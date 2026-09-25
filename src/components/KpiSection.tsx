@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
 import { MonthRangePicker } from "@/components/MonthRangePicker";
+import { WeekRangePicker } from "@/components/WeekRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { Button } from "@/components/ui/Button";
@@ -17,9 +18,9 @@ import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
 import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
 import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
-import { attivitaInRitardo, giorniTra, oggiIso } from "@/lib/roadmap";
+import { aggiungiGiorni, attivitaInRitardo, giorniTra, oggiIso } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
-import { ultimoGiornoDelMese } from "@/lib/kpi";
+import { settimanaDiData, ultimoGiornoDelMese } from "@/lib/kpi";
 import { giornoMeseBreve } from "@/lib/format";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
@@ -56,6 +57,23 @@ function spostaMesi(mese: string, delta: number): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
+// Equivalenti di contaMesiPeriodo/spostaMesi sopra, ma per la modalità settimana del selettore
+// periodo (richiesta utente, 25/09/2026) — stesso ruolo: calcolare il periodo precedente di pari
+// durata per il confronto sotto alle tessere di sintesi.
+function contaSettimanePeriodo(da: string, a: string): number {
+  let n = 1;
+  for (let s = da; s < a; s = aggiungiGiorni(s, 7)) n++;
+  return n;
+}
+
+function spostaSettimane(settimana: string, delta: number): string {
+  return aggiungiGiorni(settimana, delta * 7);
+}
+
+function settimanaCorrente(): string {
+  return settimanaDiData(oggiIso());
+}
+
 /**
  * Testo di chiarimento sotto al selettore periodo — richiesta esplicita dell'utente (09/09/2026):
  * il filtro lavora per MESE intero (vedi computeKpi in kpi.ts, `nelPeriodo` confronta stringhe
@@ -88,10 +106,19 @@ type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ru
 export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
   const [da, setDa] = useState(meseIniziale30Giorni());
   const [a, setA] = useState(meseCorrente());
-  // Periodo precedente di pari durata (mesi), per il confronto sotto alle tessere di sintesi —
-  // vedi il commento su contaMesiPeriodo/spostaMesi sopra e SintesiTessere.tsx.
-  const aPrecedente = spostaMesi(da, -1);
-  const daPrecedente = spostaMesi(da, -contaMesiPeriodo(da, a));
+  // Modalità del selettore periodo (richiesta utente, 25/09/2026) — "mese" (default, invariato) o
+  // "settimana": decide sia quale picker renderizzare sia la forma di da/a in state (YYYY-MM vs
+  // YYYY-MM-DD di un lunedì, la stessa distinzione già rilevata al bordo di /api/kpi e /api/ghl via
+  // isPeriodoMensile). Mai sul link pubblico `code`, vedi il toggle più sotto nel render.
+  const [granularita, setGranularita] = useState<"mese" | "settimana">("mese");
+  // Periodo precedente di pari durata, per il confronto sotto alle tessere di sintesi — vedi il
+  // commento su contaMesiPeriodo/spostaMesi (mese) e contaSettimanePeriodo/spostaSettimane
+  // (settimana) sopra e SintesiTessere.tsx.
+  const aPrecedente = granularita === "settimana" ? spostaSettimane(da, -1) : spostaMesi(da, -1);
+  const daPrecedente =
+    granularita === "settimana"
+      ? spostaSettimane(da, -contaSettimanePeriodo(da, a))
+      : spostaMesi(da, -contaMesiPeriodo(da, a));
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
@@ -519,10 +546,15 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       targetFatturatoMensile: dati.sede.targetFatturatoMensile ?? null,
       investimentoPeriodo: dati.totale.investimento,
       fatturatoPeriodo: overlayGhl?.fatturato.valore ?? dati.totale.fatturato,
-      numeroMesiPeriodo: contaMesiPeriodo(da, a),
+      // In modalità settimana non c'è un vero "numero di mesi" — si passa l'equivalente in mesi del
+      // numero di settimane scelte (× 12/52, stessa conversione settimana<->mese già in uso in
+      // equivalenteMensile() di ModificaClienteModal.tsx), che confrontaTargetCommerciali usa solo
+      // come divisore per riportare investimento/fatturato del periodo a un ritmo "per mese"
+      // comparabile col target mensile — nessun cambio necessario in targetCommerciali.ts.
+      numeroMesiPeriodo: granularita === "settimana" ? (contaSettimanePeriodo(da, a) * 12) / 52 : contaMesiPeriodo(da, a),
       serieSettimanale: trendSettimanaleConOverlay.map((s) => ({ numeroLead: s.numeroLead, appuntamentiFissati: s.appuntamentiFissati })),
     });
-  }, [dati, overlayGhl, da, a, trendSettimanaleConOverlay]);
+  }, [dati, overlayGhl, da, a, granularita, trendSettimanaleConOverlay]);
 
   // Blocco 4 — Avvisi operativi: si ricalcola da solo quando cambiano periodo/campagne/sede, dato
   // che tutti gli input (dati, ghlDati, frequenzaPerCampagna, attivitaInRitardoCount) sono già
@@ -549,17 +581,57 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           durante il caricamento, mai preceduta da avvisi/banner. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <MonthRangePicker
-            da={da}
-            a={a}
-            onChange={(nDa, nA) => {
-              setDa(nDa);
-              setA(nA);
-            }}
-          />
-          {/* Il filtro lavora per mese intero: questo testo rende sempre esplicito il vero
-              intervallo di giorni incluso — vedi descrizioneIntervalloGiorni sopra sul perché. */}
-          <span className="text-xs text-ink-500">{descrizioneIntervalloGiorni(da, a)}</span>
+          {/* Toggle mese/settimana (richiesta utente, 25/09/2026) — solo vista team, mai sul link
+              pubblico `code` (stessa scelta già fatta per Target mensili/dati GHL grezzi): cambiare
+              modalità resetta da/a a un default sensato per quella grana (mai una conversione tra
+              forme diverse, che introdurrebbe casi limite poco chiari). */}
+          {!code && (
+            <Tabs
+              tabs={[
+                { id: "mese", label: "Mese" },
+                { id: "settimana", label: "Settimana" },
+              ]}
+              attivo={granularita}
+              onChange={(id) => {
+                const nuova = id as "mese" | "settimana";
+                setGranularita(nuova);
+                if (nuova === "settimana") {
+                  setDa(settimanaCorrente());
+                  setA(settimanaCorrente());
+                } else {
+                  setDa(meseIniziale30Giorni());
+                  setA(meseCorrente());
+                }
+              }}
+            />
+          )}
+
+          {granularita === "settimana" ? (
+            <WeekRangePicker
+              da={da}
+              a={a}
+              onChange={(nDa, nA) => {
+                setDa(nDa);
+                setA(nA);
+              }}
+            />
+          ) : (
+            <>
+              <MonthRangePicker
+                da={da}
+                a={a}
+                onChange={(nDa, nA) => {
+                  setDa(nDa);
+                  setA(nA);
+                }}
+              />
+              {/* Il filtro lavora per mese intero: questo testo rende sempre esplicito il vero
+                  intervallo di giorni incluso — vedi descrizioneIntervalloGiorni sopra sul perché.
+                  Non serve in modalità settimana: il picker mostra già l'esatto intervallo di
+                  giorni nel suo stesso bottone (nessuna ambiguità da chiarire). */}
+              <span className="text-xs text-ink-500">{descrizioneIntervalloGiorni(da, a)}</span>
+            </>
+          )}
 
           {dati && dati.sediDisponibili.length > 1 && (
             <Tabs

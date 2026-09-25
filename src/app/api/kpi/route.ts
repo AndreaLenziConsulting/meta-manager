@@ -13,7 +13,8 @@ import {
   getVenditori,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { chiaveCampagna, computeKpi, computeKpiPerCampagna } from "@/lib/kpi";
+import { chiaveCampagna, computeKpi, computeKpiPerCampagna, isPeriodoMensile } from "@/lib/kpi";
+import { aggiungiGiorni } from "@/lib/roadmap";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import { aggregaRisultatiVenditori } from "@/lib/venditori";
 import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
@@ -142,13 +143,17 @@ export async function GET(req: NextRequest) {
   // il filtro dell'utente e non deve mai fondere due campagne di canali diversi con lo stesso id.
   const infoCampagna = new Map(campagneSede.map((c) => [chiaveCampagna(c.canale, c.campaignId), c]));
   const campaignKeysSede = new Set(campagneSede.map((c) => chiaveCampagna(c.canale, c.campaignId)));
+  // Stessa doppia grana mese/settimana di computeKpi (selettore periodo a settimane, 25/09/2026):
+  // `da`/`a` a 10 caratteri sono già lunedì-chiave, il range reale è lunedì di `da` -> domenica di `a`.
+  const modoSettimana = !isPeriodoMensile(da);
+  const fineGiornoPeriodo = modoSettimana ? aggiungiGiorni(a, 6) : null;
   const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
     const chiave = chiaveCampagna(row.canale, row.campaignId);
     if (!campaignKeysSede.has(chiave)) continue;
-    const mese = row.data.slice(0, 7);
-    if (mese < da || mese > a) continue;
+    const nelPeriodo = modoSettimana ? row.data >= da && row.data <= fineGiornoPeriodo! : row.data.slice(0, 7) >= da && row.data.slice(0, 7) <= a;
+    if (!nelPeriodo) continue;
     if (campagneDisponibiliMap.has(chiave)) continue;
     const info = infoCampagna.get(chiave);
     campagneDisponibiliMap.set(chiave, {
@@ -178,9 +183,16 @@ export async function GET(req: NextRequest) {
           targetFatturatoMensile: sede.targetFatturatoMensile,
           categorie: categorieCommerciali.filter((c) => c.sedeId === sede.sedeId && c.attivo),
           venditori: venditoriSede.filter((v) => v.sedeId === sede.sedeId && v.attivo),
-          risultatiVenditoriPeriodo: Array.from(aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da, a).entries()).map(
-            ([venditoreId, agg]) => ({ venditoreId, ...agg })
-          ),
+          // RisultatiVenditori resta a grana mese (fuori scope per il selettore periodo a settimane,
+          // 25/09/2026, stesso limite non ancora affrontato di RisultatiCommerciali) — array vuoto in
+          // modalità settimana invece di un confronto mese-vs-settimana senza senso su
+          // RisultatoVenditoreRow.mese.
+          risultatiVenditoriPeriodo: modoSettimana
+            ? []
+            : Array.from(aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da, a).entries()).map(([venditoreId, agg]) => ({
+                venditoreId,
+                ...agg,
+              })),
         }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),
@@ -199,8 +211,11 @@ export async function GET(req: NextRequest) {
   // (vedi kpiQualita.ts): filtrato qui al periodo `da`/`a` scelto, per restare scoped come il resto
   // del pannello Avvisi operativi (blocco 4) — non filtrato per campagna selezionata: i risultati
   // commerciali sono tracciati per tipo_campagna in aggregato, non per singola campagna, "mese
-  // senza risultati per queste campagne" non sarebbe una domanda ben posta.
-  if (internal) {
+  // senza risultati per queste campagne" non sarebbe una domanda ben posta. Resta a grana mese anche
+  // in modalità settimana (fuori scope per il selettore periodo a settimane, 25/09/2026): niente
+  // avviso "settimana non compilata" in questo giro, il filtro sotto confronterebbe un mese con una
+  // settimana senza senso se eseguito comunque.
+  if (internal && !modoSettimana) {
     response.meseSenzaRisultatiCommerciali = mesiConSpesaSenzaRisultatiCommerciali(
       clienteId,
       sede.sedeId,
