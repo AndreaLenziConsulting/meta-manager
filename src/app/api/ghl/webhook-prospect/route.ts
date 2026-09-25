@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyGhlWebhookSecret } from "@/lib/auth";
-import { getCommerciali } from "@/lib/sheets";
+import { getCommerciali, getProspect } from "@/lib/sheets";
 import { creaProspectConCartellaDrive } from "@/lib/prospectCreazione";
 
 export const runtime = "nodejs";
@@ -23,10 +23,15 @@ export const runtime = "nodejs";
  *                                                       // /commerciale, così questa route non deve
  *                                                       // indovinare a chi assegnare il prospect
  * }
- * Un secondo giro di webhook con la stessa azienda crea un prospect distinto (nessuna deduplica
- * per nome): un appuntamento ripetuto per lo stesso prospect già a sistema va gestito a mano dal
- * commerciale (stesso comportamento del form di creazione manuale, mai un merge automatico che
- * rischierebbe di sovrascrivere dati già raccolti).
+ * Deduplica per email (22/09/2026, richiesta utente: "quando viene fissato un PRIMO appuntamento"
+ * — un secondo appuntamento dello stesso contatto non deve generare un secondo prospect): se arriva
+ * un `email` che combacia (case-insensitive, trim) con un prospect già esistente, non se ne crea uno
+ * nuovo — torna l'id di quello già a sistema con 200 invece di 201. Solo per email: `ragioneSociale`
+ * non è un identificatore stabile (due aziende omonime, o la stessa scritta in modo leggermente
+ * diverso da GHL). Senza `email` nel payload (campo opzionale) la deduplica non è possibile — si
+ * crea comunque un nuovo prospect, stesso comportamento di prima. MAI un merge automatico dei dati
+ * già raccolti sul prospect esistente: solo salta la creazione, il commerciale aggiorna a mano se
+ * serve (stesso principio già in uso per il form di creazione manuale).
  */
 export async function POST(req: NextRequest) {
   if (!verifyGhlWebhookSecret(req.headers.get("authorization"))) {
@@ -55,11 +60,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "commercialeId non valido" }, { status: 400 });
   }
 
+  const email = body.email?.trim();
+
   try {
-    const prospectId = await creaProspectConCartellaDrive(
-      { ragioneSociale, nomeContatto, email: body.email?.trim(), commercialeId },
-      commerciali
-    );
+    if (email) {
+      const emailNorm = email.toLowerCase();
+      const esistente = (await getProspect()).find((p) => p.email.trim().toLowerCase() === emailNorm);
+      if (esistente) {
+        return NextResponse.json({ ok: true, prospectId: esistente.prospectId, duplicato: true }, { status: 200 });
+      }
+    }
+
+    const prospectId = await creaProspectConCartellaDrive({ ragioneSociale, nomeContatto, email, commercialeId }, commerciali);
     return NextResponse.json({ ok: true, prospectId }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 502 });
