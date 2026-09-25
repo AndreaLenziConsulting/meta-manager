@@ -103,14 +103,14 @@ describe("trovaSediMigliori", () => {
 
 describe("risultatiCommercialiPerMese", () => {
   const RISULTATI_COMMERCIALI: RisultatoCommercialeRow[] = [
-    { mese: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 10, appuntamentiFissati: 5, appuntamentiEffettuati: 3, vendite: 1, fatturato: 100 },
-    { mese: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "B", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
+    { periodo: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 10, appuntamentiFissati: 5, appuntamentiEffettuati: 3, vendite: 1, fatturato: 100 },
+    { periodo: "2026-06", clienteId: "c1", sedeId: "s1", tipoCampagna: "B", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
     // altra sede dello stesso cliente nello stesso mese -> deve essere ignorata
-    { mese: "2026-06", clienteId: "c1", sedeId: "s2", tipoCampagna: "A", richieste: 99, appuntamentiFissati: 99, appuntamentiEffettuati: 99, vendite: 99, fatturato: 9999 },
+    { periodo: "2026-06", clienteId: "c1", sedeId: "s2", tipoCampagna: "A", richieste: 99, appuntamentiFissati: 99, appuntamentiEffettuati: 99, vendite: 99, fatturato: 9999 },
     // altro mese, stessa sede -> entry separata
-    { mese: "2026-07", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 50 },
+    { periodo: "2026-07", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 50 },
     // altro cliente, stessa sedeId -> deve essere ignorata
-    { mese: "2026-06", clienteId: "c2", sedeId: "s1", tipoCampagna: "A", richieste: 50, appuntamentiFissati: 50, appuntamentiEffettuati: 50, vendite: 50, fatturato: 5000 },
+    { periodo: "2026-06", clienteId: "c2", sedeId: "s1", tipoCampagna: "A", richieste: 50, appuntamentiFissati: 50, appuntamentiEffettuati: 50, vendite: 50, fatturato: 5000 },
   ];
 
   it("somma più righe RisultatiCommerciali dello stesso mese/sede (tipoCampagna diversi) e ignora altre sedi/clienti", () => {
@@ -119,6 +119,15 @@ describe("risultatiCommercialiPerMese", () => {
     expect(mappa.size).toBe(2);
     expect(mappa.get("2026-06")).toEqual({ appuntamentiFissati: 7, appuntamentiEffettuati: 4, numeroVendite: 1 });
     expect(mappa.get("2026-07")).toEqual({ appuntamentiFissati: 1, appuntamentiEffettuati: 1, numeroVendite: 1 });
+  });
+
+  it("una riga già a settimana (periodo a 10 caratteri) confluisce nel mese del suo lunedì, non sparisce", () => {
+    const conRigaSettimanale: RisultatoCommercialeRow[] = [
+      ...RISULTATI_COMMERCIALI,
+      { periodo: "2026-08-03", clienteId: "c1", sedeId: "s1", tipoCampagna: "A", richieste: 2, appuntamentiFissati: 2, appuntamentiEffettuati: 2, vendite: 2, fatturato: 200 },
+    ];
+    const mappa = risultatiCommercialiPerMese("c1", "s1", conRigaSettimanale);
+    expect(mappa.get("2026-08")).toEqual({ appuntamentiFissati: 2, appuntamentiEffettuati: 2, numeroVendite: 2 });
   });
 });
 

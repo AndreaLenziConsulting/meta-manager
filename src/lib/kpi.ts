@@ -22,6 +22,24 @@ function meseDiData(data: string): string {
   return data.slice(0, 7); // "YYYY-MM-DD" -> "YYYY-MM"
 }
 
+/** true se `periodo` (RisultatoCommercialeRow.periodo) è un mese intero ("YYYY-MM", 7 caratteri) —
+ * false se è una settimana ("YYYY-MM-DD" di un lunedì, 10 caratteri, selettore periodo a settimane
+ * 25/09/2026). Distinzione per lunghezza, mai un parsing di data: una riga mensile storica resta
+ * "YYYY-MM" per sempre, vedi il commento su RisultatoCommercialeRow in types/kpi.ts sul perché non
+ * viene mai migrata a settimana. */
+export function isPeriodoMensile(periodo: string): boolean {
+  return periodo.length === 7;
+}
+
+/** Mese di appartenenza di un `periodo` — il periodo stesso se è già un mese, altrimenti il mese del
+ * lunedì (mai quello dell'ultimo giorno della settimana) — stessa convenzione "il lunedì decide" già
+ * in uso per settimanaDiData. Usata per far confluire una riga settimanale nella vista mensile
+ * esistente (trend/gruppi per tipo_campagna), mai per il fatturato/appuntamenti mostrati a livello
+ * di singola settimana — quelli restano diretti, vedi trendSettimanaleDiretto in computeKpi. */
+export function meseDiPeriodo(periodo: string): string {
+  return isPeriodoMensile(periodo) ? periodo : periodo.slice(0, 7);
+}
+
 // export: riusata da ghl.ts per raggruppare il fatturato GHL nella stessa identica settimana
 // (lunedì-domenica) usata qui per trendSettimanale — due implementazioni indipendenti rischierebbero
 // di derivare chiavi-settimana leggermente diverse, che romperebbe silenziosamente il join fra
@@ -106,16 +124,18 @@ export type KpiComputationResult = {
   gruppi: KpiGroup[];
   totale: KpiGroup;
   trend: { mese: string; investimento: number; fatturato: number; numeroLead: number }[];
-  // fatturato qui è SEMPRE quello del mese a cui la settimana appartiene (i RisultatiCommerciali
-  // sono tracciati solo a livello mensile, non esiste un vero "fatturato della settimana") — null
-  // solo se quel mese non ha proprio un'entrata in trendMap (caso limite, non dovrebbe verificarsi
-  // dato che la settimana deriva da una riga MetaDaily che ha già popolato trendMap per lo stesso
-  // mese). `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante può
-  // avere un fatturato mensile alternativo da sovrapporre a questa settimana (vedi kpiGhlOverlay.ts).
+  // fatturato: REALE per la sua esatta settimana se esiste una RisultatoCommercialeRow già a
+  // periodo settimanale (selettore periodo a settimane, 25/09/2026, vedi trendSettimanaleDiretto in
+  // computeKpi) — altrimenti, per le settimane ancora coperte solo da righe MENSILI, resta quello
+  // del mese a cui la settimana appartiene (i RisultatiCommerciali mensili non hanno un vero
+  // "fatturato della settimana", questa è la stima già in uso: nessuna riga settimanale diretta =
+  // stesso comportamento di sempre). Null solo se quel mese non ha proprio un'entrata in trendMap
+  // (caso limite). `mese` = mese di appartenenza già risolto qui sotto — esposto perché il chiamante
+  // può avere un fatturato mensile alternativo da sovrapporre a questa settimana (vedi
+  // kpiGhlOverlay.ts).
   // appuntamentiFissati/appuntamentiEffettuati/numeroVendite seguono ESATTAMENTE lo stesso
-  // trattamento di fatturato sopra (RisultatiCommerciali mensili ripetuti su ogni settimana del
-  // mese proprietario) — servono al blocco 6 del redesign KPI (grafici "Andamento appuntamenti" e
-  // "Saldo netto cumulato"), null nello stesso identico caso limite di fatturato.
+  // trattamento di fatturato sopra — servono al blocco 6 del redesign KPI (grafici "Andamento
+  // appuntamenti" e "Saldo netto cumulato"), stesso identico caso limite di fatturato.
   trendSettimanale: {
     settimana: string;
     investimento: number;
@@ -176,11 +196,29 @@ export function computeKpi(
     string,
     { investimento: number; fatturato: number; numeroLead: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }
   >();
+  // Sottoinsieme di trendMap alimentato SOLO dalle righe mensili (mai da una riga già a settimana)
+  // — usato esclusivamente per la spalmatura sotto (trendSettimanale, settimane senza una riga
+  // diretta propria). trendMap "pieno" sopra resta la fonte di gruppi/totale/trend mensile (somma
+  // sempre tutto, a prescindere dalla grana della riga): questa mappa separata evita che il dato
+  // REALE di una singola settimana migrata venga letto come se fosse "il totale del mese intero" e
+  // ri-spalmato per errore sulle settimane sorelle che non hanno ancora un dato proprio.
+  const trendMeseSoloMensile = new Map<
+    string,
+    { fatturato: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }
+  >();
   // speesaPerMese: dentro ogni settimana, quanto investimento viene da ciascun mese — una settimana può
   // ricadere a cavallo di due mesi (bastano poche righe MetaDaily negli ultimi/primi giorni del mese), quindi
   // il solo lunedì della settimana non basta per decidere di quale mese mostrare il fatturato (tracciato solo
   // a livello mensile): si usa il mese con più spesa in quella settimana.
   const trendSettimanaleMap = new Map<string, { investimento: number; numeroLead: number; spesaPerMese: Map<string, number> }>();
+  // Righe RisultatoCommercialeRow già a livello di settimana (periodo a 10 caratteri) — join DIRETTO
+  // per settimana, mai spalmato sul mese come il resto (vedi il blocco sotto che costruisce
+  // trendSettimanale): solo per le settimane che hanno una riga reale, le altre del periodo
+  // continuano a usare la spalmatura esistente basata su trendMap/spesaPerMese.
+  const trendSettimanaleDiretto = new Map<
+    string,
+    { fatturato: number; appuntamentiFissati: number; appuntamentiEffettuati: number; numeroVendite: number }
+  >();
 
   // Una entry per OGNI settimana del periodo, non solo quelle con almeno una riga MetaDaily reale
   // — altrimenti un mese con poca spesa sincronizzata avrebbe pochi o un solo punto nel grafico
@@ -228,7 +266,12 @@ export function computeKpi(
   for (const row of risultatiCommerciali) {
     if (row.clienteId !== clienteId) continue;
     if (row.sedeId !== sedeId) continue;
-    if (!nelPeriodo(row.mese)) continue;
+    // Una riga settimanale confluisce nella vista mensile (gruppi/trend) sotto il mese del suo
+    // lunedì — vedi meseDiPeriodo. Il filtro periodo resta a livello di mese qui: computeKpi riceve
+    // sempre daMese/aMese a mese intero (il caso settimana-vs-settimana ha il suo proprio filtro più
+    // sotto, sul valore diretto di trendSettimanaleDiretto).
+    const meseRiga = meseDiPeriodo(row.periodo);
+    if (!nelPeriodo(meseRiga)) continue;
 
     const tipoCampagna = row.tipoCampagna || NON_CLASSIFICATA;
     if (tipiConCampagnaSelezionata && !tipiConCampagnaSelezionata.has(tipoCampagna)) continue;
@@ -242,12 +285,30 @@ export function computeKpi(
     gruppiMap.set(tipoCampagna, gruppo);
 
     const trendEntry =
-      trendMap.get(row.mese) ?? { investimento: 0, fatturato: 0, numeroLead: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
+      trendMap.get(meseRiga) ?? { investimento: 0, fatturato: 0, numeroLead: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
     trendEntry.fatturato += row.fatturato;
     trendEntry.appuntamentiFissati += row.appuntamentiFissati;
     trendEntry.appuntamentiEffettuati += row.appuntamentiEffettuati;
     trendEntry.numeroVendite += row.vendite;
-    trendMap.set(row.mese, trendEntry);
+    trendMap.set(meseRiga, trendEntry);
+
+    if (isPeriodoMensile(row.periodo)) {
+      const soloMensileEntry =
+        trendMeseSoloMensile.get(meseRiga) ?? { fatturato: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
+      soloMensileEntry.fatturato += row.fatturato;
+      soloMensileEntry.appuntamentiFissati += row.appuntamentiFissati;
+      soloMensileEntry.appuntamentiEffettuati += row.appuntamentiEffettuati;
+      soloMensileEntry.numeroVendite += row.vendite;
+      trendMeseSoloMensile.set(meseRiga, soloMensileEntry);
+    } else {
+      const settimanaEntry =
+        trendSettimanaleDiretto.get(row.periodo) ?? { fatturato: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
+      settimanaEntry.fatturato += row.fatturato;
+      settimanaEntry.appuntamentiFissati += row.appuntamentiFissati;
+      settimanaEntry.appuntamentiEffettuati += row.appuntamentiEffettuati;
+      settimanaEntry.numeroVendite += row.vendite;
+      trendSettimanaleDiretto.set(row.periodo, settimanaEntry);
+    }
   }
 
   const gruppi = Array.from(gruppiMap.values())
@@ -274,6 +335,24 @@ export function computeKpi(
 
   const trendSettimanale = Array.from(trendSettimanaleMap.entries())
     .map(([settimana, v]) => {
+      // Una riga RisultatoCommercialeRow già a livello di questa esatta settimana esiste: usa quel
+      // dato DIRETTO, reale — mai spalmato dal mese (selettore periodo a settimane, 25/09/2026).
+      const diretto = trendSettimanaleDiretto.get(settimana);
+      if (diretto) {
+        return {
+          settimana,
+          investimento: v.investimento,
+          numeroLead: v.numeroLead,
+          fatturato: diretto.fatturato,
+          appuntamentiFissati: diretto.appuntamentiFissati,
+          appuntamentiEffettuati: diretto.appuntamentiEffettuati,
+          numeroVendite: diretto.numeroVendite,
+          mese: settimana.slice(0, 7),
+        };
+      }
+
+      // Nessuna riga settimanale diretta per questa settimana: stessa spalmatura di sempre da una
+      // riga mensile (o nessun dato affatto, fatturato null sotto).
       // Default: il mese del lunedì stesso — usato quando la settimana non ha nessuna riga
       // MetaDaily reale (placeholder aggiunto sopra per completare la griglia). spesaMax parte da 0
       // (non -1): una spesa reale di 0€ in un mese non deve scavalcare questo default a torto.
@@ -285,19 +364,25 @@ export function computeKpi(
           meseProprietario = mese;
         }
       }
+      // trendMeseSoloMensile (non trendMap): quest'ultima ora può contenere anche righe già a
+      // settimana di ALTRE settimane dello stesso mese (selettore periodo a settimane, 25/09/2026)
+      // — usarla qui spalmerebbe il dato REALE di una settimana specifica sulle sue sorelle come se
+      // fosse un totale mensile, esattamente il falso dato che questa spalmatura esiste per evitare.
+      // trendMeseSoloMensile isola solo il contributo delle righe mensili vere.
+      const meseSoloMensile = trendMeseSoloMensile.get(meseProprietario);
       return {
         settimana,
         investimento: v.investimento,
         numeroLead: v.numeroLead,
-        // i RisultatiCommerciali sono tracciati solo a livello mensile: il fatturato mostrato per
-        // una settimana è quello del mese con più spesa in quella settimana (vedi nota sopra su
-        // spesaPerMese).
-        fatturato: trendMap.get(meseProprietario)?.fatturato ?? null,
+        // i RisultatiCommerciali mensili sono tracciati solo a livello mensile: il fatturato
+        // mostrato per una settimana è quello del mese con più spesa in quella settimana (vedi nota
+        // sopra su spesaPerMese).
+        fatturato: meseSoloMensile?.fatturato ?? null,
         // Stesso trattamento di fatturato sopra — dato mensile ripetuto sul mese proprietario
         // della settimana (vedi tipo KpiComputationResult per il perché).
-        appuntamentiFissati: trendMap.get(meseProprietario)?.appuntamentiFissati ?? null,
-        appuntamentiEffettuati: trendMap.get(meseProprietario)?.appuntamentiEffettuati ?? null,
-        numeroVendite: trendMap.get(meseProprietario)?.numeroVendite ?? null,
+        appuntamentiFissati: meseSoloMensile?.appuntamentiFissati ?? null,
+        appuntamentiEffettuati: meseSoloMensile?.appuntamentiEffettuati ?? null,
+        numeroVendite: meseSoloMensile?.numeroVendite ?? null,
         // Esposto (non solo usato internamente per il lookup sopra) perché il chiamante può avere
         // un fatturato mensile alternativo da sovrapporre a questa settimana (vedi
         // kpiGhlOverlay.ts) — senza saperne il mese di appartenenza non saprebbe quale usare.

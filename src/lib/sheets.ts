@@ -1559,7 +1559,13 @@ export async function getRisultatiCommerciali(opts?: { noCache?: boolean }): Pro
   return rows
     .filter((r) => r[0])
     .map((r) => ({
-      mese: normalizeMese(r[0]),
+      // normalizeData (non normalizeMese, che tronca sempre a 7 caratteri) — colonna A ora può
+      // contenere un mese ("YYYY-MM", 7 caratteri) o una settimana ("YYYY-MM-DD" di un lunedì, 10
+      // caratteri, selettore periodo a settimane 25/09/2026): un "YYYY-MM" digitato a mano non
+      // somiglia mai a una data valida per Sheets, quindi resta testo (mai convertito in seriale) e
+      // arriva qui già a 7 caratteri — un numero seriale qui vuol dire sempre che la cella era una
+      // data COMPLETA. Vedi isPeriodoMensile in lib/kpi.ts per come i consumer distinguono i due casi.
+      periodo: normalizeData(r[0]),
       clienteId: asText(r[1]),
       tipoCampagna: asText(r[2]),
       richieste: toNumber(r[3]),

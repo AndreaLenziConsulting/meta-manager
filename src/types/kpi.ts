@@ -215,11 +215,18 @@ export type MetaDailyRow = {
 };
 
 // "RisultatiCommerciali" — deliberatamente non "Funnel": qui non c'è nessuna forma a imbuto, solo
-// i risultati commerciali reali (richieste/appuntamenti/vendite/fatturato) inseriti a mano ogni
-// mese, il nome precedente confondeva con "Funnel di conversione" (quello sì un vero imbuto,
+// i risultati commerciali reali (richieste/appuntamenti/vendite/fatturato) inseriti a mano, il nome
+// precedente confondeva con "Funnel di conversione" (quello sì un vero imbuto,
 // FunnelConversioneChart.tsx, non toccato da questo rinominamento) — richiesta esplicita dell'utente.
 export type RisultatoCommercialeRow = {
-  mese: string; // YYYY-MM
+  // "YYYY-MM" (un mese intero, righe storiche) O "YYYY-MM-DD" di un LUNEDÌ (una settimana, righe
+  // nuove — selettore periodo a settimane, 25/09/2026) — stessa colonna A del foglio, distinta per
+  // lunghezza della stringa (7 vs 10), vedi isPeriodoMensile/meseDiPeriodo in lib/kpi.ts. Deliberatamente
+  // NON una migrazione delle righe storiche a settimana: un mese già inserito non si può dividere in
+  // 4 settimane senza inventare come si distribuisce il totale (vedi il commento su
+  // spesaPerMese/meseProprietario in kpi.ts) — le righe mensili restano tali per sempre, il passaggio
+  // a settimana avviene solo per le righe scritte da ora in poi.
+  periodo: string;
   clienteId: string;
   sedeId: string; // inserito a mano insieme al resto della riga — non derivabile da nient'altro
   tipoCampagna: string;

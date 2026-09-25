@@ -1,3 +1,4 @@
+import { meseDiPeriodo } from "@/lib/kpi";
 import type { Campagna, RisultatoCommercialeRow, MetaDailyRow } from "@/types/kpi";
 
 export type MeseSenzaRisultatiCommerciali = { mese: string; investimento: number };
@@ -29,9 +30,12 @@ export function mesiConSpesaSenzaRisultatiCommerciali(
 
   // Un mese con ALMENO una riga RisultatiCommerciali (anche con tutti i campi a 0) non è un gap:
   // il team ha compilato il dato, semplicemente non è successo nulla. Solo l'assenza totale di
-  // righe conta.
+  // righe conta. meseDiPeriodo (non r.periodo diretto): una riga già a livello di settimana compila
+  // comunque il mese del suo lunedì, selettore periodo a settimane 25/09/2026 — vedi kpi.ts.
   const mesiConDato = new Set(
-    risultatiCommerciali.filter((r) => r.clienteId === clienteId && r.sedeId === sedeId).map((r) => r.mese)
+    risultatiCommerciali
+      .filter((r) => r.clienteId === clienteId && r.sedeId === sedeId)
+      .map((r) => meseDiPeriodo(r.periodo))
   );
 
   const risultato: MeseSenzaRisultatiCommerciali[] = [];

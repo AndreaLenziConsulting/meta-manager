@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo } from "./kpi";
+import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo, isPeriodoMensile, meseDiPeriodo } from "./kpi";
 import type { Campagna, RisultatoCommercialeRow, MetaDailyRow } from "@/types/kpi";
 
 const SEDE = "s1";
@@ -23,9 +23,22 @@ const META_DAILY: MetaDailyRow[] = [
 ];
 
 const RISULTATI_COMMERCIALI: RisultatoCommercialeRow[] = [
-  { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
-  { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Retargeting", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
+  { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
+  { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Retargeting", richieste: 3, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 0 },
 ];
+
+describe("isPeriodoMensile / meseDiPeriodo", () => {
+  it("un periodo a 7 caratteri è un mese, a 10 caratteri è una settimana", () => {
+    expect(isPeriodoMensile("2026-06")).toBe(true);
+    expect(isPeriodoMensile("2026-06-15")).toBe(false);
+  });
+
+  it("meseDiPeriodo torna il periodo stesso per un mese, il mese del lunedì per una settimana", () => {
+    expect(meseDiPeriodo("2026-06")).toBe("2026-06");
+    expect(meseDiPeriodo("2026-06-15")).toBe("2026-06");
+    expect(meseDiPeriodo("2026-06-29")).toBe("2026-06"); // settimana a cavallo -> il mese è quello del lunedì, non di domenica (2026-07-05)
+  });
+});
 
 describe("computeKpi", () => {
   it("aggrega investimento/lead per tipo_campagna nel periodo richiesto", () => {
@@ -132,8 +145,8 @@ describe("computeKpi", () => {
       { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9, clicLink: 0 },
     ];
     const risultatiCommerciali: RisultatoCommercialeRow[] = [
-      { mese: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
-      { mese: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
+      { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 1000 },
+      { periodo: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 5000 },
     ];
     const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-07", metaDaily, CAMPAGNE, risultatiCommerciali);
 
@@ -158,6 +171,77 @@ describe("computeKpi", () => {
       appuntamentiEffettuati: 0,
       numeroVendite: 0,
       mese: "2026-06",
+    });
+  });
+
+  describe("RisultatoCommercialeRow.periodo a livello di settimana (selettore periodo a settimane, 25/09/2026)", () => {
+    it("una riga già a settimana (periodo a 10 caratteri, un lunedì) va SOLO in quella settimana, mai spalmata sulle altre settimane dello stesso mese", () => {
+      // 2026-06-15 è un lunedì. Nessuna riga MENSILE per giugno: solo quella settimana ha un dato
+      // reale, le altre settimane di giugno restano a null (nessun dato, non uno zero inventato) —
+      // dimostra che il dato diretto non "fuoriesce" verso le settimane sorelle.
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 3, appuntamentiEffettuati: 2, vendite: 1, fatturato: 1500 },
+      ];
+      const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, risultatiCommerciali);
+
+      const settimana15 = trendSettimanale.find((t) => t.settimana === "2026-06-15")!;
+      expect(settimana15.fatturato).toBe(1500);
+      expect(settimana15.appuntamentiFissati).toBe(3);
+      expect(settimana15.numeroVendite).toBe(1);
+
+      const settimana01 = trendSettimanale.find((t) => t.settimana === "2026-06-01")!;
+      expect(settimana01.fatturato).toBeNull(); // nessuna riga diretta e nessuna riga mensile per giugno -> dato assente, non 0
+      expect(settimana01.appuntamentiFissati).toBeNull();
+    });
+
+    it("una riga a settimana E una riga mensile nello stesso mese: il totale del mese le somma entrambe, ma la spalmatura sulle altre settimane usa SOLO la riga mensile (mai il dato reale della settimana migrata)", () => {
+      // Scenario di transizione: una settimana già migrata convive con il resto del mese ancora a
+      // riga unica. Il totale del mese (gruppi/trend) è la somma vera di entrambe le righe — ma le
+      // ALTRE settimane (senza riga diretta propria) devono continuare a mostrare solo il vecchio
+      // dato mensile spalmato (4000), MAI il dato reale della settimana 15 travestito da media
+      // mensile: quel numero appartiene solo alla settimana 15.
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 4000 },
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 3, appuntamentiEffettuati: 2, vendite: 1, fatturato: 1500 },
+      ];
+      const { gruppi, trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, risultatiCommerciali);
+
+      const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
+      expect(prospecting.fatturato).toBe(5500); // 4000 (mensile) + 1500 (settimanale) sommati, mai persi
+
+      const settimana15 = trendSettimanale.find((t) => t.settimana === "2026-06-15")!;
+      expect(settimana15.fatturato).toBe(1500); // il dato DIRETTO di quella settimana, non il totale mensile
+
+      const settimana01 = trendSettimanale.find((t) => t.settimana === "2026-06-01")!;
+      expect(settimana01.fatturato).toBe(4000); // solo la riga mensile, mai 4000+1500: quel 1500 è già mostrato sulla sua settimana
+    });
+
+    it("una riga a settimana confluisce comunque nel gruppo/trend del mese del suo lunedì, in una query a mese", () => {
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 5, appuntamentiFissati: 3, appuntamentiEffettuati: 2, vendite: 1, fatturato: 1500 },
+      ];
+      const { gruppi, trend } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      const prospecting = gruppi.find((g) => g.tipoCampagna === "Prospecting")!;
+      expect(prospecting.fatturato).toBe(1500);
+      expect(prospecting.numeroVendite).toBe(1);
+
+      const giugno = trend.find((t) => t.mese === "2026-06")!;
+      expect(giugno.fatturato).toBe(1500);
+
+      // Una settimana il cui lunedì cade FUORI dal mese richiesto non deve comparire.
+      const vuoto = computeKpi("alc-01", SEDE, "2026-07", "2026-07", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      expect(vuoto.totale.fatturato).toBe(0);
+    });
+
+    it("più righe settimanali (tipoCampagna diverse) per la stessa settimana si sommano, mai l'ultima sovrascrive", () => {
+      const risultatiCommerciali: RisultatoCommercialeRow[] = [
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
+        { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Retargeting", richieste: 0, appuntamentiFissati: 2, appuntamentiEffettuati: 1, vendite: 0, fatturato: 500 },
+      ];
+      const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06", "2026-06", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      const settimana15 = trendSettimanale.find((t) => t.settimana === "2026-06-15")!;
+      expect(settimana15.fatturato).toBe(1500);
+      expect(settimana15.appuntamentiFissati).toBe(3);
     });
   });
 
@@ -210,8 +294,8 @@ describe("computeKpi", () => {
       { data: "2026-06-10", clienteId: "multi", campaignId: "s2-c1", spesa: 500, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 50, clicLink: 0 },
     ];
     const risultatiCommercialiDueSedi: RisultatoCommercialeRow[] = [
-      { mese: "2026-06", clienteId: "multi", sedeId: "sede-1", tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
-      { mese: "2026-06", clienteId: "multi", sedeId: "sede-2", tipoCampagna: "Prospecting", richieste: 9, appuntamentiFissati: 9, appuntamentiEffettuati: 9, vendite: 9, fatturato: 9000 },
+      { periodo: "2026-06", clienteId: "multi", sedeId: "sede-1", tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 1000 },
+      { periodo: "2026-06", clienteId: "multi", sedeId: "sede-2", tipoCampagna: "Prospecting", richieste: 9, appuntamentiFissati: 9, appuntamentiEffettuati: 9, vendite: 9, fatturato: 9000 },
     ];
 
     it("computeKpi vede solo la spesa/lead/risultati commerciali della sede richiesta", () => {

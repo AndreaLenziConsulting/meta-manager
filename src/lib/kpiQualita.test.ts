@@ -36,7 +36,7 @@ function metaRow(overrides: Partial<MetaDailyRow> = {}): MetaDailyRow {
 
 function risultatoCommercialeRow(overrides: Partial<RisultatoCommercialeRow> = {}): RisultatoCommercialeRow {
   return {
-    mese: "2026-06",
+    periodo: "2026-06",
     clienteId: CLIENTE,
     sedeId: SEDE,
     tipoCampagna: "lead",
@@ -63,7 +63,7 @@ describe("mesiConSpesaSenzaRisultatiCommerciali", () => {
   it("NON segnala un mese che ha una riga RisultatiCommerciali anche se tutti i suoi valori sono 0", () => {
     const campagne = [campagna()];
     const metaDaily = [metaRow({ data: "2026-06-10", spesa: 100 })];
-    const risultatiCommerciali = [risultatoCommercialeRow({ mese: "2026-06" })]; // tutti i campi già a 0 di default
+    const risultatiCommerciali = [risultatoCommercialeRow({ periodo: "2026-06" })]; // tutti i campi già a 0 di default
 
     const risultato = mesiConSpesaSenzaRisultatiCommerciali(CLIENTE, SEDE, metaDaily, campagne, risultatiCommerciali);
 
@@ -83,8 +83,8 @@ describe("mesiConSpesaSenzaRisultatiCommerciali", () => {
     ];
     // RisultatiCommerciali di un'altra sede/cliente per lo stesso mese: non deve coprire il gap della sede target.
     const risultatiCommerciali = [
-      risultatoCommercialeRow({ mese: "2026-06", sedeId: "sede-2" }),
-      risultatoCommercialeRow({ mese: "2026-06", clienteId: "cliente-2" }),
+      risultatoCommercialeRow({ periodo: "2026-06", sedeId: "sede-2" }),
+      risultatoCommercialeRow({ periodo: "2026-06", clienteId: "cliente-2" }),
     ];
 
     const risultato = mesiConSpesaSenzaRisultatiCommerciali(CLIENTE, SEDE, metaDaily, campagne, risultatiCommerciali);
@@ -95,11 +95,21 @@ describe("mesiConSpesaSenzaRisultatiCommerciali", () => {
   it("nessun gap -> array vuoto", () => {
     const campagne = [campagna()];
     const metaDaily = [metaRow({ data: "2026-06-10", spesa: 100 }), metaRow({ data: "2026-07-10", spesa: 200 })];
-    const risultatiCommerciali = [risultatoCommercialeRow({ mese: "2026-06" }), risultatoCommercialeRow({ mese: "2026-07" })];
+    const risultatiCommerciali = [risultatoCommercialeRow({ periodo: "2026-06" }), risultatoCommercialeRow({ periodo: "2026-07" })];
 
     const risultato = mesiConSpesaSenzaRisultatiCommerciali(CLIENTE, SEDE, metaDaily, campagne, risultatiCommerciali);
 
     expect(risultato).toEqual([]);
+  });
+
+  it("una riga già a settimana (periodo a 10 caratteri) compila comunque il mese del suo lunedì", () => {
+    const campagne = [campagna()];
+    const metaDaily = [metaRow({ data: "2026-06-10", spesa: 100 })];
+    const risultatiCommerciali = [risultatoCommercialeRow({ periodo: "2026-06-15" })]; // un lunedì di giugno
+
+    const risultato = mesiConSpesaSenzaRisultatiCommerciali(CLIENTE, SEDE, metaDaily, campagne, risultatiCommerciali);
+
+    expect(risultato).toEqual([]); // giugno risulta compilato, non un gap
   });
 
   it("più mesi con gap -> ordinati cronologicamente", () => {

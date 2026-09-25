@@ -1,4 +1,4 @@
-import { divideOrNull } from "@/lib/kpi";
+import { divideOrNull, meseDiPeriodo } from "@/lib/kpi";
 import type { PuntoSettimanale } from "@/lib/kpiSettimanale";
 import type { RisultatoCommercialeRow } from "@/types/kpi";
 
@@ -103,6 +103,10 @@ export function trovaSediMigliori(righe: { sedeId: string; valore: number | null
  * Appuntamenti fissati/effettuati e vendite per mese di una sede — stessa attribuzione diretta
  * clienteId+sedeId usata da computeKpi in kpi.ts. Un cliente+sede+mese può avere più righe
  * RisultatiCommerciali (una per tipoCampagna): tutte vengono sommate nell'entry di quel mese.
+ * meseDiPeriodo (non row.periodo diretto): questa tabella resta sempre a grana mese (nessun
+ * selettore settimana qui, vedi serieCostoMensileRipetutaPerSettimana sotto) — una riga già a
+ * livello di settimana (selettore periodo a settimane, 25/09/2026) confluisce comunque nel mese del
+ * suo lunedì, invece di sparire silenziosamente dal confronto sedi.
  */
 export function risultatiCommercialiPerMese(
   clienteId: string,
@@ -114,11 +118,12 @@ export function risultatiCommercialiPerMese(
     if (row.clienteId !== clienteId) continue;
     if (row.sedeId !== sedeId) continue;
 
-    const entry = mappa.get(row.mese) ?? { appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
+    const mese = meseDiPeriodo(row.periodo);
+    const entry = mappa.get(mese) ?? { appuntamentiFissati: 0, appuntamentiEffettuati: 0, numeroVendite: 0 };
     entry.appuntamentiFissati += row.appuntamentiFissati;
     entry.appuntamentiEffettuati += row.appuntamentiEffettuati;
     entry.numeroVendite += row.vendite;
-    mappa.set(row.mese, entry);
+    mappa.set(mese, entry);
   }
   return mappa;
 }

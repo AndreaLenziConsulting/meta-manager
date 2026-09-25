@@ -129,7 +129,7 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
       // la granularità mensile stessa, non solo quella settimanale all'interno del mese).
       const mesiTrend = Array.from(new Set(kpiResponse.trend.map((t) => t.mese)));
       const risultatiSintetici: RisultatoCommercialeRow[] = mesiTrend.map((mese) => ({
-        mese,
+        periodo: mese,
         clienteId,
         sedeId: sede.sedeId,
         tipoCampagna: "",
