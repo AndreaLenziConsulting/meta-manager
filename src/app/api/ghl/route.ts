@@ -20,6 +20,17 @@ import {
 import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
+// Senza questo, la route usa il default del piano Vercel (troppo basso) — bug reale osservato dal
+// vivo (25/09/2026, segnalato dall'utente: dashboard di Andrea Lenzi Consulting a zero ovunque):
+// fetchContattiSenzaTag (Fase "Senza cluster") pagina l'INTERA location GHL alla ricerca dei
+// contatti senza tag, e su questa sede il volume di contatti storici/non taggati è cresciuto da
+// ~22 a ~3800 in pochi giorni — misurato dal vivo, la chiamata completa ora richiede ~28s. Senza un
+// maxDuration esplicito la route andava in timeout in produzione, /api/ghl falliva silenziosamente
+// e la dashboard ripiegava sui soli dati manuali (RisultatiCommerciali, non compilati per il
+// periodo) mostrando zero ovunque anche se GHL aveva appuntamenti/vendite reali. 90s = margine
+// abbondante sopra i 28s misurati, stesso principio già in uso per le altre route lente di questo
+// progetto (report-commerciale/estrai, meeting/estrai).
+export const maxDuration = 90;
 
 function meseCorrente(): string {
   return new Date().toISOString().slice(0, 7);
