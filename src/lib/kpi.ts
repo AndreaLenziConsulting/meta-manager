@@ -60,6 +60,21 @@ export function ultimoGiornoDelMese(mese: string): string {
   return new Date(Date.UTC(anno, m, 1) - 1).toISOString().slice(0, 10);
 }
 
+/**
+ * Porta `da`/`a` a un intervallo di GIORNI (YYYY-MM-DD, entrambi inclusi) — selettore periodo in
+ * stile Meta (26/09/2026): un input a 7 caratteri è ancora un mese intero (chiamanti storici come
+ * PacingTargetChart.tsx/PacingVenditoriChart.tsx con `da = a = meseCorrente()`, vecchi link) e
+ * diventa 1° -> ultimo giorno del mese; a 10 caratteri è già un giorno e passa invariato. Vive qui
+ * (non in periodo.ts) perché computeKpi/computeKpiPerCampagna la usano all'ingresso — un import da
+ * periodo.ts creerebbe un ciclo (periodo.ts importa già settimanaDiData/ultimoGiornoDelMese da qui).
+ */
+export function normalizzaIntervallo(da: string, a: string): { da: string; a: string } {
+  return {
+    da: isPeriodoMensile(da) ? `${da}-01` : da,
+    a: isPeriodoMensile(a) ? ultimoGiornoDelMese(a) : a,
+  };
+}
+
 /** Lunedì della settimana successiva a `settimana` (YYYY-MM-DD, un lunedì) — solo per scandire la griglia di settimane sotto. */
 function settimanaSuccessiva(settimana: string): string {
   return aggiungiGiorni(settimana, 7);
@@ -152,14 +167,15 @@ export type KpiComputationResult = {
  * (richieste/appuntamenti/vendite/fatturato) per una singola sede di un cliente, nella finestra
  * [da, a] inclusiva, raggruppando per tipo_campagna.
  *
- * `da`/`a` sono O due mesi ("YYYY-MM", il modo storico) O due lunedì di settimana ("YYYY-MM-DD",
- * selettore periodo a settimane, 25/09/2026) — SEMPRE la stessa grana per entrambi, rilevata da
- * isPeriodoMensile(da). In modalità settimana: MetaDaily è filtrato su un range di giorni REALE
- * (lunedì di `da` -> domenica di `a`, stessa precisione già in uso in computeSpesaLeadPeriodo sotto)
- * invece che per mese; RisultatiCommerciali considera SOLO le righe già a periodo settimanale il cui
- * lunedì cade in [da, a] — una riga ancora mensile non è attribuibile a una settimana specifica, va
- * esclusa (mai un numero indovinato: il tipo_campagna in questione mostrerà onestamente 0 finché non
- * viene compilata la riga settimanale, stesso comportamento già oggi per un mese senza alcuna riga).
+ * `da`/`a` sono due giorni qualsiasi (YYYY-MM-DD, selettore periodo in stile Meta, 26/09/2026) o —
+ * per compatibilità coi chiamanti storici — due mesi ("YYYY-MM"), portati a giorni da
+ * normalizzaIntervallo. Un solo modello a giorni: MetaDaily è filtrato su `row.data` (stessa
+ * precisione già in uso in computeSpesaLeadPeriodo sotto); una riga RisultatiCommerciali conta SOLO
+ * se il suo periodo (mese intero o settimana lunedì-domenica) è INTERAMENTE contenuto in [da, a] —
+ * un periodo coperto solo in parte viene escluso, mai una proration inventata (scelta esplicita
+ * dell'utente): il tipo_campagna mostrerà onestamente 0, stesso comportamento già oggi per un mese
+ * senza alcuna riga. Con un intervallo a mesi interi (i preset "Questo mese"/"Mese scorso", i
+ * chiamanti a mese) il risultato è identico a prima di questa generalizzazione.
  *
  * Se `campagneSelezionate` è passato, filtra le righe MetaDaily a quelle campagne; un tipo_campagna
  * lato RisultatiCommerciali resta incluso per intero finché almeno una delle sue campagne è nel set
@@ -176,7 +192,7 @@ export function computeKpi(
   risultatiCommerciali: RisultatoCommercialeRow[],
   campagneSelezionate?: Set<string>
 ): KpiComputationResult {
-  const modoSettimana = !isPeriodoMensile(da);
+  const { da: inizio, a: fine } = normalizzaIntervallo(da, a);
   const campagneCliente = campagne.filter((c) => c.clienteId === clienteId && c.sedeId === sedeId);
   // Chiave canale::campaignId (vedi chiaveCampagna) — non il solo campaignId: due campagne di
   // canali diversi con lo stesso campaignId non devono mai fondersi nella stessa voce.
@@ -233,27 +249,20 @@ export function computeKpi(
   // — altrimenti un mese con poca spesa sincronizzata avrebbe pochi o un solo punto nel grafico
   // (bug segnalato: "agosto ne ha solo 1??"), e i confini mese del grafico non avrebbero settimane
   // vicine su cui allinearsi. Investimento/numeroLead partono da 0, sovrascritti sotto se esistono
-  // righe MetaDaily reali per quella settimana. In modalità settimana `da`/`a` sono già le chiavi-
-  // lunedì di inizio/fine, nessuna derivazione da un mese necessaria.
-  const primaSettimana = modoSettimana ? da : settimanaDiData(`${da}-01`);
-  const ultimaSettimana = modoSettimana ? a : settimanaDiData(ultimoGiornoDelMese(a));
+  // righe MetaDaily reali per quella settimana. Griglia = tutte le settimane toccate da [inizio, fine].
+  const primaSettimana = settimanaDiData(inizio);
+  const ultimaSettimana = settimanaDiData(fine);
   for (let s = primaSettimana; s <= ultimaSettimana; s = settimanaSuccessiva(s)) {
     trendSettimanaleMap.set(s, { investimento: 0, numeroLead: 0, spesaPerMese: new Map() });
   }
-
-  const nelPeriodoMese = (mese: string) => mese >= da && mese <= a;
-  // Solo in modalità settimana: `a` è già un lunedì, la domenica di fine periodo è +6 giorni —
-  // stessa precisione di giorno reale già usata in computeSpesaLeadPeriodo sotto.
-  const fineGiornoPeriodo = modoSettimana ? aggiungiGiorni(a, 6) : null;
 
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
     const chiave = chiaveCampagna(row.canale, row.campaignId);
     if (!campaignKeysSede.has(chiave)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
+    if (row.data < inizio || row.data > fine) continue;
     const mese = meseDiData(row.data);
-    const nelPeriodo = modoSettimana ? row.data >= da && row.data <= fineGiornoPeriodo! : nelPeriodoMese(mese);
-    if (!nelPeriodo) continue;
 
     const tipoCampagna = tipoPerCampagna.get(chiave) ?? NON_CLASSIFICATA;
     const gruppo = gruppiMap.get(tipoCampagna) ?? nuovoGruppoVuoto(tipoCampagna);
@@ -281,20 +290,16 @@ export function computeKpi(
     if (row.clienteId !== clienteId) continue;
     if (row.sedeId !== sedeId) continue;
 
-    // In modalità settimana: SOLO le righe già a periodo settimanale contano, e solo se il loro
-    // lunedì cade nel range [da, a] (entrambi già lunedì-chiave, confronto diretto) — una riga
-    // ancora mensile non è divisibile in settimane, va esclusa qui (vedi il commento in cima alla
-    // funzione). In modalità mese: comportamento Fase 1 invariato, una riga settimanale confluisce
-    // sotto il mese del suo lunedì (meseDiPeriodo).
-    let meseRiga: string;
-    if (modoSettimana) {
-      if (isPeriodoMensile(row.periodo)) continue;
-      if (row.periodo < da || row.periodo > a) continue;
-      meseRiga = row.periodo.slice(0, 7);
-    } else {
-      meseRiga = meseDiPeriodo(row.periodo);
-      if (!nelPeriodoMese(meseRiga)) continue;
-    }
+    // Una riga manuale conta SOLO se il suo periodo è interamente contenuto in [inizio, fine] —
+    // riga mensile: dal 1° all'ultimo giorno del mese; riga settimanale: lunedì -> domenica. Un
+    // periodo coperto solo in parte viene escluso (vedi il commento in cima alla funzione). Il mese
+    // di appartenenza (per gruppi/trend) resta quello del lunedì per una riga settimanale
+    // (meseDiPeriodo).
+    const mensile = isPeriodoMensile(row.periodo);
+    const inizioRiga = mensile ? `${row.periodo}-01` : row.periodo;
+    const fineRiga = mensile ? ultimoGiornoDelMese(row.periodo) : aggiungiGiorni(row.periodo, 6);
+    if (inizioRiga < inizio || fineRiga > fine) continue;
+    const meseRiga = meseDiPeriodo(row.periodo);
 
     const tipoCampagna = row.tipoCampagna || NON_CLASSIFICATA;
     if (tipiConCampagnaSelezionata && !tipiConCampagnaSelezionata.has(tipoCampagna)) continue;
@@ -420,9 +425,8 @@ export function computeKpi(
 /**
  * Spesa/lead per singola campagna (non aggregati per tipo) — solo le metriche derivate da Meta Ads,
  * dato che i RisultatiCommerciali (vendite, fatturato, ecc.) sono tracciati solo per tipo_campagna,
- * non per campagna. `da`/`a`: stessa doppia grana mese/settimana di computeKpi sopra (rilevata da
- * isPeriodoMensile(da)) — MetaDaily è sempre giornaliero alla fonte, qui basta scegliere il confronto
- * giusto (mese vs range di giorni reale).
+ * non per campagna. `da`/`a`: stesso intervallo di giorni (o mesi, normalizzati) di computeKpi sopra
+ * — MetaDaily è sempre giornaliero alla fonte, il filtro è un semplice confronto su `row.data`.
  */
 export function computeKpiPerCampagna(
   clienteId: string,
@@ -438,9 +442,7 @@ export function computeKpiPerCampagna(
   const infoCampagna = new Map(campagneSede.map((c) => [chiaveCampagna(c.canale, c.campaignId), c]));
   const campaignKeysSede = new Set(campagneSede.map((c) => chiaveCampagna(c.canale, c.campaignId)));
 
-  const modoSettimana = !isPeriodoMensile(da);
-  const fineGiornoPeriodo = modoSettimana ? aggiungiGiorni(a, 6) : null;
-  const nelPeriodo = (row: MetaDailyRow) => (modoSettimana ? row.data >= da && row.data <= fineGiornoPeriodo! : meseDiData(row.data) >= da && meseDiData(row.data) <= a);
+  const { da: inizio, a: fine } = normalizzaIntervallo(da, a);
   const righeMap = new Map<
     string,
     { campaignId: string; canale: Canale; investimento: number; impressions: number; numeroLead: number; clicLink: number }
@@ -451,7 +453,7 @@ export function computeKpiPerCampagna(
     const chiave = chiaveCampagna(row.canale, row.campaignId);
     if (!campaignKeysSede.has(chiave)) continue;
     if (campagneSelezionate && !campagneSelezionate.has(row.campaignId)) continue;
-    if (!nelPeriodo(row)) continue;
+    if (row.data < inizio || row.data > fine) continue;
 
     const entry =
       righeMap.get(chiave) ??

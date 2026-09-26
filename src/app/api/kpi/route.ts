@@ -13,8 +13,7 @@ import {
   getVenditori,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { chiaveCampagna, computeKpi, computeKpiPerCampagna, isPeriodoMensile } from "@/lib/kpi";
-import { aggiungiGiorni } from "@/lib/roadmap";
+import { chiaveCampagna, computeKpi, computeKpiPerCampagna, normalizzaIntervallo } from "@/lib/kpi";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import { aggregaRisultatiVenditori } from "@/lib/venditori";
 import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
@@ -30,8 +29,11 @@ export async function GET(req: NextRequest) {
   const code = searchParams.get("code");
   const clienteIdParam = searchParams.get("clienteId");
   const sedeIdParam = searchParams.get("sedeId");
-  const da = searchParams.get("da") || meseCorrente();
-  const a = searchParams.get("a") || meseCorrente();
+  // da/a: un mese ("YYYY-MM", chiamanti storici come PacingTargetChart.tsx e vecchi link) o un
+  // giorno ("YYYY-MM-DD", selettore periodo in stile Meta, 26/09/2026) — normalizzati subito a un
+  // intervallo di giorni (vedi normalizzaIntervallo in lib/kpi.ts): da qui in poi sono sempre due
+  // giorni inclusi, e `periodo` in risposta li restituisce in questa forma.
+  const { da, a } = normalizzaIntervallo(searchParams.get("da") || meseCorrente(), searchParams.get("a") || meseCorrente());
   const campagneParam = searchParams.get("campagne");
   const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
   // Filtro canale (Meta/Google Ads — Fase 1 del redesign multi-canale, 12/09/2026): a differenza di
@@ -143,17 +145,12 @@ export async function GET(req: NextRequest) {
   // il filtro dell'utente e non deve mai fondere due campagne di canali diversi con lo stesso id.
   const infoCampagna = new Map(campagneSede.map((c) => [chiaveCampagna(c.canale, c.campaignId), c]));
   const campaignKeysSede = new Set(campagneSede.map((c) => chiaveCampagna(c.canale, c.campaignId)));
-  // Stessa doppia grana mese/settimana di computeKpi (selettore periodo a settimane, 25/09/2026):
-  // `da`/`a` a 10 caratteri sono già lunedì-chiave, il range reale è lunedì di `da` -> domenica di `a`.
-  const modoSettimana = !isPeriodoMensile(da);
-  const fineGiornoPeriodo = modoSettimana ? aggiungiGiorni(a, 6) : null;
   const campagneDisponibiliMap = new Map<string, CampagnaDisponibile>();
   for (const row of metaDaily) {
     if (row.clienteId !== clienteId) continue;
     const chiave = chiaveCampagna(row.canale, row.campaignId);
     if (!campaignKeysSede.has(chiave)) continue;
-    const nelPeriodo = modoSettimana ? row.data >= da && row.data <= fineGiornoPeriodo! : row.data.slice(0, 7) >= da && row.data.slice(0, 7) <= a;
-    if (!nelPeriodo) continue;
+    if (row.data < da || row.data > a) continue;
     if (campagneDisponibiliMap.has(chiave)) continue;
     const info = infoCampagna.get(chiave);
     campagneDisponibiliMap.set(chiave, {
@@ -183,16 +180,13 @@ export async function GET(req: NextRequest) {
           targetFatturatoMensile: sede.targetFatturatoMensile,
           categorie: categorieCommerciali.filter((c) => c.sedeId === sede.sedeId && c.attivo),
           venditori: venditoriSede.filter((v) => v.sedeId === sede.sedeId && v.attivo),
-          // RisultatiVenditori resta a grana mese (fuori scope per il selettore periodo a settimane,
-          // 25/09/2026, stesso limite non ancora affrontato di RisultatiCommerciali) — array vuoto in
-          // modalità settimana invece di un confronto mese-vs-settimana senza senso su
-          // RisultatoVenditoreRow.mese.
-          risultatiVenditoriPeriodo: modoSettimana
-            ? []
-            : Array.from(aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da, a).entries()).map(([venditoreId, agg]) => ({
-                venditoreId,
-                ...agg,
-              })),
+          // RisultatiVenditori resta a grana mese (fuori scope, stesso limite di RisultatiCommerciali
+          // prima della doppia forma `periodo`): si passano i MESI toccati dall'intervallo di giorni,
+          // un mese coperto anche solo in parte conta per intero — approssimazione nota di quel tab,
+          // vedi PacingVenditoriChart.tsx.
+          risultatiVenditoriPeriodo: Array.from(
+            aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da.slice(0, 7), a.slice(0, 7)).entries()
+          ).map(([venditoreId, agg]) => ({ venditoreId, ...agg })),
         }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),
@@ -211,18 +205,19 @@ export async function GET(req: NextRequest) {
   // (vedi kpiQualita.ts): filtrato qui al periodo `da`/`a` scelto, per restare scoped come il resto
   // del pannello Avvisi operativi (blocco 4) — non filtrato per campagna selezionata: i risultati
   // commerciali sono tracciati per tipo_campagna in aggregato, non per singola campagna, "mese
-  // senza risultati per queste campagne" non sarebbe una domanda ben posta. Resta a grana mese anche
-  // in modalità settimana (fuori scope per il selettore periodo a settimane, 25/09/2026): niente
-  // avviso "settimana non compilata" in questo giro, il filtro sotto confronterebbe un mese con una
-  // settimana senza senso se eseguito comunque.
-  if (internal && !modoSettimana) {
+  // senza risultati per queste campagne" non sarebbe una domanda ben posta. Resta a grana mese
+  // (nessun avviso "settimana non compilata", fuori scope): si mostrano i mesi TOCCATI
+  // dall'intervallo di giorni scelto.
+  if (internal) {
+    const meseDa = da.slice(0, 7);
+    const meseA = a.slice(0, 7);
     response.meseSenzaRisultatiCommerciali = mesiConSpesaSenzaRisultatiCommerciali(
       clienteId,
       sede.sedeId,
       metaDaily,
       campagne,
       risultatiCommerciali
-    ).filter((m) => m.mese >= da && m.mese <= a);
+    ).filter((m) => m.mese >= meseDa && m.mese <= meseA);
   }
 
   return NextResponse.json(response);

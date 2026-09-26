@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { isPeriodoMensile } from "@/lib/kpi";
-import { aggiungiGiorni } from "@/lib/roadmap";
+import { normalizzaIntervallo } from "@/lib/kpi";
 import {
   appuntamentiGhlPerSettimana,
   breakdownGhlPerCampagna,
@@ -79,12 +78,10 @@ export async function GET(req: NextRequest) {
   const searchParams = req.nextUrl.searchParams;
   const clienteId = searchParams.get("clienteId");
   const sedeIdParam = searchParams.get("sedeId");
-  // da/a in formato YYYY-MM (mese) O YYYY-MM-DD di un lunedì (settimana, selettore periodo a
-  // settimane 25/09/2026) — stessa doppia grana di /api/kpi (isPeriodoMensile(da) decide quale),
-  // stesso valore passato da KpiSection.tsx per entrambe le route.
-  const da = searchParams.get("da") || meseCorrente();
-  const a = searchParams.get("a") || meseCorrente();
-  const modoSettimana = !isPeriodoMensile(da);
+  // da/a: un mese ("YYYY-MM", chiamanti storici come PacingTargetChart.tsx) o un giorno
+  // ("YYYY-MM-DD", selettore periodo in stile Meta, 26/09/2026) — normalizzati a due giorni inclusi
+  // esattamente come /api/kpi (stesso valore passato da KpiSection.tsx a entrambe le route).
+  const { da, a } = normalizzaIntervallo(searchParams.get("da") || meseCorrente(), searchParams.get("a") || meseCorrente());
   // Stesso parametro/formato del filtro campagne di /api/kpi (campaignId separati da virgola) —
   // qui scoped appuntamenti/opportunità ai soli contatti attribuiti a queste campagne (vedi
   // mappaCampagnaPerContatto), invece di disattivare il pannello GHL come prima di questa feature.
@@ -113,22 +110,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(risposta);
   }
 
-  // In modalità settimana `da`/`a` sono già lunedì-chiave (stesso formato di settimanaDiData in
-  // kpi.ts): l'intervallo reale è lunedì di `da` 00:00 -> domenica di `a` 23:59:59.999 — stesso
-  // snap-to-week-boundary già usato dentro fetchContattiSenzaTag/fatturatoGhlPerSettimana in
-  // ghl.ts, spostato qui al bordo della route invece che ricostruito lì da un mese.
-  let startMs: number;
-  let endMs: number;
-  if (modoSettimana) {
-    startMs = new Date(`${da}T00:00:00Z`).getTime();
-    endMs = new Date(`${aggiungiGiorni(a, 6)}T23:59:59.999Z`).getTime();
-  } else {
-    startMs = new Date(`${da}-01T00:00:00Z`).getTime();
-    // Fine dell'ultimo giorno del mese `a`: primo istante del mese successivo meno 1ms, corretto per
-    // qualunque lunghezza di mese senza bisogno di sapere quanti giorni ha.
-    const [annoA, meseANum] = a.split("-").map(Number);
-    endMs = Date.UTC(annoA, meseANum, 1) - 1;
-  }
+  // Intervallo di giorni inclusi: primo istante di `da` -> ultimo istante di `a` (UTC, come tutte le
+  // chiavi-giorno dell'app).
+  const startMs = new Date(`${da}T00:00:00Z`).getTime();
+  const endMs = new Date(`${a}T23:59:59.999Z`).getTime();
 
   try {
     const [{ appuntamenti, calendariFalliti }, opportunitaGrezze, categorieConTag, venditoriConGhl] = await Promise.all([

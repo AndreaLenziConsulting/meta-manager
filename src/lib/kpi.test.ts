@@ -245,11 +245,11 @@ describe("computeKpi", () => {
     });
   });
 
-  describe("computeKpi con da/a a livello di settimana (modalità settimana del selettore periodo, 25/09/2026)", () => {
+  describe("computeKpi con da/a a giorni (intervallo qualsiasi, selettore periodo in stile Meta, 26/09/2026)", () => {
     it("filtra MetaDaily su un range di giorni reale, non sull'intero mese", () => {
-      // 2026-06-15 è un lunedì; la settimana finisce domenica 2026-06-21. META_DAILY ha righe il
-      // 15/16/20 giugno (dentro la settimana) e altre fuori (01 luglio, 01 maggio, altro cliente).
-      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, []);
+      // Settimana 2026-06-15 (lunedì) → 2026-06-21 (domenica). META_DAILY ha righe il 15/16/20
+      // giugno (dentro) e altre fuori (01 luglio, 01 maggio, altro cliente).
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-21", META_DAILY, CAMPAGNE, []);
       expect(totale.investimento).toBe(350); // 100 (c1, 15/06) + 50 (c2, 16/06) + 200 (c3, 20/06)
     });
 
@@ -259,26 +259,36 @@ describe("computeKpi", () => {
         { data: "2026-07-01", clienteId: "alc-01", campaignId: "c1", spesa: 90, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 9, clicLink: 0 }, // stessa settimana di 06-29
         { data: "2026-07-06", clienteId: "alc-01", campaignId: "c1", spesa: 999, impressions: 1, clicks: 1, ctr: 1, cpc: 1, cpm: 1, lead: 1, clicLink: 0 }, // settimana successiva, fuori
       ];
-      const { totale } = computeKpi("alc-01", SEDE, "2026-06-29", "2026-06-29", metaDaily, CAMPAGNE, []);
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-29", "2026-07-05", metaDaily, CAMPAGNE, []);
       expect(totale.investimento).toBe(100); // 10 + 90, non 999
     });
 
-    it("una riga RisultatoCommercialeRow ancora mensile viene esclusa (mai un dato indovinato a livello di settimana)", () => {
+    it("una riga RisultatoCommercialeRow mensile conta SOLO se il mese è interamente contenuto (mai una proration inventata)", () => {
       const risultatiCommerciali: RisultatoCommercialeRow[] = [
         { periodo: "2026-06", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 4000 },
+        { periodo: "2026-07", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 999 },
       ];
-      const { totale, gruppi } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, risultatiCommerciali);
-      expect(totale.fatturato).toBe(0); // la riga mensile non conta in modalità settimana
-      expect(gruppi.find((g) => g.tipoCampagna === "Prospecting")?.fatturato ?? 0).toBe(0);
+      // Una settimana dentro giugno: il mese non è contenuto -> escluso.
+      const settimana = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-21", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      expect(settimana.totale.fatturato).toBe(0);
+      expect(settimana.gruppi.find((g) => g.tipoCampagna === "Prospecting")?.fatturato ?? 0).toBe(0);
+      // "Ultimi 30 giorni" a cavallo: né giugno né luglio interi -> nessuna delle due righe.
+      expect(computeKpi("alc-01", SEDE, "2026-06-10", "2026-07-05", META_DAILY, CAMPAGNE, risultatiCommerciali).totale.fatturato).toBe(0);
+      // Giugno intero a giorni espliciti: identico al chiamante a mese ("2026-06","2026-06").
+      expect(computeKpi("alc-01", SEDE, "2026-06-01", "2026-06-30", META_DAILY, CAMPAGNE, risultatiCommerciali).totale.fatturato).toBe(4000);
+      // Da metà giugno a fine luglio: solo luglio è intero.
+      expect(computeKpi("alc-01", SEDE, "2026-06-15", "2026-07-31", META_DAILY, CAMPAGNE, risultatiCommerciali).totale.fatturato).toBe(999);
     });
 
-    it("una riga già a settimana dentro il range richiesto viene inclusa, una fuori range no", () => {
+    it("una riga già a settimana conta solo se la sua settimana (lunedì→domenica) è interamente contenuta", () => {
       const risultatiCommerciali: RisultatoCommercialeRow[] = [
         { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 5, appuntamentiFissati: 3, appuntamentiEffettuati: 2, vendite: 1, fatturato: 1500 },
         { periodo: "2026-06-22", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 1, appuntamentiFissati: 1, appuntamentiEffettuati: 1, vendite: 1, fatturato: 999 },
       ];
-      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-21", META_DAILY, CAMPAGNE, risultatiCommerciali);
       expect(totale.fatturato).toBe(1500); // solo la settimana richiesta, non 999 dell'altra
+      // Un intervallo che copre la settimana del 15 solo in parte (finisce di giovedì) non la include.
+      expect(computeKpi("alc-01", SEDE, "2026-06-15", "2026-06-18", META_DAILY, CAMPAGNE, risultatiCommerciali).totale.fatturato).toBe(0);
     });
 
     it("un intervallo di più settimane somma solo le righe settimanali comprese nel range", () => {
@@ -287,8 +297,14 @@ describe("computeKpi", () => {
         { periodo: "2026-06-08", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 200 },
         { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 400 }, // fuori range
       ];
-      const { totale } = computeKpi("alc-01", SEDE, "2026-06-01", "2026-06-08", META_DAILY, CAMPAGNE, risultatiCommerciali);
+      const { totale } = computeKpi("alc-01", SEDE, "2026-06-01", "2026-06-14", META_DAILY, CAMPAGNE, risultatiCommerciali);
       expect(totale.fatturato).toBe(300); // 100 + 200, non 400
+    });
+
+    it("la griglia di trendSettimanale copre tutte le settimane toccate da un intervallo che inizia a metà settimana", () => {
+      // Da mercoledì 2026-06-10 a domenica 2026-06-21: settimane del 08 e del 15.
+      const { trendSettimanale } = computeKpi("alc-01", SEDE, "2026-06-10", "2026-06-21", META_DAILY, CAMPAGNE, []);
+      expect(trendSettimanale.map((t) => t.settimana)).toEqual(["2026-06-08", "2026-06-15"]);
     });
   });
 
@@ -415,8 +431,8 @@ describe("computeKpiPerCampagna", () => {
     expect(senzaMappa.every((r) => r.statoDal === null)).toBe(true);
   });
 
-  it("con da/a a livello di settimana, filtra su un range di giorni reale (modalità settimana, 25/09/2026)", () => {
-    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06-15", "2026-06-15", META_DAILY, CAMPAGNE);
+  it("con da/a a giorni, filtra su un range di giorni reale (selettore periodo in stile Meta, 26/09/2026)", () => {
+    const righe = computeKpiPerCampagna("alc-01", SEDE, "2026-06-15", "2026-06-21", META_DAILY, CAMPAGNE);
     const c1 = righe.find((r) => r.campaignId === "c1")!;
     expect(c1.investimento).toBe(100); // solo 15/06, non anche 01/07
   });
