@@ -78,6 +78,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // kpiGhlOverlay.ts per il perché di quali tessere sì e quali no. null = nessun dato GHL
   // disponibile (non connesso, filtro campagne attivo, o fetch non ancora arrivato).
   const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
+  // true se l'ultimo fetch di /api/ghl è fallito (risposta non ok o eccezione) — distingue "dati
+  // GHL non ancora arrivati" da "GHL non disponibile" per gli avvisi operativi (vedi
+  // generaAvvisiOperativi: ghlAtteso/ghlErrore). Azzerato a ogni nuovo fetch.
+  const [ghlErrore, setGhlErrore] = useState(false);
   // Stesse due variabili ma per il periodo precedente (confronto sotto alle tessere) — null finché
   // il rispettivo fetch non è arrivato o se non c'è un periodo precedente comparabile.
   const [datiPrecedenti, setDatiPrecedenti] = useState<KpiResponse | null>(null);
@@ -237,16 +241,22 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       .then(() => {
         if (!clienteId || !haConnessioneGhl || !sedeGhl) {
           setGhlDati(null);
+          setGhlErrore(false);
           return undefined;
         }
+        setGhlErrore(false);
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
         if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
-          .then((res) => (res.ok ? res.json() : null))
+          .then((res) => {
+            setGhlErrore(!res.ok);
+            return res.ok ? res.json() : null;
+          })
           .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        setGhlErrore(true);
         setGhlDati(null);
       });
     return () => controller.abort();
@@ -491,11 +501,13 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       attivitaInRitardoCount,
       meseSenzaRisultatiCommerciali: dati.meseSenzaRisultatiCommerciali ?? [],
       ghl: ghlDati,
+      ghlAtteso: Boolean(haConnessioneGhl),
+      ghlErrore,
       campagneFrequenzaAlta,
       inserzioniOutlier,
       confrontoTarget,
     });
-  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, campagneFrequenzaAlta, inserzioniOutlier, confrontoTarget]);
+  }, [clienteId, dati, attivitaInRitardoCount, ghlDati, haConnessioneGhl, ghlErrore, campagneFrequenzaAlta, inserzioniOutlier, confrontoTarget]);
 
   return (
     <div className="viz-root space-y-6">

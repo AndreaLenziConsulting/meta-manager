@@ -50,6 +50,15 @@ export function generaAvvisiOperativi(input: {
   attivitaInRitardoCount: number;
   meseSenzaRisultatiCommerciali: MeseSenzaRisultatiCommerciali[];
   ghl: GhlRiepilogoResponse | null;
+  // La sede HA una connessione GHL attiva (KpiSection: haConnessioneGhl) anche quando `ghl` è
+  // ancora null — fetch in corso (può durare secondi) o fallito. Finché GHL è la fonte attesa,
+  // "Risultati Commerciali non compilati" non va mai mostrato: sarebbe un falso positivo per tutta
+  // la durata del caricamento (bug segnalato 27/09/2026: il cliente usa GHL ma vedeva l'avviso).
+  // Opzionale (default false) per non toccare i test/chiamanti esistenti.
+  ghlAtteso?: boolean;
+  // true se il fetch di /api/ghl è FALLITO (non solo in corso): avviso dedicato, invece di lasciare
+  // che la dashboard sembri semplicemente a zero senza spiegazione.
+  ghlErrore?: boolean;
   campagneFrequenzaAlta: { nomeCampagna: string; frequenza: number }[];
   inserzioniOutlier: InserzioneOutlier[];
   confrontoTarget: ConfrontoTargetCommerciali;
@@ -158,7 +167,11 @@ export function generaAvvisiOperativi(input: {
   // vuoto in quel caso è atteso, non un gap da segnalare: il team lavora con GHL, non a mano sul
   // foglio RisultatiCommerciali. Senza questo controllo l'avviso era un falso positivo per ogni
   // cliente GHL pienamente configurato (bug segnalato dal vivo su un cliente reale).
-  const ghlCompilaAutomaticamente = Boolean(input.ghl && input.ghl.connesso && input.ghl.calendariConfigurati);
+  // `ghlAtteso && !input.ghl`: GHL c'è ma la risposta non è (ancora) arrivata — stesso trattamento,
+  // vedi il commento sul campo. Se invece è arrivata con calendari NON configurati, l'avviso resta
+  // (gli appuntamenti vengono davvero dal foglio in quel caso, vedi l'avviso dedicato sotto).
+  const ghlCompilaAutomaticamente =
+    Boolean(input.ghl && input.ghl.connesso && input.ghl.calendariConfigurati) || Boolean(input.ghlAtteso && !input.ghl);
   if (input.meseSenzaRisultatiCommerciali.length > 0 && !ghlCompilaAutomaticamente) {
     const mesi = input.meseSenzaRisultatiCommerciali.map((m) => formatMese(m.mese)).join(", ");
     avvisi.push({
@@ -166,6 +179,16 @@ export function generaAvvisiOperativi(input: {
       tono: "da-sistemare",
       titolo: "Risultati commerciali non compilati",
       messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${mesi}.`,
+    });
+  }
+
+  if (input.ghlAtteso && input.ghlErrore && !input.ghl) {
+    avvisi.push({
+      id: "ghl-non-disponibile",
+      tono: "da-sistemare",
+      titolo: "Dati GHL non disponibili",
+      messaggio:
+        "Il collegamento GHL non ha risposto: appuntamenti, vendite, fatturato e cluster mostrano solo quanto inserito a mano. Ricarica la pagina; se persiste, verifica la connessione in Modifica cliente.",
     });
   }
 

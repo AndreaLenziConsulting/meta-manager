@@ -67,6 +67,10 @@ export function PacingTargetChart({
 }) {
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
+  // Stato del fetch GHL sotto: finché è "caricamento" i blocchi per cluster NON vengono disegnati
+  // (mostrerebbero 0/79 per qualche secondo, letto dall'utente come "non misura i cluster" — bug
+  // segnalato 27/09/2026); "errore" mostra una nota esplicita invece di zeri silenziosi.
+  const [ghlStato, setGhlStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -111,16 +115,22 @@ export function PacingTargetChart({
       .then(() => {
         if (!haConnessioneGhl) {
           setGhlDati(null);
+          setGhlStato("ok");
           return undefined;
         }
+        setGhlStato("caricamento");
         const mese = meseCorrente();
         const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese });
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
-          .then((res) => (res.ok ? res.json() : null))
+          .then((res) => {
+            setGhlStato(res.ok ? "ok" : "errore");
+            return res.ok ? res.json() : null;
+          })
           .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        setGhlStato("errore");
         setGhlDati(null);
       });
     return () => controller.abort();
@@ -192,14 +202,21 @@ export function PacingTargetChart({
   }
 
   const fraz = giorniNelMese > 0 ? Math.min(giornoDelMese / giorniNelMese, 1) : 0;
+  const ghlInCaricamento = Boolean(haConnessioneGhl) && ghlStato === "caricamento";
+  const ghlFallito = Boolean(haConnessioneGhl) && ghlStato === "errore";
 
   return (
     <div className="space-y-4">
       <p className="text-xs text-ink-500">
         Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.
       </p>
+      {ghlInCaricamento && <p className="text-xs text-ink-500">Dati GHL in caricamento… i blocchi per cluster compaiono tra pochi secondi.</p>}
+      {ghlFallito && (
+        <p className="text-xs text-red-600">Dati GHL non disponibili: i cluster mostrano solo i Risultati Commerciali inseriti a mano.</p>
+      )}
       <div className="space-y-5">
-        {blocchiCategoria.map(({ categoria, metriche, daGhl }) => (
+        {!ghlInCaricamento &&
+          blocchiCategoria.map(({ categoria, metriche, daGhl }) => (
           <BloccoPacing
             key={categoria.categoriaId}
             titolo={categoria.nome}
@@ -207,7 +224,7 @@ export function PacingTargetChart({
             metriche={metriche}
             fraz={fraz}
           />
-        ))}
+          ))}
         {senzaClusterHaDati && senzaCluster && <BloccoSenzaCluster dati={senzaCluster} />}
         <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
       </div>

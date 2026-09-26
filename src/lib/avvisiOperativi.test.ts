@@ -135,6 +135,39 @@ describe("generaAvvisiOperativi", () => {
     expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeDefined();
   });
 
+  it("sede con GHL atteso ma risposta non ancora arrivata (ghl null) -> nessun avviso 'non compilati' (falso positivo durante il caricamento, bug 27/09/2026)", () => {
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      meseSenzaRisultatiCommerciali: [{ mese: "2026-06", investimento: 100 }],
+      ghl: null,
+      ghlAtteso: true,
+    });
+    expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeUndefined();
+    expect(avvisi.find((a) => a.id === "ghl-non-disponibile")).toBeUndefined(); // in corso, non fallito
+  });
+
+  it("sede con GHL atteso e fetch fallito -> avviso 'Dati GHL non disponibili' al posto di 'non compilati'", () => {
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      meseSenzaRisultatiCommerciali: [{ mese: "2026-06", investimento: 100 }],
+      ghl: null,
+      ghlAtteso: true,
+      ghlErrore: true,
+    });
+    expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeUndefined();
+    expect(avvisi.find((a) => a.id === "ghl-non-disponibile")?.tono).toBe("da-sistemare");
+  });
+
+  it("senza GHL atteso, ghlErrore non genera nulla e 'non compilati' resta", () => {
+    const avvisi = generaAvvisiOperativi({
+      ...INPUT_VUOTO,
+      meseSenzaRisultatiCommerciali: [{ mese: "2026-06", investimento: 100 }],
+      ghlErrore: true,
+    });
+    expect(avvisi.find((a) => a.id === "ghl-non-disponibile")).toBeUndefined();
+    expect(avvisi.find((a) => a.id === "risultati-commerciali-mancanti")).toBeDefined();
+  });
+
   it("GHL connesso senza calendari configurati -> da-sistemare", () => {
     const ghl: GhlRiepilogoResponse = {
       connesso: true,

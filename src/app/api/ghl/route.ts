@@ -8,8 +8,8 @@ import {
   breakdownGhlPerCampagna,
   fatturatoGhlPerSettimana,
   fetchAppuntamenti,
+  contaContattiSenzaTagNelPeriodo,
   fetchContattiPerTag,
-  fetchContattiSenzaTag,
   fetchOpportunita,
   mappaCampagnaPerContatto,
   primoAppuntamentoPerContatto,
@@ -17,20 +17,18 @@ import {
   riepilogoOpportunita,
   riepilogoPerTag,
   riepilogoPerVenditoreGhl,
+  riepilogoSenzaTag,
 } from "@/lib/ghl";
 import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
-// Senza questo, la route usa il default del piano Vercel (troppo basso) — bug reale osservato dal
-// vivo (25/09/2026, segnalato dall'utente: dashboard di Andrea Lenzi Consulting a zero ovunque):
-// fetchContattiSenzaTag (Fase "Senza cluster") pagina l'INTERA location GHL alla ricerca dei
-// contatti senza tag, e su questa sede il volume di contatti storici/non taggati è cresciuto da
-// ~22 a ~3800 in pochi giorni — misurato dal vivo, la chiamata completa ora richiede ~28s. Senza un
-// maxDuration esplicito la route andava in timeout in produzione, /api/ghl falliva silenziosamente
-// e la dashboard ripiegava sui soli dati manuali (RisultatiCommerciali, non compilati per il
-// periodo) mostrando zero ovunque anche se GHL aveva appuntamenti/vendite reali. 90s = margine
-// abbondante sopra i 28s misurati, stesso principio già in uso per le altre route lente di questo
-// progetto (report-commerciale/estrai, meeting/estrai).
+// Rete di sicurezza, non più il fix principale: il 25/09/2026 questa route arrivava a ~40s (la
+// vecchia fetchContattiSenzaTag paginava l'intera location, ~3.800 contatti importati in blocco) e
+// senza un maxDuration esplicito andava in timeout in produzione — dashboard di Andrea Lenzi
+// Consulting a zero ovunque. Dal 27/09/2026 il conteggio "senza cluster" è una sola chiamata (vedi
+// contaContattiSenzaTagNelPeriodo in lib/ghl.ts) e la route torna nell'ordine dei secondi; 90s resta
+// per le sedi con molti calendari/opportunità (fetchAppuntamenti/fetchOpportunita paginano
+// comunque), stesso principio delle altre route lente del progetto (report-commerciale/estrai).
 export const maxDuration = 90;
 
 function meseCorrente(): string {
@@ -60,9 +58,9 @@ function meseCorrente(): string {
  *
  * `senzaTag` (20/09/2026, segnalato dall'utente: i totali di sede non coincidevano con la somma dei
  * blocchi per categoria) — il complemento di `perTag`: contatti/appuntamenti/opportunità senza
- * NESSUNO dei tag configurati, fetchContattiSenzaTag in lib/ghl.ts (filtro `not_contains`,
- * verificato con una chiamata reale). Nessun target: solo per non far sparire in silenzio numeri
- * che il totale sede include ma nessun cluster cattura.
+ * NESSUNO dei tag configurati — contaContattiSenzaTagNelPeriodo (una sola chiamata di conteggio) +
+ * riepilogoSenzaTag (complemento locale dei contatti taggati) in lib/ghl.ts. Nessun target: solo
+ * per non far sparire in silenzio numeri che il totale sede include ma nessun cluster cattura.
  *
  * `perVenditore` (Fase 4, 11/2026) — stesso principio ma per venditore, join su
  * assignedUserId/assignedTo (già presenti sugli oggetti GHL, zero chiamate in più a differenza di
@@ -139,32 +137,32 @@ export async function GET(req: NextRequest) {
     const opportunitaVinte = opportunitaGrezze.filter((o) => o.status === "won");
     const mappaCampagna = mappaCampagnaPerContatto(opportunitaGrezze);
 
-    // Fase 3: un /contacts/search per categoria (in parallelo, tipicamente 1-3 chiamate — "fino a 3
-    // categorie per sede" di Fase 1) — MAI sullo scoping `campagne` sopra: il tag GHL è un'assegnazione
-    // di cluster indipendente dall'attribuzione a campagna Meta, stesso perimetro "tutta la sede" di
-    // perCampagna/appuntamentiPrimi/opportunitaVinte, non delle versioni "Scoped" sotto.
-    const vociPerTag = await Promise.all(
-      categorieConTag.map(async (categoria) => {
-        const contattiTag = await fetchContattiPerTag(connessione.locationId, connessione.privateToken, categoria.tagGhl.trim());
-        return [categoria.categoriaId, riepilogoPerTag(contattiTag, appuntamentiPrimi, opportunitaVinte, startMs, endMs)] as [
-          string,
-          GhlBreakdownTag,
-        ];
-      })
-    );
-    const perTag = Object.fromEntries(vociPerTag);
+    // Fase 3: un /contacts/search per categoria + UNA chiamata di conteggio per "senza cluster",
+    // tutte in parallelo (tipicamente 2-4 chiamate — "fino a 3 categorie per sede" di Fase 1) — MAI
+    // sullo scoping `campagne` sopra: il tag GHL è un'assegnazione di cluster indipendente
+    // dall'attribuzione a campagna Meta, stesso perimetro "tutta la sede" di perCampagna/
+    // appuntamentiPrimi/opportunitaVinte, non delle versioni "Scoped" sotto.
+    const tags = categorieConTag.map((c) => c.tagGhl.trim());
+    const [contattiPerCategoria, richiesteSenzaTag] = await Promise.all([
+      Promise.all(tags.map((tag) => fetchContattiPerTag(connessione.locationId, connessione.privateToken, tag))),
+      categorieConTag.length > 0
+        ? contaContattiSenzaTagNelPeriodo(connessione.locationId, connessione.privateToken, tags, startMs, endMs)
+        : Promise.resolve(0),
+    ]);
+    const perTag: Record<string, GhlBreakdownTag> = {};
+    const idTaggati = new Set<string>();
+    categorieConTag.forEach((categoria, i) => {
+      const contattiTag = contattiPerCategoria[i];
+      for (const c of contattiTag) idTaggati.add(c.id);
+      perTag[categoria.categoriaId] = riepilogoPerTag(contattiTag, appuntamentiPrimi, opportunitaVinte, startMs, endMs);
+    });
 
     // Complemento di perTag sopra (segnalato dall'utente, 20/09/2026) — solo se la sede ha almeno
     // una categoria con tag configurato: senza nessun cluster definito, "senza cluster" non è una
-    // domanda sensata. Un contatto "senza cluster" è per definizione escluso da OGNI tag già
-    // interrogato sopra — riuso categorieConTag.map(tagGhl) invariato, non serve un secondo giro.
+    // domanda sensata. Vedi riepilogoSenzaTag/contaContattiSenzaTagNelPeriodo in lib/ghl.ts.
     const senzaTag =
       categorieConTag.length > 0
-        ? await fetchContattiSenzaTag(
-            connessione.locationId,
-            connessione.privateToken,
-            categorieConTag.map((c) => c.tagGhl.trim())
-          ).then((contatti) => riepilogoPerTag(contatti, appuntamentiPrimi, opportunitaVinte, startMs, endMs))
+        ? riepilogoSenzaTag(richiesteSenzaTag, idTaggati, appuntamentiPrimi, opportunitaVinte, startMs, endMs)
         : undefined;
 
     // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti

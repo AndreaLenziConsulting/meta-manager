@@ -12,6 +12,7 @@ import {
   riepilogoPerVenditoreGhl,
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
+import { riepilogoSenzaTag } from "./ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
   return {
@@ -366,6 +367,33 @@ describe("breakdownGhlPerCampagna", () => {
 
   it("nessuna campagna nella mappa -> oggetto vuoto", () => {
     expect(breakdownGhlPerCampagna([], [], new Map(), AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual({});
+  });
+});
+
+describe("riepilogoSenzaTag", () => {
+  const startMs = Date.parse("2026-06-01T00:00:00Z");
+  const endMs = Date.parse("2026-06-30T23:59:59.999Z");
+  const ora = Date.parse("2026-06-20T00:00:00Z");
+
+  it("conta appuntamenti/opportunità SOLO dei contatti fuori da ogni set taggato; richieste passa così com'è", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "taggato", dateAdded: "2026-06-10T10:00:00.000Z", startTime: "2026-06-12T10:00:00.000Z", appointmentStatus: "confirmed" }),
+      appuntamento({ id: "a2", contactId: "senza-tag", dateAdded: "2026-06-11T10:00:00.000Z", startTime: "2026-06-13T10:00:00.000Z", appointmentStatus: "confirmed" }),
+      appuntamento({ id: "a3", contactId: "vecchio-senza-tag", dateAdded: "2026-06-15T10:00:00.000Z", startTime: "2026-06-25T10:00:00.000Z", appointmentStatus: "confirmed" }),
+    ];
+    const elencoOpportunita = [
+      opportunita({ id: "o1", contactId: "taggato", status: "won", lastStatusChangeAt: "2026-06-11T10:00:00.000Z", monetaryValue: 1000 }),
+      opportunita({ id: "o2", contactId: "senza-tag", status: "won", lastStatusChangeAt: "2026-06-12T10:00:00.000Z", monetaryValue: 500 }),
+    ];
+    const r = riepilogoSenzaTag(7, new Set(["taggato"]), appuntamenti, elencoOpportunita, startMs, endMs, ora);
+    expect(r.richieste).toBe(7);
+    expect(r.appuntamenti).toEqual({ totali: 2, confermati: 2, annullati: 0, effettuati: 1 }); // a3 è nel futuro rispetto a `ora`
+    expect(r.opportunita).toEqual({ vendite: 1, fatturato: 500 });
+  });
+
+  it("nessun contatto taggato -> tutto è 'senza cluster'", () => {
+    const r = riepilogoSenzaTag(0, new Set(), [appuntamento({ contactId: "x", dateAdded: "2026-06-10T10:00:00.000Z" })], [], startMs, endMs, ora);
+    expect(r.appuntamenti.totali).toBe(1);
   });
 });
 
