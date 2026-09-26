@@ -52,11 +52,16 @@ export function SintesiTessere({
   overlayGhl,
   totalePrecedente,
   overlayGhlPrecedente,
+  etichettaConfronto = "vs periodo prec.",
 }: {
   totale: KpiGroup;
   overlayGhl: KpiConOverlayGhl | null;
   totalePrecedente: KpiGroup | null;
   overlayGhlPrecedente: KpiConOverlayGhl | null;
+  // Testo accanto alla variazione — "vs periodo prec." per il confronto automatico, le date del
+  // periodo scelto a mano nel selettore (es. "vs 1 lug 2026 – 31 lug 2026") quando c'è, così chi
+  // legge sa con cosa sta confrontando (selettore periodo in stile Meta, 26/09/2026).
+  etichettaConfronto?: string;
 }) {
   const tessere: Tessera[] = [
     {
@@ -137,7 +142,7 @@ export function SintesiTessere({
                 {variazione && (
                   <p className={`mt-1 text-[11px] font-medium tabular-nums ${coloreVariazione(variazione.direzione, t.metricaNeutra)}`}>
                     {simboloVariazione(variazione.direzione)} {formatVariazionePercentuale(variazione.percentuale)}
-                    <span className="text-ink-500 font-normal"> vs periodo prec.</span>
+                    <span className="text-ink-500 font-normal"> {etichettaConfronto}</span>
                   </p>
                 )}
               </div>

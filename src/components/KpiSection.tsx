@@ -4,10 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
-import { MonthRangePicker } from "@/components/MonthRangePicker";
-import { WeekRangePicker } from "@/components/WeekRangePicker";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
+import { DateRangePicker, type SelezionePeriodo } from "@/components/DateRangePicker";
+import { etichettaIntervallo, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "@/lib/periodo";
 import { Button } from "@/components/ui/Button";
 import { SintesiTessere } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
@@ -18,80 +18,10 @@ import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
 import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
 import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
-import { aggiungiGiorni, attivitaInRitardo, giorniTra, oggiIso } from "@/lib/roadmap";
+import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
-import { settimanaDiData, ultimoGiornoDelMese } from "@/lib/kpi";
-import { giornoMeseBreve } from "@/lib/format";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
-
-function meseCorrente(): string {
-  return new Date().toISOString().slice(0, 7);
-}
-
-// Default del filtro periodo: i mesi coperti dagli ultimi 30 giorni (oggi compreso), non più un
-// intervallo fisso — su richiesta esplicita. Quasi sempre 2 mesi (il mese in corso + il
-// precedente), tranne nei primissimi giorni del mese dove coincide con 1 solo mese.
-function meseIniziale30Giorni(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 29);
-  return d.toISOString().slice(0, 7);
-}
-
-// Numero di mesi coperti dal periodo selezionato (inclusivo su entrambi gli estremi) — serve a
-// calcolare un periodo precedente di pari durata per il confronto sotto alle tessere di sintesi
-// (vedi SintesiTessere.tsx/confrontoPeriodo.ts): "ultimi 30 giorni" (~1-2 mesi) si confronta con
-// gli altrettanti mesi subito prima, "ultimi 3/6 mesi" allo stesso modo. Il filtro dell'app lavora
-// a livello di mese (vedi /api/kpi), quindi il confronto resta anch'esso a livello di mese: è
-// l'equivalente più fedele di "stesso numero di giorni prima" che l'architettura attuale permetta
-// senza introdurre un secondo asse di filtro giorno-per-giorno.
-function contaMesiPeriodo(da: string, a: string): number {
-  const [dY, dM] = da.split("-").map(Number);
-  const [aY, aM] = a.split("-").map(Number);
-  return (aY - dY) * 12 + (aM - dM) + 1;
-}
-
-function spostaMesi(mese: string, delta: number): string {
-  const [y, m] = mese.split("-").map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
-}
-
-// Equivalenti di contaMesiPeriodo/spostaMesi sopra, ma per la modalità settimana del selettore
-// periodo (richiesta utente, 25/09/2026) — stesso ruolo: calcolare il periodo precedente di pari
-// durata per il confronto sotto alle tessere di sintesi.
-function contaSettimanePeriodo(da: string, a: string): number {
-  let n = 1;
-  for (let s = da; s < a; s = aggiungiGiorni(s, 7)) n++;
-  return n;
-}
-
-function spostaSettimane(settimana: string, delta: number): string {
-  return aggiungiGiorni(settimana, delta * 7);
-}
-
-function settimanaCorrente(): string {
-  return settimanaDiData(oggiIso());
-}
-
-/**
- * Testo di chiarimento sotto al selettore periodo — richiesta esplicita dell'utente (09/09/2026):
- * il filtro lavora per MESE intero (vedi computeKpi in kpi.ts, `nelPeriodo` confronta stringhe
- * "YYYY-MM"), quindi il default "ultimi 30 giorni" di meseIniziale30Giorni sopra in realtà somma
- * l'intero mese precedente + il mese in corso fin qui — spesso 35-40 giorni, non 30, e sempre più
- * man mano che il mese avanza. L'etichetta del picker (`Ago 26 – Set 26`, solo i due mesi) non lo
- * rende visibile da sola: qui si mostra il vero intervallo di giorni incluso, per non far credere
- * che il periodo scelto sia esattamente quei 30 giorni arrotondati.
- */
-function descrizioneIntervalloGiorni(da: string, a: string): string {
-  const inizio = `${da}-01`;
-  const oggi = oggiIso();
-  // Il mese corrente non è ancora finito: il periodo si ferma a oggi, non al 30/31 che non esiste
-  // ancora — stesso "fin qui" già implicito nel default.
-  const fine = a === oggi.slice(0, 7) ? oggi : ultimoGiornoDelMese(a);
-  const giorni = giorniTra(inizio, fine) + 1; // inclusivo su entrambi gli estremi
-  return `${giornoMeseBreve(inizio)} – ${giornoMeseBreve(fine)} · ${giorni} giorni`;
-}
 
 type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
 
@@ -104,21 +34,17 @@ type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ru
  * per blocco nelle fasi successive del redesign (5, 6, 7), non tutto insieme.
  */
 export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
-  const [da, setDa] = useState(meseIniziale30Giorni());
-  const [a, setA] = useState(meseCorrente());
-  // Modalità del selettore periodo (richiesta utente, 25/09/2026) — "mese" (default, invariato) o
-  // "settimana": decide sia quale picker renderizzare sia la forma di da/a in state (YYYY-MM vs
-  // YYYY-MM-DD di un lunedì, la stessa distinzione già rilevata al bordo di /api/kpi e /api/ghl via
-  // isPeriodoMensile). Mai sul link pubblico `code`, vedi il toggle più sotto nel render.
-  const [granularita, setGranularita] = useState<"mese" | "settimana">("mese");
-  // Periodo precedente di pari durata, per il confronto sotto alle tessere di sintesi — vedi il
-  // commento su contaMesiPeriodo/spostaMesi (mese) e contaSettimanePeriodo/spostaSettimane
-  // (settimana) sopra e SintesiTessere.tsx.
-  const aPrecedente = granularita === "settimana" ? spostaSettimane(da, -1) : spostaMesi(da, -1);
-  const daPrecedente =
-    granularita === "settimana"
-      ? spostaSettimane(da, -contaSettimanePeriodo(da, a))
-      : spostaMesi(da, -contaMesiPeriodo(da, a));
+  // Periodo = due giorni inclusi (selettore in stile Meta, 26/09/2026 — vedi DateRangePicker.tsx e
+  // lib/periodo.ts), default "Ultimi 30 giorni" esatti, oggi compreso (l'intento originale della
+  // richiesta "ultimi 30 giorni", finora approssimato ai mesi interi coperti). `confronto` = periodo
+  // di paragone scelto a mano nel picker, null = automatico (stesso numero di giorni subito prima).
+  const [periodo, setPeriodo] = useState<SelezionePeriodo>(() => ({
+    ...intervalloPreset("ultimi-30-giorni"),
+    preset: "ultimi-30-giorni",
+    confronto: null,
+  }));
+  const { da, a } = periodo;
+  const { da: daPrecedente, a: aPrecedente } = periodo.confronto ?? periodoPrecedente(da, a);
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
@@ -546,15 +472,13 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       targetFatturatoMensile: dati.sede.targetFatturatoMensile ?? null,
       investimentoPeriodo: dati.totale.investimento,
       fatturatoPeriodo: overlayGhl?.fatturato.valore ?? dati.totale.fatturato,
-      // In modalità settimana non c'è un vero "numero di mesi" — si passa l'equivalente in mesi del
-      // numero di settimane scelte (× 12/52, stessa conversione settimana<->mese già in uso in
-      // equivalenteMensile() di ModificaClienteModal.tsx), che confrontaTargetCommerciali usa solo
-      // come divisore per riportare investimento/fatturato del periodo a un ritmo "per mese"
-      // comparabile col target mensile — nessun cambio necessario in targetCommerciali.ts.
-      numeroMesiPeriodo: granularita === "settimana" ? (contaSettimanePeriodo(da, a) * 12) / 52 : contaMesiPeriodo(da, a),
+      // Un intervallo di giorni qualsiasi non ha un numero intero di mesi: mesiEquivalenti (durata
+      // media di un mese) fa da divisore in confrontaTargetCommerciali per riportare
+      // investimento/fatturato del periodo a un ritmo "per mese" comparabile col target mensile.
+      numeroMesiPeriodo: mesiEquivalenti(da, a),
       serieSettimanale: trendSettimanaleConOverlay.map((s) => ({ numeroLead: s.numeroLead, appuntamentiFissati: s.appuntamentiFissati })),
     });
-  }, [dati, overlayGhl, da, a, granularita, trendSettimanaleConOverlay]);
+  }, [dati, overlayGhl, da, a, trendSettimanaleConOverlay]);
 
   // Blocco 4 — Avvisi operativi: si ricalcola da solo quando cambiano periodo/campagne/sede, dato
   // che tutti gli input (dati, ghlDati, frequenzaPerCampagna, attivitaInRitardoCount) sono già
@@ -581,57 +505,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           durante il caricamento, mai preceduta da avvisi/banner. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Toggle mese/settimana (richiesta utente, 25/09/2026) — solo vista team, mai sul link
-              pubblico `code` (stessa scelta già fatta per Target mensili/dati GHL grezzi): cambiare
-              modalità resetta da/a a un default sensato per quella grana (mai una conversione tra
-              forme diverse, che introdurrebbe casi limite poco chiari). */}
-          {!code && (
-            <Tabs
-              tabs={[
-                { id: "mese", label: "Mese" },
-                { id: "settimana", label: "Settimana" },
-              ]}
-              attivo={granularita}
-              onChange={(id) => {
-                const nuova = id as "mese" | "settimana";
-                setGranularita(nuova);
-                if (nuova === "settimana") {
-                  setDa(settimanaCorrente());
-                  setA(settimanaCorrente());
-                } else {
-                  setDa(meseIniziale30Giorni());
-                  setA(meseCorrente());
-                }
-              }}
-            />
-          )}
-
-          {granularita === "settimana" ? (
-            <WeekRangePicker
-              da={da}
-              a={a}
-              onChange={(nDa, nA) => {
-                setDa(nDa);
-                setA(nA);
-              }}
-            />
-          ) : (
-            <>
-              <MonthRangePicker
-                da={da}
-                a={a}
-                onChange={(nDa, nA) => {
-                  setDa(nDa);
-                  setA(nA);
-                }}
-              />
-              {/* Il filtro lavora per mese intero: questo testo rende sempre esplicito il vero
-                  intervallo di giorni incluso — vedi descrizioneIntervalloGiorni sopra sul perché.
-                  Non serve in modalità settimana: il picker mostra già l'esatto intervallo di
-                  giorni nel suo stesso bottone (nessuna ambiguità da chiarire). */}
-              <span className="text-xs text-ink-500">{descrizioneIntervalloGiorni(da, a)}</span>
-            </>
-          )}
+          {/* Selettore periodo unico in stile Meta (preset + due calendari a giorni + confronto),
+              anche sul link pubblico `code`: sostituisce il picker a mesi che già ci stava, non
+              espone nessun target. Il bottone mostra già l'esatto intervallo di giorni scelto. */}
+          <DateRangePicker valore={periodo} onChange={setPeriodo} />
 
           {dati && dati.sediDisponibili.length > 1 && (
             <Tabs
@@ -742,6 +619,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             overlayGhl={overlayGhl}
             totalePrecedente={datiPrecedenti?.totale ?? null}
             overlayGhlPrecedente={overlayGhlPrecedente}
+            etichettaConfronto={periodo.confronto ? `vs ${etichettaIntervallo(periodo.confronto.da, periodo.confronto.a)}` : undefined}
           />
 
           <BoxGrafici
