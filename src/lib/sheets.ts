@@ -734,6 +734,11 @@ export async function getGhlConnessioni(): Promise<GhlConnessione[]> {
         .split(",")
         .map((id) => id.trim())
         .filter(Boolean),
+      // Colonna I (01/10/2026): pipeline che delimitano la sede dentro la location, vuota = tutte.
+      pipelineIds: asText(r[8])
+        .split(",")
+        .map((id) => id.trim())
+        .filter(Boolean),
     }));
 }
 
@@ -774,6 +779,8 @@ export type AggiornaGhlConnessioneInput = {
   note?: string;
   // undefined = non toccare; [] è un valore esplicito valido (nessun calendario selezionato).
   calendarIds?: string[];
+  // undefined = non toccare; [] = nessun filtro, la sede torna a valere per tutta la location.
+  pipelineIds?: string[];
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` di una connessione GHL esistente. */
@@ -799,6 +806,7 @@ export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput)
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
   if (input.note !== undefined) set("F", input.note);
   if (input.calendarIds !== undefined) set("H", input.calendarIds.join(","));
+  if (input.pipelineIds !== undefined) set("I", input.pipelineIds.join(","));
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({
@@ -836,8 +844,20 @@ export async function getCategorieCommerciali(opts?: { noCache?: boolean }): Pro
       targetLeadSettimana: toNumberOrNull(r[7]),
       targetAppuntamentiSettimana: toNumberOrNull(r[8]),
       targetFatturatoMensile: toNumberOrNull(r[9]),
+      // Colonna K (01/10/2026): pipeline GHL del cluster, vedi CategoriaCommerciale.pipelineGhl.
+      pipelineGhl: asText(r[10]),
     }))
     .sort((a, b) => a.ordine - b.ordine);
+}
+
+/**
+ * Con valueInputOption USER_ENTERED Google Sheets interpreta come FORMULA un testo che inizia con
+ * = + - o @ — scoperto dal vivo il 01/10/2026: un cluster chiamato "+30 ettari" è stato salvato come
+ * "#ERROR! (Formula parse error.)". L'apostrofo iniziale è il modo standard di Sheets per dire
+ * "questo è testo": non fa parte del valore e non torna indietro in lettura.
+ */
+function testoLetterale(valore: string): string {
+  return /^[=+\-@]/.test(valore) ? `'${valore}` : valore;
 }
 
 export type NuovaCategoriaCommercialeInput = {
@@ -865,7 +885,7 @@ export async function creaCategoriaCommerciale(input: NuovaCategoriaCommercialeI
     [
       input.categoriaId,
       input.sedeId,
-      input.nome,
+      testoLetterale(input.nome),
       "",
       "TRUE",
       input.ordine,
@@ -884,6 +904,8 @@ export type AggiornaCategoriaCommercialeInput = {
   // valido (rimuove l'automazione, torna ai RisultatiCommerciali manuali), diverso da undefined
   // (non toccare), stesso schema di calendarIds in AggiornaGhlConnessioneInput.
   tagGhl?: string;
+  // Stesso schema di tagGhl: "" rimuove il collegamento alle pipeline, undefined non tocca.
+  pipelineGhl?: string;
   attivo?: boolean;
   ordine?: number;
   targetBudgetMensile?: number | null;
@@ -910,8 +932,9 @@ export async function aggiornaCategoriaCommerciale(input: AggiornaCategoriaComme
   const set = (colonna: string, valore: string | number) =>
     data.push({ range: `${TAB.categorieCommerciali}!${colonna}${rowNumber}`, values: [[valore]] });
 
-  if (input.nome !== undefined) set("C", input.nome);
-  if (input.tagGhl !== undefined) set("D", input.tagGhl);
+  if (input.nome !== undefined) set("C", testoLetterale(input.nome));
+  if (input.tagGhl !== undefined) set("D", testoLetterale(input.tagGhl));
+  if (input.pipelineGhl !== undefined) set("K", input.pipelineGhl);
   if (input.attivo !== undefined) set("E", input.attivo ? "TRUE" : "FALSE");
   if (input.ordine !== undefined) set("F", input.ordine);
   if (input.targetBudgetMensile !== undefined) set("G", input.targetBudgetMensile ?? "");
@@ -1393,6 +1416,40 @@ export async function ensureCampagneMappate(
     righe.push([c.campaignId, c.clienteId, c.nomeCampagna, guessTipoCampagnaFromNome(c.nomeCampagna), "", c.sedeId, canale]);
   }
   await appendRows(TAB.campagne, righe);
+}
+
+/**
+ * Sposta campagne GIÀ mappate su un'altra sede dello stesso cliente (colonna F della tab Campagne) —
+ * serve quando un cliente viene diviso in più sedi sullo stesso ad account (Agricobots Italia/Spagna,
+ * 01/10/2026): ensureCampagneMappate sopra non riassegna mai una campagna già presente, quindi lo
+ * storico va spostato una volta a mano. Tocca solo le righe del `clienteId` indicato (lo stesso ad
+ * account può essere collegato a due clienti) e solo il canale Meta. Torna quante righe ha cambiato.
+ * La validazione "la sede appartiene al cliente" resta al chiamante, stesso schema di creaSede.
+ */
+export async function spostaCampagneASede(clienteId: string, campaignIds: string[], sedeId: string): Promise<number> {
+  if (campaignIds.length === 0) return 0;
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${TAB.campagne}!A2:G`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const righe = (res.data.values as CellValue[][]) ?? [];
+  const daSpostare = new Set(campaignIds);
+  const data: { range: string; values: string[][] }[] = [];
+  righe.forEach((r, i) => {
+    if (asText(r[1]) !== clienteId || !daSpostare.has(asText(r[0]))) return;
+    if ((asText(r[6]).trim() || "meta") !== "meta") return;
+    if (asText(r[5]) === sedeId) return;
+    data.push({ range: `${TAB.campagne}!F${i + 2}`, values: [[sedeId]] });
+  });
+  if (data.length === 0) return 0;
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: sheetId,
+    requestBody: { valueInputOption: "RAW", data },
+  });
+  invalidateTabCache(TAB.campagne);
+  return data.length;
 }
 
 /**

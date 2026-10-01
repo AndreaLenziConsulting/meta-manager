@@ -83,18 +83,28 @@ export async function GET(req: NextRequest) {
       fetchInserzioniPerCampagna(sede.adAccountId, since, until, sede.tipoConversioneLead || undefined),
       fetchAnagraficaInserzioni(sede.adAccountId),
     ]);
-    const inserzioni = aggregate.map((i) => ({ ...i, stato: anagrafica.get(i.adId)?.stato || "" }));
+    const campagneCliente = (await getCampagne()).filter((c) => c.clienteId === clienteId);
+    // Ad account condiviso da più sedi dello stesso cliente (Agricobots Italia/Spagna, 01/10/2026):
+    // Meta restituisce le inserzioni di TUTTO l'account, qui si tengono solo quelle delle campagne
+    // mappate su questa sede — altrimenti la sede Spagna mostrerebbe (e segnalerebbe come fuori
+    // soglia) anche le inserzioni italiane. Con una sola sede sull'account non si filtra nulla:
+    // comportamento identico a prima, incluse le campagne non ancora sincronizzate nel foglio.
+    const accountCondiviso = sediCliente.filter((s) => s.adAccountId === sede.adAccountId).length > 1;
+    const campagneSede = new Set(campagneCliente.filter((c) => c.sedeId === sede.sedeId).map((c) => c.campaignId));
+    const dellaSede = (campaignId: string) => !accountCondiviso || campagneSede.has(campaignId);
+
+    const inserzioni = aggregate
+      .filter((i) => dellaSede(i.campaignId))
+      .map((i) => ({ ...i, stato: anagrafica.get(i.adId)?.stato || "" }));
     if (!conAnagrafica) return NextResponse.json({ inserzioni });
 
     // Nome campagna dal foglio Campagne (già in cache), non da una seconda chiamata Meta: "" se la
     // campagna non è mai stata sincronizzata in app — il chiamante mostra solo il nome inserzione.
-    const nomeCampagna = new Map(
-      (await getCampagne()).filter((c) => c.clienteId === clienteId).map((c) => [c.campaignId, c.nomeCampagna])
-    );
+    const nomeCampagna = new Map(campagneCliente.map((c) => [c.campaignId, c.nomeCampagna]));
     const nelPeriodo = new Set(aggregate.map((i) => i.adId));
     const altreInserzioni: Record<string, AnagraficaInserzioneFuoriPeriodo> = {};
     for (const [adId, info] of anagrafica) {
-      if (nelPeriodo.has(adId)) continue;
+      if (nelPeriodo.has(adId) || !dellaSede(info.campaignId)) continue;
       altreInserzioni[adId] = { ...info, nomeCampagna: nomeCampagna.get(info.campaignId) ?? "" };
     }
     return NextResponse.json({ inserzioni, altreInserzioni });

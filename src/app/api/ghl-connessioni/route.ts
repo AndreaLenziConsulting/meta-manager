@@ -41,6 +41,7 @@ export async function GET(req: NextRequest) {
       note: c.note,
       tokenMascherato: maschera(c.privateToken),
       calendarIds: c.calendarIds,
+      pipelineIds: c.pipelineIds ?? [],
     }));
   return NextResponse.json({ connessioni: risultato });
 }
@@ -95,6 +96,7 @@ type BodyPatch = {
   attivo?: boolean;
   note?: string;
   calendarIds?: string[];
+  pipelineIds?: string[];
 };
 
 export async function PATCH(req: NextRequest) {
@@ -130,6 +132,7 @@ export async function PATCH(req: NextRequest) {
       attivo: body.attivo,
       note: body.note,
       calendarIds: body.calendarIds,
+      pipelineIds: Array.isArray(body.pipelineIds) ? body.pipelineIds.map((id) => String(id).trim()).filter(Boolean) : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

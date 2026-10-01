@@ -14,6 +14,7 @@ import {
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 import { riepilogoSenzaTag } from "./ghl";
 import { breakdownGhlPerInserzione, estraiAdIdAttribuzione, mappaInserzionePerContatto } from "./ghl";
+import { pipelineDiCategoria, restringiAllePipeline, riepilogoPerPipeline, riepilogoSenzaPipeline } from "./ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
   return {
@@ -575,5 +576,92 @@ describe("riepilogoPerVenditoreGhl", () => {
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
       opportunita: { vendite: 0, fatturato: 0 },
     });
+  });
+});
+
+describe("pipelineDiCategoria", () => {
+  it("separa gli id per virgola, toglie spazi e vuoti", () => {
+    expect(pipelineDiCategoria({ pipelineGhl: " p1, p2 ,," })).toEqual(["p1", "p2"]);
+  });
+  it("campo assente o vuoto -> nessuna pipeline", () => {
+    expect(pipelineDiCategoria({})).toEqual([]);
+    expect(pipelineDiCategoria({ pipelineGhl: "" })).toEqual([]);
+  });
+});
+
+describe("restringiAllePipeline", () => {
+  const elencoOpp = [
+    opportunita({ id: "o1", contactId: "it1", pipelineId: "it-piu" }),
+    opportunita({ id: "o2", contactId: "es1", pipelineId: "es-piu" }),
+    opportunita({ id: "o3", contactId: "es2", pipelineId: "es-meno" }),
+  ];
+  const elencoApp = [
+    appuntamento({ id: "a1", contactId: "it1" }),
+    appuntamento({ id: "a2", contactId: "es1" }),
+    appuntamento({ id: "a3", contactId: "senza-opportunita" }),
+  ];
+
+  it("nessuna pipeline configurata -> tutta la location, invariata", () => {
+    const r = restringiAllePipeline(elencoOpp, elencoApp, []);
+    expect(r.opportunita).toBe(elencoOpp);
+    expect(r.appuntamenti).toBe(elencoApp);
+  });
+
+  it("con pipeline: solo le opportunità di quelle pipeline e gli appuntamenti dei loro contatti", () => {
+    const r = restringiAllePipeline(elencoOpp, elencoApp, ["es-piu", "es-meno"]);
+    expect(r.opportunita.map((o) => o.id)).toEqual(["o2", "o3"]);
+    // a1 è di un contatto italiano, a3 di un contatto senza opportunità: nessuno dei due è della sede.
+    expect(r.appuntamenti.map((a) => a.id)).toEqual(["a2"]);
+  });
+});
+
+describe("riepilogoPerPipeline / riepilogoSenzaPipeline", () => {
+  const startMs = new Date("2026-09-01T00:00:00Z").getTime();
+  const endMs = new Date("2026-09-30T23:59:59.999Z").getTime();
+  const elencoOpp = [
+    // Cluster "+50": un lead nuovo del periodo, uno vecchio che vince nel periodo.
+    opportunita({ id: "o1", contactId: "c1", pipelineId: "piu", createdAt: "2026-09-10T00:00:00Z", status: "open" }),
+    opportunita({ id: "o2", contactId: "c2", pipelineId: "piu", createdAt: "2026-06-01T00:00:00Z", status: "won", monetaryValue: 9000, lastStatusChangeAt: "2026-09-20T00:00:00Z" }),
+    // Cluster "-50": un lead nuovo del periodo.
+    opportunita({ id: "o3", contactId: "c3", pipelineId: "meno", createdAt: "2026-09-12T00:00:00Z", status: "open" }),
+    // Pipeline della sede fuori da ogni cluster (concessionari): un lead nuovo e una vendita.
+    opportunita({ id: "o4", contactId: "c4", pipelineId: "concessionari", createdAt: "2026-09-15T00:00:00Z", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-09-25T00:00:00Z" }),
+  ];
+  const elencoApp = [
+    appuntamento({ id: "a1", contactId: "c1", dateAdded: "2026-09-11T00:00:00Z" }),
+    appuntamento({ id: "a3", contactId: "c3", dateAdded: "2026-09-13T00:00:00Z" }),
+    appuntamento({ id: "a4", contactId: "c4", dateAdded: "2026-09-16T00:00:00Z" }),
+  ];
+
+  it("cluster per pipeline: richieste = contatti con opportunità creata nel periodo, appuntamenti dei suoi contatti, vendite delle sue opportunità", () => {
+    const piu = riepilogoPerPipeline(["piu"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    expect(piu.richieste).toBe(1);
+    expect(piu.appuntamenti.totali).toBe(1);
+    expect(piu.opportunita).toEqual({ vendite: 1, fatturato: 9000 });
+
+    const meno = riepilogoPerPipeline(["meno"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    expect(meno.richieste).toBe(1);
+    expect(meno.appuntamenti.totali).toBe(1);
+    expect(meno.opportunita).toEqual({ vendite: 0, fatturato: 0 });
+  });
+
+  it("stesso contatto con due opportunità nel cluster conta una sola richiesta", () => {
+    const doppie = [...elencoOpp, opportunita({ id: "o1bis", contactId: "c1", pipelineId: "piu", createdAt: "2026-09-18T00:00:00Z", status: "open" })];
+    expect(riepilogoPerPipeline(["piu"], doppie, elencoApp, startMs, endMs, endMs).richieste).toBe(1);
+  });
+
+  it("senza cluster: ciò che sta nelle pipeline della sede fuori da ogni cluster", () => {
+    const senza = riepilogoSenzaPipeline(["piu", "meno"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    expect(senza.richieste).toBe(1);
+    expect(senza.appuntamenti.totali).toBe(1);
+    expect(senza.opportunita).toEqual({ vendite: 1, fatturato: 500 });
+  });
+
+  it("cluster + senza cluster = totale della sede", () => {
+    const piu = riepilogoPerPipeline(["piu"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    const meno = riepilogoPerPipeline(["meno"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    const senza = riepilogoSenzaPipeline(["piu", "meno"], elencoOpp, elencoApp, startMs, endMs, endMs);
+    expect(piu.appuntamenti.totali + meno.appuntamenti.totali + senza.appuntamenti.totali).toBe(elencoApp.length);
+    expect(piu.opportunita.fatturato + meno.opportunita.fatturato + senza.opportunita.fatturato).toBe(9500);
   });
 });

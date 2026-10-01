@@ -14,6 +14,10 @@ import {
   fetchOpportunita,
   mappaCampagnaPerContatto,
   mappaInserzionePerContatto,
+  pipelineDiCategoria,
+  restringiAllePipeline,
+  riepilogoPerPipeline,
+  riepilogoSenzaPipeline,
   primoAppuntamentoPerContatto,
   riepilogoAppuntamenti,
   riepilogoOpportunita,
@@ -116,7 +120,7 @@ export async function GET(req: NextRequest) {
   const endMs = new Date(`${a}T23:59:59.999Z`).getTime();
 
   try {
-    const [{ appuntamenti, calendariFalliti }, opportunitaGrezze, categorieConTag, venditoriConGhl] = await Promise.all([
+    const [{ appuntamenti: appuntamentiLocation, calendariFalliti }, opportunitaLocation, categorieAutomatiche, venditoriConGhl] = await Promise.all([
       fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       // Nessun filtro status server-side (a differenza di prima di questa feature): serve TUTTA la
       // location per costruire mappaCampagna sotto — un contatto con appuntamento ma opportunità
@@ -127,12 +131,21 @@ export async function GET(req: NextRequest) {
       // Fase 3 (11/2026): solo le categorie di questa sede con un tagGhl impostato — vedi
       // CategoriaCommerciale in types/kpi.ts. [] per una sede senza categorie/tag configurati,
       // nessuna chiamata GHL aggiuntiva in quel caso (il .map sotto su un array vuoto è un no-op).
-      getCategorieCommerciali().then((tutte) => tutte.filter((c) => c.sedeId === sede.sedeId && c.attivo && c.tagGhl.trim())),
+      getCategorieCommerciali().then((tutte) => tutte.filter((c) => c.sedeId === sede.sedeId && c.attivo && (c.tagGhl.trim() || pipelineDiCategoria(c).length > 0))),
       // Fase 4 (11/2026): solo i venditori di questa sede con un ghlUserId impostato — vedi
       // Venditore in types/kpi.ts. Nessuna chiamata GHL in più: assignedTo/assignedUserId sono già
       // su appuntamenti/opportunitaGrezze già scaricati sopra, il join sotto è puro filtro locale.
       getVenditori().then((tutti) => tutti.filter((v) => v.sedeId === sede.sedeId && v.attivo && v.ghlUserId.trim())),
     ]);
+
+    // Perimetro della sede dentro la location (GhlConnessione.pipelineIds, 01/10/2026): PRIMA di ogni
+    // altro calcolo, così tutto ciò che segue vale solo per questa sede. Senza pipeline configurate
+    // è un no-op e la sede copre l'intera location come sempre. Vedi restringiAllePipeline.
+    const { opportunita: opportunitaGrezze, appuntamenti } = restringiAllePipeline(
+      opportunitaLocation,
+      appuntamentiLocation,
+      connessione.pipelineIds ?? []
+    );
 
     // Sempre applicata, non un filtro opzionale — vedi il commento su primoAppuntamentoPerContatto.
     const appuntamentiPrimi = primoAppuntamentoPerContatto(appuntamenti);
@@ -144,6 +157,13 @@ export async function GET(req: NextRequest) {
     // sullo scoping `campagne` sopra: il tag GHL è un'assegnazione di cluster indipendente
     // dall'attribuzione a campagna Meta, stesso perimetro "tutta la sede" di perCampagna/
     // appuntamentiPrimi/opportunitaVinte, non delle versioni "Scoped" sotto.
+    // Due modi di definire un cluster (vedi CategoriaCommerciale in types/kpi.ts): per PIPELINE
+    // (pipelineGhl, 01/10/2026 — account che separano i cluster mettendo le opportunità in pipeline
+    // diverse, es. Agricobots "+50 hectáreas"/"-50 hectáreas") o per TAG contatto (tagGhl, Fase 3).
+    // Se una categoria ha entrambi vince la pipeline. I cluster per pipeline non fanno nessuna
+    // chiamata GHL in più: lavorano sulle opportunità già scaricate sopra.
+    const categoriePipeline = categorieAutomatiche.filter((c) => pipelineDiCategoria(c).length > 0);
+    const categorieConTag = categorieAutomatiche.filter((c) => pipelineDiCategoria(c).length === 0);
     const tags = categorieConTag.map((c) => c.tagGhl.trim());
     const [contattiPerCategoria, richiesteSenzaTag] = await Promise.all([
       Promise.all(tags.map((tag) => fetchContattiPerTag(connessione.locationId, connessione.privateToken, tag))),
@@ -158,14 +178,21 @@ export async function GET(req: NextRequest) {
       for (const c of contattiTag) idTaggati.add(c.id);
       perTag[categoria.categoriaId] = riepilogoPerTag(contattiTag, appuntamentiPrimi, opportunitaVinte, startMs, endMs);
     });
+    for (const categoria of categoriePipeline) {
+      perTag[categoria.categoriaId] = riepilogoPerPipeline(pipelineDiCategoria(categoria), opportunitaGrezze, appuntamentiPrimi, startMs, endMs);
+    }
 
-    // Complemento di perTag sopra (segnalato dall'utente, 20/09/2026) — solo se la sede ha almeno
-    // una categoria con tag configurato: senza nessun cluster definito, "senza cluster" non è una
-    // domanda sensata. Vedi riepilogoSenzaTag/contaContattiSenzaTagNelPeriodo in lib/ghl.ts.
+    // "Senza cluster": complemento dei cluster sopra (segnalato dall'utente, 20/09/2026) — solo se la
+    // sede ha almeno un cluster automatico, altrimenti non è una domanda sensata. Calcolato col
+    // metodo dei cluster della sede (tutti per pipeline oppure tutti per tag); in una sede che li
+    // mescola i due complementi non sono confrontabili e il blocco non viene mostrato, mai un numero
+    // costruito a metà.
     const senzaTag =
-      categorieConTag.length > 0
-        ? riepilogoSenzaTag(richiesteSenzaTag, idTaggati, appuntamentiPrimi, opportunitaVinte, startMs, endMs)
-        : undefined;
+      categoriePipeline.length > 0 && categorieConTag.length === 0
+        ? riepilogoSenzaPipeline(categoriePipeline.flatMap(pipelineDiCategoria), opportunitaGrezze, appuntamentiPrimi, startMs, endMs)
+        : categorieConTag.length > 0 && categoriePipeline.length === 0
+          ? riepilogoSenzaTag(richiesteSenzaTag, idTaggati, appuntamentiPrimi, opportunitaVinte, startMs, endMs)
+          : undefined;
 
     // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti
     // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il

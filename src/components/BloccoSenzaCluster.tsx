@@ -10,15 +10,28 @@ import type { GhlBreakdownTag } from "@/types/ghl";
  * raggiungere, è un gap di tagging in GHL da chiudere — mostra solo i conteggi attuali, per non far
  * sparire in silenzio numeri che il totale sede include ma nessun cluster cattura. Stile
  * STILE_LIVELLO.attenzione (giallo) per lo stesso motivo: un avviso operativo, non un dato negativo.
+ *
+ * Riusato (01/10/2026) anche per un cluster VERO che ha dati GHL ma nessun target impostato
+ * (`titolo`/`descrizione`/`neutro`): senza target BloccoPacing non disegna nulla e il cluster
+ * sparirebbe dal grafico — i suoi numeri del mese restano invece visibili, in tono neutro perché lì
+ * non c'è nessun avviso da dare.
  */
-export function BloccoSenzaCluster({ dati }: { dati: GhlBreakdownTag }) {
-  const stile = STILE_LIVELLO.attenzione;
+export function BloccoSenzaCluster({
+  dati,
+  titolo = "Senza cluster",
+  descrizione = "Contatti che non rientrano in nessuno dei cluster configurati sopra (nessun tag o nessuna pipeline di cluster in GHL).",
+  neutro = false,
+}: {
+  dati: GhlBreakdownTag;
+  titolo?: string;
+  descrizione?: string;
+  neutro?: boolean;
+}) {
+  const stile = neutro ? STILE_LIVELLO.neutro : STILE_LIVELLO.attenzione;
   return (
     <div className={`rounded-xl border p-4 ${stile.classe}`}>
-      <p className="text-xs font-semibold mb-1">Senza cluster</p>
-      <p className="text-[11px] mb-3 opacity-80">
-        Contatti senza nessuno dei tag configurati sopra — non rientrano in nessun cluster. Assegna un tag in GHL per includerli.
-      </p>
+      <p className="text-xs font-semibold mb-1">{titolo}</p>
+      <p className="text-[11px] mb-3 opacity-80">{descrizione}</p>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
         <RigaConteggio etichetta="Richieste" valore={formatNumero(dati.richieste)} />
         <RigaConteggio etichetta="Appuntamenti" valore={formatNumero(dati.appuntamenti.totali)} />

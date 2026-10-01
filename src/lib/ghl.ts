@@ -1,5 +1,5 @@
 import { settimanaDiData } from "@/lib/kpi";
-import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita } from "@/types/ghl";
+import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline } from "@/types/ghl";
 
 /**
  * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
@@ -51,6 +51,12 @@ async function ghlPost<T>(path: string, token: string, body: unknown): Promise<T
     throw new Error(`GHL API error (${res.status}) su ${path}: ${testo.slice(0, 300)}`);
   }
   return (await res.json()) as T;
+}
+
+/** GET /opportunities/pipelines — elenco pipeline di una location (solo id + nome). */
+export async function fetchPipeline(locationId: string, token: string): Promise<GhlPipeline[]> {
+  const body = await ghlGet<{ pipelines?: { id: string; name: string }[] }>("/opportunities/pipelines", token, { locationId });
+  return (body.pipelines ?? []).map((p) => ({ id: p.id, name: p.name }));
 }
 
 /** GET /calendars/ — elenco calendari di una location. */
@@ -644,5 +650,121 @@ export function riepilogoPerVenditoreGhl(
   return {
     appuntamenti: riepilogoAppuntamenti(appuntamentiVenditore, startMs, endMs, oraAttualeMs),
     opportunita: riepilogoOpportunita(opportunitaVenditore, startMs, endMs),
+  };
+}
+
+
+/** Id pipeline di una categoria commerciale (CategoriaCommerciale.pipelineGhl, separati da virgola)
+ * — [] se la categoria non è definita per pipeline. */
+export function pipelineDiCategoria(categoria: { pipelineGhl?: string }): string[] {
+  return (categoria.pipelineGhl ?? "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+}
+
+/**
+ * Perimetro di UNA sede dentro una location GHL condivisa da più sedi (GhlConnessione.pipelineIds,
+ * 01/10/2026 — Agricobots Italia/Spagna: una sola location, pipeline "(IT)" e "(ES)"). Con
+ * `pipelineIds` vuoto non cambia nulla (tutta la location, comportamento di sempre). Altrimenti:
+ * - opportunità: solo quelle in una delle pipeline indicate;
+ * - appuntamenti: solo quelli dei contatti che hanno almeno un'opportunità in quelle pipeline. Un
+ *   appuntamento non porta una pipeline e il calendario è spesso unico per tutte le divisioni: il
+ *   contatto è l'unico ponte. Un appuntamento di un contatto senza nessuna opportunità non è
+ *   attribuibile a nessuna sede e resta fuori da tutte — mai assegnato a caso.
+ * Va applicata PRIMA di ogni altro calcolo di /api/ghl, così totali, attribuzione a campagna/
+ * inserzione, cluster e venditori partono tutti dallo stesso perimetro.
+ */
+export function restringiAllePipeline(
+  opportunita: GhlOpportunita[],
+  appuntamenti: GhlAppuntamento[],
+  pipelineIds: string[]
+): { opportunita: GhlOpportunita[]; appuntamenti: GhlAppuntamento[] } {
+  if (pipelineIds.length === 0) return { opportunita, appuntamenti };
+  const pipeline = new Set(pipelineIds);
+  const opportunitaSede = opportunita.filter((o) => o.pipelineId !== undefined && pipeline.has(o.pipelineId));
+  const contattiSede = new Set(opportunitaSede.map((o) => o.contactId));
+  return { opportunita: opportunitaSede, appuntamenti: appuntamenti.filter((a) => contattiSede.has(a.contactId)) };
+}
+
+function creataNelPeriodo(o: GhlOpportunita, startMs: number, endMs: number): boolean {
+  const t = new Date(o.createdAt).getTime();
+  return Number.isFinite(t) && t >= startMs && t <= endMs;
+}
+
+/**
+ * Riepilogo richieste/appuntamenti/vendite di UN cluster definito per pipeline (mirror di
+ * riepilogoPerTag, dove l'appartenenza al cluster è avere un'opportunità in una delle pipeline
+ * invece di un tag sul contatto):
+ * - richieste: contatti distinti con un'opportunità del cluster CREATA nel periodo (l'arrivo di un
+ *   nuovo lead in quella pipeline — l'equivalente della dateAdded del contatto in riepilogoPerTag);
+ * - appuntamenti: quelli dei contatti che hanno un'opportunità nel cluster;
+ * - vendite/fatturato: le opportunità VINTE che stanno in quelle pipeline.
+ * `opportunita` è l'elenco grezzo (ogni stato) già ristretto alla sede; `appuntamentiPrimi` già
+ * ridotto con primoAppuntamentoPerContatto, stessa convenzione di riepilogoPerTag.
+ */
+export function riepilogoPerPipeline(
+  pipelineIds: string[],
+  opportunita: GhlOpportunita[],
+  appuntamentiPrimi: GhlAppuntamento[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): GhlBreakdownTag {
+  const pipeline = new Set(pipelineIds);
+  const delCluster = opportunita.filter((o) => o.pipelineId !== undefined && pipeline.has(o.pipelineId));
+  const contatti = new Set(delCluster.map((o) => o.contactId));
+  const richieste = new Set(delCluster.filter((o) => creataNelPeriodo(o, startMs, endMs)).map((o) => o.contactId)).size;
+  return {
+    richieste,
+    appuntamenti: riepilogoAppuntamenti(
+      appuntamentiPrimi.filter((a) => contatti.has(a.contactId)),
+      startMs,
+      endMs,
+      oraAttualeMs
+    ),
+    opportunita: riepilogoOpportunita(
+      delCluster.filter((o) => o.status === "won"),
+      startMs,
+      endMs
+    ),
+  };
+}
+
+/**
+ * Complemento di riepilogoPerPipeline (il blocco "Senza cluster"): tutto ciò che la sede contiene e
+ * nessun cluster per pipeline cattura — opportunità in pipeline della sede che non sono di nessun
+ * cluster (per Agricobots le pipeline "Concessionari"). `pipelineDeiCluster` = unione delle pipeline
+ * di tutti i cluster della sede. Un contatto che ha anche un'opportunità in un cluster conta lì,
+ * non qui.
+ */
+export function riepilogoSenzaPipeline(
+  pipelineDeiCluster: string[],
+  opportunita: GhlOpportunita[],
+  appuntamentiPrimi: GhlAppuntamento[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): GhlBreakdownTag {
+  const pipeline = new Set(pipelineDeiCluster);
+  const inCluster = (o: GhlOpportunita) => o.pipelineId !== undefined && pipeline.has(o.pipelineId);
+  const contattiInCluster = new Set(opportunita.filter(inCluster).map((o) => o.contactId));
+  const fuori = opportunita.filter((o) => !inCluster(o));
+  const richieste = new Set(
+    fuori.filter((o) => creataNelPeriodo(o, startMs, endMs) && !contattiInCluster.has(o.contactId)).map((o) => o.contactId)
+  ).size;
+  return {
+    richieste,
+    appuntamenti: riepilogoAppuntamenti(
+      appuntamentiPrimi.filter((a) => !contattiInCluster.has(a.contactId)),
+      startMs,
+      endMs,
+      oraAttualeMs
+    ),
+    opportunita: riepilogoOpportunita(
+      fuori.filter((o) => o.status === "won"),
+      startMs,
+      endMs
+    ),
   };
 }

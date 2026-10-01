@@ -19,10 +19,14 @@ type GhlConnessioneVista = {
   attivo: boolean;
   tokenMascherato: string;
   calendarIds: string[];
+  pipelineIds: string[];
 };
 
 /** Come torna GET /api/ghl-connessioni/calendari. */
 type GhlCalendarioVista = { id: string; name: string; calendarType: string };
+
+/** Come torna GET /api/ghl-connessioni/pipeline. */
+type GhlPipelineVista = { id: string; name: string };
 
 type Props = {
   cliente: Cliente;
@@ -657,6 +661,7 @@ function GhlConnessioneBlock({
         )}
       </div>
       {connessione && <GhlCalendariPicker connessione={connessione} onSalvato={onSalvato} />}
+      {connessione && <GhlPipelinePicker connessione={connessione} onSalvato={onSalvato} />}
 
       {mostraConfermaElimina && connessione && (
         <ConfermaEliminazioneModal
@@ -798,6 +803,107 @@ function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnes
 }
 
 /**
+ * Sceglie quali pipeline della location appartengono a QUESTA sede (01/10/2026) — per i clienti che
+ * tengono più divisioni nella stessa location GHL separandole per pipeline (Agricobots: Italia e
+ * Spagna). Nessuna selezionata = la sede vale per tutta la location, comportamento di sempre: qui
+ * non c'è nessuna preselezione automatica, a differenza dei calendari. Con una selezione, vendite,
+ * appuntamenti e attribuzione della sede contano solo i contatti con un'opportunità in quelle
+ * pipeline (vedi restringiAllePipeline in lib/ghl.ts).
+ */
+function GhlPipelinePicker({ connessione, onSalvato }: { connessione: GhlConnessioneVista; onSalvato: () => void }) {
+  const [stato, setStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
+  const [pipeline, setPipeline] = useState<GhlPipelineVista[]>([]);
+  const [selezionate, setSelezionate] = useState<Set<string>>(new Set());
+  const [erroreCaricamento, setErroreCaricamento] = useState<string | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [erroreSalvataggio, setErroreSalvataggio] = useState<string | null>(null);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        setStato("caricamento");
+        return fetch(`/api/ghl-connessioni/pipeline?connessioneId=${encodeURIComponent(connessione.connessioneId)}`, {
+          signal: controller.signal,
+        });
+      })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Errore nel caricamento delle pipeline");
+        setPipeline((body.pipeline ?? []) as GhlPipelineVista[]);
+        setSelezionate(new Set(connessione.pipelineIds));
+        setStato("ok");
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setErroreCaricamento(err.message);
+        setStato("errore");
+      });
+    return () => controller.abort();
+  }, [connessione.connessioneId, connessione.pipelineIds]);
+
+  function toggle(id: string) {
+    setSelezionate((prec) => {
+      const nuovo = new Set(prec);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
+
+  async function salvaSelezione() {
+    setErroreSalvataggio(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/ghl-connessioni", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connessioneId: connessione.connessioneId, pipelineIds: Array.from(selezionate) }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      onSalvato();
+    } catch (err) {
+      setErroreSalvataggio(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (stato === "caricamento") {
+    return <p className="text-xs text-ink-500 pt-2">Caricamento pipeline…</p>;
+  }
+  if (stato === "errore") {
+    return <p className="text-xs text-red-600 pt-2">{erroreCaricamento}</p>;
+  }
+  if (pipeline.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-2 pt-2 border-t border-ink-300/60 mt-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Pipeline di questa sede</p>
+      <p className="text-xs text-ink-500">
+        Nessuna selezionata = la sede vale per tutta la location. Seleziona le pipeline solo quando più sedi condividono la stessa
+        location GHL: vendite e appuntamenti conteranno solo i contatti con un&apos;opportunità in quelle pipeline.
+      </p>
+      <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
+        {pipeline.map((p) => (
+          <label key={p.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+            <input type="checkbox" checked={selezionate.has(p.id)} onChange={() => toggle(p.id)} className="accent-current text-brand" />
+            <span className="truncate">{p.name}</span>
+          </label>
+        ))}
+      </div>
+      {erroreSalvataggio && <p className="text-xs text-red-600">{erroreSalvataggio}</p>}
+      <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
+        {salvando ? "Salvataggio…" : "Salva pipeline"}
+      </Button>
+    </div>
+  );
+}
+
+/**
  * Categorie commerciali (cluster) della sede — fino a 3, ciascuna coi propri target di
  * lead/appuntamenti/fatturato/budget (Fase 1, 11/2026: "target diversi per fasce diverse di
  * clienti/servizi", stesso spirito dei cluster A/B/C di ALC stessa). Alimentano un blocco di
@@ -914,11 +1020,51 @@ function CategoriaCommercialeRow({
 }) {
   const [nome, setNome] = useState(categoria.nome);
   const [tagGhl, setTagGhl] = useState(categoria.tagGhl);
+  // Cluster definito per pipeline GHL invece che per tag (CategoriaCommerciale.pipelineGhl,
+  // 01/10/2026). L'elenco arriva dalla connessione attiva della sede — vuoto (nessun selettore) se la
+  // sede non è connessa a GHL o la richiesta non va a buon fine; in quel caso il valore salvato
+  // resta com'è, mai azzerato da un salvataggio fatto senza vedere il selettore.
+  const [pipelineSelezionate, setPipelineSelezionate] = useState<Set<string>>(
+    () =>
+      new Set(
+        (categoria.pipelineGhl ?? "")
+          .split(",")
+          .map((id) => id.trim())
+          .filter(Boolean)
+      )
+  );
+  const [pipelineDisponibili, setPipelineDisponibili] = useState<GhlPipelineVista[]>([]);
   const [target, setTarget] = useState<TargetCategoriaForm>(() => targetCategoriaDa(categoria));
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [salvato, setSalvato] = useState(false);
   const [mostraConfermaElimina, setMostraConfermaElimina] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch(`/api/ghl-connessioni/pipeline?sedeId=${encodeURIComponent(categoria.sedeId)}`, { signal: controller.signal })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((body: { pipeline?: GhlPipelineVista[]; pipelineIdsSede?: string[] } | null) => {
+        if (!body) return;
+        // Se la sede è delimitata da alcune pipeline, un suo cluster può essere solo una di quelle.
+        const dellaSede = new Set(body.pipelineIdsSede ?? []);
+        const tutte = body.pipeline ?? [];
+        setPipelineDisponibili(dellaSede.size > 0 ? tutte.filter((p) => dellaSede.has(p.id)) : tutte);
+      })
+      .catch(() => {
+        // Nessun selettore: vedi il commento su pipelineSelezionate sopra.
+      });
+    return () => controller.abort();
+  }, [categoria.sedeId]);
+
+  function togglePipeline(id: string) {
+    setPipelineSelezionate((prec) => {
+      const nuovo = new Set(prec);
+      if (nuovo.has(id)) nuovo.delete(id);
+      else nuovo.add(id);
+      return nuovo;
+    });
+  }
 
   async function salva() {
     setErrore(null);
@@ -931,6 +1077,7 @@ function CategoriaCommercialeRow({
           categoriaId: categoria.categoriaId,
           nome,
           tagGhl,
+          pipelineGhl: Array.from(pipelineSelezionate).join(","),
           targetBudgetMensile: target.budget ? Number(target.budget) : null,
           targetLeadSettimana: target.lead ? Number(target.lead) : null,
           targetAppuntamentiSettimana: target.appuntamenti ? Number(target.appuntamenti) : null,
@@ -960,6 +1107,26 @@ function CategoriaCommercialeRow({
       >
         <Input value={tagGhl} onChange={(e) => setTagGhl(e.target.value)} placeholder="es. mobilieri - cluster a (<500k)" />
       </Field>
+      {pipelineDisponibili.length > 0 && (
+        <Field
+          label="Pipeline GHL (opzionale)"
+          hint="In alternativa al tag: se selezioni una o più pipeline, richieste/appuntamenti/fatturato di questa categoria vengono calcolati dalle opportunità in quelle pipeline. Se sono impostati entrambi vale la pipeline."
+        >
+          <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
+            {pipelineDisponibili.map((p) => (
+              <label key={p.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={pipelineSelezionate.has(p.id)}
+                  onChange={() => togglePipeline(p.id)}
+                  className="accent-current text-brand"
+                />
+                <span className="truncate">{p.name}</span>
+              </label>
+            ))}
+          </div>
+        </Field>
+      )}
       <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
       {errore && <p className="text-xs text-red-600">{errore}</p>}
       <div className="flex items-center justify-between gap-2">

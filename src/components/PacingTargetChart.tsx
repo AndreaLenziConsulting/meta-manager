@@ -170,6 +170,9 @@ export function PacingTargetChart({
     return {
       categoria,
       daGhl: daGhl !== undefined,
+      // I numeri GHL del cluster così come sono: mostrati da soli quando il cluster non ha nessun
+      // target (BloccoPacing non disegnerebbe nulla e il cluster sparirebbe dal grafico).
+      datiGhl: daGhl,
       metriche: calcolaPacingMensile({
         investimentoMese: gruppo?.investimento ?? 0,
         fatturatoMese: daGhl ? daGhl.opportunita.fatturato : (gruppo?.fatturato ?? 0),
@@ -193,7 +196,12 @@ export function PacingTargetChart({
       senzaCluster.opportunita.vendite > 0 ||
       senzaCluster.opportunita.fatturato > 0);
 
-  if (metricheTotale.length === 0 && blocchiCategoria.every((b) => b.metriche.length === 0)) {
+  // Cluster calcolati da GHL (tag o pipeline): i loro numeri si mostrano anche senza target, quindi
+  // una sede che ne ha non è mai "vuota" — nemmeno mentre GHL sta ancora caricando.
+  const haClusterAutomatici =
+    Boolean(haConnessioneGhl) && categorie.some((c) => c.tagGhl.trim() !== "" || (c.pipelineGhl ?? "").trim() !== "");
+
+  if (metricheTotale.length === 0 && blocchiCategoria.every((b) => b.metriche.length === 0) && !haClusterAutomatici) {
     return (
       <p className="text-sm text-ink-500">
         Nessun target commerciale impostato per questa sede — impostali da &quot;Modifica cliente&quot; per vedere qui il ritmo del mese.
@@ -216,15 +224,25 @@ export function PacingTargetChart({
       )}
       <div className="space-y-5">
         {!ghlInCaricamento &&
-          blocchiCategoria.map(({ categoria, metriche, daGhl }) => (
-          <BloccoPacing
-            key={categoria.categoriaId}
-            titolo={categoria.nome}
-            sottotitolo={daGhl ? "via tag GHL" : undefined}
-            metriche={metriche}
-            fraz={fraz}
-          />
-          ))}
+          blocchiCategoria.map(({ categoria, metriche, daGhl, datiGhl }) =>
+            metriche.length === 0 && datiGhl ? (
+              <BloccoSenzaCluster
+                key={categoria.categoriaId}
+                dati={datiGhl}
+                titolo={categoria.nome}
+                descrizione="Numeri del mese da GHL. Nessun target impostato per questo cluster: aggiungilo da Modifica cliente per vedere il ritmo."
+                neutro
+              />
+            ) : (
+              <BloccoPacing
+                key={categoria.categoriaId}
+                titolo={categoria.nome}
+                sottotitolo={daGhl ? "da GHL" : undefined}
+                metriche={metriche}
+                fraz={fraz}
+              />
+            )
+          )}
         {senzaClusterHaDati && senzaCluster && <BloccoSenzaCluster dati={senzaCluster} />}
         <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
       </div>

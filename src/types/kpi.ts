@@ -97,6 +97,11 @@ export type CategoriaCommerciale = {
   sedeId: string;
   nome: string;
   tagGhl: string;
+  // Alternativa a tagGhl (01/10/2026): id di una o più pipeline GHL, separati da virgola, per gli
+  // account che distinguono i cluster mettendo le opportunità in pipeline diverse invece di taggare
+  // i contatti (Agricobots: "+50 hectáreas" / "-50 hectáreas"). Se valorizzato vince su tagGhl —
+  // vedi riepilogoPerPipeline in lib/ghl.ts. Opzionale per non toccare le fixture di test esistenti.
+  pipelineGhl?: string;
   attivo: boolean;
   ordine: number;
   targetBudgetMensile: number | null;

@@ -1,5 +1,6 @@
-import { aggiornaStatoCampagne, ensureCampagneMappate, upsertMetaDailyRows } from "@/lib/sheets";
+import { aggiornaStatoCampagne, ensureCampagneMappate, getSedi, upsertMetaDailyRows } from "@/lib/sheets";
 import { fetchCampaignInsights, fetchStatoCampagne } from "@/lib/meta";
+import { sedePerNuovaCampagna } from "@/lib/sedeCampagna";
 import type { Sede } from "@/types/kpi";
 
 // Finestra rolling: rilegge gli ultimi giorni per catturare aggiornamenti tardivi di attribuzione Meta.
@@ -29,11 +30,16 @@ async function syncSedeFinestra(sede: Sede, since: string, until: string): Promi
     until,
     sede.tipoConversioneLead || undefined
   );
+  // Più sedi dello stesso cliente possono condividere l'ad account (Agricobots Italia/Spagna): una
+  // campagna nuova va alla sede il cui nome compare nel nome campagna, non a quella che sta
+  // sincronizzando in questo momento — vedi sedePerNuovaCampagna. Con una sola sede sull'account
+  // (tutti gli altri clienti) il risultato è sempre `sede.sedeId`, come prima.
+  const sediCliente = (await getSedi()).filter((s) => s.clienteId === sede.clienteId);
   await ensureCampagneMappate(
     campagne.map((c) => ({
       campaignId: c.campaignId,
       clienteId: sede.clienteId,
-      sedeId: sede.sedeId,
+      sedeId: sedePerNuovaCampagna(c.nomeCampagna, sede, sediCliente),
       nomeCampagna: c.nomeCampagna,
       canale: "meta",
     }))

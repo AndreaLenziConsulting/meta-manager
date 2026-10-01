@@ -96,6 +96,7 @@ type BodyPatch = {
   categoriaId?: string;
   nome?: string;
   tagGhl?: string;
+  pipelineGhl?: string;
   targetBudgetMensile?: number | null;
   targetLeadSettimana?: number | null;
   targetAppuntamentiSettimana?: number | null;
@@ -138,6 +139,7 @@ export async function PATCH(req: NextRequest) {
       categoriaId,
       nome,
       tagGhl: body.tagGhl !== undefined ? body.tagGhl.trim() : undefined,
+      pipelineGhl: body.pipelineGhl !== undefined ? body.pipelineGhl.trim() : undefined,
       targetBudgetMensile: body.targetBudgetMensile,
       targetLeadSettimana: body.targetLeadSettimana,
       targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,

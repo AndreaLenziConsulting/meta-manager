@@ -22,7 +22,19 @@ export type GhlConnessione = {
   // casi, impegni non pertinenti — calendarType da solo non basta a distinguerli in modo
   // affidabile (vedi commento su GhlCalendario). [] = non ancora configurato.
   calendarIds: string[];
+  // Pipeline della location che appartengono a QUESTA sede (01/10/2026) — per i clienti che tengono
+  // più divisioni dentro una sola location GHL separandole per pipeline (Agricobots: pipeline "(IT)"
+  // e "(ES)" nella stessa location, due sedi Italia/Spagna in app). Vuoto/assente = tutta la
+  // location, comportamento identico a prima di questo campo. Quando è valorizzato, tutto ciò che
+  // /api/ghl calcola per la sede (opportunità, vendite, attribuzione a campagna/inserzione E
+  // appuntamenti) è ristretto ai contatti con un'opportunità in una di queste pipeline — vedi
+  // restringiAllePipeline in src/lib/ghl.ts. Opzionale per non toccare le fixture di test esistenti.
+  pipelineIds?: string[];
 };
+
+/** Una pipeline di opportunità della location (GET /opportunities/pipelines), solo id + nome: serve
+ * al selettore in ModificaClienteModal.tsx, gli stadi non servono a nessun calcolo. */
+export type GhlPipeline = { id: string; name: string };
 
 /**
  * `calendarType` verificato con una chiamata reale: "round_robin" | "personal" | "collective".
@@ -100,6 +112,9 @@ export type GhlAttribuzione = {
 export type GhlOpportunita = {
   id: string;
   name: string;
+  // Pipeline in cui si trova l'opportunità — presente su ogni oggetto di /opportunities/search
+  // (verificato con una chiamata reale, 01/10/2026). Opzionale solo per le fixture di test.
+  pipelineId?: string;
   monetaryValue: number;
   status: string; // "open" | "won" | "lost" | "abandoned" nei fatti osservati, string per sicurezza
   source: string;
