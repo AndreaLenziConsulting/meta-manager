@@ -1,8 +1,17 @@
 import { google } from "googleapis";
 import { getGoogleOAuth2Client } from "@/lib/googleAuth";
 import { idCartellaDaUrl } from "@/lib/driveNomi";
+import { VOCI_STATO_CONTATTO } from "@/lib/foglioContatti";
 
 /**
+ * FORMATO DEL FILE (ridefinito il 01/10/2026, richiesta utente): non più una riga per mese con i
+ * totali (Mese/Richieste/Appuntamenti/Vendite/Fatturato — nessun cliente l'ha mai compilato, e l'app
+ * non lo leggeva), ma UNA RIGA PER CONTATTO con un menù a tendina "Stato" e una colonna "Fatturato",
+ * lo stesso schema dei file "Contatti Acquisition Control" già in uso. È il file che
+ * src/lib/foglioContatti.ts legge dal vivo per le sedi senza GHL. Chi ha già un file contatti
+ * alimentato dai moduli Meta incolla il suo link in Modifica cliente; questo modello serve a chi
+ * parte da zero e inserisce i contatti a mano.
+ *
  * Get-or-create del "file di compilazione appuntamenti" dentro la cartella Drive di UN cliente
  * esistente (Cliente.driveFolderUrl) — dominio diverso da drive.ts, che è l'hand-off commerciale
  * dei PROSPECT dentro lo shared drive del team: qui la cartella è quella (arbitraria) che l'admin
@@ -21,7 +30,16 @@ import { idCartellaDaUrl } from "@/lib/driveNomi";
  */
 
 const MIME_SHEET = "application/vnd.google-apps.spreadsheet";
-const INTESTAZIONI = ["Mese", "Richieste", "Appuntamenti fissati", "Appuntamenti effettuati", "Vendite", "Fatturato"];
+// L'ordine conta per foglioContatti.ts solo in un punto: "Fatturato" deve stare subito a destra di
+// "Stato". Le altre colonne sono riconosciute dal nome dell'intestazione ("Data...", "ID campagna",
+// "ID inserzione") — gli id sono facoltativi, servono ad attribuire il contatto alla campagna e
+// all'inserzione nella tabella Dettaglio.
+const INTESTAZIONI = ["Data contatto", "Nome", "Telefono", "Email", "ID campagna", "ID inserzione", "Stato", "Fatturato", "Note"];
+const COLONNA_DATA = 0;
+const COLONNA_STATO = INTESTAZIONI.indexOf("Stato");
+const COLONNA_FATTURATO = INTESTAZIONI.indexOf("Fatturato");
+// Righe di un foglio nuovo: tendina e formati vengono stesi su tutte, pronte per la compilazione.
+const RIGHE_MODELLO = 1000;
 
 let driveCache: ReturnType<typeof google.drive> | null = null;
 let sheetsCache: ReturnType<typeof google.sheets> | null = null;
@@ -57,10 +75,54 @@ async function trovaFile(cartellaId: string, nome: string): Promise<string | nul
 }
 
 /**
+ * Scrive sul primo foglio del file il modello "una riga per contatto": intestazioni (grassetto, riga
+ * bloccata), menù a tendina dello stato, data e valuta già formattate. Esportata perché serve anche
+ * a portare al formato nuovo i file creati col vecchio modello mensile e mai compilati (una tantum,
+ * 01/10/2026) — non controlla cosa c'è nel foglio: il chiamante deve averlo verificato vuoto.
+ */
+export async function impostaModelloContatti(fileId: string): Promise<void> {
+  const sheets = getSheets();
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: fileId, fields: "sheets(properties(sheetId))" });
+  const sheetId = meta.data.sheets?.[0]?.properties?.sheetId ?? 0;
+  const colonna = (indice: number) => ({ sheetId, startRowIndex: 1, endRowIndex: RIGHE_MODELLO, startColumnIndex: indice, endColumnIndex: indice + 1 });
+
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: fileId,
+    range: "A1:I1",
+    valueInputOption: "RAW",
+    requestBody: { values: [INTESTAZIONI] },
+  });
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: fileId,
+    requestBody: {
+      requests: [
+        // Grassetto + riga bloccata sull'intestazione — un tocco di cura per un file che apre anche
+        // il cliente, non solo il team interno.
+        { repeatCell: { range: { sheetId, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } },
+        { updateSheetProperties: { properties: { sheetId, gridProperties: { frozenRowCount: 1 } }, fields: "gridProperties.frozenRowCount" } },
+        // Menù a tendina dello stato: le stesse voci che foglioContatti.ts sa leggere. Non "strict":
+        // un testo libero resta possibile (conta come contatto, mai come appuntamento o vendita).
+        {
+          setDataValidation: {
+            range: colonna(COLONNA_STATO),
+            rule: {
+              condition: { type: "ONE_OF_LIST", values: VOCI_STATO_CONTATTO.map((voce) => ({ userEnteredValue: voce })) },
+              showCustomUi: true,
+              strict: false,
+            },
+          },
+        },
+        { repeatCell: { range: colonna(COLONNA_DATA), cell: { userEnteredFormat: { numberFormat: { type: "DATE", pattern: "dd/mm/yyyy" } } }, fields: "userEnteredFormat.numberFormat" } },
+        { repeatCell: { range: colonna(COLONNA_FATTURATO), cell: { userEnteredFormat: { numberFormat: { type: "CURRENCY", pattern: "€ #,##0.00" } } }, fields: "userEnteredFormat.numberFormat" } },
+      ],
+    },
+  });
+}
+
+/**
  * Crea il file DIRETTAMENTE dentro la cartella (un solo `files.create`, non un create-poi-sposta:
  * a differenza di Sheets API `spreadsheets.create`, che lo metterebbe nella root di "My Drive"),
- * poi scrive intestazioni + un tocco di formattazione (grassetto, riga bloccata) via Sheets API
- * sullo stesso file id.
+ * poi scrive il modello (impostaModelloContatti sopra) via Sheets API sullo stesso file id.
  */
 async function creaFile(cartellaId: string, nome: string): Promise<string> {
   const res = await getDrive().files.create({
@@ -71,24 +133,7 @@ async function creaFile(cartellaId: string, nome: string): Promise<string> {
   const fileId = res.data.id;
   if (!fileId) throw new Error(`Creazione del file "${nome}" non riuscita`);
 
-  const sheets = getSheets();
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: fileId,
-    range: "A1:F1",
-    valueInputOption: "RAW",
-    requestBody: { values: [INTESTAZIONI] },
-  });
-  // Grassetto + riga bloccata sull'intestazione — un tocco di cura per un file che apre anche il
-  // cliente, non solo il team interno. sheetId 0 = primo (unico) foglio di un file appena creato.
-  await sheets.spreadsheets.batchUpdate({
-    spreadsheetId: fileId,
-    requestBody: {
-      requests: [
-        { repeatCell: { range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1 }, cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: "userEnteredFormat.textFormat.bold" } },
-        { updateSheetProperties: { properties: { sheetId: 0, gridProperties: { frozenRowCount: 1 } }, fields: "gridProperties.frozenRowCount" } },
-      ],
-    },
-  });
+  await impostaModelloContatti(fileId);
 
   return fileId;
 }

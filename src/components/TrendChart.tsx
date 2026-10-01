@@ -254,7 +254,7 @@ export function TrendChart({
         ) : (
           <span className="text-[11px] text-ink-500">
             {fatturatoReale
-              ? "Fatturato tracciato per settimana (dati GHL)"
+              ? "Fatturato tracciato per settimana (dati reali, non ripartiti dal mese)"
               : "Fatturato tracciato a livello mensile: il valore si ripete per l'intero mese"}
           </span>
         )}

@@ -79,7 +79,18 @@ export function SchedaCliente({
     {
       id: "kpi",
       label: "KPI",
-      content: <KpiSection code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />,
+      // Per KpiSection "ha una fonte commerciale da leggere" vale sia una connessione GHL sia un file
+      // contatti collegato (01/10/2026, vedi lib/foglioContatti.ts): in entrambi i casi chiama
+      // /api/ghl, che decide sede per sede quale delle due usare. ClienteHeader sotto riceve invece
+      // il solo haConnessioneGhl: lì serve proprio sapere se c'è GHL, per mostrare o no il link al file.
+      content: (
+        <KpiSection
+          code={code}
+          clienteId={clienteId}
+          haConnessioneGhl={Boolean(haConnessioneGhl) || Boolean(appuntamentiFileUrl)}
+          ruoloAdmin={ruoloAdmin}
+        />
+      ),
     },
     ...(!code
       ? [

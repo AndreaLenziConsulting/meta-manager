@@ -509,6 +509,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     if (!ghlDati?.connesso) return { stato: "caricamento" };
     return {
       stato: "ok",
+      fonte: ghlDati.fonte ?? "ghl",
       perCampagna: ghlDati.perCampagna,
       perInserzione: ghlDati.perInserzione ?? {},
       totale: risultatiDaBreakdown(ghlDati),

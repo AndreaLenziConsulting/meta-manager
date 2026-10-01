@@ -153,6 +153,12 @@ export type GhlRiepilogoResponse =
   | { connesso: false }
   | {
       connesso: true;
+      // Da dove arrivano questi numeri (01/10/2026): "ghl" = connessione GHL della sede (anche quando
+      // il campo è assente, per le risposte e le fixture di prima), "foglio" = file contatti del
+      // cliente letto per le sedi SENZA GHL (vedi src/lib/foglioContatti.ts). Stessa forma in
+      // entrambi i casi; cambia il significato del periodo — per il file sono i contatti ARRIVATI
+      // nel periodo, nello stato in cui si trovano oggi — e l'interfaccia lo dice nelle note.
+      fonte?: "ghl" | "foglio";
       // false se la connessione esiste ma nessun calendario è ancora stato selezionato — gli
       // appuntamenti restano a zero finché l'admin non sceglie quali calendari includere, invece
       // di includerli tutti in automatico (vedi GhlConnessione.calendarIds).

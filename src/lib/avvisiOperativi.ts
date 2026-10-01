@@ -186,9 +186,9 @@ export function generaAvvisiOperativi(input: {
     avvisi.push({
       id: "ghl-non-disponibile",
       tono: "da-sistemare",
-      titolo: "Dati GHL non disponibili",
+      titolo: "Dati commerciali non disponibili",
       messaggio:
-        "Il collegamento GHL non ha risposto: appuntamenti, vendite, fatturato e cluster mostrano solo quanto inserito a mano. Ricarica la pagina; se persiste, verifica la connessione in Modifica cliente.",
+        "La fonte di appuntamenti e vendite di questa sede (GHL o file contatti) non ha risposto: appuntamenti, vendite, fatturato e cluster mostrano solo quanto inserito a mano. Ricarica la pagina; se persiste, verifica la connessione GHL o il link del file contatti in Modifica cliente.",
     });
   }
 

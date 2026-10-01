@@ -63,6 +63,9 @@ export type DettaglioGhl =
   | { stato: "assente" | "caricamento" | "errore" }
   | {
       stato: "ok";
+      // "foglio" = numeri dal file contatti del cliente (sede senza GHL), vedi lib/foglioContatti.ts:
+      // cambia solo la nota in testa, la tabella è identica.
+      fonte: "ghl" | "foglio";
       perCampagna: Record<string, GhlBreakdownCampagna>;
       perInserzione: Record<string, GhlBreakdownCampagna>;
       // Totale sede del periodo (già ristretto alle campagne selezionate se un filtro è attivo) —
@@ -276,9 +279,14 @@ export function DettaglioCampagneEsteso({
 
   const nota =
     ghl.stato === "caricamento" ? (
-      <p className="px-5 mt-3 text-xs text-ink-500">Appuntamenti e vendite da GHL in caricamento…</p>
+      <p className="px-5 mt-3 text-xs text-ink-500">Appuntamenti e vendite in caricamento…</p>
     ) : ghl.stato === "errore" ? (
-      <p className="px-5 mt-3 text-xs text-red-600">Dati GHL non disponibili al momento: appuntamenti e vendite non sono mostrati.</p>
+      <p className="px-5 mt-3 text-xs text-red-600">Dati commerciali non disponibili al momento: appuntamenti e vendite non sono mostrati.</p>
+    ) : ghl.stato === "ok" && ghl.fonte === "foglio" ? (
+      <p className="px-5 mt-3 text-xs text-ink-500">
+        Appuntamenti e vendite arrivano dal file contatti del cliente e sono collegati alla campagna e all&apos;inserzione del modulo
+        compilato. Contano i contatti arrivati nel periodo, nello stato in cui si trovano oggi nel file.
+      </p>
     ) : ghl.stato === "ok" ? (
       <p className="px-5 mt-3 text-xs text-ink-500">
         Appuntamenti e vendite arrivano da GHL e sono attribuiti alla campagna e all&apos;inserzione da cui è nato il contatto. Contano

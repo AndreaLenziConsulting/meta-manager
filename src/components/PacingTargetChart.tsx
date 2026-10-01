@@ -261,9 +261,9 @@ export function PacingTargetChart({
           ? "Mese concluso — risultato finale contro i target impostati oggi (l'app non conserva i target di allora)."
           : `Mese in corso, giorno ${giornoDelMese} di ${giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.`}
       </p>
-      {ghlInCaricamento && <p className="text-xs text-ink-500">Dati GHL in caricamento… i blocchi per cluster compaiono tra pochi secondi.</p>}
+      {ghlInCaricamento && <p className="text-xs text-ink-500">Appuntamenti, vendite e cluster in caricamento… compaiono tra pochi secondi.</p>}
       {ghlFallito && (
-        <p className="text-xs text-red-600">Dati GHL non disponibili: i cluster mostrano solo i Risultati Commerciali inseriti a mano.</p>
+        <p className="text-xs text-red-600">Dati commerciali non disponibili: restano solo i Risultati Commerciali inseriti a mano.</p>
       )}
       <div className="space-y-5">
         {!ghlInCaricamento &&

@@ -37,11 +37,13 @@ export type Cliente = {
   // (sheets.ts) la legge una tantum per popolare `funnels` dei clienti già esistenti — non scritta
   // mai più da nessun punto dell'app dopo quella migrazione.
   landingPageUrl: string;
-  // Colonna T — file di compilazione appuntamenti (Mese/Richieste/Appuntamenti fissati/effettuati/
-  // Vendite/Fatturato), creato in automatico dentro driveFolderUrl al primo bisogno e poi
-  // persistito qui (vedi src/lib/appuntamentiFile.ts + /api/clienti/file-appuntamenti). Mostrato
-  // in ClienteHeader SOLO per sedi senza connessione GHL attiva — un cliente GHL non deve
-  // compilare a mano ciò che l'app già legge in diretta. Vuoto finché non è mai stato generato.
+  // Colonna T — file contatti del cliente: una riga per contatto con menù a tendina dello stato e
+  // fatturato (formato ridefinito il 01/10/2026, prima era un foglio mensile mai letto). È la fonte
+  // di appuntamenti/vendite/fatturato per le sedi SENZA GHL, letta dal vivo da
+  // src/lib/foglioContatti.ts via /api/ghl. Creato in automatico dentro driveFolderUrl al primo
+  // bisogno (src/lib/appuntamentiFile.ts + /api/clienti/file-appuntamenti) oppure incollato
+  // dall'admin in Modifica cliente quando il file esiste già. Mostrato in ClienteHeader SOLO per
+  // sedi senza connessione GHL attiva. Vuoto finché non è mai stato generato o collegato.
   appuntamentiFileUrl: string;
   // Colonna U — elenco funnel/landing page attivi (JSON, stesso schema di
   // Prospect.calcolatoreBudget in types/prospect.ts: un oggetto/array strutturato in una singola

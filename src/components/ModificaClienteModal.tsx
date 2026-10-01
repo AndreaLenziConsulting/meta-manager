@@ -51,6 +51,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
   const [coloreSecondario, setColoreSecondario] = useState(cliente.coloreSecondario);
   const [fontPersonalizzato, setFontPersonalizzato] = useState(cliente.fontPersonalizzato);
   const [driveFolderUrl, setDriveFolderUrl] = useState(cliente.driveFolderUrl);
+  const [appuntamentiFileUrl, setAppuntamentiFileUrl] = useState(cliente.appuntamentiFileUrl);
 
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
@@ -136,6 +137,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           coloreSecondario,
           fontPersonalizzato,
           driveFolderUrl,
+          appuntamentiFileUrl,
         }),
       });
       const body = await res.json().catch(() => ({}));
@@ -207,6 +209,16 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           </div>
           <Field label="Cartella Drive">
             <Input value={driveFolderUrl} onChange={(e) => setDriveFolderUrl(e.target.value)} placeholder="https://drive.google.com/…" />
+          </Field>
+          <Field
+            label="File contatti (foglio Google)"
+            hint="Per le sedi senza GHL: una riga per contatto, con il menù a tendina dello stato (Da contattare, Non lavorabile, In contatto, Appuntamento fissato, Appuntamento effettuato, Vendita) e il fatturato nella colonna accanto. L'app lo legge dal vivo. Lascia vuoto per scollegarlo."
+          >
+            <Input
+              value={appuntamentiFileUrl}
+              onChange={(e) => setAppuntamentiFileUrl(e.target.value)}
+              placeholder="https://docs.google.com/spreadsheets/d/…"
+            />
           </Field>
         </div>
 

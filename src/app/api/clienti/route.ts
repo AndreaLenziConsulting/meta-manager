@@ -1,3 +1,4 @@
+import { idFoglioDaUrl } from "@/lib/foglioContatti";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { generaAccessCode, generaClienteId, generaSedeId } from "@/lib/accessCode";
@@ -239,6 +240,10 @@ type BodyPatch = {
   coloreSecondario?: string;
   fontPersonalizzato?: string;
   driveFolderUrl?: string;
+  // Link del file contatti (01/10/2026): prima era scritto solo dalla creazione automatica, ora
+  // l'admin può incollare il link di un file già esistente (es. "Contatti Acquisition Control").
+  // "" lo scollega. Vedi src/lib/foglioContatti.ts.
+  appuntamentiFileUrl?: string;
   landingPageUrl?: string;
   funnels?: Funnel[];
 };
@@ -307,6 +312,13 @@ export async function PATCH(req: NextRequest) {
   if (body.consulenteId !== undefined && !consulenti.some((c) => c.consulenteId === body.consulenteId)) {
     return NextResponse.json({ error: "Consulente non valido" }, { status: 400 });
   }
+  const fileContatti = body.appuntamentiFileUrl?.trim();
+  if (fileContatti && !idFoglioDaUrl(fileContatti)) {
+    return NextResponse.json(
+      { error: "Il file contatti deve essere il link di un foglio Google (https://docs.google.com/spreadsheets/d/...)" },
+      { status: 400 }
+    );
+  }
 
   try {
     await aggiornaCliente({
@@ -321,6 +333,7 @@ export async function PATCH(req: NextRequest) {
       coloreSecondario: body.coloreSecondario !== undefined ? body.coloreSecondario.trim() : undefined,
       fontPersonalizzato: body.fontPersonalizzato !== undefined ? body.fontPersonalizzato.trim() : undefined,
       driveFolderUrl: body.driveFolderUrl !== undefined ? body.driveFolderUrl.trim() : undefined,
+      appuntamentiFileUrl: fileContatti,
       landingPageUrl: body.landingPageUrl !== undefined ? body.landingPageUrl.trim() : undefined,
       funnels: body.funnels,
     });

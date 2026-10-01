@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
+import { getCampagne, getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
+import { interpretaFoglioContatti, leggiFoglioContatti, riepilogoDaContatti } from "@/lib/foglioContatti";
 import { puoVedereCliente } from "@/lib/authz";
 import { normalizzaIntervallo } from "@/lib/kpi";
 import {
@@ -107,17 +108,42 @@ export async function GET(req: NextRequest) {
   }
   const sede = (sedeIdParam && sediCliente.find((s) => s.sedeId === sedeIdParam)) || sediCliente[0];
 
-  const connessioni = await getGhlConnessioni();
-  const connessione = connessioni.find((c) => c.sedeId === sede.sedeId && c.attivo);
-  if (!connessione) {
-    const risposta: GhlRiepilogoResponse = { connesso: false };
-    return NextResponse.json(risposta);
-  }
-
   // Intervallo di giorni inclusi: primo istante di `da` -> ultimo istante di `a` (UTC, come tutte le
   // chiavi-giorno dell'app).
   const startMs = new Date(`${da}T00:00:00Z`).getTime();
   const endMs = new Date(`${a}T23:59:59.999Z`).getTime();
+
+  const connessioni = await getGhlConnessioni();
+  const connessione = connessioni.find((c) => c.sedeId === sede.sedeId && c.attivo);
+  if (!connessione) {
+    // Sede senza GHL: la fonte è il file contatti del cliente, se c'è (01/10/2026, vedi
+    // src/lib/foglioContatti.ts) — una riga per contatto con stato e fatturato, letta dal vivo. La
+    // risposta ha la stessa forma di quella GHL, con `fonte: "foglio"`. Un file collegato ma senza
+    // contatti riconoscibili (il vecchio modello mensile, o ancora vuoto) vale come nessuna fonte:
+    // si resta sui Risultati Commerciali inseriti a mano, mai uno zero al posto di un dato assente.
+    const urlFile = clienti.find((c) => c.clienteId === clienteId)?.appuntamentiFileUrl;
+    if (urlFile) {
+      try {
+        let contatti = interpretaFoglioContatti(await leggiFoglioContatti(urlFile));
+        if (contatti.length > 0) {
+          // Il file è uno per cliente: con più sedi, a questa sede appartengono solo i contatti delle
+          // sue campagne. Un contatto senza campagna non è assegnabile a nessuna sede e resta fuori.
+          if (sediCliente.length > 1) {
+            const campagneSede = new Set(
+              (await getCampagne()).filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId).map((c) => c.campaignId)
+            );
+            contatti = contatti.filter((c) => c.campaignId !== null && campagneSede.has(c.campaignId));
+          }
+          return NextResponse.json(riepilogoDaContatti(contatti, startMs, endMs, campagneFiltro));
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Errore sconosciuto";
+        return NextResponse.json({ error: `Errore dal file contatti: ${msg}` }, { status: 502 });
+      }
+    }
+    const risposta: GhlRiepilogoResponse = { connesso: false };
+    return NextResponse.json(risposta);
+  }
 
   try {
     const [{ appuntamenti: appuntamentiLocation, calendariFalliti }, opportunitaLocation, categorieAutomatiche, venditoriConGhl] = await Promise.all([
