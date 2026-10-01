@@ -213,22 +213,36 @@ export async function fetchInserzioniPerCampagna(
   }));
 }
 
-type MetaAdStatus = { id: string; effective_status?: string };
+type MetaAdAnagrafica = { id: string; name?: string; campaign_id?: string; effective_status?: string };
 
-/** Stato corrente (ACTIVE/PAUSED/...) di tutte le inserzioni di un ad account, per ad_id — mirror di fetchStatoCampagne. */
-export async function fetchStatoInserzioni(adAccountId: string): Promise<Map<string, string>> {
+export type AnagraficaInserzione = { adName: string; campaignId: string; stato: string };
+
+/**
+ * Anagrafica corrente (nome, campagna di appartenenza, stato ACTIVE/PAUSED/...) di tutte le
+ * inserzioni di un ad account, per ad_id — mirror di fetchStatoCampagne. Sostituisce il vecchio
+ * fetchStatoInserzioni (solo stato): stessa unica chiamata all'edge /ads, due campi in più. Serve
+ * alla vista "Per singola inserzione" del Dettaglio (01/10/2026) per dare un nome anche alle
+ * inserzioni che NON hanno speso nel periodo scelto (assenti da fetchInserzioniPerCampagna, che
+ * legge gli insights del periodo) ma a cui GHL attribuisce un appuntamento o una vendita del
+ * periodo — un lead di due mesi fa che chiude oggi. `stato` "" se Meta non lo restituisce.
+ */
+export async function fetchAnagraficaInserzioni(adAccountId: string): Promise<Map<string, AnagraficaInserzione>> {
   const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/ads`);
-  url.searchParams.set("fields", "id,effective_status");
+  url.searchParams.set("fields", "id,name,campaign_id,effective_status");
   url.searchParams.set("access_token", metaToken());
   url.searchParams.set("limit", "500");
 
-  const items = await fetchTutteLePagine<MetaAdStatus>(url);
+  const items = await fetchTutteLePagine<MetaAdAnagrafica>(url);
 
-  const stati = new Map<string, string>();
+  const anagrafica = new Map<string, AnagraficaInserzione>();
   for (const item of items) {
-    if (item.effective_status) stati.set(item.id, item.effective_status);
+    anagrafica.set(item.id, {
+      adName: item.name ?? "",
+      campaignId: item.campaign_id ?? "",
+      stato: item.effective_status ?? "",
+    });
   }
-  return stati;
+  return anagrafica;
 }
 
 type MetaFrequenzaRow = { campaign_id: string; frequency?: string };

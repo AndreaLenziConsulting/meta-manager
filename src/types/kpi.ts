@@ -348,6 +348,12 @@ export type KpiResponse = {
   // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi
   // mesiConSpesaSenzaRisultatiCommerciali in lib/kpiQualita.ts.
   meseSenzaRisultatiCommerciali?: { mese: string; investimento: number }[];
+  // Presente solo nella richiesta interna — nome e tipo di TUTTE le campagne note della sede (foglio
+  // Campagne), non solo quelle con spesa nel periodo come `campagne`/`campagneDisponibili` sopra.
+  // Serve alla tabella Dettaglio (01/10/2026) per collocare appuntamenti/vendite GHL del periodo che
+  // arrivano da una campagna SENZA spesa nel periodo (un lead di due mesi fa che chiude oggi): senza
+  // questa anagrafica quel risultato non avrebbe né un nome né un tipo campagna a cui sommarsi.
+  anagraficaCampagne?: { campaignId: string; nomeCampagna: string; tipoCampagna: string }[];
 };
 
 export type Prodotto = {

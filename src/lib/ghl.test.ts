@@ -13,6 +13,7 @@ import {
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 import { riepilogoSenzaTag } from "./ghl";
+import { breakdownGhlPerInserzione, estraiAdIdAttribuzione, mappaInserzionePerContatto } from "./ghl";
 
 function appuntamento(overrides: Partial<GhlAppuntamento> = {}): GhlAppuntamento {
   return {
@@ -334,6 +335,116 @@ describe("mappaCampagnaPerContatto", () => {
   it("nessuna opportunità risolvibile per nessun contatto -> mappa vuota", () => {
     const lista = [opportunita({ contactId: "ct1", attributions: [] })];
     expect(mappaCampagnaPerContatto(lista).size).toBe(0);
+  });
+});
+
+describe("estraiAdIdAttribuzione", () => {
+  it("form Lead Ads nativo: id inserzione in utmAdId, utmContent è il nome", () => {
+    const o = opportunita({
+      attributions: [attribuzione({ utmCampaignId: "120251149019240588", utmAdId: "120251158854450588", utmContent: "Ebook light 1080x1080", isFirst: true })],
+    });
+    expect(estraiAdIdAttribuzione(o)).toBe("120251158854450588");
+  });
+
+  it("sito con UTM dinamici Meta: nessun utmAdId, id inserzione in utmContent", () => {
+    const o = opportunita({
+      attributions: [attribuzione({ utmCampaign: "120245888846110249", utmContent: "120245888846140249", isFirst: true })],
+    });
+    expect(estraiAdIdAttribuzione(o)).toBe("120245888846140249");
+  });
+
+  it("utmContent testuale (nome inserzione) senza utmAdId -> null, mai un match per nome", () => {
+    const o = opportunita({ attributions: [attribuzione({ utmCampaignId: "120219652196580588", utmContent: "Take migliore", isFirst: true })] });
+    expect(estraiAdIdAttribuzione(o)).toBeNull();
+  });
+
+  it("un nome fatto di poche cifre non passa per un id inserzione", () => {
+    const o = opportunita({ attributions: [attribuzione({ utmCampaignId: "120219652196580588", utmContent: "2024", isFirst: true })] });
+    expect(estraiAdIdAttribuzione(o)).toBeNull();
+  });
+
+  it("usa il primo touchpoint (isFirst), non l'ultimo", () => {
+    const o = opportunita({
+      attributions: [
+        attribuzione({ utmAdId: "999999999999999", isFirst: false, isLast: true }),
+        attribuzione({ utmAdId: "111111111111111", isFirst: true }),
+      ],
+    });
+    expect(estraiAdIdAttribuzione(o)).toBe("111111111111111");
+  });
+
+  it("senza attributions -> null", () => {
+    expect(estraiAdIdAttribuzione(opportunita({ attributions: undefined }))).toBeNull();
+  });
+});
+
+describe("mappaInserzionePerContatto", () => {
+  it("l'inserzione viene dalla stessa opportunità che decide la campagna (la prima risolvibile)", () => {
+    const lista = [
+      opportunita({
+        id: "o1",
+        contactId: "ct1",
+        createdAt: "2026-06-01T00:00:00Z",
+        attributions: [attribuzione({ utmCampaignId: "999", utmAdId: "999999999999999" })],
+      }),
+      opportunita({
+        id: "o2",
+        contactId: "ct1",
+        createdAt: "2026-01-01T00:00:00Z",
+        attributions: [attribuzione({ utmCampaignId: "111", utmAdId: "111111111111111" })],
+      }),
+    ];
+    expect(mappaInserzionePerContatto(lista).get("ct1")).toBe("111111111111111");
+    expect(mappaCampagnaPerContatto(lista).get("ct1")).toBe("111");
+  });
+
+  it("prima opportunità con campagna ma senza id inserzione -> contatto fuori dalla mappa, mai l'inserzione di un'opportunità successiva", () => {
+    const lista = [
+      opportunita({
+        id: "o1",
+        contactId: "ct1",
+        createdAt: "2026-01-01T00:00:00Z",
+        attributions: [attribuzione({ utmCampaignId: "111", utmContent: "Take migliore" })],
+      }),
+      opportunita({
+        id: "o2",
+        contactId: "ct1",
+        createdAt: "2026-06-01T00:00:00Z",
+        attributions: [attribuzione({ utmCampaignId: "999", utmAdId: "999999999999999" })],
+      }),
+    ];
+    expect(mappaInserzionePerContatto(lista).has("ct1")).toBe(false);
+    expect(mappaCampagnaPerContatto(lista).get("ct1")).toBe("111");
+  });
+
+  it("opportunità senza campagna risolvibile ignorata anche se porta un id inserzione", () => {
+    const lista = [opportunita({ contactId: "ct1", attributions: [attribuzione({ utmCampaignId: undefined, utmAdId: "111111111111111" })] })];
+    expect(mappaInserzionePerContatto(lista).size).toBe(0);
+  });
+});
+
+describe("breakdownGhlPerInserzione", () => {
+  it("raggruppa appuntamenti/opportunità per inserzione via la mappa contatto->inserzione", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "ct1", dateAdded: "2026-08-05T00:00:00Z" }),
+      appuntamento({ id: "a2", contactId: "ct2", dateAdded: "2026-08-06T00:00:00Z" }),
+      appuntamento({ id: "a3", contactId: "ct-senza-inserzione", dateAdded: "2026-08-06T00:00:00Z" }),
+    ];
+    const opportunitaVinte = [
+      opportunita({ id: "o1", contactId: "ct1", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+    ];
+    const mappa = new Map([
+      ["ct1", "111111111111111"],
+      ["ct2", "222222222222222"],
+    ]);
+    const startMs = new Date("2026-08-01T00:00:00Z").getTime();
+    const endMs = new Date("2026-08-31T23:59:59.999Z").getTime();
+    const risultato = breakdownGhlPerInserzione(appuntamenti, opportunitaVinte, mappa, startMs, endMs, endMs);
+    expect(Object.keys(risultato).sort()).toEqual(["111111111111111", "222222222222222"]);
+    expect(risultato["111111111111111"].appuntamenti.totali).toBe(1);
+    expect(risultato["111111111111111"].opportunita).toEqual({ vendite: 1, fatturato: 500 });
+    expect(risultato["222222222222222"].appuntamenti.totali).toBe(1);
+    expect(risultato["222222222222222"].opportunita).toEqual({ vendite: 0, fatturato: 0 });
   });
 });
 

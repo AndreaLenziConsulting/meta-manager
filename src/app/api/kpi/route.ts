@@ -209,6 +209,11 @@ export async function GET(req: NextRequest) {
   // (nessun avviso "settimana non compilata", fuori scope): si mostrano i mesi TOCCATI
   // dall'intervallo di giorni scelto.
   if (internal) {
+    response.anagraficaCampagne = campagneSede.map((c) => ({
+      campaignId: c.campaignId,
+      nomeCampagna: c.nomeCampagna,
+      tipoCampagna: c.tipoCampagna || "Non classificata",
+    }));
     const meseDa = da.slice(0, 7);
     const meseA = a.slice(0, 7);
     response.meseSenzaRisultatiCommerciali = mesiConSpesaSenzaRisultatiCommerciali(

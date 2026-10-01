@@ -76,10 +76,22 @@ export type GhlAppuntamento = {
  * `isLast` marcano il primo/ultimo touchpoint della sessione quando l'array ne ha più di uno —
  * per l'attribuzione a campagna si usa sempre il primo (il canale che ha davvero generato il
  * lead), mai l'ultimo.
+ *
+ * Id dell'INSERZIONE (ad) — verificato con chiamate reali su 3 account (01/10/2026), stessi due
+ * pattern dell'id campagna sopra:
+ * - form "Lead Ads" nativo: `utmAdId` porta l'id numerico dell'inserzione, `utmContent` il suo nome
+ *   leggibile (es. "Ebook light 1080x1080"). Sui lead più vecchi `utmAdId` può mancare (resta solo
+ *   il nome in `utmContent`): in quel caso l'inserzione NON è risolvibile, mai un match per nome.
+ * - sito/funnel esterno con gli UTM dinamici di Meta: nessun `utmAdId` — l'id numerico arriva in
+ *   `utmContent` (Meta genera `utm_content={{ad.id}}`; `utmTerm` porta invece l'id del gruppo di
+ *   inserzioni).
+ * Vedi estraiAdIdAttribuzione in src/lib/ghl.ts.
  */
 export type GhlAttribuzione = {
   utmCampaignId?: string;
   utmCampaign?: string;
+  utmAdId?: string;
+  utmContent?: string;
   utmSource?: string;
   isFirst?: boolean;
   isLast?: boolean;
@@ -155,6 +167,15 @@ export type GhlRiepilogoResponse =
       // contatto attribuito. Assente per una campagna = "nessun dato attribuito", da mostrare come
       // non disponibile, mai come zero silenzioso (vedi DettaglioCampagneEsteso.tsx).
       perCampagna: Record<string, GhlBreakdownCampagna>;
+      // Come `perCampagna`, ma per singola INSERZIONE Meta (chiavi = adId, vedi
+      // mappaInserzionePerContatto/breakdownGhlPerInserzione in lib/ghl.ts) — alimenta la vista
+      // "Per singola inserzione" di DettaglioCampagneEsteso.tsx (01/10/2026). Stessa regola: solo le
+      // inserzioni con almeno un contatto attribuito; assente = "nessun dato attribuito", mai zero.
+      // Un contatto attribuito a una campagna ma senza id inserzione risolvibile (vedi
+      // GhlAttribuzione) NON compare qui: la somma per inserzione può quindi essere inferiore a
+      // quella per campagna, la differenza è mostrata come riga a parte, mai nascosta. Opzionale
+      // per lo stesso motivo di `perTag` sotto (fixture di test esistenti).
+      perInserzione?: Record<string, GhlBreakdownCampagna>;
       // true se questa location ha ALMENO un'opportunità con un campaignId Meta risolvibile —
       // distingue "il filtro campagne selezionato ha davvero zero risultati" da "questa sede non
       // ha ancora nessuna attribuzione campagna disponibile" (traffico non tracciato/non da Meta):

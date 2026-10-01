@@ -137,6 +137,12 @@ const STATI_CAMPAGNA: Record<string, StatoCampagnaInfo> = {
   DELETED: { label: "Eliminata", ...STILE_LIVELLO.critico },
   PENDING_REVIEW: { label: "In revisione", ...STILE_LIVELLO.attenzione },
   DISAPPROVED: { label: "Rifiutata", ...STILE_LIVELLO.critico },
+  // Stati che Meta restituisce solo a livello di inserzione (effective_status di un ad) — vista "Per
+  // singola inserzione" del Dettaglio: l'inserzione è accesa ma ferma per via del suo contenitore.
+  CAMPAIGN_PAUSED: { label: "Campagna in pausa", ...STILE_LIVELLO.neutro },
+  ADSET_PAUSED: { label: "Gruppo in pausa", ...STILE_LIVELLO.neutro },
+  WITH_ISSUES: { label: "Con problemi", ...STILE_LIVELLO.critico },
+  IN_PROCESS: { label: "In elaborazione", ...STILE_LIVELLO.attenzione },
 };
 
 /** Traduce lo stato grezzo Meta (ACTIVE/PAUSED/...) in etichetta + colore per i badge. Stringa vuota = non ancora sincronizzato. */

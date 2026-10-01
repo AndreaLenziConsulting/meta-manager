@@ -249,6 +249,22 @@ export function estraiCampaignIdAttribuzione(o: GhlOpportunita): string | null {
  * qui (join contatto->opportunità->attributions).
  */
 export function mappaCampagnaPerContatto(opportunita: GhlOpportunita[]): Map<string, string> {
+  const mappa = new Map<string, string>();
+  for (const [contactId, o] of primaOpportunitaAttribuitaPerContatto(opportunita)) {
+    const campaignId = estraiCampaignIdAttribuzione(o);
+    if (campaignId) mappa.set(contactId, campaignId);
+  }
+  return mappa;
+}
+
+/**
+ * Per ogni contatto, la sua PRIMA opportunità (createdAt più basso) fra quelle con una campagna
+ * Meta risolvibile — l'unica fonte di attribuzione del contatto, condivisa da
+ * mappaCampagnaPerContatto sopra e mappaInserzionePerContatto sotto: campagna e inserzione di un
+ * contatto vengono SEMPRE dalla stessa opportunità, così un'inserzione non può mai risultare
+ * attribuita a un contatto la cui campagna è un'altra.
+ */
+function primaOpportunitaAttribuitaPerContatto(opportunita: GhlOpportunita[]): Map<string, GhlOpportunita> {
   const primaPer = new Map<string, GhlOpportunita>();
   for (const o of opportunita) {
     if (estraiCampaignIdAttribuzione(o) === null) continue;
@@ -257,10 +273,38 @@ export function mappaCampagnaPerContatto(opportunita: GhlOpportunita[]): Map<str
       primaPer.set(o.contactId, o);
     }
   }
+  return primaPer;
+}
+
+/**
+ * Id dell'INSERZIONE Meta (ad) dal primo touchpoint di un'opportunità GHL — stesso touchpoint di
+ * estraiCampaignIdAttribuzione sopra, due campi provati in ordine (vedi GhlAttribuzione in
+ * types/ghl.ts): `utmAdId` (form Lead Ads nativo) poi `utmContent` (sito con `utm_content=
+ * {{ad.id}}`). Si accetta solo un numero di almeno 10 cifre — un id Meta reale ne ha 15-18:
+ * `utmContent` nel pattern Lead Ads porta il NOME dell'inserzione, e un nome fatto di sole poche
+ * cifre (es. "2024") non deve mai passare per un id. null se non risolvibile, mai un match per nome.
+ */
+export function estraiAdIdAttribuzione(o: GhlOpportunita): string | null {
+  const touchpoint = o.attributions?.find((a) => a.isFirst) ?? o.attributions?.[0];
+  if (!touchpoint) return null;
+  for (const candidato of [touchpoint.utmAdId, touchpoint.utmContent]) {
+    if (candidato && /^\d{10,}$/.test(candidato)) return candidato;
+  }
+  return null;
+}
+
+/**
+ * Come mappaCampagnaPerContatto, ma verso l'INSERZIONE: per ogni contatto, l'inserzione della
+ * stessa opportunità che ne decide la campagna (primaOpportunitaAttribuitaPerContatto). Un contatto
+ * con campagna risolvibile ma senza id inserzione (lead più vecchi del form Lead Ads, vedi
+ * GhlAttribuzione) resta fuori da questa mappa — sottoinsieme di mappaCampagnaPerContatto, mai un
+ * contatto in più.
+ */
+export function mappaInserzionePerContatto(opportunita: GhlOpportunita[]): Map<string, string> {
   const mappa = new Map<string, string>();
-  for (const [contactId, o] of primaPer) {
-    const campaignId = estraiCampaignIdAttribuzione(o);
-    if (campaignId) mappa.set(contactId, campaignId);
+  for (const [contactId, o] of primaOpportunitaAttribuitaPerContatto(opportunita)) {
+    const adId = estraiAdIdAttribuzione(o);
+    if (adId) mappa.set(contactId, adId);
   }
   return mappa;
 }
@@ -431,6 +475,23 @@ export function breakdownGhlPerCampagna(
     };
   }
   return risultato;
+}
+
+/**
+ * Riepilogo appuntamenti/opportunità per singola INSERZIONE Meta (vista "Per singola inserzione"
+ * della tabella Dettaglio, 01/10/2026) — stesso identico raggruppamento di breakdownGhlPerCampagna,
+ * la chiave di join è solo un'altra mappa contatto->chiave (mappaInserzionePerContatto). Un nome
+ * distinto per leggibilità ai punti di chiamata, non una seconda implementazione.
+ */
+export function breakdownGhlPerInserzione(
+  appuntamentiPrimi: GhlAppuntamento[],
+  opportunitaVinte: GhlOpportunita[],
+  mappaInserzione: Map<string, string>,
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): Record<string, GhlBreakdownCampagna> {
+  return breakdownGhlPerCampagna(appuntamentiPrimi, opportunitaVinte, mappaInserzione, startMs, endMs, oraAttualeMs);
 }
 
 /**

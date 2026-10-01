@@ -6,12 +6,14 @@ import { normalizzaIntervallo } from "@/lib/kpi";
 import {
   appuntamentiGhlPerSettimana,
   breakdownGhlPerCampagna,
+  breakdownGhlPerInserzione,
   fatturatoGhlPerSettimana,
   fetchAppuntamenti,
   contaContattiSenzaTagNelPeriodo,
   fetchContattiPerTag,
   fetchOpportunita,
   mappaCampagnaPerContatto,
+  mappaInserzionePerContatto,
   primoAppuntamentoPerContatto,
   riepilogoAppuntamenti,
   riepilogoOpportunita,
@@ -184,6 +186,15 @@ export async function GET(req: NextRequest) {
     // campagne delle tessere.
     const perCampagna = breakdownGhlPerCampagna(appuntamentiPrimi, opportunitaVinte, mappaCampagna, startMs, endMs);
     const campagneAttribuibili = Object.keys(perCampagna).length > 0;
+    // Stesso perimetro "tutta la sede" di perCampagna, a livello di singola inserzione — nessuna
+    // chiamata GHL in più, l'id inserzione è sulle stesse opportunità già scaricate sopra.
+    const perInserzione = breakdownGhlPerInserzione(
+      appuntamentiPrimi,
+      opportunitaVinte,
+      mappaInserzionePerContatto(opportunitaGrezze),
+      startMs,
+      endMs
+    );
 
     // Scoping per le tessere/grafici: se è stato richiesto un sottoinsieme di campagne, si restringe
     // ai soli contatti la cui mappaCampagna cade in quel sottoinsieme — altrimenti tutta la sede,
@@ -208,6 +219,7 @@ export async function GET(req: NextRequest) {
         connessione.calendarIds.length > 0 ? appuntamentiGhlPerSettimana(appuntamentiScoped, startMs, endMs) : [],
       calendariFalliti,
       perCampagna,
+      perInserzione,
       campagneAttribuibili,
       perTag,
       senzaTag,

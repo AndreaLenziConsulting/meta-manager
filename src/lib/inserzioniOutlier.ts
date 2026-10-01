@@ -13,6 +13,11 @@ export type InserzioneConStato = {
   stato: string;
 };
 
+/** Anagrafica di un'inserzione SENZA spesa nel periodo richiesto (`altreInserzioni` di
+ * /api/meta-inserzioni, per adId) — solo per dare un nome alle righe GHL-only della vista "Per
+ * singola inserzione" del Dettaglio. `nomeCampagna` "" se la campagna non è nel foglio Campagne. */
+export type AnagraficaInserzioneFuoriPeriodo = { adName: string; campaignId: string; nomeCampagna: string; stato: string };
+
 export type InserzioneOutlier = {
   adId: string;
   adName: string;

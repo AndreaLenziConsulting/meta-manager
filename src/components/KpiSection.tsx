@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
-import { DettaglioCampagneEsteso } from "@/components/DettaglioCampagneEsteso";
+import { DettaglioCampagneEsteso, type DettaglioGhl, type DettaglioInserzioni } from "@/components/DettaglioCampagneEsteso";
 import { CampagneFilter } from "@/components/CampagneFilter";
 import { Tabs } from "@/components/Tabs";
 import { DateRangePicker, type SelezionePeriodo } from "@/components/DateRangePicker";
@@ -16,7 +16,8 @@ import { AndamentoCommerciale } from "@/components/AndamentoCommerciale";
 import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
-import { trovaInserzioniOutlier, type InserzioneConStato } from "@/lib/inserzioniOutlier";
+import { trovaInserzioniOutlier, type AnagraficaInserzioneFuoriPeriodo, type InserzioneConStato } from "@/lib/inserzioniOutlier";
+import { risultatiDaBreakdown } from "@/lib/dettaglioGhl";
 import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
 import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
@@ -24,6 +25,10 @@ import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
 type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ruoloAdmin?: boolean };
+
+// Riferimento stabile per il link pubblico `code` (dove KpiResponse.anagraficaCampagne non arriva):
+// un `[]` scritto inline sarebbe un array nuovo a ogni render, vedi ghlDettaglio più sotto.
+const EMPTY_ANAGRAFICA_CAMPAGNE: NonNullable<KpiResponse["anagraficaCampagne"]> = [];
 
 /**
  * Contenuto della voce "KPI" dell'accordion in SchedaCliente.tsx — sostituisce KpiDashboard.tsx.
@@ -93,6 +98,14 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // Inserzioni (ad) per il controllo qualità "outlier CPL" (blocco 4) — vedi il fetch dedicato più
   // sotto e inserzioniOutlier.ts. Array vuoto finché non arriva o se non c'è nulla da leggere.
   const [inserzioni, setInserzioni] = useState<InserzioneConStato[]>([]);
+  // Stato del fetch inserzioni + anagrafica delle inserzioni senza spesa nel periodo — solo per la
+  // vista "Per singola inserzione" del Dettaglio (01/10/2026), che deve distinguere "in caricamento"
+  // / "Meta non ha risposto" da "nessuna inserzione nel periodo". Il controllo outlier sopra continua
+  // a leggere solo `inserzioni` (array vuoto = nessun avviso), comportamento invariato.
+  const [inserzioniExtra, setInserzioniExtra] = useState<{
+    stato: "caricamento" | "ok" | "errore";
+    altre: Record<string, AnagraficaInserzioneFuoriPeriodo>;
+  }>({ stato: "caricamento", altre: {} });
 
   // Contesto = quale cliente/codice sto guardando, indipendente dalla sede: cambia solo quando si
   // naviga verso un cliente diverso, non quando si cambia sede all'interno dello stesso cliente.
@@ -321,19 +334,36 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       .then(() => {
         if (!clienteId || !sedeGhl) {
           setInserzioni([]);
+          setInserzioniExtra({ stato: "caricamento", altre: {} });
           return undefined;
         }
+        setInserzioniExtra({ stato: "caricamento", altre: {} });
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
+        // L'anagrafica delle inserzioni senza spesa nel periodo serve solo a dare un nome alle righe
+        // a cui GHL attribuisce un risultato: chiesta solo per le sedi connesse a GHL.
+        if (haConnessioneGhl) params.set("anagrafica", "1");
         return fetch(`/api/meta-inserzioni?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
-          .then((body: { inserzioni: InserzioneConStato[] } | null) => setInserzioni(body?.inserzioni ?? []));
+          .then(
+            (
+              body: {
+                inserzioni: InserzioneConStato[];
+                altreInserzioni?: Record<string, AnagraficaInserzioneFuoriPeriodo>;
+                errore?: boolean;
+              } | null
+            ) => {
+              setInserzioni(body?.inserzioni ?? []);
+              setInserzioniExtra({ stato: !body || body.errore ? "errore" : "ok", altre: body?.altreInserzioni ?? {} });
+            }
+          );
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setInserzioni([]);
+        setInserzioniExtra({ stato: "errore", altre: {} });
       });
     return () => controller.abort();
-  }, [clienteId, sedeGhl, da, a, refreshTick]);
+  }, [clienteId, sedeGhl, haConnessioneGhl, da, a, refreshTick]);
 
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (scoped
   // alle campagne selezionate quando quella sede ha attribuzione disponibile), altrimenti da
@@ -467,6 +497,26 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const inserzioniOutlier = useMemo(
     () => trovaInserzioniOutlier(inserzioni, dati?.sede.targetCpl ?? null),
     [inserzioni, dati]
+  );
+
+  // Dati per le colonne commerciali e la vista "Per singola inserzione" della tabella Dettaglio
+  // (blocco 7) — memoizzati perché DettaglioCampagneEsteso ci costruisce sopra i suoi useMemo: un
+  // oggetto nuovo a ogni render li ricalcolerebbe ogni volta. "assente" anche sul link pubblico
+  // `code` (clienteId assente): GHL lì non arriva mai.
+  const ghlDettaglio = useMemo<DettaglioGhl>(() => {
+    if (!clienteId || !haConnessioneGhl || (ghlDati !== null && !ghlDati.connesso)) return { stato: "assente" };
+    if (ghlErrore) return { stato: "errore" };
+    if (!ghlDati?.connesso) return { stato: "caricamento" };
+    return {
+      stato: "ok",
+      perCampagna: ghlDati.perCampagna,
+      perInserzione: ghlDati.perInserzione ?? {},
+      totale: risultatiDaBreakdown(ghlDati),
+    };
+  }, [clienteId, haConnessioneGhl, ghlDati, ghlErrore]);
+  const inserzioniDettaglio = useMemo<DettaglioInserzioni>(
+    () => ({ stato: inserzioniExtra.stato, righe: inserzioni, altre: inserzioniExtra.altre }),
+    [inserzioni, inserzioniExtra]
   );
 
   // Target commerciali (Fase 1 roadmap, blocco 4) — confronta i 4 target di sede con l'andamento
@@ -685,7 +735,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             frequenzaPerCampagna={frequenzaPerCampagna}
             targetCpl={dati.sede.targetCpl ?? null}
             mostraValutazione={Boolean(clienteId)}
-            ghlPerCampagna={ghlDati?.connesso ? ghlDati.perCampagna : null}
+            ghl={ghlDettaglio}
+            inserzioni={inserzioniDettaglio}
+            anagraficaCampagne={dati.anagraficaCampagne ?? EMPTY_ANAGRAFICA_CAMPAGNE}
+            filtroCampagne={campagneSelezionate}
           />
 
           {/* Blocco 8 — "Performance venditori" (Fase 2/4), spostato qui da BoxGrafici.tsx (richiesta
