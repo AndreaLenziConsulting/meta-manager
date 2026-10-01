@@ -49,8 +49,8 @@ type SerieSettimanaleOverlay = {
  * pattern open/close/click-fuori già scritto in CampagneFilter.tsx, non reinventato qui.
  *
  * "Target mensili" (richiesta utente, 11/2026) è l'unica opzione che riceve una prop dedicata
- * (`pacing`) invece di leggere `funnel`/`trendSettimanaleConOverlay` come le altre: guarda SEMPRE
- * il mese in corso, un concetto indipendente dal periodo scelto nel filtro sopra (che qui può
+ * (`pacing`) invece di leggere `funnel`/`trendSettimanaleConOverlay` come le altre: guarda un mese
+ * scelto al suo interno (di default quello in corso), un concetto indipendente dal periodo scelto nel filtro sopra (che qui può
  * essere un mese passato o un intervallo di più mesi) — vedi PacingTargetChart.tsx, che fa il
  * proprio fetch invece di derivare dai dati già scaricati per il periodo selezionato. Assente
  * (`pacing` non passata) sul link pubblico cliente `code`, stesso motivo per cui i target non sono

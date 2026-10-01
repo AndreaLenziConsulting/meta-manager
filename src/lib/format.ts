@@ -60,6 +60,28 @@ export function formatMese(mese: string): string {
   return `${MESI_BREVI[idx] ?? m} ${anno.slice(2)}`;
 }
 
+const MESI_ESTESI = [
+  "Gennaio",
+  "Febbraio",
+  "Marzo",
+  "Aprile",
+  "Maggio",
+  "Giugno",
+  "Luglio",
+  "Agosto",
+  "Settembre",
+  "Ottobre",
+  "Novembre",
+  "Dicembre",
+];
+
+/** Formatta un mese YYYY-MM per esteso, "Ottobre 2026" — per i titoli dove il mese è il soggetto
+ * (selettore del grafico "Target mensili"), a differenza di formatMese sopra ("Ott 26", per gli assi). */
+export function formatMeseEsteso(mese: string): string {
+  const [anno, m] = mese.split("-");
+  return `${MESI_ESTESI[Number(m) - 1] ?? m} ${anno}`;
+}
+
 /** Formatta una data YYYY-MM-DD (il lunedì di inizio settimana) come "24 Lug". */
 export function formatSettimana(settimana: string): string {
   const [, m, giorno] = settimana.split("-");

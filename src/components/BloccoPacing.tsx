@@ -10,6 +10,14 @@ export const ETICHETTA_STATO_PACING: Record<MetricaPacing["stato"], string> = {
   critico: "Indietro rispetto al ritmo atteso",
 };
 
+/** Stesse tre soglie, lette su un mese GIÀ CONCLUSO (selettore del mese in PacingTargetChart.tsx,
+ * 01/10/2026): non c'è più un ritmo da tenere né qualcosa da recuperare, solo un risultato finale. */
+export const ETICHETTA_STATO_CONCLUSO: Record<MetricaPacing["stato"], string> = {
+  successo: "Target raggiunto",
+  attenzione: "Vicino al target (almeno l'80%)",
+  critico: "Target non raggiunto",
+};
+
 export const COLORE_STATO_PACING: Record<MetricaPacing["stato"], string> = {
   successo: "var(--pos)",
   attenzione: "var(--warn)",
@@ -22,7 +30,21 @@ export const COLORE_STATO_PACING: Record<MetricaPacing["stato"], string> = {
  * frazione di mese (`fraz` è la stessa per tutti i blocchi di un dato grafico), ma bloccarlo a
  * un'unica posizione assoluta attraverso un numero variabile di blocchi impilati avrebbe richiesto
  * un calcolo di altezza dinamico fragile per un guadagno visivo minimo. */
-export function BloccoPacing({ titolo, metriche, fraz, sottotitolo }: { titolo?: string; metriche: MetricaPacing[]; fraz: number; sottotitolo?: string }) {
+export function BloccoPacing({
+  titolo,
+  metriche,
+  fraz,
+  sottotitolo,
+  concluso = false,
+}: {
+  titolo?: string;
+  metriche: MetricaPacing[];
+  fraz: number;
+  sottotitolo?: string;
+  // true per un mese già concluso: nessun marker "Oggi" (non c'è un oggi dentro quel mese) e le
+  // etichette di stato parlano di risultato finale invece che di ritmo.
+  concluso?: boolean;
+}) {
   if (metriche.length === 0) return null;
   return (
     <div>
@@ -32,21 +54,25 @@ export function BloccoPacing({ titolo, metriche, fraz, sottotitolo }: { titolo?:
           {sottotitolo && <p className="text-[11px] text-ink-500">{sottotitolo}</p>}
         </div>
       )}
-      <div className="relative pt-5">
+      <div className={concluso ? "relative" : "relative pt-5"}>
         {/* Colore da --baseline (var(--baseline)), lo stesso token della guida verticale al
             passaggio del mouse in TrendChart.tsx — non una classe Tailwind ink-*: qui il progetto ha
             solo gli step 900/700/500/300 mappati (vedi globals.css), niente step intermedi come
             ink-400 utilizzabili come classe. */}
-        <div className="absolute top-5 bottom-0 w-px z-10 pointer-events-none" style={{ left: `${fraz * 100}%`, backgroundColor: "var(--baseline)" }} />
-        <span
-          className="absolute top-0 z-10 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap pointer-events-none"
-          style={{ left: `${fraz * 100}%`, color: "var(--text-muted)" }}
-        >
-          Oggi
-        </span>
+        {!concluso && (
+          <>
+            <div className="absolute top-5 bottom-0 w-px z-10 pointer-events-none" style={{ left: `${fraz * 100}%`, backgroundColor: "var(--baseline)" }} />
+            <span
+              className="absolute top-0 z-10 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap pointer-events-none"
+              style={{ left: `${fraz * 100}%`, color: "var(--text-muted)" }}
+            >
+              Oggi
+            </span>
+          </>
+        )}
         <div className="space-y-4">
           {metriche.map((m) => (
-            <RigaPacing key={m.chiave} metrica={m} />
+            <RigaPacing key={m.chiave} metrica={m} concluso={concluso} />
           ))}
         </div>
       </div>
@@ -54,7 +80,7 @@ export function BloccoPacing({ titolo, metriche, fraz, sottotitolo }: { titolo?:
   );
 }
 
-function RigaPacing({ metrica }: { metrica: MetricaPacing }) {
+function RigaPacing({ metrica, concluso }: { metrica: MetricaPacing; concluso: boolean }) {
   const formatValore = metrica.unita === "euro" ? formatEuro : formatNumero;
   const percentuale = metrica.targetMensile > 0 ? (metrica.attuale / metrica.targetMensile) * 100 : 0;
 
@@ -76,7 +102,7 @@ function RigaPacing({ metrica }: { metrica: MetricaPacing }) {
         />
       </div>
       <p className="text-[11px] mt-1" style={{ color: COLORE_STATO_PACING[metrica.stato] }}>
-        {ETICHETTA_STATO_PACING[metrica.stato]}
+        {(concluso ? ETICHETTA_STATO_CONCLUSO : ETICHETTA_STATO_PACING)[metrica.stato]}
       </p>
     </div>
   );

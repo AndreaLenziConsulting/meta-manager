@@ -11,6 +11,7 @@ import {
   formatSettimana,
   formatStatoAttivita,
   formatStatoCampagna,
+  formatMeseEsteso,
 } from "./format";
 
 // Intl.NumberFormat('it-IT', {style:'currency'}) separa numero e simbolo con uno spazio
@@ -179,5 +180,12 @@ describe("descrizioneScadenza", () => {
 
   it("done con scadenza passata NON è scaduta (il lavoro è comunque concluso)", () => {
     expect(descrizioneScadenza("2026-09-01", "done", OGGI)).toEqual({ testo: "1 set", scaduta: false });
+  });
+});
+
+describe("formatMeseEsteso", () => {
+  it("scrive il mese per esteso con l'anno intero", () => {
+    expect(formatMeseEsteso("2026-10")).toBe("Ottobre 2026");
+    expect(formatMeseEsteso("2027-01")).toBe("Gennaio 2027");
   });
 });

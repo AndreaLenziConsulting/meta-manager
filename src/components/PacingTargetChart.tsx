@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { oggiIso } from "@/lib/roadmap";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
+import { spostaMese } from "@/lib/periodo";
+import { formatMeseEsteso } from "@/lib/format";
 import { applicaOverlayGhl } from "@/lib/kpiGhlOverlay";
 import { calcolaPacingMensile } from "@/lib/targetPacing";
 import { BloccoPacing } from "@/components/BloccoPacing";
@@ -20,7 +23,13 @@ function meseCorrente(): string {
  * 6 (FunnelConversioneChart/CostoPerRisultatoChart/...), NON riceve dati già scaricati dal
  * genitore: il mese in corso è un concetto indipendente dal periodo scelto nel filtro in alto
  * (che può mostrare mesi passati o un intervallo di più mesi) — fa il proprio fetch, scoped al
- * primo giorno del mese corrente fino a oggi, sempre e comunque.
+ * mese scelto qui dentro.
+ *
+ * Mese di riferimento selezionabile (richiesta utente 01/10/2026): di default il mese corrente, con
+ * le frecce si va ai mesi precedenti (mai a un mese futuro, non avrebbe dati). Un mese già concluso
+ * è letto come risultato finale contro il target intero — nessun marker "Oggi", etichette "Target
+ * raggiunto / non raggiunto" (vedi BloccoPacing) — e sempre contro i target impostati OGGI: l'app
+ * non conserva lo storico dei target, e la nota in testa lo dice.
  *
  * "Mese fino a oggi" non richiede alcun taglio esplicito per data: metaDaily/RisultatiCommerciali/
  * GHL non hanno mai dati per giorni futuri (non ancora accaduti), quindi computeKpi(da=a=mese
@@ -73,10 +82,11 @@ export function PacingTargetChart({
   const [ghlStato, setGhlStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
+  // Mese di riferimento (YYYY-MM): quello corrente finché l'utente non ne sceglie un altro.
+  const [mese, setMese] = useState(meseCorrente);
 
   useEffect(() => {
     const controller = new AbortController();
-    const mese = meseCorrente();
 
     Promise.resolve()
       .then(() => {
@@ -102,7 +112,7 @@ export function PacingTargetChart({
       });
 
     return () => controller.abort();
-  }, [clienteId, sedeId]);
+  }, [clienteId, sedeId, mese]);
 
   // Fetch GHL separato — stesso motivo/stesso schema del fetch GHL principale in KpiSection.tsx
   // (può essere lento, non deve bloccare i numeri Meta sopra). Mai filtro campagne qui: il pacing
@@ -119,7 +129,9 @@ export function PacingTargetChart({
           return undefined;
         }
         setGhlStato("caricamento");
-        const mese = meseCorrente();
+        // Cambiando mese i dati GHL del mese precedente non devono mai restare accanto ai numeri
+        // Meta di quello nuovo, nemmeno per i secondi che GHL impiega a rispondere.
+        setGhlDati(null);
         const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese });
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => {
@@ -134,17 +146,36 @@ export function PacingTargetChart({
         setGhlDati(null);
       });
     return () => controller.abort();
-  }, [clienteId, sedeId, haConnessioneGhl]);
+  }, [clienteId, sedeId, haConnessioneGhl, mese]);
 
-  if (caricamento) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore) return <p className="text-sm text-red-600">{errore}</p>;
-  if (!dati) return null;
+  // Sempre visibile, anche durante il caricamento o con un errore: è l'unico modo di cambiare mese.
+  const selettore = <SelettoreMese mese={mese} meseMassimo={meseCorrente()} onChange={setMese} />;
+
+  if (caricamento) {
+    return (
+      <div className="space-y-4">
+        {selettore}
+        <p className="text-sm text-ink-500">Caricamento…</p>
+      </div>
+    );
+  }
+  if (errore) {
+    return (
+      <div className="space-y-4">
+        {selettore}
+        <p className="text-sm text-red-600">{errore}</p>
+      </div>
+    );
+  }
+  if (!dati) return selettore;
 
   const overlay = applicaOverlayGhl(dati.totale, ghlDati, { filtroCampagneAttivo: false });
   const oggi = oggiIso();
-  const meseAttuale = oggi.slice(0, 7);
-  const giornoDelMese = Number(oggi.slice(-2));
-  const giorniNelMese = Number(ultimoGiornoDelMese(meseAttuale).slice(-2));
+  // Mese già concluso: il "giorno del mese" è l'ultimo, quindi il ritmo atteso coincide col target
+  // intero (frazione 1) e le barre mostrano il risultato finale.
+  const concluso = mese < oggi.slice(0, 7);
+  const giorniNelMese = Number(ultimoGiornoDelMese(mese).slice(-2));
+  const giornoDelMese = concluso ? giorniNelMese : Number(oggi.slice(-2));
 
   const metricheTotale = calcolaPacingMensile({
     investimentoMese: dati.totale.investimento,
@@ -203,20 +234,32 @@ export function PacingTargetChart({
 
   if (metricheTotale.length === 0 && blocchiCategoria.every((b) => b.metriche.length === 0) && !haClusterAutomatici) {
     return (
-      <p className="text-sm text-ink-500">
-        Nessun target commerciale impostato per questa sede — impostali da &quot;Modifica cliente&quot; per vedere qui il ritmo del mese.
-      </p>
+      <div className="space-y-4">
+        {selettore}
+        <p className="text-sm text-ink-500">
+          Nessun target commerciale impostato per questa sede — impostali da &quot;Modifica cliente&quot; per vedere qui il ritmo del mese.
+        </p>
+      </div>
     );
   }
 
   const fraz = giorniNelMese > 0 ? Math.min(giornoDelMese / giorniNelMese, 1) : 0;
   const ghlInCaricamento = Boolean(haConnessioneGhl) && ghlStato === "caricamento";
   const ghlFallito = Boolean(haConnessioneGhl) && ghlStato === "errore";
+  // Finché GHL carica, fatturato e appuntamenti del totale sede non sono ancora quelli veri (GHL li
+  // sostituisce appena arriva): si mostrano solo le righe che vengono da Meta, mai uno zero
+  // provvisorio — col selettore del mese l'attesa capita a ogni cambio, non solo all'apertura.
+  const metricheTotaleVisibili = ghlInCaricamento
+    ? metricheTotale.filter((m) => m.chiave === "budget" || m.chiave === "lead")
+    : metricheTotale;
 
   return (
     <div className="space-y-4">
+      {selettore}
       <p className="text-xs text-ink-500">
-        Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.
+        {concluso
+          ? "Mese concluso — risultato finale contro i target impostati oggi (l'app non conserva i target di allora)."
+          : `Mese in corso, giorno ${giornoDelMese} di ${giorniNelMese} — quanto raccolto finora contro il ritmo lineare atteso a oggi.`}
       </p>
       {ghlInCaricamento && <p className="text-xs text-ink-500">Dati GHL in caricamento… i blocchi per cluster compaiono tra pochi secondi.</p>}
       {ghlFallito && (
@@ -240,12 +283,48 @@ export function PacingTargetChart({
                 sottotitolo={daGhl ? "da GHL" : undefined}
                 metriche={metriche}
                 fraz={fraz}
+                concluso={concluso}
               />
             )
           )}
         {senzaClusterHaDati && senzaCluster && <BloccoSenzaCluster dati={senzaCluster} />}
-        <BloccoPacing titolo={categorie.length > 0 ? "Totale sede" : undefined} metriche={metricheTotale} fraz={fraz} />
+        <BloccoPacing
+          titolo={categorie.length > 0 ? "Totale sede" : undefined}
+          metriche={metricheTotaleVisibili}
+          fraz={fraz}
+          concluso={concluso}
+        />
       </div>
+    </div>
+  );
+}
+
+/** Frecce mese precedente/successivo attorno al nome del mese. `meseMassimo` = mese corrente: oltre
+ * non si va (un mese futuro non ha dati). Il link di ritorno compare solo quando serve. */
+function SelettoreMese({ mese, meseMassimo, onChange }: { mese: string; meseMassimo: string; onChange: (mese: string) => void }) {
+  const alMassimo = mese >= meseMassimo;
+  const classeFreccia =
+    "h-8 w-8 inline-flex items-center justify-center rounded-lg border border-[var(--glass-border-soft)] text-ink-700 hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed";
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <button type="button" className={classeFreccia} onClick={() => onChange(spostaMese(mese, -1))} aria-label="Mese precedente">
+        <ChevronLeft size={16} />
+      </button>
+      <span className="min-w-[9.5rem] text-center text-sm font-semibold text-ink-900">{formatMeseEsteso(mese)}</span>
+      <button
+        type="button"
+        className={classeFreccia}
+        onClick={() => onChange(spostaMese(mese, 1))}
+        disabled={alMassimo}
+        aria-label="Mese successivo"
+      >
+        <ChevronRight size={16} />
+      </button>
+      {!alMassimo && (
+        <button type="button" className="text-xs font-semibold text-brand underline underline-offset-2" onClick={() => onChange(meseMassimo)}>
+          Torna al mese corrente
+        </button>
+      )}
     </div>
   );
 }
