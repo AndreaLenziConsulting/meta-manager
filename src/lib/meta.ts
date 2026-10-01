@@ -273,3 +273,43 @@ export async function fetchFrequenzaPerCampagna(adAccountId: string, since: stri
   }
   return frequenze;
 }
+
+/** Timeout della verifica sotto: gira durante il render della pagina Clienti, una chiamata Meta
+ * appesa non deve mai tenere ferma la pagina. */
+const TIMEOUT_VERIFICA_SPESA_MS = 8000;
+/** Tetto agli id passati nel filtro: una sede ha poche campagne attive, ma l'URL ha un limite. */
+const MASSIMO_CAMPAGNE_VERIFICA = 50;
+
+/**
+ * Spesa totale di ALCUNE campagne di un ad account nella finestra `since`/`until` — una sola riga
+ * aggregata (level=account + filtro per campaign.id), nessuna paginazione. Usata solo dalla
+ * diagnosi "Dati Meta non aggiornati" (lib/sincronizzazioneMeta.ts): dice se su Meta esiste spesa
+ * che in app non è arrivata. Filtrata sulle campagne della sede e non sull'intero account perché
+ * lo stesso ad account può essere condiviso da più sedi. Si rifiuta (come ogni altra chiamata Meta
+ * di questo file) se Meta risponde con un errore: è proprio quel rifiuto il segnale "accesso non
+ * valido" che il chiamante vuole mostrare. Torna invece `null` se Meta non risponde entro il
+ * timeout (o la rete cade): un silenzio non è un rifiuto e non va mostrato come tale.
+ */
+export async function fetchSpesaCampagne(adAccountId: string, campaignIds: string[], since: string, until: string): Promise<number | null> {
+  const url = new URL(`https://graph.facebook.com/${metaApiVersion()}/act_${adAccountId}/insights`);
+  url.searchParams.set("level", "account");
+  url.searchParams.set("fields", "spend");
+  url.searchParams.set("time_range", JSON.stringify({ since, until }));
+  url.searchParams.set(
+    "filtering",
+    JSON.stringify([{ field: "campaign.id", operator: "IN", value: campaignIds.slice(0, MASSIMO_CAMPAGNE_VERIFICA) }])
+  );
+  url.searchParams.set("access_token", metaToken());
+
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_VERIFICA_SPESA_MS) });
+  } catch {
+    return null;
+  }
+  const json: { data?: { spend?: string }[]; error?: { message: string } } = await res.json();
+  if (!res.ok || json.error) {
+    throw new Error(json.error?.message || res.statusText);
+  }
+  return (json.data ?? []).reduce((somma, riga) => somma + Number(riga.spend || 0), 0);
+}

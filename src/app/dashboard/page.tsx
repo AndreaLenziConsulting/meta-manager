@@ -14,6 +14,9 @@ import {
 } from "@/lib/dashboardAdmin";
 import { DashboardClienti } from "@/components/DashboardClienti";
 import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
+import { AvvisoSincronizzazioneMeta, type ProblemaSincronizzazioneVista } from "@/components/AvvisoSincronizzazioneMeta";
+import { diagnosticaDatiFermi, sediConDatiMetaFermi } from "@/lib/sincronizzazioneMeta";
+import { fetchSpesaCampagne } from "@/lib/meta";
 
 const GIORNI_FINESTRA = 7;
 
@@ -112,6 +115,29 @@ export default async function DashboardHomePage() {
   const itemsOrdinati = ordinaPerPriorita(items);
   const riepilogo = calcolaRiepilogo(itemsOrdinati);
 
+  // Avviso "Dati Meta non aggiornati" (01/10/2026, vedi lib/sincronizzazioneMeta.ts): prima il
+  // controllo puro sui dati già letti sopra, poi una verifica dal vivo su Meta SOLO per le sedi
+  // candidate — in condizioni normali nessuna, quindi nessuna chiamata Meta in più. Limitato ai
+  // clienti che questa sessione può vedere. Mai un errore che rompe la pagina: se la diagnosi
+  // stessa fallisce in modo imprevisto, semplicemente nessun banner.
+  let problemiSincronizzazione: ProblemaSincronizzazioneVista[] = [];
+  try {
+    const idVisibili = new Set(visibili.map((c) => c.clienteId));
+    const sediVisibili = sedi.filter((s) => idVisibili.has(s.clienteId));
+    const ferme = sediConDatiMetaFermi({ sedi: sediVisibili, campagne, metaDaily, oggi: aData });
+    const problemi = await diagnosticaDatiFermi(ferme, aData, fetchSpesaCampagne);
+    problemiSincronizzazione = problemi.map((p) => ({
+      ...p,
+      nomeCliente: visibili.find((c) => c.clienteId === p.clienteId)?.nome ?? p.clienteId,
+      nomeSede:
+        sediVisibili.filter((s) => s.clienteId === p.clienteId && s.attivo).length > 1
+          ? (sediVisibili.find((s) => s.sedeId === p.sedeId)?.nome ?? null)
+          : null,
+    }));
+  } catch {
+    problemiSincronizzazione = [];
+  }
+
   return (
     <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -132,6 +158,7 @@ export default async function DashboardHomePage() {
           </a>
         )}
       </div>
+      <AvvisoSincronizzazioneMeta problemi={problemiSincronizzazione} />
       <RiepilogoAllarmiAdmin riepilogo={riepilogo} />
       <DashboardClienti items={itemsOrdinati} consulenti={consulenti} mostraToggle={isAdmin} />
     </div>
