@@ -131,7 +131,7 @@ const EXTRACTION_TOOL = {
         taskSettimana: { type: ["array", "string"], items: { type: "string" }, description: "Task della settimana. Una stringa per task, formato '<Nome>: <task>'. In italiano." },
         taskMese: { type: ["array", "string"], items: { type: "string" }, description: "Obiettivi del mese. Una stringa per obiettivo. In italiano. Array vuoto se non discusso." },
         programmaTrimestre: { type: ["array", "string"], items: { type: "string" }, description: "Programma del trimestre / direzione strategica. Una stringa per punto. In italiano. Array vuoto se non discusso." },
-        sentiment: { type: "string", description: "Sentiment generale del cliente con una breve giustificazione. In italiano." },
+        sentiment: { type: "string", description: "Inizia SEMPRE con una sola parola tra Positivo, Neutro, Negativo (mai etichette composte come Neutro/Preoccupato o parole diverse come Preoccupato), poi due punti e una breve giustificazione. Un cliente preoccupato, frustrato o insoddisfatto è Negativo. In italiano." },
         kpiReali: { type: ["array", "string"], items: { type: "string" }, description: "KPI reali / numeri di performance attuali. Array di stringhe. In italiano." },
         kpiStorico: { type: ["array", "string"], items: { type: "string" }, description: "KPI storici per confronto. Array di stringhe. In italiano." },
         kpiTargetMarketing: { type: ["array", "string"], items: { type: "string" }, description: "KPI target marketing. Array di stringhe. In italiano." },
@@ -148,7 +148,7 @@ Riceverai il contenuto testuale reso dal browser della pagina di condivisione Fa
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
-- Sentiment del cliente (positivo/neutro/negativo + breve giustificazione)
+- Sentiment del cliente: una sola parola tra Positivo, Neutro, Negativo (preoccupato o frustrato = Negativo), poi i due punti e una breve giustificazione
 - KPI reali attuali
 - KPI storici (per confronto)
 - KPI target marketing
@@ -189,7 +189,7 @@ Riceverai il contenuto testuale reso dal browser della pagina di condivisione Ci
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
-- Sentiment del cliente (positivo/neutro/negativo + breve giustificazione)
+- Sentiment del cliente: una sola parola tra Positivo, Neutro, Negativo (preoccupato o frustrato = Negativo), poi i due punti e una breve giustificazione
 - KPI reali attuali
 - KPI storici (per confronto)
 - KPI target marketing
@@ -220,7 +220,7 @@ Riceverai il contenuto testuale reso dal browser della pagina di condivisione Lo
 - Task operative della settimana (con responsabile quando possibile)
 - Obiettivi del mese
 - Programma del trimestre / direzione strategica
-- Sentiment del cliente (positivo/neutro/negativo + breve giustificazione)
+- Sentiment del cliente: una sola parola tra Positivo, Neutro, Negativo (preoccupato o frustrato = Negativo), poi i due punti e una breve giustificazione
 - KPI reali attuali
 - KPI storici (per confronto)
 - KPI target marketing

@@ -10,11 +10,25 @@ export type StatoSentiment = "positivo" | "neutro" | "negativo" | "sconosciuto";
  * "sconosciuto" in assenza di testo o se non inizia esplicitamente con uno dei tre — mai indovinato
  * da frasi ambigue nel mezzo del testo (es. "il budget è negativo quest'anno" non è il sentiment).
  */
+// Parole che, nell'ETICHETTA iniziale, dicono un sentiment negativo anche quando l'AI non ha scritto
+// "Negativo" (caso reale Agricobots, 02/10/2026: "Preoccupato ma proattivo: ...", "Neutro/Preoccupato:
+// ..." — il detector li leggeva come sconosciuto/neutro e il cliente non risultava a rischio).
+const PAROLE_NEGATIVE = /\b(negativ[oa]|preoccupat[oa]|frustrat[oa]|insoddisfatt[oa]|deluso|delusa|teso|tesa|critico|critica|scettic[oa]|irritat[oa]|arrabbiat[oa])\b/;
+
+/**
+ * Classifica guardando solo l'ETICHETTA iniziale — il testo prima del primo ":", "—", "–", "." o
+ * ",", al massimo 4 parole — mai la giustificazione che segue (es. "il budget è negativo quest'anno" non è il
+ * sentiment). Nell'etichetta il negativo prevale: "Neutro/Preoccupato" e "Positivo ma frustrato"
+ * sono segnali di rischio, e un falso allarme costa meno di un cliente scontento non visto.
+ */
 export function classificaSentiment(sentiment: string): StatoSentiment {
-  const testo = sentiment.trim().toLowerCase();
-  if (/^positivo\b/.test(testo)) return "positivo";
-  if (/^neutro\b/.test(testo)) return "neutro";
-  if (/^negativo\b/.test(testo)) return "negativo";
+  // Al massimo le prime 4 parole: senza separatori l'intera frase finirebbe nell'etichetta, e una
+  // parola negativa nel mezzo del discorso ("...il budget è negativo...") non è il sentiment.
+  const etichetta = sentiment.trim().toLowerCase().split(/[:—–.,]/)[0].trim().split(/\s+/).slice(0, 4).join(" ");
+  if (!etichetta) return "sconosciuto";
+  if (PAROLE_NEGATIVE.test(etichetta)) return "negativo";
+  if (/^positiv[oa]\b/.test(etichetta)) return "positivo";
+  if (/^neutr[oa]\b/.test(etichetta)) return "neutro";
   return "sconosciuto";
 }
 

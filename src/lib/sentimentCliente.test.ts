@@ -20,6 +20,18 @@ describe("classificaSentiment", () => {
     expect(classificaSentiment("")).toBe("sconosciuto");
     expect(classificaSentiment("Il cliente ha menzionato che il budget è negativo quest'anno")).toBe("sconosciuto");
   });
+
+  it("etichette composte o senza la parola 'negativo' scritte dall'AI (casi reali Agricobots)", () => {
+    expect(classificaSentiment("Negativo/Preoccupato: le vendite non si concretizzano")).toBe("negativo");
+    expect(classificaSentiment("Preoccupato ma proattivo: il cliente è frustrato dai risultati")).toBe("negativo");
+    expect(classificaSentiment("Neutro/Preoccupato: il cliente esprime preoccupazione")).toBe("negativo");
+    expect(classificaSentiment("Positivo. Orlando è molto coinvolto")).toBe("positivo");
+  });
+
+  it("una parola negativa nella giustificazione non cambia un'etichetta positiva o neutra", () => {
+    expect(classificaSentiment("Positivo: risolto il problema che lo rendeva frustrato")).toBe("positivo");
+    expect(classificaSentiment("Neutro — preoccupato solo per le ferie")).toBe("neutro");
+  });
 });
 
 describe("sentimentCritico", () => {
