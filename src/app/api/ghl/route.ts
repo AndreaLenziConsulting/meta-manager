@@ -281,6 +281,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(risposta);
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Errore sconosciuto";
+    // Nei log di Vercel la riga di una richiesta non porta né i parametri né il corpo della
+    // risposta: senza questa riga un 502 non dice per quale sede né perché (03/10/2026).
+    console.error(`[api/ghl] sede ${sede.sedeId} periodo ${da}..${a}: ${msg}`);
     return NextResponse.json({ error: `Errore dal collegamento GHL: ${msg}` }, { status: 502 });
   }
 }

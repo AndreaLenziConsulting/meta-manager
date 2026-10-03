@@ -1,4 +1,5 @@
 import { settimanaDiData } from "@/lib/kpi";
+import { conCacheGhl, richiestaGhlConRiprova } from "@/lib/ghlRichieste";
 import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline } from "@/types/ghl";
 
 /**
@@ -30,7 +31,7 @@ function ghlHeaders(token: string): HeadersInit {
 async function ghlGet<T>(path: string, token: string, params: Record<string, string>): Promise<T> {
   const url = new URL(GHL_API_BASE + path);
   for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  const res = await fetch(url, { headers: ghlHeaders(token) });
+  const res = await richiestaGhlConRiprova(token, () => fetch(url, { headers: ghlHeaders(token) }));
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`GHL API error (${res.status}) su ${path}: ${body.slice(0, 300)}`);
@@ -41,11 +42,13 @@ async function ghlGet<T>(path: string, token: string, params: Record<string, str
 /** Come ghlGet, ma per gli endpoint POST-come-query di GHL (es. /contacts/search — filtri
  * strutturati nel body, non nella querystring: unico endpoint qui a richiederlo). */
 async function ghlPost<T>(path: string, token: string, body: unknown): Promise<T> {
-  const res = await fetch(GHL_API_BASE + path, {
-    method: "POST",
-    headers: { ...ghlHeaders(token), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const res = await richiestaGhlConRiprova(token, () =>
+    fetch(GHL_API_BASE + path, {
+      method: "POST",
+      headers: { ...ghlHeaders(token), "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
+  );
   if (!res.ok) {
     const testo = await res.text().catch(() => "");
     throw new Error(`GHL API error (${res.status}) su ${path}: ${testo.slice(0, 300)}`);
@@ -77,13 +80,17 @@ async function fetchAppuntamentiPerCalendario(
   startTimeMs: number,
   endTimeMs: number
 ): Promise<GhlAppuntamento[]> {
-  const body = await ghlGet<{ events?: GhlAppuntamento[] }>("/calendars/events", token, {
-    locationId,
-    calendarId,
-    startTime: String(startTimeMs),
-    endTime: String(endTimeMs),
+  // Condiviso per un minuto fra richieste con la stessa finestra (vedi conCacheGhl): "Target
+  // mensili" e "venditori" chiedono lo stesso mese nello stesso momento, e così ogni ricarica.
+  return conCacheGhl(`eventi|${locationId}|${calendarId}|${startTimeMs}|${endTimeMs}`, async () => {
+    const body = await ghlGet<{ events?: GhlAppuntamento[] }>("/calendars/events", token, {
+      locationId,
+      calendarId,
+      startTime: String(startTimeMs),
+      endTime: String(endTimeMs),
+    });
+    return body.events ?? [];
   });
-  return body.events ?? [];
 }
 
 // startTime/endTime dell'API filtrano per QUANDO SI TIENE l'incontro, ma il periodo che interessa
@@ -198,7 +205,13 @@ export function primoAppuntamentoPerContatto(appuntamenti: GhlAppuntamento[]): G
  * resta un parametro server-side legittimo (non è un filtro data): passare "won" qui riduce
  * comunque il volume scaricato molto prima del filtro client-side.
  */
-export async function fetchOpportunita(locationId: string, token: string, opts: { status?: string } = {}): Promise<GhlOpportunita[]> {
+export function fetchOpportunita(locationId: string, token: string, opts: { status?: string } = {}): Promise<GhlOpportunita[]> {
+  // La lettura più pesante (tutte le opportunità della location, una pagina ogni 100) ed è identica
+  // per ogni periodo richiesto: le 4 richieste /api/ghl di una pagina la condividono (conCacheGhl).
+  return conCacheGhl(`opportunita|${locationId}|${opts.status ?? ""}`, () => scaricaOpportunita(locationId, token, opts));
+}
+
+async function scaricaOpportunita(locationId: string, token: string, opts: { status?: string }): Promise<GhlOpportunita[]> {
   const risultato: GhlOpportunita[] = [];
   let startAfter: string | undefined;
   let startAfterId: string | undefined;
@@ -511,7 +524,12 @@ export function breakdownGhlPerInserzione(
  * Ritorna solo id + dateAdded: il minimo che serve a riepilogoPerTag sotto (il join con
  * appuntamenti/opportunità passa per id, "richieste" del periodo passa per dateAdded).
  */
-export async function fetchContattiPerTag(locationId: string, token: string, tag: string): Promise<{ id: string; dateAdded: string }[]> {
+export function fetchContattiPerTag(locationId: string, token: string, tag: string): Promise<{ id: string; dateAdded: string }[]> {
+  // Indipendente dal periodo, come fetchOpportunita: condivisa fra richieste contemporanee.
+  return conCacheGhl(`contatti-tag|${locationId}|${tag}`, () => scaricaContattiPerTag(locationId, token, tag));
+}
+
+async function scaricaContattiPerTag(locationId: string, token: string, tag: string): Promise<{ id: string; dateAdded: string }[]> {
   const risultato: { id: string; dateAdded: string }[] = [];
   const PAGE_LIMIT = 100;
   for (let page = 1; page <= 50; page++) {
@@ -543,23 +561,25 @@ export async function fetchContattiPerTag(locationId: string, token: string, tag
  * contatti già taggati, vedi riepilogoSenzaTag sotto — un contatto vecchio mai taggato con un
  * appuntamento nuovo nel periodo resta contato lì, senza dover scaricare la location.
  */
-export async function contaContattiSenzaTagNelPeriodo(
+export function contaContattiSenzaTagNelPeriodo(
   locationId: string,
   token: string,
   tags: string[],
   startMs: number,
   endMs: number
 ): Promise<number> {
-  const body = await ghlPost<{ total?: number }>("/contacts/search", token, {
-    locationId,
-    page: 1,
-    pageLimit: 1,
-    filters: [
-      ...tags.map((tag) => ({ field: "tags", operator: "not_contains", value: tag })),
-      { field: "dateAdded", operator: "range", value: { gte: new Date(startMs).toISOString(), lte: new Date(endMs).toISOString() } },
-    ],
+  return conCacheGhl(`senza-tag|${locationId}|${tags.join("|")}|${startMs}|${endMs}`, async () => {
+    const body = await ghlPost<{ total?: number }>("/contacts/search", token, {
+      locationId,
+      page: 1,
+      pageLimit: 1,
+      filters: [
+        ...tags.map((tag) => ({ field: "tags", operator: "not_contains", value: tag })),
+        { field: "dateAdded", operator: "range", value: { gte: new Date(startMs).toISOString(), lte: new Date(endMs).toISOString() } },
+      ],
+    });
+    return body.total ?? 0;
   });
-  return body.total ?? 0;
 }
 
 /**
