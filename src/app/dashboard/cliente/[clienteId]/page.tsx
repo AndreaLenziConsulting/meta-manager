@@ -14,7 +14,8 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
     redirect("/login");
   }
 
-  const clienti = await getClienti();
+  // Tutte insieme: una sola lettura del foglio invece di due (vedi le letture raggruppate in sheets.ts).
+  const [clienti, sedi, connessioniGhl, consulenti] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni(), getConsulenti()]);
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     redirect("/dashboard");
   }
@@ -23,7 +24,6 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
   // Integrazione GHL/Squadd: le tessere Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati del tab
   // KPI vengono lette in diretta da GHL solo se almeno una sede di questo cliente ha una
   // connessione attiva — vedi src/lib/kpiGhlOverlay.ts.
-  const [sedi, connessioniGhl, consulenti] = await Promise.all([getSedi(), getGhlConnessioni(), getConsulenti()]);
   const sediCliente = sedi.filter((s) => s.clienteId === clienteId);
   const sediIdsCliente = new Set(sediCliente.map((s) => s.sedeId));
   const haConnessioneGhl = connessioniGhl.some((c) => sediIdsCliente.has(c.sedeId) && c.attivo);

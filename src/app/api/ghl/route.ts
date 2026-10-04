@@ -96,12 +96,13 @@ export async function GET(req: NextRequest) {
   if (!clienteId) {
     return NextResponse.json({ error: "clienteId mancante" }, { status: 400 });
   }
-  const clienti = await getClienti();
+  // Insieme, non una dopo l'altra: partono nello stesso istante e condividono una sola lettura del
+  // foglio (vedi le letture raggruppate in sheets.ts) invece di tre.
+  const [clienti, tutteLeSedi, connessioni] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni()]);
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
   }
 
-  const tutteLeSedi = await getSedi();
   const sediCliente = tutteLeSedi.filter((s) => s.clienteId === clienteId && s.attivo);
   if (sediCliente.length === 0) {
     return NextResponse.json({ error: "Nessuna sede attiva per questo cliente" }, { status: 404 });
@@ -113,7 +114,6 @@ export async function GET(req: NextRequest) {
   const startMs = new Date(`${da}T00:00:00Z`).getTime();
   const endMs = new Date(`${a}T23:59:59.999Z`).getTime();
 
-  const connessioni = await getGhlConnessioni();
   const connessione = connessioni.find((c) => c.sedeId === sede.sedeId && c.attivo);
   if (!connessione) {
     // Sede senza GHL: la fonte è il file contatti del cliente, se c'è (01/10/2026, vedi

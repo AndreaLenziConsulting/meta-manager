@@ -102,9 +102,14 @@ export function Sidebar({
     return voci.map(({ href, label, icon: Icon, attiva }) => {
       const attivaOra = attiva(pathname);
       return (
+        // Niente precaricamento (04/10/2026): ogni pagina del menù è dinamica e Next.js, senza questo,
+        // la renderizzava sul server a ogni visualizzazione del menù (2 volte per voce: menù desktop e
+        // mobile), leggendo il foglio Google ogni volta — contribuiva a esaurire le 60 letture al
+        // minuto dell'app. La pagina si carica comunque al clic.
         <Link
           key={href}
           href={href}
+          prefetch={false}
           title={mostraEtichette ? undefined : label}
           aria-label={label}
           className={cn(

@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { generaSedeId } from "@/lib/accessCode";
 import { getGoogleOAuth2Client } from "@/lib/googleAuth";
+import { configRiprovaSheets } from "@/lib/sheetsRiprova";
 import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
 import type {
@@ -74,7 +75,9 @@ let sheetsCache: ReturnType<typeof google.sheets> | null = null;
 
 function getAuth() {
   if (sheetsCache) return sheetsCache;
-  sheetsCache = google.sheets({ version: "v4", auth: getGoogleOAuth2Client() });
+  // Riprove lunghe sul limite di 60 letture al minuto (vedi sheetsRiprova.ts): con quelle predefinite
+  // del client Google un picco di traffico diventava un errore in pagina invece di un'attesa.
+  sheetsCache = google.sheets({ version: "v4", auth: getGoogleOAuth2Client(), retryConfig: configRiprovaSheets() });
   return sheetsCache;
 }
 
@@ -115,8 +118,121 @@ export type CellValue = string | number | boolean | undefined | null;
 const READ_CACHE_TTL_MS = 30_000;
 const readCache = new Map<string, { data: CellValue[][]; scadenza: number }>();
 
+// Contatore di scritture per scheda: una lettura partita PRIMA di una scrittura non deve rimettere in
+// cache dati che quella scrittura ha già superato (vedi eseguiCarico sotto).
+const generazioneScheda = new Map<string, number>();
+
 function invalidateTabCache(tabName: string) {
   readCache.delete(tabName);
+  generazioneScheda.set(tabName, (generazioneScheda.get(tabName) ?? 0) + 1);
+}
+
+// LETTURE RAGGRUPPATE (04/10/2026, errore segnalato dall'utente: "Quota exceeded ... 'Read requests
+// per minute per user'"). Google Sheets accetta 60 letture al minuto per utente e l'app usa un solo
+// utente Google per tutto: è il limite dell'intera app. Prima ogni getX() leggeva la sua scheda con
+// una richiesta separata, e diverse schede (Clienti, GhlConnessioni, Commerciali, Prospect...) sempre
+// senza cache: aprire la pagina di un cliente costava decine di letture — 4 richieste KPI e 4 GHL in
+// parallelo, ognuna con 5-9 schede, più le pagine del menù precaricate — e due aperture ravvicinate
+// esaurivano il minuto.
+//
+// Ora una lettura che non trova la scheda in cache legge in UNA richiesta (batchGet, che per Google
+// conta come una sola lettura) TUTTE le schede del suo gruppo, e mette in cache anche le altre: le
+// letture successive della stessa richiesta, e delle richieste vicine sulla stessa istanza, sono
+// gratis. L'intero foglio pesa meno di 1 MB e si legge in circa un secondo (misurato). MetaDaily, la
+// sola scheda grande (circa metà del peso), ha un gruppo a sé: la leggono solo le pagine che la usano.
+//
+// Freschezza: una lettura `noCache` (le schede dove si rilegge subito dopo aver scritto, vedi il
+// commento su readTab) si aggancia solo a un caricamento che PARTE dopo di lei — mai a uno già in
+// corso, che potrebbe precedere una scrittura fatta su un'altra istanza. Le letture che arrivano
+// nello stesso istante (entro ATTESA_LOTTO_MS) condividono lo stesso caricamento.
+const ATTESA_LOTTO_MS = 10;
+const GRUPPO_BASE = "base";
+const SCHEDE_GRUPPO_PROPRIO = new Set<string>([TAB.metaDaily]);
+const TUTTE_LE_SCHEDE = new Set<string>(Object.values(TAB));
+
+type DatiCaricati = Map<string, CellValue[][]>;
+const caricoInAttesa = new Map<string, Promise<DatiCaricati>>();
+const caricoInCorso = new Map<string, Promise<DatiCaricati>>();
+
+function gruppoDiScheda(tabName: string): string {
+  return SCHEDE_GRUPPO_PROPRIO.has(tabName) ? tabName : GRUPPO_BASE;
+}
+
+function schedeDelGruppo(gruppo: string): string[] {
+  return gruppo === GRUPPO_BASE ? [...TUTTE_LE_SCHEDE].filter((t) => !SCHEDE_GRUPPO_PROPRIO.has(t)) : [gruppo];
+}
+
+/** Legge con una sola richiesta le schede indicate e le mette in cache. Una scheda scritta mentre la
+ * lettura era in corso non entra in cache (i dati letti potrebbero precedere la scrittura). */
+async function eseguiCarico(schede: string[]): Promise<DatiCaricati> {
+  const generazioniAllaPartenza = new Map(schede.map((t) => [t, generazioneScheda.get(t) ?? 0]));
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId: sheetId,
+    ranges: schede.map((t) => `${t}!A2:Z`),
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const intervalli = res.data.valueRanges ?? [];
+  const scadenza = Date.now() + READ_CACHE_TTL_MS;
+  const risultato: DatiCaricati = new Map();
+  schede.forEach((t, i) => {
+    const dati = (intervalli[i]?.values as CellValue[][]) ?? [];
+    risultato.set(t, dati);
+    if ((generazioneScheda.get(t) ?? 0) === generazioniAllaPartenza.get(t)) {
+      readCache.set(t, { data: dati, scadenza });
+    }
+  });
+  return risultato;
+}
+
+/** Il prossimo caricamento del gruppo: parte tra ATTESA_LOTTO_MS, e chi arriva prima si aggiunge. */
+function prossimoCarico(gruppo: string): Promise<DatiCaricati> {
+  const giaProgrammato = caricoInAttesa.get(gruppo);
+  if (giaProgrammato) return giaProgrammato;
+  const promessa = new Promise<DatiCaricati>((risolvi, rifiuta) => {
+    setTimeout(() => {
+      caricoInAttesa.delete(gruppo);
+      const inCorso = eseguiCarico(schedeDelGruppo(gruppo));
+      caricoInCorso.set(gruppo, inCorso);
+      const pulisci = () => {
+        if (caricoInCorso.get(gruppo) === inCorso) caricoInCorso.delete(gruppo);
+      };
+      inCorso.then(
+        (dati) => {
+          pulisci();
+          risolvi(dati);
+        },
+        (err) => {
+          pulisci();
+          rifiuta(err);
+        }
+      );
+    }, ATTESA_LOTTO_MS);
+  });
+  caricoInAttesa.set(gruppo, promessa);
+  return promessa;
+}
+
+/** Lettura di una sola scheda, come prima delle letture raggruppate: per una scheda fuori elenco o
+ * quando il caricamento di gruppo è rifiutato da Google (es. una scheda del gruppo che non esiste). */
+async function leggiSingolaScheda(tabName: string, opts?: { noCache?: boolean }): Promise<CellValue[][]> {
+  const generazione = generazioneScheda.get(tabName) ?? 0;
+  const { sheets, sheetId } = getSheetsClient();
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${tabName}!A2:Z`,
+    valueRenderOption: "UNFORMATTED_VALUE",
+  });
+  const data = (res.data.values as CellValue[][]) ?? [];
+  if (!opts?.noCache && (generazioneScheda.get(tabName) ?? 0) === generazione) {
+    readCache.set(tabName, { data, scadenza: Date.now() + READ_CACHE_TTL_MS });
+  }
+  return data;
+}
+
+function statoErroreGoogle(err: unknown): number | undefined {
+  const e = err as { response?: { status?: number }; code?: number | string };
+  return e?.response?.status ?? (typeof e?.code === "number" ? e.code : undefined);
 }
 
 // `noCache`: per le tabelle dove un flusso crea-poi-rileggi-subito è normale (Prospect,
@@ -130,20 +246,19 @@ async function readTab(tabName: string, opts?: { noCache?: boolean }): Promise<C
     const cached = readCache.get(tabName);
     if (cached && cached.scadenza > Date.now()) return cached.data;
   }
+  if (!TUTTE_LE_SCHEDE.has(tabName)) return leggiSingolaScheda(tabName, opts);
 
-  const { sheets, sheetId } = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId,
-    range: `${tabName}!A2:Z`,
-    valueRenderOption: "UNFORMATTED_VALUE",
-  });
-  const data = (res.data.values as CellValue[][]) ?? [];
-  if (opts?.noCache) {
-    readCache.delete(tabName); // non lasciare in giro una voce di cache stantia per letture future altrove
-  } else {
-    readCache.set(tabName, { data, scadenza: Date.now() + READ_CACHE_TTL_MS });
+  // Vedi il commento su ATTESA_LOTTO_MS: con `noCache` solo un caricamento che parte da ora in poi.
+  const gruppo = gruppoDiScheda(tabName);
+  const carico = (!opts?.noCache && caricoInCorso.get(gruppo)) || prossimoCarico(gruppo);
+  try {
+    return (await carico).get(tabName) ?? [];
+  } catch (err) {
+    // 400 = richiesta rifiutata (es. una scheda del gruppo rinominata o cancellata a mano): non deve
+    // bloccare la lettura delle schede che esistono. Ogni altro errore (quota, rete) passa così com'è.
+    if (statoErroreGoogle(err) === 400) return leggiSingolaScheda(tabName, opts);
+    throw err;
   }
-  return data;
 }
 
 // Con UNFORMATTED_VALUE, Google Sheets rappresenta le date/i mesi che ha riconosciuto come
