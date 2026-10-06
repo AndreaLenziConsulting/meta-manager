@@ -3,6 +3,7 @@ import { getSessione } from "@/lib/auth";
 import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMeetingCliente, getMetaDaily, getSedi } from "@/lib/sheets";
 import { clientiVisibili } from "@/lib/authz";
 import { computeSpesaLeadPeriodo } from "@/lib/kpi";
+import { campagnePredefinite } from "@/lib/campagneAlc";
 import { aggregaValutazioniSedi, calcolaSalute } from "@/lib/salute";
 import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
 import { andamentoSentiment, raggruppaMeetingPerCliente } from "@/lib/sentimentCliente";
@@ -80,13 +81,16 @@ export default async function DashboardHomePage() {
     const sediValutate: SaluteSedeValutazione[] = sedi
       .filter((s) => s.clienteId === cliente.clienteId && s.attivo)
       .map((sede) => {
+        // Stesso filtro predefinito della pagina cliente (06/10/2026, vedi src/lib/campagneAlc.ts): se
+        // la sede ha campagne con ALC nel nome, spesa e lead della scheda contano solo quelle.
+        const predefinite = campagnePredefinite(sede, campagne);
         const { investimento, numeroLead, costoPerLead } = computeSpesaLeadPeriodo(
           cliente.clienteId,
           sede.sedeId,
           daData,
           aData,
           metaDaily,
-          campagne
+          predefinite ? campagne.filter((c) => predefinite.has(c.campaignId)) : campagne
         );
         const valutazione = calcolaSalute(
           { investimento, numeroVendite: 0, cpa: null, costoPerLead },

@@ -169,7 +169,10 @@ export function PacingTargetChart({
   }
   if (!dati) return selettore;
 
-  const overlay = applicaOverlayGhl(dati.totale, ghlDati, { filtroCampagneAttivo: false });
+  // Nessuna selezione a mano qui, ma il server applica comunque il filtro predefinito della sede
+  // (solo campagne ALC, vedi src/lib/campagneAlc.ts) sia a /api/kpi sia a /api/ghl: va detto
+  // all'overlay, che così sa che i totali GHL sono ristretti a quelle campagne.
+  const overlay = applicaOverlayGhl(dati.totale, ghlDati, { filtroCampagneAttivo: Boolean(dati.campagnePredefinite) });
   const oggi = oggiIso();
   // Mese già concluso: il "giorno del mese" è l'ultimo, quindi il ritmo atteso coincide col target
   // intero (frazione 1) e le barre mostrano il risultato finale.

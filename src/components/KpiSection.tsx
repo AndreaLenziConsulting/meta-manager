@@ -5,6 +5,7 @@ import { RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso, type DettaglioGhl, type DettaglioInserzioni } from "@/components/DettaglioCampagneEsteso";
 import { CampagneFilter } from "@/components/CampagneFilter";
+import { PARAMETRO_TUTTE_LE_CAMPAGNE } from "@/lib/campagneAlc";
 import { Tabs } from "@/components/Tabs";
 import { DateRangePicker, type SelezionePeriodo } from "@/components/DateRangePicker";
 import { etichettaIntervallo, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "@/lib/periodo";
@@ -120,14 +121,24 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const sedeId = sedeScelta.contesto === contestoCliente ? sedeScelta.sedeId : null;
 
   // Il filtro campagne è legato al contesto (cliente/codice + sede + periodo) in cui è stato scelto:
-  // se quel contesto cambia, le campagne disponibili non sono più le stesse e si torna a "tutte" —
-  // senza bisogno di un effect dedicato, è solo un valore derivato da confrontare col contesto corrente.
+  // se quel contesto cambia, le campagne disponibili non sono più le stesse e si torna al
+  // predefinito — senza bisogno di un effect dedicato, è solo un valore derivato da confrontare col
+  // contesto corrente.
+  //
+  // Tre stati (06/10/2026, vedi src/lib/campagneAlc.ts): "predefinito" = decide il server (solo le
+  // campagne con ALC nel nome, se la sede ne ha, altrimenti tutte); "tutte" = tutte, scelto a mano;
+  // un Set = selezione a mano. Prima esistevano solo "tutte" (null) e la selezione.
   const contestoAttuale = `${contestoCliente}|${sedeId ?? ""}|${da}|${a}`;
-  const [filtroCampagne, setFiltroCampagne] = useState<{ contesto: string; selezionate: Set<string> | null }>({
+  const [filtroCampagne, setFiltroCampagne] = useState<{ contesto: string; scelta: "predefinito" | "tutte" | Set<string> }>({
     contesto: contestoAttuale,
-    selezionate: null,
+    scelta: "predefinito",
   });
-  const campagneSelezionate = filtroCampagne.contesto === contestoAttuale ? filtroCampagne.selezionate : null;
+  const sceltaCampagne = filtroCampagne.contesto === contestoAttuale ? filtroCampagne.scelta : "predefinito";
+  // Quello che va in `campagne` verso /api/kpi e /api/ghl: null = parametro assente (predefinito del
+  // server). Una stringa, non il Set: è ciò da cui dipendono i fetch, e resta uguale finché la scelta
+  // non cambia davvero (un Set ricostruito a ogni risposta li farebbe ripartire in ciclo).
+  const parametroCampagne =
+    sceltaCampagne === "predefinito" ? null : sceltaCampagne === "tutte" ? PARAMETRO_TUTTE_LE_CAMPAGNE : Array.from(sceltaCampagne).join(",");
 
   useEffect(() => {
     if (!code && !clienteId) return;
@@ -136,7 +147,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
     if (sedeId) params.set("sedeId", sedeId);
-    if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+    if (parametroCampagne) params.set("campagne", parametroCampagne);
     if (frescoPerTickRef.current === refreshTick) params.set("noCache", "1");
 
     Promise.resolve()
@@ -164,7 +175,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       });
 
     return () => controller.abort();
-  }, [code, clienteId, sedeId, da, a, campagneSelezionate, refreshTick]);
+  }, [code, clienteId, sedeId, da, a, parametroCampagne, refreshTick]);
 
   // Stesso fetch di sopra ma sul periodo precedente (daPrecedente/aPrecedente) — solo per il
   // confronto sotto alle tessere di sintesi, mai per il resto della pagina (grafico/tabella
@@ -177,7 +188,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     if (code) params.set("code", code);
     if (clienteId) params.set("clienteId", clienteId);
     if (sedeId) params.set("sedeId", sedeId);
-    if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+    if (parametroCampagne) params.set("campagne", parametroCampagne);
     if (frescoPerTickRef.current === refreshTick) params.set("noCache", "1");
 
     Promise.resolve()
@@ -190,7 +201,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       });
 
     return () => controller.abort();
-  }, [code, clienteId, sedeId, daPrecedente, aPrecedente, campagneSelezionate, refreshTick]);
+  }, [code, clienteId, sedeId, daPrecedente, aPrecedente, parametroCampagne, refreshTick]);
 
   // Conteggio attività in ritardo per il richiamo "solo per il team" — indipendente dal periodo
   // scelto per i KPI (le attività non hanno stagionalità), quindi un effect separato legato solo a
@@ -259,7 +270,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         }
         setGhlErrore(false);
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da, a });
-        if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+        if (parametroCampagne) params.set("campagne", parametroCampagne);
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => {
             setGhlErrore(!res.ok);
@@ -273,7 +284,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         setGhlDati(null);
       });
     return () => controller.abort();
-  }, [clienteId, haConnessioneGhl, sedeGhl, da, a, campagneSelezionate, refreshTick]);
+  }, [clienteId, haConnessioneGhl, sedeGhl, da, a, parametroCampagne, refreshTick]);
 
   // Stesso fetch GHL di sopra ma sul periodo precedente — serve perché il confronto sotto alle
   // tessere non deve mai mettere a confronto un valore "oggi" letto da GHL con un valore "ieri"
@@ -288,7 +299,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           return undefined;
         }
         const params = new URLSearchParams({ clienteId, sedeId: sedeGhl, da: daPrecedente, a: aPrecedente });
-        if (campagneSelezionate) params.set("campagne", Array.from(campagneSelezionate).join(","));
+        if (parametroCampagne) params.set("campagne", parametroCampagne);
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
           .then((body: GhlRiepilogoResponse | null) => setGhlDatiPrecedenti(body));
@@ -298,7 +309,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         setGhlDatiPrecedenti(null);
       });
     return () => controller.abort();
-  }, [clienteId, haConnessioneGhl, sedeGhl, daPrecedente, aPrecedente, campagneSelezionate, refreshTick]);
+  }, [clienteId, haConnessioneGhl, sedeGhl, daPrecedente, aPrecedente, parametroCampagne, refreshTick]);
 
   // Frequenza per campagna (blocco 7, tabella Dettaglio) — stesso ciclo di vita del fetch GHL
   // sopra: una volta per apertura sezione, non solo aprendo la vista "per singola campagna", perché
@@ -364,6 +375,16 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       });
     return () => controller.abort();
   }, [clienteId, sedeGhl, haConnessioneGhl, da, a, refreshTick]);
+
+  // Le campagne effettivamente considerate, null = tutte. Con la scelta "predefinito" è ciò che il
+  // server ha applicato (dati.campagnePredefinite): serve qui solo per mostrare il filtro, restringere
+  // tabella Dettaglio e inserzioni, e dire all'overlay GHL che un filtro è attivo.
+  const predefiniteSede = dati?.campagnePredefinite ?? null;
+  const campagneSelezionate = useMemo<Set<string> | null>(() => {
+    if (sceltaCampagne === "tutte") return null;
+    if (sceltaCampagne !== "predefinito") return sceltaCampagne;
+    return predefiniteSede ? new Set(predefiniteSede) : null;
+  }, [sceltaCampagne, predefiniteSede]);
 
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (scoped
   // alle campagne selezionate quando quella sede ha attribuzione disponibile), altrimenti da
@@ -495,8 +516,14 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // trovaInserzioniOutlier in inserzioniOutlier.ts. Target CPL della sede corrente, come il resto
   // dei giudizi CPL già in uso (valutazioneCampagna.ts).
   const inserzioniOutlier = useMemo(
-    () => trovaInserzioniOutlier(inserzioni, dati?.sede.targetCpl ?? null),
-    [inserzioni, dati]
+    () =>
+      trovaInserzioniOutlier(
+        // Solo le inserzioni delle campagne considerate: un'inserzione di una campagna non gestita
+        // dall'agenzia non deve generare un avviso "da spegnere".
+        campagneSelezionate ? inserzioni.filter((i) => campagneSelezionate.has(i.campaignId)) : inserzioni,
+        dati?.sede.targetCpl ?? null
+      ),
+    [inserzioni, dati, campagneSelezionate]
   );
 
   // Dati per le colonne commerciali e la vista "Per singola inserzione" della tabella Dettaglio
@@ -585,7 +612,15 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             <CampagneFilter
               campagneDisponibili={dati.campagneDisponibili}
               selezionate={campagneSelezionate}
-              onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, selezionate })}
+              onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, scelta: selezionate ?? "tutte" })}
+              predefinito={
+                predefiniteSede
+                  ? {
+                      attivo: sceltaCampagne === "predefinito",
+                      onRipristina: () => setFiltroCampagne({ contesto: contestoAttuale, scelta: "predefinito" }),
+                    }
+                  : undefined
+              }
             />
           )}
         </div>

@@ -9,15 +9,25 @@ type Props = {
   campagneDisponibili: CampagnaDisponibile[];
   selezionate: Set<string> | null; // null = tutte
   onChange: (selezionate: Set<string> | null) => void;
+  // Presente solo se la sede ha un filtro predefinito "solo campagne ALC" (06/10/2026, vedi
+  // src/lib/campagneAlc.ts): `attivo` = la selezione mostrata È quel predefinito, non una scelta
+  // fatta a mano; `onRipristina` ci torna.
+  predefinito?: { attivo: boolean; onRipristina: () => void };
 };
 
-export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: Props) {
+export function CampagneFilter({ campagneDisponibili, selezionate, onChange, predefinito }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   const tuttiGliId = useMemo(() => campagneDisponibili.map((c) => c.campaignId), [campagneDisponibili]);
-  const attive = selezionate ?? new Set(tuttiGliId);
-  const tutteSelezionate = attive.size >= tuttiGliId.length;
+  // Solo gli id presenti nel periodo: `selezionate` può contenerne altri (il predefinito elenca tutte
+  // le campagne ALC della sede, anche quelle senza spesa in questo periodo), che qui non hanno una
+  // casella e falserebbero sia il conteggio sia "tutte selezionate".
+  const attive = useMemo(
+    () => (selezionate ? new Set(tuttiGliId.filter((id) => selezionate.has(id))) : new Set(tuttiGliId)),
+    [selezionate, tuttiGliId]
+  );
+  const tutteSelezionate = selezionate === null || attive.size >= tuttiGliId.length;
 
   // Raggruppamento per canale (Meta/Google Ads — Fase 1 del redesign multi-canale, 12/09/2026),
   // ma SOLO quando è davvero presente più di un canale: con un solo canale (oggi sempre, finché
@@ -80,7 +90,11 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
         className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
       >
         <Filter size={14} className="text-ink-500" />
-        {tutteSelezionate ? `Tutte le campagne (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} campagne`}
+        {predefinito?.attivo
+          ? `Solo campagne ALC (${attive.size}/${tuttiGliId.length})`
+          : tutteSelezionate
+            ? `Tutte le campagne (${tuttiGliId.length})`
+            : `${attive.size}/${tuttiGliId.length} campagne`}
       </button>
 
       {open && (
@@ -92,6 +106,21 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange }: P
           >
             {tutteSelezionate ? "Deseleziona tutte" : "Seleziona tutte"}
           </button>
+          {predefinito && (
+            <div className="mb-2 px-2 text-[11px] text-ink-500">
+              {predefinito.attivo ? (
+                <p>Filtro predefinito: solo le campagne con ALC nel nome. Per vederle tutte usa &quot;Seleziona tutte&quot;.</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={predefinito.onRipristina}
+                  className="font-semibold text-brand underline underline-offset-2"
+                >
+                  Torna al predefinito (solo campagne ALC)
+                </button>
+              )}
+            </div>
+          )}
 
           <div className="max-h-72 overflow-y-auto space-y-3 pr-1">
             {gruppi.map(([chiave, { etichetta, lista }]) => {

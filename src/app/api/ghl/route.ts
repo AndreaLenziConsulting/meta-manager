@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { getCampagne, getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
 import { interpretaFoglioContatti, leggiFoglioContatti, riepilogoDaContatti } from "@/lib/foglioContatti";
+import { campagneDaConsiderare, leggiFiltroCampagne } from "@/lib/campagneAlc";
 import { puoVedereCliente } from "@/lib/authz";
 import { normalizzaIntervallo } from "@/lib/kpi";
 import {
@@ -90,15 +91,16 @@ export async function GET(req: NextRequest) {
   // Stesso parametro/formato del filtro campagne di /api/kpi (campaignId separati da virgola) —
   // qui scoped appuntamenti/opportunità ai soli contatti attribuiti a queste campagne (vedi
   // mappaCampagnaPerContatto), invece di disattivare il pannello GHL come prima di questa feature.
-  const campagneParam = searchParams.get("campagne");
-  const campagneFiltro = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : null;
+  // Assente = filtro predefinito della sede (solo campagne con ALC nel nome, se ne ha), "tutte" =
+  // nessun filtro — stessa regola di /api/kpi, vedi src/lib/campagneAlc.ts. Risolto più sotto.
+  const filtroRichiesto = leggiFiltroCampagne(searchParams.get("campagne"));
 
   if (!clienteId) {
     return NextResponse.json({ error: "clienteId mancante" }, { status: 400 });
   }
   // Insieme, non una dopo l'altra: partono nello stesso istante e condividono una sola lettura del
   // foglio (vedi le letture raggruppate in sheets.ts) invece di tre.
-  const [clienti, tutteLeSedi, connessioni] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni()]);
+  const [clienti, tutteLeSedi, connessioni, tutteLeCampagne] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni(), getCampagne()]);
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     return NextResponse.json({ error: "Non autorizzato per questo cliente" }, { status: 403 });
   }
@@ -114,6 +116,7 @@ export async function GET(req: NextRequest) {
   const startMs = new Date(`${da}T00:00:00Z`).getTime();
   const endMs = new Date(`${a}T23:59:59.999Z`).getTime();
 
+  const campagneFiltro = campagneDaConsiderare(filtroRichiesto, sede, tutteLeCampagne);
   const connessione = connessioni.find((c) => c.sedeId === sede.sedeId && c.attivo);
   if (!connessione) {
     // Sede senza GHL: la fonte è il file contatti del cliente, se c'è (01/10/2026, vedi
@@ -130,7 +133,7 @@ export async function GET(req: NextRequest) {
           // sue campagne. Un contatto senza campagna non è assegnabile a nessuna sede e resta fuori.
           if (sediCliente.length > 1) {
             const campagneSede = new Set(
-              (await getCampagne()).filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId).map((c) => c.campaignId)
+              tutteLeCampagne.filter((c) => c.clienteId === clienteId && c.sedeId === sede.sedeId).map((c) => c.campaignId)
             );
             contatti = contatti.filter((c) => c.campaignId !== null && campagneSede.has(c.campaignId));
           }

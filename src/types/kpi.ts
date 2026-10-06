@@ -80,6 +80,10 @@ export type Sede = {
   targetLeadSettimana: number | null;
   targetAppuntamentiSettimana: number | null;
   targetFatturatoMensile: number | null;
+  // true = per questa sede valgono TUTTE le campagne dell'account, non solo quelle con "ALC" nel
+  // nome (colonna M della tab Sedi, 06/10/2026 — vedi src/lib/campagneAlc.ts). Assente/false = il
+  // predefinito: solo le campagne ALC, se la sede ne ha. Opzionale per le fixture di test esistenti.
+  tutteLeCampagne?: boolean;
 };
 
 /**
@@ -351,6 +355,12 @@ export type KpiResponse = {
   }[];
   campagne: RigaCampagna[];
   campagneDisponibili: CampagnaDisponibile[];
+  // Il filtro predefinito della sede (vedi src/lib/campagneAlc.ts): gli id delle sue campagne con
+  // "ALC" nel nome, applicato dal server a ogni richiesta SENZA parametro `campagne` — qui e in
+  // /api/ghl. null = nessun predefinito (la sede non ha campagne ALC, o ha "tutte le campagne"
+  // attivo): valgono tutte. Sempre presente, anche quando la richiesta ha chiesto altro, così
+  // l'interfaccia sa cosa sarebbe il predefinito. Opzionale solo per le fixture di test esistenti.
+  campagnePredefinite?: string[] | null;
   // Presente solo nella richiesta interna (stesso motivo di targetCpa/targetCpl sopra) — alimenta
   // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi
   // mesiConSpesaSenzaRisultatiCommerciali in lib/kpiQualita.ts.

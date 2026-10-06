@@ -83,6 +83,7 @@ type BodyPatch = {
   targetLeadSettimana?: number | null;
   targetAppuntamentiSettimana?: number | null;
   targetFatturatoMensile?: number | null;
+  tutteLeCampagne?: boolean;
 };
 
 /**
@@ -136,6 +137,7 @@ export async function PATCH(req: NextRequest) {
       targetLeadSettimana: body.targetLeadSettimana,
       targetAppuntamentiSettimana: body.targetAppuntamentiSettimana,
       targetFatturatoMensile: body.targetFatturatoMensile,
+      tutteLeCampagne: typeof body.tutteLeCampagne === "boolean" ? body.tutteLeCampagne : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

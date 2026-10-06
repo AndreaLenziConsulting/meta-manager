@@ -14,6 +14,7 @@ import {
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
 import { chiaveCampagna, computeKpi, computeKpiPerCampagna, normalizzaIntervallo } from "@/lib/kpi";
+import { campagneDaConsiderare, campagnePredefinite, leggiFiltroCampagne } from "@/lib/campagneAlc";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import { aggregaRisultatiVenditori } from "@/lib/venditori";
 import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
@@ -34,8 +35,10 @@ export async function GET(req: NextRequest) {
   // intervallo di giorni (vedi normalizzaIntervallo in lib/kpi.ts): da qui in poi sono sempre due
   // giorni inclusi, e `periodo` in risposta li restituisce in questa forma.
   const { da, a } = normalizzaIntervallo(searchParams.get("da") || meseCorrente(), searchParams.get("a") || meseCorrente());
-  const campagneParam = searchParams.get("campagne");
-  const campagneSelezionate = campagneParam ? new Set(campagneParam.split(",").filter(Boolean)) : undefined;
+  // `campagne`: assente = il filtro predefinito della sede (solo campagne con ALC nel nome, se ne
+  // ha — 06/10/2026, vedi src/lib/campagneAlc.ts), "tutte" = tutte, "id1,id2" = scelta a mano.
+  // Risolto più sotto, dopo aver letto le campagne della sede.
+  const filtroRichiesto = leggiFiltroCampagne(searchParams.get("campagne"));
   // Filtro canale (Meta/Google Ads — Fase 1 del redesign multi-canale, 12/09/2026): a differenza di
   // `campagne` sopra, non arriva come Set separato fino a computeKpi — viene tradotto qui sotto
   // (dopo aver letto `campagne`, serve per sapere quali campaignId appartengono a quali canali) in
@@ -103,6 +106,9 @@ export async function GET(req: NextRequest) {
       getVenditori({ noCache }),
       getRisultatiVenditori({ noCache }),
     ]);
+
+  const predefinite = campagnePredefinite(sede, campagne);
+  const campagneSelezionate = campagneDaConsiderare(filtroRichiesto, sede, campagne) ?? undefined;
 
   // Interseca il filtro canale (se presente) dentro campagneSelezionate: dopo questo punto i due
   // compute* sotto continuano a ricevere l'unico Set che già conoscevano, senza saperne nulla.
@@ -197,6 +203,7 @@ export async function GET(req: NextRequest) {
     trendSettimanale,
     campagne: righeCampagne,
     campagneDisponibili,
+    campagnePredefinite: predefinite ? Array.from(predefinite) : null,
   };
 
   // Additivo, solo ramo interno (stesso motivo di targetCpa/targetCpl sopra) — riusa
@@ -216,11 +223,13 @@ export async function GET(req: NextRequest) {
     }));
     const meseDa = da.slice(0, 7);
     const meseA = a.slice(0, 7);
+    // Solo le campagne del predefinito (se la sede ne ha uno): un mese in cui hanno speso solo
+    // campagne non gestite dall'agenzia non è un mese "da compilare".
     response.meseSenzaRisultatiCommerciali = mesiConSpesaSenzaRisultatiCommerciali(
       clienteId,
       sede.sedeId,
       metaDaily,
-      campagne,
+      predefinite ? campagne.filter((c) => predefinite.has(c.campaignId)) : campagne,
       risultatiCommerciali
     ).filter((m) => m.mese >= meseDa && m.mese <= meseA);
   }

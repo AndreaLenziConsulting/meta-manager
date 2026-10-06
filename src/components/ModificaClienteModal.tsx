@@ -347,6 +347,7 @@ function SedeRow({
   const [targetCpa, setTargetCpa] = useState(sede.targetCpa !== null ? String(sede.targetCpa) : "");
   const [targetCpl, setTargetCpl] = useState(sede.targetCpl !== null ? String(sede.targetCpl) : "");
   const [tipoConversioneLead, setTipoConversioneLead] = useState(sede.tipoConversioneLead);
+  const [tutteLeCampagne, setTutteLeCampagne] = useState(Boolean(sede.tutteLeCampagne));
   const [attivo, setAttivo] = useState(sede.attivo);
   // Target commerciali concordati col cliente (Fase 1 roadmap) — stesso trattamento di
   // targetCpa/targetCpl sopra, ma su volumi/fatturato invece che su costo. Controllati contro il
@@ -384,6 +385,7 @@ function SedeRow({
           targetCpa: targetCpa ? Number(targetCpa) : null,
           targetCpl: targetCpl ? Number(targetCpl) : null,
           tipoConversioneLead,
+          tutteLeCampagne,
           attivo,
           targetBudgetMensile: targetBudgetMensile ? Number(targetBudgetMensile) : null,
           targetLeadSettimana: targetLeadSettimana ? Number(targetLeadSettimana) : null,
@@ -448,6 +450,21 @@ function SedeRow({
           placeholder="Vuoto = usa la lista di default (Lead Ads classici)"
         />
       </Field>
+      <label className="flex items-start gap-2 text-xs text-ink-700 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={tutteLeCampagne}
+          onChange={(e) => setTutteLeCampagne(e.target.checked)}
+          className="accent-current text-brand mt-0.5"
+        />
+        <span>
+          Considera tutte le campagne dell&apos;account
+          <span className="block text-[11px] text-ink-500">
+            Se non è spuntato e la sede ha campagne con &quot;ALC&quot; nel nome, KPI, grafici e dashboard contano di default solo
+            quelle. Spuntalo quando tutte le campagne dell&apos;account sono gestite dall&apos;agenzia.
+          </span>
+        </span>
+      </label>
       <div className="flex items-center justify-between gap-2 pt-1">
         <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
           <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />

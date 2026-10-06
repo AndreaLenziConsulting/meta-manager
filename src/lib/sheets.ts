@@ -701,6 +701,8 @@ export async function getSedi(): Promise<Sede[]> {
       targetLeadSettimana: toNumberOrNull(r[9]),
       targetAppuntamentiSettimana: toNumberOrNull(r[10]),
       targetFatturatoMensile: toNumberOrNull(r[11]),
+      // Colonna M (06/10/2026): TRUE = tutte le campagne, non solo quelle con ALC nel nome.
+      tutteLeCampagne: asText(r[12]).trim().toUpperCase() === "TRUE",
     }));
 }
 
@@ -754,6 +756,7 @@ export type AggiornaSedeInput = {
   targetLeadSettimana?: number | null;
   targetAppuntamentiSettimana?: number | null;
   targetFatturatoMensile?: number | null;
+  tutteLeCampagne?: boolean;
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` (undefined = lascia invariato) di una sede esistente. */
@@ -784,6 +787,7 @@ export async function aggiornaSede(input: AggiornaSedeInput): Promise<void> {
   if (input.targetLeadSettimana !== undefined) set("J", input.targetLeadSettimana ?? "");
   if (input.targetAppuntamentiSettimana !== undefined) set("K", input.targetAppuntamentiSettimana ?? "");
   if (input.targetFatturatoMensile !== undefined) set("L", input.targetFatturatoMensile ?? "");
+  if (input.tutteLeCampagne !== undefined) set("M", input.tutteLeCampagne ? "TRUE" : "FALSE");
 
   if (data.length === 0) return;
   await sheets.spreadsheets.values.batchUpdate({
