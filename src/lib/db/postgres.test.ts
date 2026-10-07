@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leggiStringaConnessione } from "./postgres";
+import { leggiStringaConnessione, limitatore } from "./postgres";
 
 describe("leggiStringaConnessione", () => {
   it("scompone la stringa del pooler di Supabase", () => {
@@ -32,5 +32,52 @@ describe("leggiStringaConnessione", () => {
 
   it("una stringa che non è un indirizzo Postgres dà un errore che dice la forma attesa", () => {
     expect(() => leggiStringaConnessione("https://esempio.supabase.co")).toThrow("postgresql://utente:password@host:porta/database");
+  });
+});
+
+describe("limitatore", () => {
+  const pausa = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it("mai più lavori insieme del massimo, e tutti arrivano in fondo", async () => {
+    const conLimite = limitatore(3);
+    let inCorso = 0;
+    let picco = 0;
+    const esiti = await Promise.all(
+      Array.from({ length: 20 }, (_, i) =>
+        conLimite(async () => {
+          inCorso++;
+          picco = Math.max(picco, inCorso);
+          await pausa(5);
+          inCorso--;
+          return i;
+        })
+      )
+    );
+    expect(picco).toBe(3);
+    expect(esiti).toEqual(Array.from({ length: 20 }, (_, i) => i));
+  });
+
+  it("chi aspetta parte nell'ordine in cui è arrivato", async () => {
+    const conLimite = limitatore(1);
+    const partenze: number[] = [];
+    await Promise.all(
+      [0, 1, 2, 3].map((i) =>
+        conLimite(async () => {
+          partenze.push(i);
+          await pausa(3);
+        })
+      )
+    );
+    expect(partenze).toEqual([0, 1, 2, 3]);
+  });
+
+  it("un lavoro che fallisce libera il suo posto: gli altri non restano appesi", async () => {
+    const conLimite = limitatore(1);
+    const rotto = conLimite(async () => {
+      throw new Error("rotto");
+    });
+    const dopo = conLimite(async () => "ok");
+    await expect(rotto).rejects.toThrow("rotto");
+    await expect(dopo).resolves.toBe("ok");
   });
 });
