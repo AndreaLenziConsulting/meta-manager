@@ -1640,6 +1640,33 @@ export function ultimoCambioDaRighe(rows: CellValue[][]): Map<string, string> {
  * È la data in cui il sync se n'è accorto (finestra rolling + cadenza del cron), non necessariamente
  * l'istante esatto in cui è stato cambiato su Meta Ads.
  */
+/** Una riga di StoricoStatoCampagne: un cambio di stato di una campagna rilevato da una sincronizzazione. */
+export type CambioStatoCampagna = {
+  cambiatoIl: string; // data e ora ISO
+  campaignId: string;
+  clienteId: string;
+  nomeCampagna: string;
+  statoPrecedente: string;
+  statoNuovo: string;
+};
+
+/** Tutto lo storico dei cambi di stato, riga per riga. L'app ne usa solo l'ultimo per campagna
+ * (getUltimoCambioPerCampagna sotto): questa lettura completa serve alla copia dei dati verso il
+ * database (scripts/copia-foglio-nel-database.ts). */
+export async function getStoricoStatoCampagne(opts?: { noCache?: boolean }): Promise<CambioStatoCampagna[]> {
+  const rows = await readTab(TAB.storicoStato, opts);
+  return rows
+    .filter((r) => asText(r[0]) && asText(r[1]))
+    .map((r) => ({
+      cambiatoIl: asText(r[0]),
+      campaignId: asText(r[1]),
+      clienteId: asText(r[2]),
+      nomeCampagna: asText(r[3]),
+      statoPrecedente: asText(r[4]),
+      statoNuovo: asText(r[5]),
+    }));
+}
+
 export async function getUltimoCambioPerCampagna(opts?: { noCache?: boolean }): Promise<Map<string, string>> {
   const rows = await readTab(TAB.storicoStato, opts);
   return ultimoCambioDaRighe(rows);
