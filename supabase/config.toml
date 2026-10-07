@@ -1,5 +1,10 @@
 # Progetto Supabase di Meta Manager ALC.
-# Lo schema del database sta in supabase/migrations: un file SQL per ogni modifica, applicati in ordine.
+# Lo schema del database sta in supabase/migrations: un file SQL per ogni modifica, applicati in ordine
+# (scripts/applica-migrazioni.ts, oppure gli strumenti di Supabase: usano lo stesso registro).
 # L'app usa di Supabase solo il database Postgres (niente Auth, Storage o API pubbliche): si collega
 # dal server con DATABASE_URL.
 project_id = "meta-manager-alc"
+
+[db]
+# La versione di Postgres del progetto (verificata il 07/10/2026: PostgreSQL 17.11).
+major_version = 17
