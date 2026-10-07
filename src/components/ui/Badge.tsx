@@ -3,14 +3,13 @@ import { STILE_LIVELLO, type LivelloStato } from "@/lib/statusStyles";
 import { cn } from "@/lib/cn";
 
 /**
- * Pillola di stato — sostituisce la stringa
- * "text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border" ripetuta a
- * mano ovunque si mostri uno stato (campagna, attività, salute cliente, allarmi).
+ * Etichetta di stato a pillola, nello stile del Design System ALC ("Badge"): 12px in grassetto,
+ * minuscolo, con il pallino iniziale nel colore del testo. Il colore non basta mai da solo: dentro
+ * c'è sempre la parola che dice lo stato.
  *
  * Due modalità: `tono` per un tono semantico diretto (risolve il colore da STILE_LIVELLO); `classe`
  * per un colore già risolto da una mappa di dominio (es. formatStatoCampagna/formatStatoAttivita in
- * lib/format.ts, che a loro volta leggono da STILE_LIVELLO ma restituiscono la classe finale, non
- * il tono astratto) — mai un colore scritto qui da zero, in un caso o nell'altro.
+ * lib/format.ts, che a loro volta leggono da STILE_LIVELLO) — mai un colore scritto qui da zero.
  */
 type BadgeProps =
   | { tono: LivelloStato; classe?: never; children: ReactNode; className?: string }
@@ -21,11 +20,12 @@ export function Badge({ children, className, ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest px-2 py-1 rounded-full border whitespace-nowrap",
+        "inline-flex items-center gap-1.5 text-xs leading-4 font-bold px-2.5 py-1 rounded-full border whitespace-nowrap",
         classeColore,
         className
       )}
     >
+      <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-current" />
       {children}
     </span>
   );

@@ -19,7 +19,7 @@ export function BulletListEditor({
     return (
       <ul className="mt-3 space-y-2">
         {items.map((hl, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+          <li key={i} className="flex items-start gap-3 text-sm text-ink-700">
             <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0 bg-brand" />
             {hl}
           </li>
@@ -38,15 +38,15 @@ export function BulletListEditor({
   return (
     <div className="mt-3 space-y-1.5">
       {items.map((hl, i) => (
-        <div key={i} className="group flex items-start gap-2 text-sm text-gray-700">
+        <div key={i} className="group flex items-start gap-2 text-sm text-ink-700">
           <span className="mt-2.5 w-2 h-2 rounded-full flex-shrink-0 bg-brand" />
           <input
             type="text"
             value={hl}
             onChange={(e) => update(i, e.target.value)}
-            className="flex-1 rounded-md border border-transparent hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors"
+            className="flex-1 rounded-md border border-transparent hover:border-bordo-campo focus:border-brand px-2 py-1 transition-colors"
           />
-          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 px-1 mt-0.5" aria-label="Rimuovi">
+          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-500 hover:text-critico px-1 mt-0.5" aria-label="Rimuovi">
             ×
           </button>
         </div>

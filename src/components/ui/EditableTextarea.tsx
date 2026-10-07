@@ -38,7 +38,7 @@ export function EditableTextarea({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`${className ?? ""} w-full resize-none rounded-md border border-transparent hover:border-gray-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 -mx-2 py-1 outline-none transition-colors`}
+      className={`${className ?? ""} w-full resize-none rounded-md border border-transparent hover:border-bordo-campo focus:border-brand  px-2 -mx-2 py-1 transition-colors`}
       rows={1}
     />
   );

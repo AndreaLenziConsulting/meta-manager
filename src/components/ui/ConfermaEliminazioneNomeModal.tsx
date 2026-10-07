@@ -54,7 +54,7 @@ export function ConfermaEliminazioneNomeModal({
           </label>
           <Input value={testoDigitato} onChange={(e) => setTestoDigitato(e.target.value)} autoFocus />
         </div>
-        {errore && <p className="text-xs text-red-600">{errore}</p>}
+        {errore && <p className="text-xs text-critico">{errore}</p>}
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
           <Button type="button" variant="danger" onClick={handleConferma} disabled={eliminando || !puoConfermare}>
             {eliminando ? "Eliminazione…" : "Elimina cliente per sempre"}

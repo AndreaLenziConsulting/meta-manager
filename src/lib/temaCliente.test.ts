@@ -25,9 +25,9 @@ describe("styleTemaCliente", () => {
     expect(style?.["--brand-primary-light" as keyof typeof style]).toBe("#f9fae2");
   });
 
-  it("imposta --font-league-spartan/--font-roboto (i nomi foglia, non l'alias semantico) solo per un font nella whitelist", () => {
+  it("imposta --font-montserrat (il nome foglia, non l'alias semantico) solo per un font nella whitelist", () => {
     const style = styleTemaCliente(clienteVuoto({ fontPersonalizzato: "poppins" }));
-    expect(style).toMatchObject({ "--font-league-spartan": "var(--font-poppins)", "--font-roboto": "var(--font-poppins)" });
+    expect(style).toMatchObject({ "--font-montserrat": "var(--font-poppins)" });
   });
 
   it("ignora un font fuori whitelist (mai un valore libero, next/font richiede un import statico)", () => {
@@ -35,9 +35,9 @@ describe("styleTemaCliente", () => {
   });
 
   it("combina più personalizzazioni insieme", () => {
-    // colorePrimario -> 2 chiavi (primary + dark), coloreSecondario -> 1 (light), font -> 2 (heading + sans)
+    // colorePrimario -> 2 chiavi (primary + dark), coloreSecondario -> 1 (light), font -> 1 (Montserrat)
     const style = styleTemaCliente({ colorePrimario: "#76943C", coloreSecondario: "#D6DE3F", fontPersonalizzato: "poppins" });
-    expect(Object.keys(style ?? {})).toHaveLength(5);
+    expect(Object.keys(style ?? {})).toHaveLength(4);
   });
 });
 

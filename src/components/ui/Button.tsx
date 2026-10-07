@@ -1,45 +1,43 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
 
-const VARIANTE = {
-  // CTA principale — verde, colore di azione (non di brand, vedi src/lib/statusStyles.ts).
-  primary: "bg-cta hover:bg-cta-dark text-white disabled:opacity-50 disabled:cursor-not-allowed",
-  // Azione secondaria in evidenza — bordo brand, usato dove serve un CTA meno assertivo del verde
-  // (es. scarica/genera in un contesto che non è "salva").
-  secondary: "border-2 border-brand text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed",
-  // Azione terziaria/annulla — nessuno sfondo, solo bordo neutro.
-  ghost: "border border-ink-300 text-ink-700 hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed",
-  // Azione distruttiva (eliminazioni admin-only) — mai per un'azione reversibile: rosso pieno,
-  // stessa forza visiva di primary ma nel colore di allarme, non di brand/azione positiva.
-  danger: "bg-red-600 hover:bg-red-700 text-white disabled:opacity-50 disabled:cursor-not-allowed",
+/** Classi del pulsante del Design System ALC ("Pulsante"), definite una volta sola in globals.css
+ * (`alc-btn` e varianti): a pillola, grassetto, bordo di 2px sempre presente (così le varianti piene
+ * e quella a contorno hanno la stessa altezza). Esportate perché servono anche a un `<a>` che deve
+ * sembrare un pulsante (es. "+ Nuovo cliente"), dove il componente `Button` qui sotto non si può
+ * usare. */
+export const CLASSE_PULSANTE = "alc-btn";
+
+export const VARIANTE_PULSANTE = {
+  // Azione principale della vista: blu di accento. Una sola per vista.
+  primary: "",
+  // Solo le azioni che CREANO qualcosa ("+ Nuovo cliente", "+ Nuova attività"): verde `crea`. È la
+  // regola del sistema — mai per salvare o per un'azione che non crea nulla.
+  crea: "alc-btn--crea",
+  // Azione alternativa accanto alla principale: contorno blu.
+  secondary: "alc-btn--secondario",
+  // Annulla e azioni terziarie: contorno neutro.
+  ghost: "alc-btn--neutro",
+  // Azione distruttiva, mai per qualcosa di reversibile: `critico` pieno.
+  danger: "alc-btn--critico",
 } as const;
 
-const DIMENSIONE = {
-  sm: "text-xs px-3 py-1.5",
-  md: "text-sm px-4 py-2.5",
+export const DIMENSIONE_PULSANTE = {
+  // Dentro card e tabelle: 32px di altezza, sopra il minimo di 24px per un bersaglio.
+  sm: "alc-btn--piccolo",
+  // Azioni di pagina: 44px di altezza, il minimo comodo anche al tocco.
+  md: "",
 } as const;
 
 /**
- * Bottone standard dell'app — sostituisce le stringhe di classi ripetute in almeno 5 file per il
- * CTA verde, e introduce varianti coerenti per le azioni secondarie/annulla che oggi erano
- * ridichiarate diversamente componente per componente.
+ * Pulsante standard dell'app, nello stile del Design System ALC. `primary` è blu: il verde è
+ * riservato a `crea` (prima era il colore di ogni azione principale).
  */
 export function Button({
   variant = "primary",
   size = "md",
   className,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof VARIANTE; size?: keyof typeof DIMENSIONE }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "rounded-xl font-semibold transition cursor-pointer active:scale-[.98] disabled:active:scale-100",
-        VARIANTE[variant],
-        DIMENSIONE[size],
-        className
-      )}
-      {...props}
-    />
-  );
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof VARIANTE_PULSANTE; size?: keyof typeof DIMENSIONE_PULSANTE }) {
+  return <button type="button" className={cn(CLASSE_PULSANTE, VARIANTE_PULSANTE[variant], DIMENSIONE_PULSANTE[size], className)} {...props} />;
 }

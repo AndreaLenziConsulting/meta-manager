@@ -2,14 +2,15 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes 
 import { cn } from "@/lib/cn";
 
 /**
- * Stile input/select/textarea standard dell'app — sostituisce `inputClass` duplicato
- * testualmente identico in tre componenti-form (NuovoClienteForm, ModificaClienteModal,
- * MeetingTab). `w-full` è nella classe base: per un input dentro una riga flex (dove la
- * larghezza deve venire da flex-1/w-32) passare `className="w-auto flex-1"` — tailwind-merge
- * risolve il conflitto invece di lasciare due `w-*` in competizione.
+ * Stile input/select/textarea standard dell'app, sul Design System ALC: raggio `radius-md` (8px),
+ * bordo `bordo-campo` (la `linea` delle card è decorativa e non regge il confine di un campo), 44px
+ * di altezza, anello di focus del sistema (quello globale di globals.css: qui nessun `outline-none`).
+ * `w-full` è nella classe base: per un input dentro una riga flex passare `className="w-auto
+ * flex-1"` — tailwind-merge risolve il conflitto invece di lasciare due `w-*` in competizione.
  */
 const inputBase =
-  "w-full rounded-xl border border-ink-300 px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full min-h-11 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-500 " +
+  "focus:border-brand transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function Input({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input className={cn(inputBase, className)} {...props} />;

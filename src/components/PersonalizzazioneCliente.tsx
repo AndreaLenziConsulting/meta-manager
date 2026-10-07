@@ -77,7 +77,7 @@ export function PersonalizzazioneCliente({
 
       <Field label="Font (opzionale)">
         <Select value={fontPersonalizzato} onChange={(e) => onFontPersonalizzatoChange(e.target.value)}>
-          <option value="">Default (League Spartan / Roboto)</option>
+          <option value="">Default (Montserrat)</option>
           {FONT_CLIENTE_DISPONIBILI.map((f) => (
             <option key={f} value={f}>
               {LABEL_FONT[f]}

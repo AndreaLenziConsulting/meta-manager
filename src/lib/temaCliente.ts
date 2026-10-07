@@ -26,12 +26,16 @@ export type CampiTema = Pick<Cliente, "colorePrimario" | "coloreSecondario" | "f
  * principale e genera anche una variante più scura scurendolo (oggi --brand-primary-dark non è
  * consumato da nessun componente, ma il token esiste per coerenza col sistema ALC).
  *
- * Mai i colori di STATO (successo/attenzione/critico, vedi statusStyles.ts) o --cta-*: quelli
+ * `--brand-primary*` sono l'accento del Design System ALC (`accento`, `notte`, `accento-tenue`, vedi
+ * globals.css): pulsanti principali, link, barre e schede attive leggono da qui, quindi sulla
+ * scheda di un cliente prendono il suo colore.
+ *
+ * Mai i colori di STATO (successo/attenzione/critico, vedi statusStyles.ts) o il verde `crea`: quelli
  * restano identici per ogni cliente — sono semantica applicativa (verde = successo ovunque), non
  * identità di brand, personalizzarli confonderebbe la lettura degli stati.
  *
- * Per il font, sovrascrivo `--font-league-spartan`/`--font-roboto` (i nomi REALI generati da
- * next/font in layout.tsx) e non `--font-heading`/`--font-sans` (l'alias semantico intermedio
+ * Per il font, sovrascrivo `--font-montserrat` (il nome REALE generato da next/font in layout.tsx,
+ * l'unica famiglia del Design System ALC) e non `--font-heading`/`--font-sans` (l'alias semantico intermedio
  * definito in `@theme inline` di globals.css) — `@theme inline` fa risolvere a Tailwind le utility
  * `font-heading`/`font-sans` fino al valore FOGLIA già al momento della build, saltando quell'alias
  * intermedio: sovrascriverlo a runtime non avrebbe alcun effetto sulle classi già generate.
@@ -57,8 +61,7 @@ export function styleTemaCliente(cliente: CampiTema): CSSProperties | undefined 
     style["--brand-primary-light"] = schiarisci(cliente.coloreSecondario, 0.85);
   }
   if (isFontClienteValido(cliente.fontPersonalizzato)) {
-    style["--font-league-spartan"] = `var(--font-${cliente.fontPersonalizzato})`;
-    style["--font-roboto"] = `var(--font-${cliente.fontPersonalizzato})`;
+    style["--font-montserrat"] = `var(--font-${cliente.fontPersonalizzato})`;
   }
 
   if (Object.keys(style).length === 0) return undefined;

@@ -28,7 +28,8 @@ export function EditableInline({
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`${className ?? ""} outline-none rounded px-1 -mx-1 hover:bg-white/10 focus:bg-white/15 focus:ring-2 focus:ring-white/40 transition-colors`}
+      aria-label={placeholder}
+      className={`${className ?? ""} rounded px-1 -mx-1 hover:bg-white/10 focus:bg-white/15 focus-visible:outline-accento-su-notte transition-colors`}
     />
   );
 }

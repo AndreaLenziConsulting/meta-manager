@@ -1,49 +1,66 @@
 @import "tailwindcss";
 
+/*
+ * Token del Design System ALC — fonte: artifact "ALC" (tokens.json v1, 07/10/2026), stessi nomi e
+ * stessi valori. Regole d'uso nel README di quel sistema; qui solo ciò che serve a questa app:
+ * - un solo tema, chiaro. Il sistema definisce anche un tema scuro (blu notte): non è attivo qui,
+ *   e `color-scheme: light` lo dichiara al browser;
+ * - `--brand-primary*` sono l'ACCENTO del sistema (`accento`, `notte`, `accento-tenue`) con il nome
+ *   che l'app usa da sempre: è la sola terna che la personalizzazione per-cliente sovrascrive
+ *   (src/lib/temaCliente.ts), quindi i componenti leggono l'accento da lì (classi `brand`), mai da
+ *   `--blu` direttamente — altrimenti la scheda di un cliente col suo colore resterebbe blu ALC;
+ * - `--bordo-campo` non è nel sistema: `linea` è dichiarata decorativa ("non regge da sola il
+ *   confine di un campo di input"), e un campo ha bisogno di un bordo a 3:1 sul fondo.
+ */
 :root {
-  /* Brand ufficiale Andrea Lenzi Consulting */
-  --brand-primary: #1a74bc;
-  --brand-primary-dark: #002f54;
-  --brand-primary-light: #e8f1f9;
+  color-scheme: light;
 
-  /* Scala "ink" derivata dal quasi-nero ufficiale #000321 */
-  --ink-900: #000321; /* testo principale, titoli */
-  --ink-700: #2b2d42; /* testo secondario forte */
-  --ink-500: #8893a8; /* testo terziario/placeholder — colore ufficiale */
-  --ink-300: #c4cad6; /* bordi/hairline */
-  --surface: #f8f8f8; /* sfondo pagina — colore ufficiale */
-  --surface-card: #ffffff;
+  --blu: #08599c;
+  --blu-luce: #3c87c5;
+  --notte: #002f54;
+  --grigio: #bcbec0;
+  --logo-blu: #1b75bc;
+  --sfondo: #f5f7fa;
+  --superficie: #ffffff;
+  --accento-tenue: #e6eff7;
+  --linea: #dde3ea;
+  --inchiostro: #002f54;
+  --testo: #33475b;
+  --testo-secondario: #5d6b7d;
+  --su-accento: #ffffff;
+  --crea: #17804f;
+  --su-crea: #ffffff;
+  --ok: #17804f;
+  --ok-tenue: #e3f2ea;
+  --attenzione: #9a5c00;
+  --attenzione-tenue: #fcefd2;
+  --critico: #b03a34;
+  --critico-tenue: #fbe9e7;
+  --focus: #08599c;
+  --notte-superficie: #0b3d66;
+  --su-notte: #ffffff;
+  --su-notte-secondario: #a9bed3;
+  --accento-su-notte: #8dbde6;
+  --blu-10: #e6eff7;
+  --blu-20: #c9ddee;
+  --blu-40: #9dc1e2;
+  --shadow-card: 0 4px 14px rgba(0, 47, 84, 0.08);
+  --shadow-alta: 0 12px 32px rgba(0, 47, 84, 0.16);
+  --barra: 4px;
+  --bordo-campo: #7f8da0;
 
-  /* Colore di STATO/azione (successo), non di brand — resta distinto, vedi src/lib/statusStyles.ts */
-  --cta-green: #16a34a;
-  --cta-green-dark: #15803d;
+  /* Accento, con i nomi storici dell'app: vedi il commento in cima. */
+  --brand-primary: var(--blu);
+  --brand-primary-dark: var(--notte);
+  --brand-primary-light: var(--accento-tenue);
 
-  /* Vetro — redesign "Vetro ALC" (09/09/2026), tema chiaro: riservato alla UI di navigazione/
-     controlli che galleggiano sopra il contenuto (Sidebar, barra in alto, filtri, dropdown) — MAI
-     al contenuto stesso (tessere/pannelli/tabelle restano su --surface-card opaco, come oggi).
-     Applicate via classi Tailwind ad-hoc nei componenti (`bg-[var(--glass-chrome)]`), stesso
-     pattern già in uso in AppHeader.tsx (`backdrop-blur supports-[backdrop-filter]:bg-.../85`) —
-     mai una nuova classe CSS scritta a mano: qui restano solo i valori, coerente con come ogni
-     altro componente dell'app è già stilizzato (classi Tailwind in JSX, non CSS per-componente).
-     Due intensità: chrome per le superfici grandi (sidebar/barra in alto), panel per pillole/
-     dropdown più piccoli. Non ancora consumate da nessun componente in questa fase — solo i
-     valori, zero cambiamento visivo finché la Fase B non li applica. */
-  --glass-chrome: rgba(255, 255, 255, 0.64);
-  --glass-chrome-strong: rgba(255, 255, 255, 0.82);
-  --glass-panel: rgba(255, 255, 255, 0.9);
-  --glass-panel-strong: rgba(255, 255, 255, 0.97);
-  --glass-border: rgba(255, 255, 255, 0.9);
-  --glass-border-soft: rgba(0, 3, 33, 0.08);
-  --glass-highlight: rgba(255, 255, 255, 0.95);
-
-  /* Ombre più nitide delle shadow-sm/lg generiche di Tailwind — per le superfici di CONTENUTO
-     (tessere/pannelli, Fase C), non per il vetro sopra. */
-  --shadow-tile: 0 1px 2px rgba(0, 3, 33, 0.03), 0 4px 12px -7px rgba(0, 3, 33, 0.09);
-  --shadow-panel: 0 1px 2px rgba(0, 3, 33, 0.04), 0 8px 20px -10px rgba(0, 3, 33, 0.12);
-
-  /* Sfondo pagina dietro il vetro — solo in DashboardShell.tsx (Fase B), mai su login/report
-     pubblico: quelle pagine restano col trattamento attuale. */
-  --grid-dot: rgba(0, 3, 33, 0.05);
+  /* Scala "ink" storica dell'app, ora sui ruoli di testo del sistema. */
+  --ink-900: var(--inchiostro); /* titoli e numeri */
+  --ink-700: var(--testo); /* testo corrente */
+  --ink-500: var(--testo-secondario); /* sottotitoli, didascalie, etichette */
+  --ink-300: var(--linea); /* bordi e separatori: decorativa, mai testo */
+  --surface: var(--sfondo);
+  --surface-card: var(--superficie);
 }
 
 @theme inline {
@@ -56,113 +73,199 @@
   --color-ink-300: var(--ink-300);
   --color-surface: var(--surface);
   --color-surface-card: var(--surface-card);
-  --color-cta: var(--cta-green);
-  --color-cta-dark: var(--cta-green-dark);
-  --font-sans: var(--font-roboto);
-  --font-heading: var(--font-league-spartan);
+  --color-notte: var(--notte);
+  --color-notte-superficie: var(--notte-superficie);
+  --color-su-notte: var(--su-notte);
+  --color-su-notte-secondario: var(--su-notte-secondario);
+  --color-accento-su-notte: var(--accento-su-notte);
+  --color-blu-luce: var(--blu-luce);
+  --color-linea: var(--linea);
+  --color-grigio: var(--grigio);
+  --color-bordo-campo: var(--bordo-campo);
+  --color-ok: var(--ok);
+  --color-ok-tenue: var(--ok-tenue);
+  --color-attenzione: var(--attenzione);
+  --color-attenzione-tenue: var(--attenzione-tenue);
+  --color-critico: var(--critico);
+  --color-critico-tenue: var(--critico-tenue);
+  --font-sans: var(--font-montserrat);
+  --font-heading: var(--font-montserrat);
+  /* Forma del sistema: card e pannelli `radius-lg` 12px. `rounded-2xl` era il raggio dei pannelli
+     dell'app (16px): lo si porta a 12px qui invece di toccare ogni pannello. Pulsanti e badge sono
+     a pillola (`rounded-full`), i campi `radius-md` 8px (`rounded-lg`). */
+  --radius-2xl: 0.75rem;
+  /* Ombre: il sistema ne ha due. `shadow-sm` resta un'ombra minima per pillole e schede attive. */
+  --shadow-sm: 0 1px 3px rgba(0, 47, 84, 0.08);
+  --shadow-md: var(--shadow-card);
+  --shadow-lg: var(--shadow-alta);
 }
 
 body {
   background: var(--surface);
-  color: var(--ink-900);
+  color: var(--ink-700);
   /* Esplicito invece di fare affidamento sul default Preflight di Tailwind: è proprio
      l'assenza di un riferimento esplicito ad aver reso invisibile Geist in precedenza. */
-  font-family: var(--font-sans), -apple-system, "Segoe UI", sans-serif;
+  font-family: var(--font-sans), "Helvetica Neue", Arial, sans-serif;
 }
 
-/* Dataviz tokens — see dataviz skill palette.md (reference instance, unmodified) */
+@layer base {
+  /* Anello di focus del sistema: 2px pieni a 2px dal bordo, su ogni elemento raggiungibile da
+     tastiera. Prima restava quello predefinito del browser (1px, quasi invisibile). */
+  :where(a, button, input, select, textarea, summary, [role="button"], [role="tab"], [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  /* Titoli: Montserrat extra-bold in `inchiostro` (gerarchia del sistema). */
+  :where(h1, h2, h3, h4) {
+    color: var(--ink-900);
+  }
+}
+
+/*
+ * Pulsante del Design System ALC, con le sue classi (`alc-btn` e varianti). Sta nel livello
+ * `components`: una classe di utilità passata accanto (`w-full`, `min-h-10`…) vince sempre.
+ * - colore di fondo = `--brand-primary`, cioè l'accento: sulla scheda di un cliente col suo colore
+ *   il pulsante principale lo segue;
+ * - misure del sistema, con 44px di altezza per il pulsante normale (bersaglio comodo anche al
+ *   tocco) e 32px per quello piccolo, che vive dentro card e tabelle.
+ * Il componente <Button> (src/components/ui/Button.tsx) usa queste stesse classi.
+ */
+@layer components {
+  .alc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.75rem;
+    padding: 0.625rem 1.375rem;
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background: var(--brand-primary);
+    color: var(--su-accento);
+    font-size: 0.9375rem;
+    line-height: 1.25rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      filter 0.15s ease,
+      background-color 0.15s ease,
+      transform 0.1s ease;
+  }
+  .alc-btn:hover {
+    filter: brightness(1.08);
+  }
+  .alc-btn:active {
+    transform: scale(0.98);
+  }
+  .alc-btn:disabled,
+  .alc-btn[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: none;
+    transform: none;
+  }
+  /* Solo le azioni che creano qualcosa ("+ Nuovo cliente"): è l'unico uso del verde. */
+  .alc-btn--crea {
+    background: var(--crea);
+    color: var(--su-crea);
+  }
+  /* Azione alternativa accanto alla principale: contorno nel colore di accento. */
+  .alc-btn--secondario {
+    background: transparent;
+    color: var(--brand-primary);
+    border-color: var(--brand-primary);
+  }
+  .alc-btn--secondario:hover:not(:disabled) {
+    background: var(--brand-primary-light);
+    filter: none;
+  }
+  /* Annulla e azioni terziarie: contorno neutro (`bordo-campo` regge 3:1 sul fondo). */
+  .alc-btn--neutro {
+    background: transparent;
+    color: var(--testo);
+    border-color: var(--bordo-campo);
+  }
+  .alc-btn--neutro:hover:not(:disabled) {
+    background: var(--sfondo);
+    filter: none;
+  }
+  /* Azione distruttiva, mai per qualcosa di reversibile. */
+  .alc-btn--critico {
+    background: var(--critico);
+    color: #ffffff;
+  }
+  .alc-btn--piccolo {
+    min-height: 2rem;
+    padding: 0.3125rem 0.875rem;
+    font-size: 0.8125rem;
+    line-height: 1.125rem;
+  }
+}
+
+/* Chi ha chiesto meno movimento al sistema operativo non vede transizioni né animazioni. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Solo per screen reader e tastiera: il link "Salta al contenuto" compare quando riceve il focus. */
+.salta-al-contenuto {
+  position: absolute;
+  left: 16px;
+  top: -64px;
+  z-index: 100;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: var(--notte);
+  color: var(--su-notte);
+  font-size: 14px;
+  font-weight: 700;
+}
+.salta-al-contenuto:focus {
+  top: 12px;
+}
+
+/* Token dei grafici. Le serie categoriche restano la palette validata della skill dataviz (il
+   sistema ALC non ne definisce una); testi, griglia, rampa del funnel e colori di stato vengono dal
+   sistema. Nessuna variante scura: l'app ha un solo tema, e una variante attivata dal sistema
+   operativo disegnava testo bianco su card bianche. */
 .viz-root {
-  --surface-1: #fcfcfb;
-  --text-primary: #0b0b0b;
-  --text-secondary: #52514e;
-  --text-muted: #898781;
-  --border-hairline: rgba(11, 11, 11, 0.1);
-  --gridline: #e1e0d9;
-  --baseline: #c3c2b7;
+  --surface-1: var(--superficie);
+  --text-primary: var(--inchiostro);
+  --text-secondary: var(--testo);
+  --text-muted: var(--testo-secondario);
+  --border-hairline: var(--linea);
+  --gridline: var(--linea);
+  --baseline: var(--grigio);
   --series-1: #2a78d6; /* investimento */
   --series-2: #eb6834; /* fatturato */
   --series-3: #1baf7a; /* lead */
-  /* Slot 4-8: estensione della stessa palette categorica di riferimento (dataviz
-     skill, palette.md), per distinguere fino a 8 sedi in grafici multi-linea/step.
-     Validati con scripts/validate_palette.js sugli 8 slot insieme (light+dark):
-     lightness band, chroma floor, CVD adjacent >=6 (worst 9.1 light / 8.4 dark),
-     normal-vision floor >=15 (worst 19.6 light / 19.3 dark) — tutti PASS.
-     WARN (non bloccante) su contrasto <3:1 in light per slot 3/4/5 (aqua/yellow/
-     magenta): richiede la "relief rule" — etichette dirette visibili o vista a
-     tabella, mai il solo colore. */
+  /* Slot 4-8: estensione della stessa palette categorica di riferimento (dataviz skill,
+     palette.md), validati insieme sugli 8 slot. WARN noto (non bloccante) sul contrasto <3:1 per
+     gli slot 3/4/5: richiede etichette dirette o vista a tabella, mai il solo colore. */
   --series-4: #eda100; /* yellow */
   --series-5: #e87ba4; /* magenta */
   --series-6: #008300; /* green */
   --series-7: #4a3aa7; /* violet */
   --series-8: #e34948; /* red */
-  /* Rampa sequenziale (una sola tinta, chiaro->scuro) per il funnel di conversione (blocco 6a) —
-     4 stadi ORDINATI, non 4 identità categoriche: --funnel-3 coincide apposta con --series-1
-     (stesso blu di "Investimento"), il funnel resta comunque leggibile da solo grazie al gap di
-     2px fra bande + etichette dirette, mai dal colore isolato. */
-  --funnel-1: #cfe4f8;
-  --funnel-2: #8ec2e8;
-  --funnel-3: #2a78d6;
-  --funnel-4: #0d4a85;
-  /* Stato "sopra/sotto lo zero" del saldo netto cumulato (blocco 6c) — stessi verdi/rossi già
-     usati per successo/critico in statusStyles.ts: qui è un uso legittimo di colore di stato (in
-     attivo vs in perdita è un vero stato, non un'identità di serie), non una ripetizione arbitraria. */
-  --pos: #22c55e;
-  --neg: #f87171;
-  /* Terzo stato "in ritardo ma recuperabile" per il grafico target mensili (blocco 6, opzione
-     "pacing") — stesso giallo di statusStyles.ts#attenzione. Come pos/neg, invariato tra
-     chiaro/scuro: una palette di stato è un piccolo insieme fisso a significato riservato, non una
-     rampa che deve adattarsi al tema. */
-  --warn: #eab308;
-}
-@media (prefers-color-scheme: dark) {
-  :root:where(:not([data-theme="light"])) .viz-root {
-    --surface-1: #1a1a19;
-    --text-primary: #ffffff;
-    --text-secondary: #c3c2b7;
-    --text-muted: #898781;
-    --border-hairline: rgba(255, 255, 255, 0.1);
-    --gridline: #2c2c2a;
-    --baseline: #383835;
-    --series-1: #3987e5;
-    --series-2: #d95926;
-    --series-3: #199e70;
-    --series-4: #c98500;
-    --series-5: #d55181;
-    --series-6: #008300;
-    --series-7: #9085e9;
-    --series-8: #e66767;
-    /* Ordine di stadio preservato (1->4), ma più chiaro = più enfasi qui (non più scuro come in
-       chiaro): su sfondo scuro un blu chiaro/saturo risalta, un blu scurissimo sparirebbe. */
-    --funnel-1: #274a68;
-    --funnel-2: #2f6690;
-    --funnel-3: #3987e5;
-    --funnel-4: #7fc4f5;
-    --pos: #22c55e;
-    --neg: #f87171;
-    --warn: #eab308;
-  }
-}
-:root[data-theme="dark"] .viz-root {
-  --surface-1: #1a1a19;
-  --text-primary: #ffffff;
-  --text-secondary: #c3c2b7;
-  --text-muted: #898781;
-  --border-hairline: rgba(255, 255, 255, 0.1);
-  --gridline: #2c2c2a;
-  --baseline: #383835;
-  --series-1: #3987e5;
-  --series-2: #d95926;
-  --series-3: #199e70;
-  --series-4: #c98500;
-  --series-5: #d55181;
-  --series-6: #008300;
-  --series-7: #9085e9;
-  --series-8: #e66767;
-  --funnel-1: #274a68;
-  --funnel-2: #2f6690;
-  --funnel-3: #3987e5;
-  --funnel-4: #7fc4f5;
-  --pos: #22c55e;
-  --neg: #f87171;
-  --warn: #eab308;
+  /* Rampa sequenziale del funnel di conversione: la scala blu del sistema (blu-20, blu-40,
+     blu-luce, blu), dal più chiaro al più scuro. Il funnel resta leggibile da solo grazie al gap
+     fra le bande e alle etichette dirette, mai dal colore isolato. */
+  --funnel-1: var(--blu-20);
+  --funnel-2: var(--blu-40);
+  --funnel-3: var(--blu-luce);
+  --funnel-4: var(--blu);
+  /* Stati (in attivo / in perdita / in ritardo): i tre colori di stato del sistema. Passano 4,5:1
+     anche come testo su `superficie`, a differenza dei verdi/rossi chiari di prima. */
+  --pos: var(--ok);
+  --neg: var(--critico);
+  --warn: var(--attenzione);
 }

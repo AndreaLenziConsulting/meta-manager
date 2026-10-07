@@ -23,7 +23,7 @@ export function MultilineEditor({
     return (
       <ul className="mt-3 space-y-2">
         {lines.map((line, i) => (
-          <li key={i} className="flex items-start gap-3 text-sm text-gray-700">
+          <li key={i} className="flex items-start gap-3 text-sm text-ink-700">
             <span className="mt-1.5 w-2 h-2 rounded-full flex-shrink-0 bg-brand" />
             <span className="whitespace-pre-wrap flex-1">{line}</span>
           </li>
@@ -33,7 +33,7 @@ export function MultilineEditor({
   }
   return (
     <div className="mt-3">
-      <EditableTextarea value={value} onChange={onChange} editable={true} placeholder={placeholder} className="text-sm text-gray-700 leading-relaxed" />
+      <EditableTextarea value={value} onChange={onChange} editable={true} placeholder={placeholder} className="text-sm text-ink-700 leading-relaxed" />
     </div>
   );
 }

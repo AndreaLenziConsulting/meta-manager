@@ -3,7 +3,10 @@ import {
   descrizioneScadenza,
   formatDataBreve,
   formatDataRelativa,
+  formatDecimale,
   formatEuro,
+  formatEuroIntero,
+  formatVariazionePercentuale,
   formatMese,
   formatNumero,
   formatPercentuale,
@@ -14,24 +17,22 @@ import {
   formatMeseEsteso,
 } from "./format";
 
-// Intl.NumberFormat('it-IT', {style:'currency'}) separa numero e simbolo con uno spazio
-// unificatore (NBSP, U+00A0), non uno spazio normale — verificato con il codepoint esatto.
-const NBSP = " ";
-
 describe("formatEuro", () => {
-  it("valori >= 1000 arrotondati senza decimali", () => {
-    // Il separatore delle migliaia dipende dai dati ICU disponibili nell'ambiente Node (qui assente
-    // — confermato anche fuori da Vitest, non è un bug dell'app: il browser ha sempre ICU completo).
-    // Si verifica solo la proprietà che conta per questa funzione: niente decimali da 1000 in su.
-    expect(formatEuro(1234.56)).toMatch(new RegExp(`^1\\.?235${NBSP}€$`));
-    expect(formatEuro(1234.56)).not.toContain(",");
+  it("da mille in su: simbolo davanti, punto per le migliaia, senza centesimi", () => {
+    expect(formatEuro(1234.56)).toBe("€1.235");
+    expect(formatEuro(10494)).toBe("€10.494");
   });
 
-  it("valori sotto 1000 con due decimali", () => {
-    expect(formatEuro(42.5)).toBe(`42,50${NBSP}€`);
+  it("sotto mille: due decimali con la virgola", () => {
+    expect(formatEuro(42.5)).toBe("€42,50");
+    expect(formatEuro(0)).toBe("€0,00");
   });
 
-  it("null o non finito -> trattino, non un crash", () => {
+  it("negativo: segno meno davanti al simbolo", () => {
+    expect(formatEuro(-120)).toBe("−€120,00");
+  });
+
+  it("valore assente o non finito: trattino", () => {
     expect(formatEuro(null)).toBe("—");
     expect(formatEuro(Infinity)).toBe("—");
   });
@@ -40,6 +41,8 @@ describe("formatEuro", () => {
 describe("formatNumero", () => {
   it("formatta con separatore delle migliaia, senza decimali", () => {
     expect(formatNumero(12345)).toBe("12.345");
+    // Anche le quattro cifre hanno il punto: "it-IT" da solo le lascerebbe senza.
+    expect(formatNumero(1017)).toBe("1.017");
   });
 
   it("null -> trattino", () => {
@@ -59,7 +62,7 @@ describe("formatPercentuale", () => {
 
 describe("formatRoas", () => {
   it("due decimali seguiti da 'x'", () => {
-    expect(formatRoas(3.4567)).toBe("3.46x");
+    expect(formatRoas(3.4567)).toBe("3,46x");
   });
 
   it("null -> trattino", () => {
@@ -98,13 +101,13 @@ describe("formatStatoCampagna", () => {
   it("stato noto -> etichetta e classi coerenti", () => {
     const r = formatStatoCampagna("ACTIVE");
     expect(r?.label).toBe("Attiva");
-    expect(r?.classe).toContain("green");
+    expect(r?.classe).toContain("text-ok");
   });
 
   it("stato sconosciuto -> fallback leggibile invece di un crash", () => {
     const r = formatStatoCampagna("QUALCHE_STATO_NUOVO");
     expect(r?.label).toBe("Qualche stato nuovo");
-    expect(r?.classe).toContain("gray");
+    expect(r?.classe).toContain("text-ink-500");
   });
 });
 
@@ -187,5 +190,35 @@ describe("formatMeseEsteso", () => {
   it("scrive il mese per esteso con l'anno intero", () => {
     expect(formatMeseEsteso("2026-10")).toBe("Ottobre 2026");
     expect(formatMeseEsteso("2027-01")).toBe("Gennaio 2027");
+  });
+});
+
+describe("formatEuroIntero", () => {
+  it("senza centesimi a qualunque importo: per i tick degli assi dei grafici", () => {
+    expect(formatEuroIntero(101)).toBe("€101");
+    expect(formatEuroIntero(857.4)).toBe("€857");
+    expect(formatEuroIntero(12500)).toBe("€12.500");
+    expect(formatEuroIntero(null)).toBe("—");
+  });
+});
+
+describe("formatDecimale", () => {
+  it("decimali fissi con la virgola", () => {
+    expect(formatDecimale(3.488)).toBe("3,49");
+    expect(formatDecimale(2.5, 1)).toBe("2,5");
+    expect(formatDecimale(null)).toBe("—");
+  });
+});
+
+describe("formatVariazionePercentuale", () => {
+  it("segno esplicito e nessun decimale", () => {
+    expect(formatVariazionePercentuale(0.123)).toBe("+12%");
+    expect(formatVariazionePercentuale(-0.4)).toBe("−40%");
+    expect(formatVariazionePercentuale(0)).toBe("0%");
+  });
+
+  it("oltre il 999% non scrive la cifra: dichiara solo che è fuori scala", () => {
+    expect(formatVariazionePercentuale(9.99)).toBe("+999%");
+    expect(formatVariazionePercentuale(38.2)).toBe("oltre +999%");
   });
 });

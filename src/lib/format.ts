@@ -10,18 +10,40 @@ export function formatCanale(canale?: Canale): string {
   return ETICHETTA_CANALE[canale ?? "meta"];
 }
 
+// Numeri all'italiana come li vuole il Design System ALC ("€2.997", "€6,55"): punto per le migliaia,
+// virgola per i decimali, simbolo dell'euro davanti. `useGrouping: "always"` perché "it-IT" da solo
+// lascia senza punto i numeri di quattro cifre ("2181" invece di "2.181").
+function numeroItaliano(value: number, decimali: number): string {
+  return new Intl.NumberFormat("it-IT", {
+    minimumFractionDigits: decimali,
+    maximumFractionDigits: decimali,
+    useGrouping: "always",
+  } as Intl.NumberFormatOptions).format(value);
+}
+
+/** "€2.181" da mille in su (senza centesimi), "€36,35" sotto. Negativo: "−€120,00". */
 export function formatEuro(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "EUR",
-    maximumFractionDigits: value >= 1000 ? 0 : 2,
-  }).format(value);
+  const assoluto = Math.abs(value);
+  return `${value < 0 ? "−" : ""}€${numeroItaliano(assoluto, assoluto >= 1000 ? 0 : 2)}`;
+}
+
+/** Euro senza centesimi ("€101"), per le etichette degli assi dei grafici: lì i tick sono valori
+ * arrotondati e i decimali sarebbero solo rumore (e non entrerebbero nel margine dell'asse). */
+export function formatEuroIntero(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return `${value < 0 ? "−" : ""}€${numeroItaliano(Math.abs(Math.round(value)), 0)}`;
 }
 
 export function formatNumero(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat("it-IT", { maximumFractionDigits: 0 }).format(value);
+  return numeroItaliano(value, 0);
+}
+
+/** Numero con un numero fisso di decimali, all'italiana ("2,35"): frequenza e simili. */
+export function formatDecimale(value: number | null, decimali = 2): string {
+  if (value === null || !Number.isFinite(value)) return "—";
+  return numeroItaliano(value, decimali);
 }
 
 export function formatPercentuale(value: number | null): string {
@@ -33,6 +55,9 @@ export function formatPercentuale(value: number | null): string {
  * dove "12%" da solo non direbbe se in aumento o in calo (vedi confrontoPeriodo.ts). */
 export function formatVariazionePercentuale(value: number): string {
   const segno = value > 0 ? "+" : value < 0 ? "−" : "";
+  // Oltre il 999% la cifra esatta non dice più nulla ("+3820%" contro un periodo quasi vuoto): si
+  // dichiara solo che è fuori scala.
+  if (Math.abs(value) > 9.99) return `oltre ${segno}999%`;
   const testo = new Intl.NumberFormat("it-IT", { style: "percent", maximumFractionDigits: 0 }).format(Math.abs(value));
   return `${segno}${testo}`;
 }
@@ -45,9 +70,10 @@ export function iniziali(nome: string): string {
   return (parti[0][0] + parti[1][0]).toUpperCase();
 }
 
+/** "4,81x": due decimali con la virgola, come ogni altro numero dell'app. */
 export function formatRoas(value: number | null): string {
   if (value === null || !Number.isFinite(value)) return "—";
-  return `${value.toFixed(2)}x`;
+  return `${numeroItaliano(value, 2)}x`;
 }
 
 export const MESI_BREVI = [
