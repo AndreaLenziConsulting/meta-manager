@@ -13,7 +13,7 @@ import {
   getProspect,
   getSedi,
   getTemplateAttivita,
-} from "@/lib/sheets";
+} from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

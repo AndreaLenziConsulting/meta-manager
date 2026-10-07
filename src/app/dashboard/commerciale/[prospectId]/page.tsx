@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessione } from "@/lib/auth";
-import { getConsulenti, getProdotti, getProspect } from "@/lib/sheets";
+import { getConsulenti, getProdotti, getProspect } from "@/lib/archivio";
 import { puoVedereProspect } from "@/lib/authz";
 import { calcolaCalcolatoreBudget } from "@/lib/roiSimulatore";
 import { formatEuro } from "@/lib/format";

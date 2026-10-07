@@ -8,7 +8,7 @@ import {
   getConsulenti,
   getMeetingCliente,
   salvaMeeting,
-} from "@/lib/sheets";
+} from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { campiVisibiliCliente, dataItalianaAIso, generaAttivitaDaMeeting, hashMeetingId } from "@/lib/meeting";
 import { buildReportOperativitaRow } from "@/lib/reportOperativita";

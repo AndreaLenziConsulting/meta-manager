@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getCampagne, getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/sheets";
+import { getCampagne, getCategorieCommerciali, getClienti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/archivio";
 import { interpretaFoglioContatti, leggiFoglioContatti, riepilogoDaContatti } from "@/lib/foglioContatti";
 import { campagneDaConsiderare, leggiFiltroCampagne } from "@/lib/campagneAlc";
 import { puoVedereCliente } from "@/lib/authz";

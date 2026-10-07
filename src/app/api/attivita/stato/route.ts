@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaStatoAttivita, getAttivitaCliente, getClienti, registraFaseCompletata } from "@/lib/sheets";
+import { aggiornaStatoAttivita, getAttivitaCliente, getClienti, registraFaseCompletata } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { faseCompletata, oggiIso } from "@/lib/roadmap";
 import type { StatoAttivita } from "@/types/kpi";

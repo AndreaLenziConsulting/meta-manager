@@ -10,6 +10,8 @@
 --     Campagne, dati giornalieri e storico degli stati NON hanno chiavi esterne: per scelta dell'app
 --     restano anche dopo l'eliminazione di una sede o di un cliente;
 --   * misure in `double precision` (gli stessi numeri che l'app calcola in JavaScript), conteggi interi.
+--   * `posizione` (o `id`, dove c'è) è l'ordine di inserimento: l'app legge le righe in quest'ordine,
+--     lo stesso in cui il foglio le restituiva dalla prima all'ultima.
 --
 -- Sicurezza: su ogni tabella è attiva la row level security SENZA alcuna policy. Le chiavi pubbliche
 -- di Supabase (anon/authenticated) non leggono e non scrivono nulla; l'app si collega solo dal
@@ -22,7 +24,8 @@ create table public.consulenti (
   nome text not null,
   password text not null default '',
   attivo boolean not null default true,
-  email text not null default ''
+  email text not null default '',
+  posizione bigint generated always as identity
 );
 
 create table public.commerciali (
@@ -30,7 +33,8 @@ create table public.commerciali (
   nome text not null,
   password text not null default '',
   attivo boolean not null default true,
-  email text not null default ''
+  email text not null default '',
+  posizione bigint generated always as identity
 );
 
 create table public.prodotti (
@@ -38,7 +42,8 @@ create table public.prodotti (
   nome text not null,
   attivo boolean not null default true,
   durata_settimane integer not null default 0,
-  note text not null default ''
+  note text not null default '',
+  posizione bigint generated always as identity
 );
 
 -- Roadmap tipo di un prodotto: da qui nasce la roadmap di un cliente.
@@ -55,7 +60,8 @@ create table public.template_attivita (
   giorni_testo text not null default '',
   nota text not null default '',
   ordine integer not null default 0,
-  primary key (prodotto_id, task_id)
+  primary key (prodotto_id, task_id),
+  posizione bigint generated always as identity
 );
 
 -- ───────────────────────── Clienti e sedi ─────────────────────────
@@ -80,7 +86,8 @@ create table public.clienti (
   landing_page_url text not null default '',
   appuntamenti_file_url text not null default '',
   -- Elenco dei funnel del cliente: [{ id, nome, url }].
-  funnels jsonb not null default '[]'::jsonb
+  funnels jsonb not null default '[]'::jsonb,
+  posizione bigint generated always as identity
 );
 -- Due clienti non possono avere lo stesso codice di accesso; più clienti possono non averne.
 create unique index clienti_access_code_unico on public.clienti (access_code) where access_code <> '';
@@ -100,7 +107,8 @@ create table public.sedi (
   target_appuntamenti_settimana double precision,
   target_fatturato_mensile double precision,
   -- false = se la sede ha campagne con "ALC" nel nome, di default contano solo quelle.
-  tutte_le_campagne boolean not null default false
+  tutte_le_campagne boolean not null default false,
+  posizione bigint generated always as identity
 );
 create index sedi_cliente on public.sedi (cliente_id);
 
@@ -113,7 +121,8 @@ create table public.ghl_connessioni (
   note text not null default '',
   creata_il timestamptz not null default now(),
   calendar_ids text[] not null default '{}',
-  pipeline_ids text[] not null default '{}'
+  pipeline_ids text[] not null default '{}',
+  posizione bigint generated always as identity
 );
 create index ghl_connessioni_sede on public.ghl_connessioni (sede_id);
 
@@ -125,7 +134,8 @@ create table public.connessioni_canale (
   tipo_conversione_lead text not null default '',
   attivo boolean not null default true,
   note text not null default '',
-  creata_il timestamptz not null default now()
+  creata_il timestamptz not null default now(),
+  posizione bigint generated always as identity
 );
 create index connessioni_canale_sede on public.connessioni_canale (sede_id);
 
@@ -140,7 +150,8 @@ create table public.categorie_commerciali (
   target_budget_mensile double precision,
   target_lead_settimana double precision,
   target_appuntamenti_settimana double precision,
-  target_fatturato_mensile double precision
+  target_fatturato_mensile double precision,
+  posizione bigint generated always as identity
 );
 create index categorie_commerciali_sede on public.categorie_commerciali (sede_id);
 
@@ -150,7 +161,8 @@ create table public.venditori (
   nome text not null,
   capienza_appuntamenti_mensile double precision not null default 0,
   attivo boolean not null default true,
-  ghl_user_id text not null default ''
+  ghl_user_id text not null default '',
+  posizione bigint generated always as identity
 );
 create index venditori_sede on public.venditori (sede_id);
 
@@ -165,7 +177,8 @@ create table public.campagne (
   nome_campagna text not null default '',
   tipo_campagna text not null default '',
   stato text not null default '',
-  primary key (canale, campaign_id)
+  primary key (canale, campaign_id),
+  posizione bigint generated always as identity
 );
 create index campagne_cliente_sede on public.campagne (cliente_id, sede_id);
 
@@ -196,7 +209,8 @@ create table public.meta_daily (
   cpm double precision not null default 0,
   lead double precision not null default 0,
   clic_link integer not null default 0,
-  primary key (canale, cliente_id, campaign_id, data)
+  primary key (canale, cliente_id, campaign_id, data),
+  posizione bigint generated always as identity
 );
 create index meta_daily_cliente_data on public.meta_daily (cliente_id, data);
 create index meta_daily_data on public.meta_daily (data);
@@ -246,7 +260,8 @@ create table public.attivita_cliente (
   data_fine date not null,
   stato text not null default 'todo' check (stato in ('todo', 'wip', 'done', 'blocked')),
   nota_team text not null default '',
-  ordine integer not null default 0
+  ordine integer not null default 0,
+  posizione bigint generated always as identity
 );
 create index attivita_cliente_cliente on public.attivita_cliente (cliente_id);
 create index attivita_cliente_scadenza on public.attivita_cliente (data_fine) where stato <> 'done';
@@ -255,7 +270,8 @@ create table public.fasi_completate (
   cliente_id text not null references public.clienti (cliente_id) on delete cascade,
   fase text not null,
   completata_il date not null,
-  primary key (cliente_id, fase)
+  primary key (cliente_id, fase),
+  posizione bigint generated always as identity
 );
 
 create table public.meeting_cliente (
@@ -266,7 +282,8 @@ create table public.meeting_cliente (
   sentiment text not null default '',
   aggiornato_il timestamptz not null default now(),
   -- Il report del meeting così com'è stato estratto e rivisto (MeetingDataLoose).
-  dati jsonb not null default '{}'::jsonb
+  dati jsonb not null default '{}'::jsonb,
+  posizione bigint generated always as identity
 );
 create index meeting_cliente_cliente_data on public.meeting_cliente (cliente_id, data desc);
 
@@ -294,7 +311,8 @@ create table public.prospect (
   -- Valorizzati quando il prospect diventa cliente o viene proposto per la conversione.
   cliente_id text not null default '',
   consulente_suggerito_id text not null default '',
-  calcolatore_budget jsonb
+  calcolatore_budget jsonb,
+  posizione bigint generated always as identity
 );
 create index prospect_commerciale on public.prospect (commerciale_id);
 
@@ -305,7 +323,8 @@ create table public.report_commerciale (
   data date not null,
   aggiornato_il timestamptz not null default now(),
   -- Il report della chiamata così com'è stato estratto e rivisto (ReportCommercialeDataLoose).
-  dati jsonb not null default '{}'::jsonb
+  dati jsonb not null default '{}'::jsonb,
+  posizione bigint generated always as identity
 );
 create index report_commerciale_prospect on public.report_commerciale (prospect_id, data desc);
 

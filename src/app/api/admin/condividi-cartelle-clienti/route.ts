@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { condividiCartelleClientiEsistenti } from "@/lib/driveAccesso";
-import { getClienti, getConsulenti } from "@/lib/sheets";
+import { getClienti, getConsulenti } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

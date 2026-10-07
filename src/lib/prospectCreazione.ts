@@ -1,5 +1,5 @@
 import { generaProspectId } from "@/lib/accessCode";
-import { aggiornaProspect, creaProspect, getProspect } from "@/lib/sheets";
+import { aggiornaProspect, creaProspect, getProspect } from "@/lib/archivio";
 import { assicuraCartelleProspect } from "@/lib/drive";
 import { condividiCartellaConConsulente, prospectDaCondividere } from "@/lib/driveAccesso";
 import type { Commerciale } from "@/types/prospect";

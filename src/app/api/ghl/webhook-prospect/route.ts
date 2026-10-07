@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyGhlWebhookSecret } from "@/lib/auth";
-import { getCommerciali, getProspect } from "@/lib/sheets";
+import { getCommerciali, getProspect } from "@/lib/archivio";
 import { creaProspectConCartellaDrive } from "@/lib/prospectCreazione";
 
 export const runtime = "nodejs";

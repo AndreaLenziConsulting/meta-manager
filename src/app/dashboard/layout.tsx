@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getCommerciali, getConsulenti } from "@/lib/sheets";
+import { getCommerciali, getConsulenti } from "@/lib/archivio";
 import { DashboardShell } from "@/components/DashboardShell";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {

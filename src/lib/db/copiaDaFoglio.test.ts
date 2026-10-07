@@ -227,6 +227,15 @@ describe("eseguiCopia (su un Postgres vero in memoria, creato dalle migrazioni)"
     expect(prospect).toEqual({ calcolatore_budget: null, target_cpl: null });
   });
 
+  it("le righe restano nell'ordine del foglio: `posizione` cresce come l'ordine in cui sono state lette", async () => {
+    // I due clienti del foglio di prova sono "alc" poi "nuovo": in ordine alfabetico o per chiave
+    // sarebbe lo stesso, quindi si controlla sui dati giornalieri, dove la chiave ordinerebbe diversamente.
+    const righe = await db.esegui<{ cliente_id: string }>("select cliente_id from public.meta_daily order by posizione");
+    expect(righe.map((r) => r.cliente_id)).toEqual(["alc", "nuovo"]);
+    const template = await db.esegui<{ posizione: number | string }>("select posizione from public.template_attivita");
+    expect(Number(template[0].posizione)).toBe(1);
+  });
+
   it("su un database che ha già dati si ferma, e non tocca nulla", async () => {
     await expect(eseguiCopia(db, foglio())).rejects.toThrow("Il database contiene già dati");
     const [{ n }] = await db.esegui<{ n: number }>("select count(*)::int as n from public.clienti");

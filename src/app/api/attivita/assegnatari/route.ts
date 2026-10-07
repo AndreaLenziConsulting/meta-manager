@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaAssegnatariAttivita, getAttivitaCliente, getClienti } from "@/lib/sheets";
+import { aggiornaAssegnatariAttivita, getAttivitaCliente, getClienti } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { normalizzaAssegnatari, SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 

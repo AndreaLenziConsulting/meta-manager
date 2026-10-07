@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessione } from "@/lib/auth";
-import { getProspect } from "@/lib/sheets";
+import { getProspect } from "@/lib/archivio";
 import { puoVedereProspect } from "@/lib/authz";
 import { CalcolatoreBudgetProspect } from "@/components/CalcolatoreBudgetProspect";
 import { Intestazione } from "@/components/ui/Intestazione";

@@ -11,7 +11,7 @@ import {
   getSedi,
   getUltimoCambioPerCampagna,
   getVenditori,
-} from "@/lib/sheets";
+} from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { chiaveCampagna, computeKpi, computeKpiPerCampagna, haRisultatiCommercialiNelPeriodo, normalizzaIntervallo } from "@/lib/kpi";
 import { campagneDaConsiderare, campagnePredefinite, leggiFiltroCampagne } from "@/lib/campagneAlc";

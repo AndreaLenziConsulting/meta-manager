@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaGhlConnessione, creaGhlConnessione, getGhlConnessioni, getSedi } from "@/lib/sheets";
+import { aggiornaGhlConnessione, creaGhlConnessione, getGhlConnessioni, getSedi } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getSedi } from "@/lib/sheets";
+import { getSedi } from "@/lib/archivio";
 import { backfillSede } from "@/lib/sync";
 
 export const runtime = "nodejs";

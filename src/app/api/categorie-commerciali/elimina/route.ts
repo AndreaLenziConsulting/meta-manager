@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { eliminaCategoriaCommerciale, getCategorieCommerciali } from "@/lib/sheets";
+import { eliminaCategoriaCommerciale, getCategorieCommerciali } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

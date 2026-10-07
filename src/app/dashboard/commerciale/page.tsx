@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getCommerciali, getProspect, getReportCommerciale } from "@/lib/sheets";
+import { getCommerciali, getProspect, getReportCommerciale } from "@/lib/archivio";
 import { prospectVisibili } from "@/lib/authz";
 import { NuovoProspectForm } from "@/components/NuovoProspectForm";
 import { Badge } from "@/components/ui/Badge";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaProspect, getCommerciali, getConsulenti, getProspect } from "@/lib/sheets";
+import { aggiornaProspect, getCommerciali, getConsulenti, getProspect } from "@/lib/archivio";
 import { puoVedereProspect } from "@/lib/authz";
 import { condividiCartellaConConsulente, prospectDaCondividere } from "@/lib/driveAccesso";
 import { creaProspectConCartellaDrive } from "@/lib/prospectCreazione";

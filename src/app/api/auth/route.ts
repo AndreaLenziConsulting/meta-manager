@@ -5,7 +5,7 @@ import {
   verifyTeamPassword,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth";
-import { getCommerciali, getConsulenti } from "@/lib/sheets";
+import { getCommerciali, getConsulenti } from "@/lib/archivio";
 import type { Sessione } from "@/types/kpi";
 
 export const runtime = "nodejs";

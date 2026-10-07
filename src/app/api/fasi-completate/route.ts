@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienteByAccessCode, getClienti, getFasiCompletate } from "@/lib/sheets";
+import { getClienteByAccessCode, getClienti, getFasiCompletate } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { fasiCompletateRecenti } from "@/lib/roadmap";
 

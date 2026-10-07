@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyCronSecret } from "@/lib/auth";
-import { getClienti, getSedi } from "@/lib/sheets";
+import { getClienti, getSedi } from "@/lib/archivio";
 import { syncCliente } from "@/lib/sync";
 
 export const runtime = "nodejs";

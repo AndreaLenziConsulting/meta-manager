@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaCategoriaCommerciale, creaCategoriaCommerciale, getCategorieCommerciali, getSedi } from "@/lib/sheets";
+import { aggiornaCategoriaCommerciale, creaCategoriaCommerciale, getCategorieCommerciali, getSedi } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

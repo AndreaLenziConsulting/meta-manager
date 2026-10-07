@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getProspect } from "@/lib/sheets";
+import { getProspect } from "@/lib/archivio";
 import { puoVedereProspect } from "@/lib/authz";
 import { renderReportCommercialePdfBuffer } from "@/lib/reportCommercialePdf";
 import type { ReportCommercialeDataLoose } from "@/types/prospect";

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { generaAttivitaPerCliente } from "@/lib/roadmap";
-import { creaAttivitaPerCliente, getClienti, getTemplateAttivita } from "@/lib/sheets";
+import { creaAttivitaPerCliente, getClienti, getTemplateAttivita } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

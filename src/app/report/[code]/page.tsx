@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getClienteByAccessCode } from "@/lib/sheets";
+import { getClienteByAccessCode } from "@/lib/archivio";
 import { AppHeader } from "@/components/AppHeader";
 import { SchedaCliente } from "@/components/SchedaCliente";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";

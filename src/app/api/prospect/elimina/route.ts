@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { eliminaProspect, getProspect } from "@/lib/sheets";
+import { eliminaProspect, getProspect } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

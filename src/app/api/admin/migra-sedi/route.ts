@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { migraSediEsistenti } from "@/lib/sheets";
+import { migraSediEsistenti } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

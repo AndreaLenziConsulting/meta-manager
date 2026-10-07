@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienti } from "@/lib/sheets";
+import { getClienti } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { renderMeetingPdfBuffer } from "@/lib/meetingPdf";
 import type { MeetingDataLoose } from "@/types/meeting";

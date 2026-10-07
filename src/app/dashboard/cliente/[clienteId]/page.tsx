@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getConsulenti, getGhlConnessioni, getSedi } from "@/lib/sheets";
+import { getClienti, getConsulenti, getGhlConnessioni, getSedi } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { settimanaCorrente } from "@/lib/roadmap";
 import { SchedaCliente } from "@/components/SchedaCliente";

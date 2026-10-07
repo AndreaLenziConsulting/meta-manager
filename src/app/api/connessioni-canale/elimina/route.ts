@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { eliminaConnessioneCanale, getConnessioniCanale } from "@/lib/sheets";
+import { eliminaConnessioneCanale, getConnessioniCanale } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

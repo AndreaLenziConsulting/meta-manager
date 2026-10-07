@@ -16,7 +16,7 @@ import {
   getProdotti,
   getSedi,
   getTemplateAttivita,
-} from "@/lib/sheets";
+} from "@/lib/archivio";
 import type { Funnel } from "@/types/kpi";
 
 export const runtime = "nodejs";

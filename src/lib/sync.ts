@@ -1,4 +1,4 @@
-import { aggiornaStatoCampagne, ensureCampagneMappate, getSedi, upsertMetaDailyRows } from "@/lib/sheets";
+import { aggiornaStatoCampagne, ensureCampagneMappate, getSedi, upsertMetaDailyRows } from "@/lib/archivio";
 import { fetchCampaignInsights, fetchStatoCampagne } from "@/lib/meta";
 import { sedePerNuovaCampagna } from "@/lib/sedeCampagna";
 import type { Sede } from "@/types/kpi";

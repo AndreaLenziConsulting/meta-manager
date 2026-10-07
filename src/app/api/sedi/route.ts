@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { generaSedeId } from "@/lib/accessCode";
-import { aggiornaSede, creaSede, getClienti, getSedi } from "@/lib/sheets";
+import { aggiornaSede, creaSede, getClienti, getSedi } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

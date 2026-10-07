@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getCampagne, getClienteByAccessCode, getClienti, getSedi } from "@/lib/sheets";
+import { getCampagne, getClienteByAccessCode, getClienti, getSedi } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { fetchAnagraficaInserzioni, fetchInserzioniPerCampagna } from "@/lib/meta";
 import { normalizzaIntervallo } from "@/lib/kpi";

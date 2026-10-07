@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { eliminaMeeting, getClienti, getMeetingCliente } from "@/lib/sheets";
+import { eliminaMeeting, getClienti, getMeetingCliente } from "@/lib/archivio";
 
 export const runtime = "nodejs";
 

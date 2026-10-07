@@ -10,9 +10,15 @@ export type Riga = Record<string, unknown>;
 /** Esegue una query. I parametri sono posizionali ($1, $2…). */
 export type Esegui = <T extends Riga = Riga>(sql: string, parametri?: unknown[]) => Promise<T[]>;
 
-export type Database = {
+/** Ciò che si può fare sul database, dentro o fuori da una transazione. */
+export type Sessione = {
   esegui: Esegui;
-  /** Tutte le query fatte con l'`esegui` passato alla funzione vanno a buon fine insieme, o nessuna. */
-  transazione: <T>(lavoro: (esegui: Esegui) => Promise<T>) => Promise<T>;
+  /** Esegue un intero file SQL (più istruzioni, nessun parametro): serve alle migrazioni. */
+  script: (sql: string) => Promise<void>;
+};
+
+export type Database = Sessione & {
+  /** Tutto ciò che la funzione fa con la sessione ricevuta va a buon fine insieme, o niente. */
+  transazione: <T>(lavoro: (tx: Sessione) => Promise<T>) => Promise<T>;
   chiudi: () => Promise<void>;
 };

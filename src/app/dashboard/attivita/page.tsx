@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getConsulenti } from "@/lib/sheets";
+import { getConsulenti } from "@/lib/archivio";
 import { AttivitaGlobali } from "@/components/AttivitaGlobali";
 import { Intestazione } from "@/components/ui/Intestazione";
 

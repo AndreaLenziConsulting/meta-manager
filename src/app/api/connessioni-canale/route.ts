@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { aggiornaConnessioneCanale, creaConnessioneCanale, getConnessioniCanale, getSedi } from "@/lib/sheets";
+import { aggiornaConnessioneCanale, creaConnessioneCanale, getConnessioniCanale, getSedi } from "@/lib/archivio";
 import { validaAccountId } from "@/lib/adAccountId";
 import type { Canale } from "@/types/kpi";
 

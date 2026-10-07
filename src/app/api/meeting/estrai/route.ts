@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getConsulenti } from "@/lib/sheets";
+import { getClienti, getConsulenti } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
 import { estraiMeetingData, EstrazioneError } from "@/lib/estrazione";
 
