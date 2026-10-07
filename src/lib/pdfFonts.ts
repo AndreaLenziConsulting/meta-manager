@@ -4,42 +4,33 @@ import { isHexValido, schiarisci } from "@/lib/colore";
 import { isFontClienteValido, type CampiTema } from "@/lib/temaCliente";
 
 /**
- * Registrazione dei font dell'immagine coordinata ALC (vedi globals.css/layout.tsx: League
- * Spartan Bold per i titoli, Roboto per i testi) nei PDF generati — prima erano su Helvetica (il
- * font di sistema di react-pdf, mai brandizzato). Aggiunto anche Oswald come alternativa per le
- * micro-etichette in maiuscolo (eyebrow, intestazioni di tabella, badge numerati): condensato,
- * pensato apposta per il testo in maiuscolo a corpo piccolo dove League Spartan (più largo/tondo)
- * risulterebbe meno leggibile.
+ * Font dei PDF generati: Montserrat, l'unica famiglia del Design System ALC (vedi globals.css e
+ * layout.tsx), in quattro pesi — 400 testo, 500 etichette, 700 grassetto, 800 titoli. Fino al
+ * 07/10/2026 erano League Spartan (titoli), Oswald (micro-etichette in maiuscolo) e Roboto (testo).
  *
- * File .ttf statici (non i font variabili pubblicati da Google Fonts, che react-pdf/fontkit
- * renderizzerebbero alla sola istanza di default, spesso troppo leggera) scaricati una tantum da
- * fonts.gstatic.com e committati in public/fonts/ — stesso pattern di public/lenzi.webp (letti da
- * `process.cwd()` a runtime, nessuna chiamata di rete durante la generazione del PDF: più
- * affidabile di un fetch remoto in una funzione serverless, stesso principio già seguito per lo
- * scraping Playwright, vedi next.config.ts).
- *
- * I file sono stati ripuliti con `fonttools subset --layout-features-=liga,calt,dlig,hlig` prima
- * di essere committati (nessun glifo rimosso, solo le feature OpenType elencate — verificato: i
- * caratteri accentati italiani e l'€ restano tutti presenti). Motivo: react-pdf/fontkit applica le
- * legature standard di default e non espone alcuna opzione per disattivarle via style — con
- * "liga" attiva, "fi"/"fl"/"ffi"/"ffl" venivano sostituite con un unico glifo legatura il cui
- * mapping ToUnicode risultava incompleto, facendo sparire la "i"/"l" da testo copiato o estratto
- * dal PDF (bug osservato: "infissi" → "infssi", "qualificate" → "qualifcate"). Visivamente
- * innocuo (il glifo legatura è comunque disegnato correttamente), ma un report commerciale inviato
- * a un prospect deve restare corretto anche se il testo viene copiato altrove.
+ * File .ttf statici in public/fonts/ (letti da `process.cwd()` a runtime, nessuna chiamata di rete
+ * durante la generazione del PDF: più affidabile di un fetch remoto in una funzione serverless).
+ * react-pdf/fontkit non supporta i font variabili: i quattro file sono istanze statiche generate dal
+ * font variabile di Google Fonts con `fonttools varLib.instancer`, ridotte ai caratteri latini
+ * (lettere accentate italiane ed € compresi — verificato) e SENZA le legature (liga/calt/dlig/hlig).
+ * Motivo delle legature tolte: react-pdf le applica di default e non permette di disattivarle; con
+ * "liga" attiva "fi"/"fl" diventavano un unico glifo col mapping ToUnicode incompleto, e la "i"/"l"
+ * sparivano dal testo copiato o estratto dal PDF (bug osservato: "infissi" → "infssi"). Un report
+ * inviato a un prospect deve restare corretto anche quando il testo viene copiato altrove.
  */
 
-export const FONT_HEADING = "League Spartan";
-export const FONT_LABEL = "Oswald";
-export const FONT_BODY = "Roboto";
+// Tre nomi per tre ruoli (titoli, micro-etichette, testo): oggi sono la stessa famiglia, cambia il
+// peso con cui i PDF la usano. I nomi restano distinti perché gli stili dei PDF li usano così.
+export const FONT_HEADING = "Montserrat";
+export const FONT_LABEL = "Montserrat";
+export const FONT_BODY = "Montserrat";
 
 // Font cliente personalizzato (vedi FONT_CLIENTE_DISPONIBILI in temaCliente.ts) — stesso
-// trattamento .ttf statico subsettato dei font ALC sopra (fonttools subset
+// trattamento .ttf statico subsettato del font ALC sopra (fonttools subset
 // --layout-features-=liga,calt,dlig,hlig, scaricato da raw.githubusercontent.com/google/fonts,
 // verificato coi caratteri accentati italiani e l'€ ancora presenti). Registrato sempre, anche
-// per i PDF che di fatto non lo useranno mai (stesso principio già seguito per Oswald, usato solo
-// da alcuni stili): costa solo una registrazione in più, non un font in meno se un domani
-// FONT_CLIENTE_DISPONIBILI cresce.
+// per i PDF che di fatto non lo useranno mai: costa solo una registrazione in più, non un font in
+// meno se un domani FONT_CLIENTE_DISPONIBILI cresce.
 const FONT_POPPINS = "Poppins";
 // DM Sans è distribuito da Google Fonts solo come font variabile (asse opsz+wght) — a differenza
 // di Poppins qui i due .ttf non sono scaricati direttamente ma generati a parte con
@@ -60,23 +51,17 @@ export function registraFontPdf(): void {
   if (registrata) return;
   registrata = true;
 
-  Font.register({
-    family: FONT_HEADING,
-    fonts: [{ src: fontPath("LeagueSpartan-Bold.ttf"), fontWeight: 700 }],
-  });
-  Font.register({
-    family: FONT_LABEL,
-    fonts: [
-      { src: fontPath("Oswald-Medium.ttf"), fontWeight: 500 },
-      { src: fontPath("Oswald-Bold.ttf"), fontWeight: 700 },
-    ],
-  });
+  // Nessuna sillabazione automatica: react-pdf spezza le parole con le regole dell'inglese, e nei
+  // riquadri stretti venivano fuori "Giu-lia" e "men-sile". Una parola che non entra va a capo intera.
+  Font.registerHyphenationCallback((parola) => [parola]);
+
   Font.register({
     family: FONT_BODY,
     fonts: [
-      { src: fontPath("Roboto-Regular.ttf"), fontWeight: 400 },
-      { src: fontPath("Roboto-Medium.ttf"), fontWeight: 500 },
-      { src: fontPath("Roboto-Bold.ttf"), fontWeight: 700 },
+      { src: fontPath("Montserrat-Regular.ttf"), fontWeight: 400 },
+      { src: fontPath("Montserrat-Medium.ttf"), fontWeight: 500 },
+      { src: fontPath("Montserrat-Bold.ttf"), fontWeight: 700 },
+      { src: fontPath("Montserrat-ExtraBold.ttf"), fontWeight: 800 },
     ],
   });
   Font.register({
@@ -115,8 +100,8 @@ export type TemaPdfCliente = {
  * BRAND_LIGHT) — passati dal chiamante invece che duplicati qui, un solo posto dove cambiare il
  * brand ALC di default. Il font personalizzato, quando valido, sostituisce SIA l'heading SIA il
  * body (stesso comportamento di styleTemaCliente: un font cliente si applica uniforme a titoli e
- * testo, a differenza della coppia ALC League Spartan/Roboto) — mai FONT_LABEL/Oswald, micro-
- * tipografia strutturale del PDF, non un token di brand del cliente.
+ * testo) — mai le micro-etichette (FONT_LABEL), tipografia strutturale del PDF e non un token di
+ * brand del cliente.
  */
 export function temaPdfCliente(cliente: CampiTema, fallback: Omit<TemaPdfCliente, "fontHeading" | "fontBody">): TemaPdfCliente {
   const fontClienteValido = isFontClienteValido(cliente.fontPersonalizzato);

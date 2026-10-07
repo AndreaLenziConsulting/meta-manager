@@ -15,8 +15,8 @@ describe("temaPdfCliente", () => {
       colore: "#1a74bc",
       coloreChiaro: "#e8f1f9",
       coloreMedio: "#d6e8f5",
-      fontHeading: "League Spartan",
-      fontBody: "Roboto",
+      fontHeading: "Montserrat",
+      fontBody: "Montserrat",
     });
   });
 
@@ -55,8 +55,8 @@ describe("temaPdfCliente", () => {
 
   it("fontPersonalizzato non in whitelist -> ignorato, resta sui default ALC", () => {
     const t = temaPdfCliente(cliente({ fontPersonalizzato: "comic-sans" }), FALLBACK);
-    expect(t.fontHeading).toBe("League Spartan");
-    expect(t.fontBody).toBe("Roboto");
+    expect(t.fontHeading).toBe("Montserrat");
+    expect(t.fontBody).toBe("Montserrat");
   });
 
   it("colore e font insieme -> entrambi applicati indipendentemente", () => {

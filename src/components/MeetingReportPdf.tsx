@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet, Link, Image as PDFImage } from "@react-pdf/renderer";
 import React from "react";
-import { FONT_LABEL, registraFontPdf, temaPdfCliente } from "@/lib/pdfFonts";
+import { FONT_HEADING, FONT_LABEL, registraFontPdf, temaPdfCliente } from "@/lib/pdfFonts";
 import type { CampiTema } from "@/lib/temaCliente";
 import type { MeetingDataLoose } from "@/types/meeting";
 
@@ -26,9 +26,9 @@ registraFontPdf();
  * font per ogni cliente — costruito una volta per render, non per singolo elemento.
  */
 
-const BRAND_COLOR_DEFAULT = "#1a74bc";
-const BRAND_LIGHT_DEFAULT = "#d6e8f5"; // tinta media, per il risalto degli action item
-const BRAND_SOFT_DEFAULT = "#e8f1f9"; // = --brand-primary-light in globals.css, per i box informativi
+const BRAND_COLOR_DEFAULT = "#08599c";
+const BRAND_LIGHT_DEFAULT = "#c9ddee"; // tinta media, per il risalto degli action item
+const BRAND_SOFT_DEFAULT = "#e6eff7"; // = --brand-primary-light in globals.css, per i box informativi
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
 function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: string; fontHeading: string; fontBody: string }) {
@@ -50,15 +50,15 @@ function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: 
     },
     headerLeft: { flex: 1, marginRight: 16 },
     headerLabel: { fontSize: 7, color: colore, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
-    headerTitle: { fontSize: 18, fontFamily: fontHeading, fontWeight: 700, color: "#111827", lineHeight: 1.25 },
+    headerTitle: { fontSize: 18, fontFamily: fontHeading, fontWeight: fontHeading === FONT_HEADING ? 800 : 700, color: "#002f54", lineHeight: 1.25 },
     headerMeta: { flexDirection: "row", flexWrap: "wrap", marginTop: 10 },
-    headerMetaItem: { fontSize: 9, color: "#6b7280" },
+    headerMetaItem: { fontSize: 9, color: "#5d6b7d" },
     headerLogo: { width: 110, height: 44, objectFit: "contain" },
 
     infoRow: { flexDirection: "row", gap: 10, paddingTop: 16 },
     infoBox: { flex: 1, backgroundColor: coloreChiaro, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
     infoLabel: { fontSize: 7, color: colore, letterSpacing: 0.5, fontFamily: FONT_LABEL, fontWeight: 500 },
-    infoValue: { fontSize: 11, color: "#111827", fontFamily: fontBody, fontWeight: 700, marginTop: 3 },
+    infoValue: { fontSize: 11, color: "#002f54", fontFamily: fontBody, fontWeight: 700, marginTop: 3 },
 
     content: { paddingTop: 16 },
     section: { marginBottom: 14 },
@@ -71,8 +71,8 @@ function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: 
     // riparte sulla successiva.
     sectionHeader: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
     sectionBar: { width: 3, height: 13, backgroundColor: colore, borderRadius: 2, marginRight: 7 },
-    sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: "#111827" },
-    bodyText: { fontSize: 9, color: "#374151", lineHeight: 1.6 },
+    sectionTitle: { fontSize: 11, fontFamily: FONT_LABEL, fontWeight: 700, color: "#002f54" },
+    bodyText: { fontSize: 9, color: "#33475b", lineHeight: 1.6 },
 
     participantRow: { flexDirection: "row", flexWrap: "wrap" },
     participantBadge: {
@@ -93,7 +93,7 @@ function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: 
     // mai vicino all'altezza di una pagina intera. Stesso ragionamento in ReportCommercialePdf.tsx.
     bulletItem: { flexDirection: "row", marginBottom: 4, alignItems: "flex-start" },
     bullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: colore, marginTop: 4, marginRight: 7, flexShrink: 0 },
-    bulletText: { fontSize: 9, color: "#374151", lineHeight: 1.5, flex: 1 },
+    bulletText: { fontSize: 9, color: "#33475b", lineHeight: 1.5, flex: 1 },
 
     // actionItem resta atomico (wrap:false passato come prop sotto): un action item è per natura
     // una riga corta (un impegno, non un paragrafo) — non lo stesso rischio di bulletItem sopra.
@@ -115,14 +115,14 @@ function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: 
     },
     actionNumberText: { fontSize: 7, fontFamily: FONT_LABEL, fontWeight: 700, color: "#ffffff" },
     actionBody: { flex: 1, paddingHorizontal: 8, paddingVertical: 5 },
-    actionText: { fontSize: 8.5, color: "#1e3a5f", lineHeight: 1.4 },
+    actionText: { fontSize: 8.5, color: "#002f54", lineHeight: 1.4 },
     actionAssignee: { fontSize: 7.5, color: colore, fontFamily: fontBody, fontWeight: 700, marginTop: 2 },
 
     kpiGrid: { flexDirection: "row", flexWrap: "wrap" },
     kpiCell: { width: "50%", paddingRight: 5, paddingBottom: 5 },
-    kpiInner: { borderWidth: 0.75, borderColor: "#e5e7eb", borderRadius: 4, padding: 8, minHeight: 70 },
+    kpiInner: { borderWidth: 0.75, borderColor: "#dde3ea", borderRadius: 4, padding: 8, minHeight: 70 },
     kpiLabel: { fontSize: 7, letterSpacing: 0.5, color: colore, fontFamily: FONT_LABEL, fontWeight: 500, marginBottom: 4 },
-    kpiValue: { fontSize: 8.5, color: "#374151", lineHeight: 1.5 },
+    kpiValue: { fontSize: 8.5, color: "#33475b", lineHeight: 1.5 },
 
     footer: {
       position: "absolute",
@@ -133,10 +133,10 @@ function buildStyles(tema: { colore: string; coloreChiaro: string; coloreMedio: 
       justifyContent: "space-between",
       alignItems: "center",
       borderTopWidth: 0.5,
-      borderTopColor: "#e5e7eb",
+      borderTopColor: "#dde3ea",
       paddingTop: 8,
     },
-    footerLeft: { fontSize: 7, color: "#9ca3af" },
+    footerLeft: { fontSize: 7, color: "#5d6b7d" },
     footerLink: { fontSize: 7, color: colore, fontFamily: fontBody, fontWeight: 500 },
   });
 }

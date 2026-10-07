@@ -27,33 +27,31 @@ registraFontPdf();
  * (Helvetica, senza font embedding) non hanno glifi emoji — renderebbero caselle vuote — mentre
  * le forme vettoriali funzionano in ogni lettore PDF senza dover incorporare un font a colori.
  *
- * Font dell'immagine coordinata ALC (vedi src/lib/pdfFonts.ts) invece di Helvetica: League Spartan
- * Bold per il titolo principale, Oswald per l'eyebrow/le intestazioni di sezione numerate (più
- * condensato, si presta meglio del largo League Spartan a corpo piccolo o accanto al badge
- * numerico), Roboto per tutto il resto — anche i valori/etichette in grassetto, che sono contenuto
- * del report e non titolazione.
+ * Font e colori del Design System ALC (vedi src/lib/pdfFonts.ts): Montserrat in tutti i ruoli —
+ * extra-bold per il titolo, grassetto per intestazioni di sezione, etichette e valori, regolare per
+ * il testo — e i colori del sistema scritti in esadecimale.
  */
 
-const BRAND_COLOR = "#1a74bc";
-const BRAND_SOFT = "#e8f1f9"; // = --brand-primary-light in globals.css
-const BRAND_MED = "#cfe6f6";
-const BRAND_TEXT = "#0f4d7d";
+const BRAND_COLOR = "#08599c";
+const BRAND_SOFT = "#e6eff7"; // = --brand-primary-light in globals.css
+const BRAND_MED = "#c9ddee";
+const BRAND_TEXT = "#002f54";
 const COMPANY_NAME = "Andrea Lenzi Consulting";
 
-const INK_900 = "#111827";
-const INK_700 = "#374151";
-const INK_500 = "#6b7280";
-const INK_400 = "#9ca3af";
-const INK_300 = "#e5e7eb";
-const INK_100 = "#f6f7f9";
+const INK_900 = "#002f54";
+const INK_700 = "#33475b";
+const INK_500 = "#5d6b7d";
+const INK_400 = "#5d6b7d";
+const INK_300 = "#dde3ea";
+const INK_100 = "#f5f7fa";
 
 type Tone = "brand" | "warning" | "success" | "neutral";
 
 const TONES: Record<Tone, { text: string; accent: string; bg: string; border: string }> = {
-  brand: { text: BRAND_TEXT, accent: BRAND_COLOR, bg: BRAND_SOFT, border: "#bcdcf1" },
-  warning: { text: "#92400e", accent: "#d97706", bg: "#fef8ec", border: "#f2d8a0" },
-  success: { text: "#166534", accent: "#16a34a", bg: "#eefbf3", border: "#b9e6c9" },
-  neutral: { text: INK_700, accent: "#4b5563", bg: INK_100, border: INK_300 },
+  brand: { text: BRAND_TEXT, accent: BRAND_COLOR, bg: BRAND_SOFT, border: "#c9ddee" },
+  warning: { text: "#9a5c00", accent: "#9a5c00", bg: "#fcefd2", border: "#e6d6bf" },
+  success: { text: "#17804f", accent: "#17804f", bg: "#e3f2ea", border: "#c5dfd3" },
+  neutral: { text: INK_700, accent: "#5d6b7d", bg: INK_100, border: INK_300 },
 };
 
 const styles = StyleSheet.create({
@@ -62,7 +60,7 @@ const styles = StyleSheet.create({
   header: { paddingBottom: 14, borderBottomWidth: 2, borderBottomColor: BRAND_COLOR, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
   headerLeft: { flex: 1, marginRight: 16 },
   headerLabel: { fontSize: 7, color: BRAND_COLOR, letterSpacing: 0.6, marginBottom: 6, fontFamily: FONT_LABEL, fontWeight: 700 },
-  headerTitle: { fontSize: 19, fontFamily: FONT_HEADING, fontWeight: 700, color: INK_900, lineHeight: 1.2 },
+  headerTitle: { fontSize: 19, fontFamily: FONT_HEADING, fontWeight: 800, color: INK_900, lineHeight: 1.2 },
   headerSubtitle: { fontSize: 10, color: INK_500, marginTop: 3 },
   headerLogo: { width: 120, height: 48, objectFit: "contain" },
 
@@ -94,7 +92,7 @@ const styles = StyleSheet.create({
   defTable: { borderWidth: 0.75, borderColor: INK_300, borderRadius: 5, overflow: "hidden" },
   defRow: { flexDirection: "row", alignItems: "center", paddingVertical: 7, paddingHorizontal: 10 },
   defIconCircle: { width: 16, height: 16, borderRadius: 8, backgroundColor: BRAND_MED, alignItems: "center", justifyContent: "center", marginRight: 8, flexShrink: 0 },
-  defLabel: { width: 92, fontSize: 8, color: INK_500, fontFamily: FONT_BODY, fontWeight: 700 },
+  defLabel: { width: 112, fontSize: 8, color: INK_500, fontFamily: FONT_BODY, fontWeight: 700 },
   defValue: { flex: 1, fontSize: 9, color: INK_900, fontFamily: FONT_BODY, fontWeight: 700 },
 
   callout: { borderWidth: 0.75, borderRadius: 5, paddingVertical: 8, paddingHorizontal: 10 },
