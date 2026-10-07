@@ -361,6 +361,11 @@ export type KpiResponse = {
   // attivo): valgono tutte. Sempre presente, anche quando la richiesta ha chiesto altro, così
   // l'interfaccia sa cosa sarebbe il predefinito. Opzionale solo per le fixture di test esistenti.
   campagnePredefinite?: string[] | null;
+  // true se per questa sede esiste almeno una riga di RisultatiCommerciali (inserita a mano) che
+  // cade per intero nel periodo richiesto. false = nessuno ha compilato: gli zeri di
+  // appuntamenti/vendite/fatturato in `totale` NON sono un dato, e le tessere mostrano "Non
+  // compilato" (a meno che quei numeri arrivino da GHL o dal file contatti, vedi kpiGhlOverlay.ts).
+  risultatiCommercialiNelPeriodo?: boolean;
   // Presente solo nella richiesta interna (stesso motivo di targetCpa/targetCpl sopra) — alimenta
   // il pannello Avvisi operativi (blocco 4), mai sul link pubblico `code`. Vedi
   // mesiConSpesaSenzaRisultatiCommerciali in lib/kpiQualita.ts.

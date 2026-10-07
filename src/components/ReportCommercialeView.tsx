@@ -39,17 +39,17 @@ export function ReportCommercialeView({
   const partecipanti = report.partecipanti ?? [];
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Header */}
-      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand">
+      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand-dark border-l-4 border-l-blu-luce">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-blue-100 text-[10px] font-medium uppercase tracking-widest mb-2">Report Commerciale</p>
+            <p className="text-accento-su-notte text-xs leading-4 font-bold uppercase tracking-[.12em] mb-2">Report Commerciale</p>
             <EditableInline
               value={report.titolo ?? ""}
               onChange={(v) => set({ titolo: v })}
               editable={editable}
-              className="font-heading text-white text-xl sm:text-2xl font-bold leading-tight break-words w-full bg-transparent placeholder-white/60"
+              className="font-heading text-su-notte text-2xl sm:text-[28px] sm:leading-[34px] font-extrabold break-words w-full bg-transparent placeholder:text-su-notte-secondario"
               placeholder="Titolo chiamata"
             />
           </div>
@@ -65,7 +65,7 @@ export function ReportCommercialeView({
               value={report.data ?? ""}
               onChange={(v) => set({ data: v })}
               editable={editable}
-              className="text-blue-100 bg-transparent placeholder-blue-200/60 w-24"
+              className="text-su-notte-secondario bg-transparent placeholder:text-su-notte-secondario w-24"
               placeholder="GG/MM/AAAA"
             />
           </MetaItem>
@@ -106,7 +106,7 @@ export function ReportCommercialeView({
         {/* Indice — sola navigazione, mai modificabile: riflette sempre l'ordine reale delle
             sezioni sotto (stesso elenco SEZIONI usato per gli id di scroll). */}
         <nav aria-label="Indice del report" className="rounded-xl border border-ink-300/60 bg-surface px-4 py-3">
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-500 mb-2">Indice</p>
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500 mb-2">Indice</p>
           <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
             {SEZIONI.map((s, i) => (
               <li key={s.id}>
@@ -199,14 +199,13 @@ export function ReportCommercialeView({
 }
 
 function MetaItem({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-1.5 text-blue-100 text-sm">{children}</div>;
+  return <div className="flex items-center gap-1.5 text-su-notte-secondario text-sm">{children}</div>;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="w-1 h-5 rounded-full bg-brand" />
-      <h3 className="font-heading font-bold text-ink-900 text-[15px]">{children}</h3>
+      <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{children}</h3>
     </div>
   );
 }
@@ -224,13 +223,13 @@ function InfoBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
       {editable ? (
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
+          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-bordo-campo focus:border-brand rounded-md px-2 -mx-2 py-1 transition-colors"
           placeholder={`Inserisci ${label.toLowerCase()}`}
         />
       ) : (
@@ -253,13 +252,13 @@ function NumeroBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
       {editable ? (
         <input
           type="number"
           value={value ?? ""}
           onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
-          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
+          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-bordo-campo focus:border-brand rounded-md px-2 -mx-2 py-1 transition-colors"
           placeholder="—"
         />
       ) : (

@@ -6,7 +6,7 @@ import { buildEmailText } from "@/lib/meetingEmail";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 const inputClass =
-  "w-full rounded-xl border border-ink-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
+  "w-full min-h-11 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition-colors";
 
 /**
  * Bottoni "Scarica PDF" / "Genera email di follow-up" — porting delle azioni di Fast Report
@@ -95,7 +95,7 @@ export function MeetingAzioni({
           type="button"
           onClick={handleScaricaPdf}
           disabled={scaricando}
-          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer active:scale-[.98]"
+          className="alc-btn alc-btn--secondario"
         >
           {scaricando ? (
             "Generazione PDF…"
@@ -109,13 +109,13 @@ export function MeetingAzioni({
         <button
           type="button"
           onClick={handleGeneraEmail}
-          className="inline-flex items-center gap-1.5 rounded-xl border-2 border-brand text-sm font-semibold px-4 py-2 text-brand hover:bg-brand-light transition cursor-pointer active:scale-[.98]"
+          className="alc-btn alc-btn--secondario"
         >
           <Mail size={14} className="flex-shrink-0" />
           {mostraEmail ? "Nascondi email" : "Genera email di follow-up"}
         </button>
       </div>
-      {errorePdf && <p className="text-xs text-red-600">{errorePdf}</p>}
+      {errorePdf && <p className="text-xs text-critico">{errorePdf}</p>}
       {mostraEmail && testoEmail !== null && (
         <div className="space-y-1.5">
           <textarea
@@ -127,7 +127,7 @@ export function MeetingAzioni({
           <button
             type="button"
             onClick={handleCopiaEmail}
-            className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2 transition cursor-pointer active:scale-[.98]"
+            className="alc-btn"
           >
             {copiato ? "Copiato ✓" : "Copia email"}
           </button>

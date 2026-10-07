@@ -96,12 +96,12 @@ export function MeetingGlobali() {
   }, [refreshTick]);
 
   if (caricamento && !dati) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
+  if (errore && !dati) return <p className="text-sm text-critico">{errore}</p>;
   if (!dati) return null;
 
   if (dati.clienti.length === 0) {
     return (
-      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+      <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
         <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
       </div>
     );
@@ -119,7 +119,7 @@ export function MeetingGlobali() {
 
   return (
     <div className="space-y-3">
-      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {errore && <p className="text-sm text-critico">{errore}</p>}
 
       <NuovoMeetingForm clienti={dati.clienti} onCreato={() => setRefreshTick((t) => t + 1)} />
 
@@ -132,7 +132,7 @@ export function MeetingGlobali() {
       )}
 
       {dati.meeting.length === 0 && (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+        <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessun meeting registrato. Usa &quot;+ Nuovo meeting&quot; qui sopra per caricarne uno.</p>
         </div>
       )}
@@ -142,7 +142,7 @@ export function MeetingGlobali() {
           const aperto = espanso === m.meetingId;
           const nomeCliente = nomeClientePer.get(m.clienteId) ?? m.clienteId;
           return (
-            <div key={m.meetingId} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
+            <div key={m.meetingId} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setEspanso(aperto ? null : m.meetingId)}
@@ -156,7 +156,7 @@ export function MeetingGlobali() {
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}
                       title={`Vai alla scheda di ${nomeCliente}`}
-                      className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-ink-900 text-white hover:bg-ink-700 cursor-pointer transition-colors truncate max-w-[200px]"
+                      className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-notte text-su-notte hover:brightness-125 cursor-pointer transition truncate max-w-[200px]"
                     >
                       {nomeCliente}
                     </a>
@@ -169,7 +169,7 @@ export function MeetingGlobali() {
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <BadgeSentiment sentiment={m.sentiment} />
-                  <span className="text-ink-300 text-xs">{aperto ? "▲" : "▼"}</span>
+                  <span className="text-ink-500 text-xs">{aperto ? "▲" : "▼"}</span>
                 </div>
               </button>
               {aperto && (

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -14,6 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { PulsanteIcona } from "@/components/ui/PulsanteIcona";
 import type { Ruolo } from "@/types/kpi";
 
 /**
@@ -88,6 +90,7 @@ export function Sidebar({
   onToggleCollapsed,
   mobileOpen,
   onCloseMobile,
+  account,
 }: {
   ruolo: Ruolo;
   pathname: string;
@@ -95,8 +98,20 @@ export function Sidebar({
   onToggleCollapsed: () => void;
   mobileOpen: boolean;
   onCloseMobile: () => void;
+  /** Indicatore di chi ha fatto l'accesso, in fondo al menù su schermo grande (AccountMenu.tsx). */
+  account?: ReactNode;
 }) {
   const voci = NAV_ITEMS.filter((v) => v.ruoli.includes(ruolo));
+
+  // Il cassetto su telefono è una finestra di dialogo: Esc lo chiude, come ogni modale dell'app.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    function suTasto(e: KeyboardEvent) {
+      if (e.key === "Escape") onCloseMobile();
+    }
+    document.addEventListener("keydown", suTasto);
+    return () => document.removeEventListener("keydown", suTasto);
+  }, [mobileOpen, onCloseMobile]);
 
   function renderNav(mostraEtichette: boolean) {
     return voci.map(({ href, label, icon: Icon, attiva }) => {
@@ -112,12 +127,13 @@ export function Sidebar({
           prefetch={false}
           title={mostraEtichette ? undefined : label}
           aria-label={label}
+          aria-current={attivaOra ? "page" : undefined}
           className={cn(
-            "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition",
+            "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
             attivaOra ? "bg-brand-light text-brand" : "text-ink-700 hover:bg-surface hover:text-ink-900"
           )}
         >
-          <Icon size={20} className="flex-shrink-0" />
+          <Icon size={20} className="flex-shrink-0" aria-hidden="true" />
           {mostraEtichette && <span className="truncate">{label}</span>}
         </Link>
       );
@@ -126,34 +142,34 @@ export function Sidebar({
 
   return (
     <>
-      {/* Rail desktop — sticky così resta ferma mentre <main> scorre. Vetro (redesign "Vetro ALC",
-          09/09/2026): base opaca + backdrop-blur sempre attivo + sfondo traslucido SOLO se il
-          browser supporta backdrop-filter (stesso pattern già in uso in AppHeader.tsx) — chi non
-          lo supporta vede semplicemente la superficie piena di prima, mai un vetro "rotto". Solo
-          la rail desktop, non il drawer mobile sotto: lì resta opaco, più leggibile sopra
-          l'overlay scuro. */}
+      {/* Rail desktop — sticky così resta ferma mentre <main> scorre. Superficie piena con bordo
+          `linea` (Design System ALC). `z-20`: il menù dell'account in fondo si apre verso l'alto e,
+          a rail compressa, esce dalla sua larghezza sopra il contenuto. */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col sticky top-0 h-screen flex-shrink-0 border-r border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome)] transition-[width] duration-200",
+          "hidden lg:flex flex-col sticky top-0 z-20 h-screen flex-shrink-0 border-r border-linea bg-surface-card transition-[width] duration-200",
           collapsed ? "w-16" : "w-56"
         )}
       >
         {/* Logo disteso sull'intera larghezza del blocco (richiesta utente, 09/2026), non più una
             piccola immagine con largo margine intorno — solo px-3 di respiro dai bordi, w-full così
             scala insieme alla rail invece di restare a dimensione fissa. */}
-        <div className="h-16 flex items-center px-3 border-b border-[var(--glass-border-soft)] overflow-hidden">
+        <div className="h-16 flex items-center px-3 border-b border-linea overflow-hidden">
           {!collapsed && (
             <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={220} height={56} className="object-contain w-full h-auto" />
           )}
         </div>
-        <nav className="flex-1 px-2 py-4 space-y-1">{renderNav(!collapsed)}</nav>
+        <nav aria-label="Sezioni" className="flex-1 px-2 py-4 space-y-1">
+          {renderNav(!collapsed)}
+        </nav>
+        {account && <div className="px-2 pb-1">{account}</div>}
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="flex items-center gap-2 px-3 py-3 m-2 rounded-xl text-ink-500 hover:text-brand hover:bg-surface transition cursor-pointer"
+          className="flex min-h-11 items-center gap-3 px-3 m-2 mt-1 rounded-lg text-ink-500 hover:text-brand hover:bg-surface transition cursor-pointer"
           aria-label={collapsed ? "Espandi menu" : "Comprimi menu"}
         >
-          {collapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+          {collapsed ? <PanelLeftOpen size={20} aria-hidden="true" /> : <PanelLeftClose size={20} aria-hidden="true" />}
           {!collapsed && <span className="text-sm font-semibold">Comprimi</span>}
         </button>
       </aside>
@@ -162,22 +178,24 @@ export function Sidebar({
           sul pannello, non solo onClick: un drag che parte dentro e finisce sopra l'overlay non deve
           chiudere accidentalmente il menu). */}
       {mobileOpen && (
-        <div role="presentation" onClick={onCloseMobile} className="fixed inset-0 z-50 bg-black/40 lg:hidden">
+        <div role="presentation" onClick={onCloseMobile} className="fixed inset-0 z-50 bg-notte/50 lg:hidden">
           <aside
             role="dialog"
             aria-modal="true"
             aria-label="Menu di navigazione"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="fixed inset-y-0 left-0 w-64 bg-surface-card border-r border-ink-300/60 shadow-lg flex flex-col"
+            className="fixed inset-y-0 left-0 w-64 bg-surface-card border-r border-linea shadow-lg flex flex-col"
           >
-            <div className="h-16 flex items-center justify-between px-4 border-b border-ink-300/60">
+            <div className="h-16 flex items-center justify-between pl-4 pr-2 border-b border-linea">
               <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={110} height={38} className="object-contain h-8 w-auto" />
-              <button type="button" onClick={onCloseMobile} className="text-ink-500 hover:text-ink-900 cursor-pointer" aria-label="Chiudi menu">
-                <X size={20} />
-              </button>
+              <PulsanteIcona etichetta="Chiudi menu" dimensione="lg" onClick={onCloseMobile} autoFocus>
+                <X size={20} aria-hidden="true" />
+              </PulsanteIcona>
             </div>
-            <nav className="flex-1 px-2 py-4 space-y-1">{renderNav(true)}</nav>
+            <nav aria-label="Sezioni" className="flex-1 px-2 py-4 space-y-1">
+              {renderNav(true)}
+            </nav>
           </aside>
         </div>
       )}

@@ -135,16 +135,15 @@ export function SmallMultiplesCosto({ metriche }: SmallMultiplesCostoProps) {
           const max = haDati ? Math.max(...valoriValidi) : 0;
 
           return (
-            <div key={metrica.chiave} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+            <div key={metrica.chiave} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-1 h-5 rounded-full bg-brand" />
-                <h3 className="font-heading font-bold text-ink-900 text-[15px]">{metrica.titolo}</h3>
+                <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{metrica.titolo}</h3>
               </div>
 
               {haDati ? (
                 <div className="relative">
-                  <div className="absolute top-0 right-0 text-[10px] text-ink-500">{metrica.formato(max)}</div>
-                  <div className="absolute bottom-0 right-0 text-[10px] text-ink-500">{metrica.formato(min)}</div>
+                  <div className="absolute top-0 right-0 text-xs text-ink-500">{metrica.formato(max)}</div>
+                  <div className="absolute bottom-0 right-0 text-xs text-ink-500">{metrica.formato(min)}</div>
                   <GraficoMetrica perSede={metrica.perSede} min={min} max={max} />
                 </div>
               ) : (

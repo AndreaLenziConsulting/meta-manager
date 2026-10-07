@@ -77,7 +77,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
 
   if (sedi.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
         <p className="text-sm text-ink-500">Nessuna sede da confrontare.</p>
       </div>
     );
@@ -106,10 +106,9 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
   };
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-1 h-5 rounded-full bg-brand" />
-        <h3 className="font-heading font-bold text-ink-900 text-[15px]">Funnel a confronto per sede</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Funnel a confronto per sede</h3>
       </div>
 
       <div ref={wrapRef}>
@@ -122,7 +121,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
           {Y_TICKS.map((t) => (
             <g key={t}>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yFor(t)} y2={yFor(t)} stroke="var(--gridline)" strokeWidth={1} />
-              <text x={PAD_LEFT - 8} y={yFor(t) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">
+              <text x={PAD_LEFT - 8} y={yFor(t) + 3} textAnchor="end" fontSize={12} fill="var(--text-muted)">
                 {formatPercentuale(t)}
               </text>
             </g>
@@ -131,7 +130,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
           {ETICHETTE_STADI.map((etichetta, i) => (
             <g key={etichetta}>
               <line x1={xFor(i)} x2={xFor(i)} y1={PAD_TOP} y2={PAD_TOP + PLOT_HEIGHT} stroke="var(--gridline)" strokeWidth={1} strokeDasharray="3,3" />
-              <text x={xFor(i)} y={HEIGHT - 10} textAnchor={ancoraPer(i)} fontSize={11} fill="var(--text-muted)">
+              <text x={xFor(i)} y={HEIGHT - 10} textAnchor={ancoraPer(i)} fontSize={12} fill="var(--text-muted)">
                 {etichetta}
               </text>
             </g>
@@ -159,7 +158,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
                 return (
                   <g key={i}>
                     <circle cx={xFor(i)} cy={yFor(v)} r={3.5} fill={s.colore} stroke="var(--surface-1)" strokeWidth={1.5} />
-                    <text x={xFor(i) + dx} y={yFor(v) - 8} textAnchor={ancora} fontSize={10} fill={s.colore}>
+                    <text x={xFor(i) + dx} y={yFor(v) - 8} textAnchor={ancora} fontSize={12} fill={s.colore}>
                       {formatPercentuale(v)}
                     </text>
                   </g>

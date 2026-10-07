@@ -131,8 +131,7 @@ export function TrendChart({
   const header = (
     <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
       <div className="flex items-center gap-2">
-        <div className="w-1 h-5 rounded-full bg-brand" />
-        <h3 className="font-heading font-bold text-ink-900 text-[15px]">
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">
           {modalita === "lead" ? "Investimento vs Lead acquisiti" : "Investimento vs Fatturato"}
         </h3>
       </div>
@@ -151,7 +150,7 @@ export function TrendChart({
 
   if (punti.length === 0) {
     return (
-      <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
         {header}
         <p className="text-sm text-ink-500">Nessun dato nel periodo selezionato.</p>
       </div>
@@ -227,7 +226,7 @@ export function TrendChart({
   const secondarioColore = modalita === "lead" ? "var(--series-3)" : "var(--series-2)";
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
       {header}
 
       <div className="flex items-center justify-between mb-2 flex-wrap gap-1">
@@ -246,13 +245,13 @@ export function TrendChart({
           </li>
         </ul>
         {modalita === "lead" ? (
-          <span className="text-[11px] text-ink-500">
+          <span className="text-xs text-ink-500">
             {indiceInvestimentoVuoto || indiceLeadVuoto
               ? "Indice non calcolabile: il primo periodo ha valore zero per una delle due serie"
               : "Entrambe le serie = 100 al primo periodo, per confrontare l'andamento"}
           </span>
         ) : (
-          <span className="text-[11px] text-ink-500">
+          <span className="text-xs text-ink-500">
             {fatturatoReale
               ? "Fatturato tracciato per settimana (dati reali, non ripartiti dal mese)"
               : "Fatturato tracciato a livello mensile: il valore si ripete per l'intero mese"}
@@ -270,7 +269,7 @@ export function TrendChart({
           {yTicks.map((tick) => (
             <g key={tick}>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yForPrincipale(tick)} y2={yForPrincipale(tick)} stroke="var(--gridline)" strokeWidth={1} />
-              <text x={PAD_LEFT - 8} y={yForPrincipale(tick) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">
+              <text x={PAD_LEFT - 8} y={yForPrincipale(tick) + 3} textAnchor="end" fontSize={12} fill="var(--text-muted)">
                 {formatTick(tick)}
               </text>
             </g>
@@ -278,7 +277,7 @@ export function TrendChart({
           {modalita === "lead" && maxValorePrincipale > 100 && (
             <>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yForPrincipale(100)} y2={yForPrincipale(100)} stroke="var(--baseline)" strokeWidth={1} />
-              <text x={PAD_LEFT - 8} y={yForPrincipale(100) - 4} textAnchor="end" fontSize={9} fill="var(--text-muted)">
+              <text x={PAD_LEFT - 8} y={yForPrincipale(100) - 4} textAnchor="end" fontSize={12} fill="var(--text-muted)">
                 100
               </text>
             </>
@@ -299,7 +298,7 @@ export function TrendChart({
                   strokeWidth={1}
                   strokeDasharray="3,3"
                 />
-                <text x={x + 4} y={10} fontSize={9} fill="var(--text-muted)">
+                <text x={x + 4} y={10} fontSize={12} fill="var(--text-muted)">
                   {c.etichetta}
                 </text>
               </g>
@@ -329,7 +328,7 @@ export function TrendChart({
           {/* Striscia "quantità" — Lead acquisiti, sempre visibile indipendentemente dalla modalità:
               scala propria, piccola e in secondo piano, per non competere con le due serie in €. */}
           <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={stripTop + HEIGHT_STRISCIA} y2={stripTop + HEIGHT_STRISCIA} stroke="var(--gridline)" strokeWidth={1} />
-          <text x={PAD_LEFT - 8} y={stripTop + 9} textAnchor="end" fontSize={9} fill="var(--text-muted)">
+          <text x={PAD_LEFT - 8} y={stripTop + 9} textAnchor="end" fontSize={12} fill="var(--text-muted)">
             {formatNumero(Math.round(maxLead / 1.15))}
           </text>
           <path
@@ -346,7 +345,7 @@ export function TrendChart({
 
           {punti.map((p, i) =>
             i % passoEtichette === 0 ? (
-              <text key={p.chiave} x={xFor(i)} y={stripTop + HEIGHT_STRISCIA + 18} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+              <text key={p.chiave} x={xFor(i)} y={stripTop + HEIGHT_STRISCIA + 18} textAnchor="middle" fontSize={12} fill="var(--text-muted)">
                 {p.etichetta}
               </text>
             ) : null

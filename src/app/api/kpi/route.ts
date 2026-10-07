@@ -13,7 +13,7 @@ import {
   getVenditori,
 } from "@/lib/sheets";
 import { puoVedereCliente } from "@/lib/authz";
-import { chiaveCampagna, computeKpi, computeKpiPerCampagna, normalizzaIntervallo } from "@/lib/kpi";
+import { chiaveCampagna, computeKpi, computeKpiPerCampagna, haRisultatiCommercialiNelPeriodo, normalizzaIntervallo } from "@/lib/kpi";
 import { campagneDaConsiderare, campagnePredefinite, leggiFiltroCampagne } from "@/lib/campagneAlc";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import { aggregaRisultatiVenditori } from "@/lib/venditori";
@@ -204,6 +204,7 @@ export async function GET(req: NextRequest) {
     campagne: righeCampagne,
     campagneDisponibili,
     campagnePredefinite: predefinite ? Array.from(predefinite) : null,
+    risultatiCommercialiNelPeriodo: haRisultatiCommercialiNelPeriodo(clienteId, sede.sedeId, da, a, risultatiCommerciali),
   };
 
   // Additivo, solo ramo interno (stesso motivo di targetCpa/targetCpl sopra) — riusa

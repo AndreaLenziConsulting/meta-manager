@@ -9,21 +9,23 @@ import { formatEuro, formatNumero } from "@/lib/format";
 import type { LivelloStato } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
 import { PallinoStato } from "@/components/ui/PallinoStato";
+import { Badge } from "@/components/ui/Badge";
+import { PulsanteIcona } from "@/components/ui/PulsanteIcona";
+import { CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
 
-// Trattamento a rail (bordo superiore colorato) + etichetta di testo, non più a pillola — le tinte
-// restano le stesse di STILE_LIVELLO ma qui vanno scomposte in bordo/testo separati, cosa che la
-// stringa unica `classe` non permette: stessa scelta già presa per il banner di
-// RiepilogoAllarmiAdmin.tsx (trattamento diverso dalla pillola standard, colori letti dalla stessa
-// famiglia). `criterio` è il testo mostrato una sola volta nell'header di zona, non per card.
-const STILE_STATO: Record<Salute, { label: string; tono: LivelloStato; railClasse: string; testoClasse: string }> = {
-  interveni: { label: "Da intervenire", tono: "critico", railClasse: "border-t-red-400", testoClasse: "text-red-600" },
-  mantieni: { label: "Mantieni", tono: "attenzione", railClasse: "border-t-yellow-400", testoClasse: "text-yellow-700" },
-  scala: { label: "Scala", tono: "successo", railClasse: "border-t-green-400", testoClasse: "text-green-700" },
-  "dati-insufficienti": { label: "Dati insufficienti", tono: "neutro", railClasse: "border-t-ink-300", testoClasse: "text-ink-500" },
-  "no-target": { label: "Nessun target", tono: "neutro", railClasse: "border-t-ink-300", testoClasse: "text-ink-500" },
+// Stato ads di un cliente: barra di 4px a sinistra della scheda nel colore di stato (la barra di
+// accento del Design System ALC, qui letta contro il target) + badge con la parola. Prima la barra
+// stava sopra e lo stato era testo colorato. `criterio` è il testo mostrato una sola volta
+// nell'intestazione di zona, non per scheda.
+const STILE_STATO: Record<Salute, { label: string; tono: LivelloStato; barraClasse: string; testoClasse: string }> = {
+  interveni: { label: "Da intervenire", tono: "critico", barraClasse: "border-l-critico", testoClasse: "text-critico" },
+  mantieni: { label: "Mantieni", tono: "attenzione", barraClasse: "border-l-attenzione", testoClasse: "text-attenzione" },
+  scala: { label: "Scala", tono: "successo", barraClasse: "border-l-ok", testoClasse: "text-ok" },
+  "dati-insufficienti": { label: "Dati insufficienti", tono: "neutro", barraClasse: "border-l-grigio", testoClasse: "text-ink-500" },
+  "no-target": { label: "Nessun target", tono: "neutro", barraClasse: "border-l-grigio", testoClasse: "text-ink-500" },
 };
 
-type Zona = { key: string; titolo: string; criterio: string; titoloClasse: string; compatta: boolean; items: SaluteClienteItem[] };
+type Zona = { key: string; titolo: string; criterio: string; compatta: boolean; items: SaluteClienteItem[] };
 
 function ClienteCard({
   item,
@@ -49,27 +51,26 @@ function ClienteCard({
           router.push(href);
         }
       }}
-      className={`rounded-2xl border border-[var(--glass-border-soft)] border-t-4 ${stile.railClasse} bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] hover:shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] transition cursor-pointer p-5`}
+      className={`rounded-l-[4px] rounded-r-xl border border-linea border-l-4 ${stile.barraClasse} bg-surface-card shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-alta)] transition cursor-pointer py-4 pl-5 pr-3`}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-heading font-bold text-ink-900 text-lg truncate">{item.cliente.nome}</p>
-          <p className="text-xs mt-0.5 flex items-center gap-1.5">
-            <span className={`font-bold ${stile.testoClasse}`}>{stile.label}</span>
-            {nomeConsulente && <span className="text-ink-500 truncate">· {nomeConsulente}</span>}
+          <p className={`${CLASSE_TITOLO_SEZIONE} truncate`}>{item.cliente.nome}</p>
+          <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+            <Badge tono={stile.tono}>{stile.label}</Badge>
+            {nomeConsulente && <span className="text-ink-500 truncate">{nomeConsulente}</span>}
           </p>
         </div>
-        <button
-          type="button"
+        <PulsanteIcona
+          etichetta={`Modifica ${item.cliente.nome}`}
+          className="-mt-1.5"
           onClick={(e) => {
             e.stopPropagation();
             onModifica();
           }}
-          className="text-ink-500 hover:text-brand transition flex-shrink-0 cursor-pointer"
-          aria-label={`Modifica ${item.cliente.nome}`}
         >
-          <Pencil size={14} />
-        </button>
+          <Pencil size={16} aria-hidden="true" />
+        </PulsanteIcona>
       </div>
 
       {item.sedi.length > 1 ? (
@@ -98,13 +99,13 @@ function ClienteCard({
         )
       )}
 
-      <p className="text-xs text-ink-500 mt-3 pt-3 border-t border-ink-300/60">
+      <p className="text-xs text-ink-500 mt-3 mr-2 pt-3 border-t border-linea">
         {formatEuro(item.investimento)} spesi · {formatNumero(item.numeroLead)} lead
         {item.attivitaInRitardo.length > 0 && (
-          <span className="text-red-600 font-semibold"> · {item.attivitaInRitardo.length} in ritardo</span>
+          <span className="text-critico font-semibold"> · {item.attivitaInRitardo.length} in ritardo</span>
         )}
         {item.sentimentCritico && (
-          <span className="text-red-600 font-semibold inline-flex items-center gap-1"> · <Frown size={12} /> sentiment negativo</span>
+          <span className="text-critico font-semibold inline-flex items-center gap-1"> · <Frown size={12} aria-hidden="true" /> sentiment negativo</span>
         )}
       </p>
     </div>
@@ -137,37 +138,35 @@ export function ClienteRiga({
           router.push(href);
         }
       }}
-      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5 px-4 py-3 bg-surface-card hover:bg-brand-light/40 transition cursor-pointer"
+      className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-1.5 pl-4 pr-2 bg-surface-card hover:bg-brand-light/40 transition cursor-pointer"
     >
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
         <PallinoStato tono={stile.tono} />
-        <span className="text-sm font-medium text-ink-700 truncate">{item.cliente.nome}</span>
-        <span className="text-[11px] text-ink-500 flex-shrink-0">{stile.label}</span>
-        {nomeConsulente && <span className="text-[11px] text-ink-500 flex-shrink-0">· {nomeConsulente}</span>}
+        <span className="text-sm font-semibold text-ink-900 truncate">{item.cliente.nome}</span>
+        <span className="text-xs text-ink-500 flex-shrink-0">{stile.label}</span>
+        {nomeConsulente && <span className="text-xs text-ink-500 flex-shrink-0">· {nomeConsulente}</span>}
         {item.attivitaInRitardo.length > 0 && (
-          <span className="text-[11px] font-semibold text-red-600 flex-shrink-0">· {item.attivitaInRitardo.length} in ritardo</span>
+          <span className="text-xs font-semibold text-critico flex-shrink-0">· {item.attivitaInRitardo.length} in ritardo</span>
         )}
         {item.sentimentCritico && (
-          <span className="text-[11px] font-semibold text-red-600 flex-shrink-0 inline-flex items-center gap-1">
-            · <Frown size={11} /> sentiment negativo
+          <span className="text-xs font-semibold text-critico flex-shrink-0 inline-flex items-center gap-1">
+            · <Frown size={12} aria-hidden="true" /> sentiment negativo
           </span>
         )}
       </div>
-      <div className="flex items-center gap-3 flex-shrink-0">
-        <span className="text-[11px] text-ink-500 tabular-nums">
+      <div className="ml-auto flex items-center gap-1 flex-shrink-0">
+        <span className="text-xs text-ink-500 tabular-nums">
           {formatEuro(item.investimento)} · {formatNumero(item.numeroLead)} lead
         </span>
-        <button
-          type="button"
+        <PulsanteIcona
+          etichetta={`Modifica ${item.cliente.nome}`}
           onClick={(e) => {
             e.stopPropagation();
             onModifica();
           }}
-          className="text-ink-500 hover:text-brand transition cursor-pointer"
-          aria-label={`Modifica ${item.cliente.nome}`}
         >
-          <Pencil size={12} />
-        </button>
+          <Pencil size={16} aria-hidden="true" />
+        </PulsanteIcona>
       </div>
     </div>
   );
@@ -187,7 +186,7 @@ export function SaluteClienti({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-6 text-sm text-ink-500">
+      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -213,7 +212,6 @@ export function SaluteClienti({
       key: "interveni",
       titolo: "Da intervenire subito",
       criterio: "ads oltre il 120% del target",
-      titoloClasse: "text-red-600",
       compatta: false,
       items: items.filter((i) => i.valutazione.stato === "interveni"),
     },
@@ -221,7 +219,6 @@ export function SaluteClienti({
       key: "mantieni",
       titolo: "Da monitorare",
       criterio: "ads tra 80% e 120% del target",
-      titoloClasse: "text-yellow-700",
       compatta: false,
       items: items.filter((i) => i.valutazione.stato === "mantieni"),
     },
@@ -229,7 +226,6 @@ export function SaluteClienti({
       key: "altro",
       titolo: "In linea o senza segnali",
       criterio: "nessuna azione richiesta ora",
-      titoloClasse: "text-ink-700",
       compatta: true,
       items: items.filter((i) => ["scala", "dati-insufficienti", "no-target"].includes(i.valutazione.stato)).sort(perNomeCliente),
     },
@@ -239,16 +235,18 @@ export function SaluteClienti({
     <>
       <div className="space-y-8">
         {zone.map((zona) => (
-          <div key={zona.key}>
+          <section key={zona.key} aria-labelledby={`zona-${zona.key}`}>
             <div className="flex items-baseline gap-x-2.5 gap-y-1 flex-wrap mb-3">
-              <h3 className={`font-heading font-bold text-lg ${zona.titoloClasse}`}>{zona.titolo}</h3>
-              <span className="text-xs text-ink-500">
-                {zona.items.length} {zona.items.length === 1 ? "cliente" : "clienti"} — {zona.criterio}
+              <h2 id={`zona-${zona.key}`} className={CLASSE_TITOLO_SEZIONE}>
+                {zona.titolo}
+              </h2>
+              <span className="text-xs font-medium text-ink-500">
+                {zona.items.length} {zona.items.length === 1 ? "cliente" : "clienti"} · {zona.criterio}
               </span>
             </div>
 
             {zona.compatta ? (
-              <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
+              <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
                 {zona.items.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}
@@ -270,7 +268,7 @@ export function SaluteClienti({
                 ))}
               </div>
             )}
-          </div>
+          </section>
         ))}
       </div>
 

@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronDown } from "lucide-react";
 import type { CategoriaCommerciale, Cliente, Consulente, Sede, Venditore } from "@/types/kpi";
 import { Modal } from "@/components/ui/Modal";
 import { Field } from "@/components/ui/Field";
@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/Button";
 import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneModal";
 import { ConfermaEliminazioneNomeModal } from "@/components/ui/ConfermaEliminazioneNomeModal";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
+import { Tabs } from "@/components/Tabs";
+import { Nota } from "@/components/ui/Nota";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
 type GhlConnessioneVista = {
@@ -40,7 +42,32 @@ type Props = {
   onSalvato: () => void;
 };
 
+type SchedaModale = "cliente" | "aspetto" | "sedi" | "elimina";
+// Lettura di un elenco collegato alle sedi (connessioni GHL, categorie, venditori).
+type StatoLettura = "caricamento" | "ok" | "errore";
+
+/** Riepilogo accanto al titolo di una sezione chiusa della sede. Mentre il dato arriva (o se non è
+ * arrivato) lo dice, invece di scrivere "non collegata" o "nessuno" senza saperlo. */
+function riepilogoSezione(stato: StatoLettura, quandoPronto: string): string {
+  return stato === "caricamento" ? "lettura in corso" : stato === "errore" ? "non disponibile" : quandoPronto;
+}
+
+/**
+ * Modifica di un cliente, divisa in schede (07/10/2026, audit UX): Cliente, Aspetto, Sedi e — solo
+ * per l'admin — Elimina. Prima era un'unica colonna alta più di quattromila pixel con una
+ * settantina di campi, otto pulsanti "Salva" e cinque "Elimina" uno sotto l'altro. Dentro "Sedi" si
+ * guarda una sede alla volta, e le parti meno usate (recupero storico, GHL, categorie, venditori) si
+ * aprono a richiesta.
+ *
+ * Tutte le schede restano montate (solo nascoste): ciò che si è scritto in una non si perde
+ * passando a un'altra. "Salva modifiche" salva insieme Cliente e Aspetto, che sono lo stesso
+ * salvataggio; ogni sede ha il suo "Salva sede", come prima.
+ */
 export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, onClose, onSalvato }: Props) {
+  const [scheda, setScheda] = useState<SchedaModale>("cliente");
+  const [sedeScelta, setSedeScelta] = useState(sedi[0]?.sedeId ?? "");
+  // La sede scelta può sparire (eliminata, e l'elenco si ricarica): si torna alla prima.
+  const sedeAperta = sedi.some((s) => s.sedeId === sedeScelta) ? sedeScelta : (sedi[0]?.sedeId ?? "");
   const [nome, setNome] = useState(cliente.nome);
   const [email, setEmail] = useState(cliente.email);
   const [consulenteId, setConsulenteId] = useState(cliente.consulenteId);
@@ -61,6 +88,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
   // non le porta con sé — vedi src/types/ghl.ts) e ricaricate dopo ogni creazione/modifica.
   const [ghlPerSede, setGhlPerSede] = useState<Record<string, GhlConnessioneVista>>({});
   const [ghlTick, setGhlTick] = useState(0);
+  const [statoGhl, setStatoGhl] = useState<StatoLettura>("caricamento");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,9 +98,11 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         const mappa: Record<string, GhlConnessioneVista> = {};
         for (const c of body.connessioni ?? []) mappa[c.sedeId] = c;
         setGhlPerSede(mappa);
+        setStatoGhl("ok");
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        setStatoGhl("errore");
       });
     return () => controller.abort();
   }, [cliente.clienteId, ghlTick]);
@@ -82,6 +112,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
   // ogni creazione/modifica/eliminazione.
   const [categoriePerSede, setCategoriePerSede] = useState<Record<string, CategoriaCommerciale[]>>({});
   const [categorieTick, setCategorieTick] = useState(0);
+  const [statoCategorie, setStatoCategorie] = useState<StatoLettura>("caricamento");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -91,9 +122,11 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         const mappa: Record<string, CategoriaCommerciale[]> = {};
         for (const c of body.categorie ?? []) (mappa[c.sedeId] ??= []).push(c);
         setCategoriePerSede(mappa);
+        setStatoCategorie("ok");
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        setStatoCategorie("errore");
       });
     return () => controller.abort();
   }, [cliente.clienteId, categorieTick]);
@@ -101,6 +134,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
   // Venditori (Fase 2, 11/2026) — stesso schema di categoriePerSede sopra.
   const [venditoriPerSede, setVenditoriPerSede] = useState<Record<string, Venditore[]>>({});
   const [venditoriTick, setVenditoriTick] = useState(0);
+  const [statoVenditori, setStatoVenditori] = useState<StatoLettura>("caricamento");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -110,15 +144,26 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         const mappa: Record<string, Venditore[]> = {};
         for (const v of body.venditori ?? []) (mappa[v.sedeId] ??= []).push(v);
         setVenditoriPerSede(mappa);
+        setStatoVenditori("ok");
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
+        setStatoVenditori("errore");
       });
     return () => controller.abort();
   }, [cliente.clienteId, venditoriTick]);
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Il modulo ha `noValidate`: un campo non valido dentro una scheda nascosta bloccherebbe
+    // l'invio senza poter mostrare il suo messaggio. Lo si controlla qui e, se serve, si torna
+    // sulla scheda dove sta il campo prima di far comparire l'avviso del browser.
+    const modulo = e.currentTarget;
+    if (!modulo.checkValidity()) {
+      setScheda("cliente");
+      requestAnimationFrame(() => modulo.reportValidity());
+      return;
+    }
     setErrore(null);
     setSalvando(true);
     try {
@@ -150,9 +195,25 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
     }
   }
 
+  const schede: { id: SchedaModale; label: string }[] = [
+    { id: "cliente", label: "Cliente" },
+    { id: "aspetto", label: "Aspetto" },
+    { id: "sedi", label: sedi.length > 1 ? `Sedi (${sedi.length})` : "Sede" },
+    ...(ruoloAdmin ? [{ id: "elimina" as const, label: "Elimina" }] : []),
+  ];
+  const inAnagrafica = scheda === "cliente" || scheda === "aspetto";
+
   return (
-    <Modal title="Modifica cliente" subtitle={cliente.clienteId} onClose={onClose} maxWidth="max-w-xl">
-      <form onSubmit={handleSubmit} className="space-y-4">
+    <Modal title="Modifica cliente" subtitle={cliente.clienteId} onClose={onClose} maxWidth="max-w-2xl">
+      <Tabs
+        etichetta="Sezioni della modifica cliente"
+        tabs={schede}
+        attivo={scheda}
+        onChange={(id) => setScheda(schede.find((s) => s.id === id)?.id ?? "cliente")}
+      />
+
+      <form onSubmit={handleSubmit} noValidate hidden={!inAnagrafica} className="space-y-5">
+        <div hidden={scheda !== "cliente"} className="space-y-4">
         <Field label="Nome cliente">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} required />
         </Field>
@@ -183,28 +244,28 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         )}
 
         <div className="space-y-2 pt-1">
-          <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-            <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="accent-current text-brand" />
+          <label className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
+            <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
             Il cliente vede anche il tab Meeting (oltre a KPI)
           </label>
-          <label className={`flex items-center gap-2 text-xs text-ink-700 ${ruoloAdmin ? "cursor-pointer" : "opacity-70"}`}>
+          <label className={`flex min-h-8 items-center gap-2.5 text-sm text-ink-700 ${ruoloAdmin ? "cursor-pointer" : ""}`}>
             <input
               type="checkbox"
               checked={attivo}
               onChange={(e) => setAttivo(e.target.checked)}
               disabled={!ruoloAdmin}
-              className="accent-current text-brand disabled:cursor-not-allowed"
+              className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer disabled:cursor-not-allowed flex-shrink-0"
             />
             Cliente attivo{!ruoloAdmin && " (solo l'amministratore può cambiarlo)"}
           </label>
         </div>
 
-        <div className="pt-2 border-t border-ink-300/60 space-y-4">
+        <div className="pt-4 border-t border-linea space-y-4">
           <div>
-            <p className="text-sm font-semibold text-ink-900">Link rapidi</p>
+            <p className="text-base font-bold text-ink-900">Link rapidi</p>
             <p className="text-xs text-ink-500 mt-0.5">
-              Comparsa in alto sulla scheda cliente — visibile solo al team, mai sul link pubblico. I funnel si
-              gestiscono dalla pillola &ldquo;Funnel&rdquo; dell&apos;header, non da qui.
+              Compaiono in alto sulla scheda cliente. Li vede solo il team, mai il cliente sul link pubblico. I funnel si gestiscono
+              dal pulsante &ldquo;Funnel&rdquo; della scheda, non da qui.
             </p>
           </div>
           <Field label="Cartella Drive">
@@ -222,13 +283,12 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           </Field>
         </div>
 
-        <div className="pt-2 border-t border-ink-300/60 space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-ink-900">Personalizzazione</p>
-            <p className="text-xs text-ink-500 mt-0.5">
-              Sostituisce il brand ALC standard su questo cliente (scheda cliente + link pubblico) — vuoto = brand di default.
-            </p>
-          </div>
+        </div>
+
+        <div hidden={scheda !== "aspetto"} className="space-y-4">
+          <p className="text-sm leading-[22px] text-ink-500">
+            Logo, colori e carattere di questo cliente sulla sua scheda e sul link pubblico. Lasciati vuoti, resta l&apos;aspetto ALC.
+          </p>
           <PersonalizzazioneCliente
             logoUrl={logoUrl}
             onLogoUrlChange={setLogoUrl}
@@ -241,9 +301,13 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           />
         </div>
 
-        {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+        {errore && (
+          <Nota tono="critico" etichetta="Modifiche non salvate" compatta role="alert">
+            <p>{errore}</p>
+          </Nota>
+        )}
 
-        <div className="flex gap-2 pt-2 border-t border-ink-300/60">
+        <div className="flex flex-wrap gap-3 pt-4 border-t border-linea">
           <Button type="submit" disabled={salvando || !nome || !consulenteId}>
             {salvando ? "Salvataggio…" : "Salva modifiche"}
           </Button>
@@ -253,17 +317,21 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         </div>
       </form>
 
-      <div className="pt-4 mt-4 border-t border-ink-300/60 space-y-3">
-        <div>
-          <p className="text-sm font-semibold text-ink-900">Sedi</p>
-          <p className="text-xs text-ink-500 mt-0.5">
-            Ogni sede ha il proprio account pubblicitario e il proprio target — ads e risultati commerciali restano separati tra sedi diverse.
-          </p>
-        </div>
-        <div className="space-y-3">
-          {sedi.map((sede) => (
+      <div hidden={scheda !== "sedi"} className="space-y-4">
+        <p className="text-sm leading-[22px] text-ink-500">
+          Ogni sede ha il suo account pubblicitario e i suoi target: ads e risultati commerciali restano separati da una sede all&apos;altra.
+        </p>
+        {sedi.length > 1 && (
+          <Tabs
+            etichetta="Sede da modificare"
+            tabs={sedi.map((s) => ({ id: s.sedeId, label: s.attivo ? s.nome : `${s.nome} (non attiva)` }))}
+            attivo={sedeAperta}
+            onChange={setSedeScelta}
+          />
+        )}
+        {sedi.map((sede) => (
+          <div key={sede.sedeId} hidden={sede.sedeId !== sedeAperta}>
             <SedeRow
-              key={sede.sedeId}
               sede={sede}
               ghlConnessione={ghlPerSede[sede.sedeId]}
               onGhlSalvato={() => setGhlTick((t) => t + 1)}
@@ -273,18 +341,24 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
               onVenditoriSalvato={() => setVenditoriTick((t) => t + 1)}
               ruoloAdmin={ruoloAdmin}
               numeroSediCliente={sedi.length}
+              letture={{ ghl: statoGhl, categorie: statoCategorie, venditori: statoVenditori }}
             />
-          ))}
+          </div>
+        ))}
+        <div className="pt-4 border-t border-linea">
+          <NuovaSedeForm clienteId={cliente.clienteId} />
         </div>
-        <NuovaSedeForm clienteId={cliente.clienteId} />
       </div>
 
       {ruoloAdmin && (
-        <div className="pt-4 mt-4 border-t border-ink-300/60 space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-red-600">Zona pericolosa</p>
-            <p className="text-xs text-ink-500 mt-0.5">Elimina questo cliente e tutti i suoi dati collegati per sempre.</p>
-          </div>
+        <div hidden={scheda !== "elimina"} className="space-y-4">
+          <Nota tono="critico" etichetta="Azione definitiva">
+            <p>
+              Eliminare <strong className="font-bold text-ink-900">{cliente.nome}</strong> cancella per sempre anagrafica, sedi, connessioni GHL,
+              attività, meeting e risultati commerciali. Non si può annullare. Se vuoi solo toglierlo dall&apos;elenco, disattivalo dalla
+              scheda Cliente.
+            </p>
+          </Nota>
           <Button type="button" variant="danger" onClick={() => setConfermaEliminaClienteAperta(true)}>
             Elimina cliente
           </Button>
@@ -331,6 +405,7 @@ function SedeRow({
   onVenditoriSalvato,
   ruoloAdmin,
   numeroSediCliente,
+  letture,
 }: {
   sede: Sede;
   ghlConnessione?: GhlConnessioneVista;
@@ -341,6 +416,7 @@ function SedeRow({
   onCategorieSalvato: () => void;
   ruoloAdmin?: boolean;
   numeroSediCliente: number;
+  letture: { ghl: StatoLettura; categorie: StatoLettura; venditori: StatoLettura };
 }) {
   const [nome, setNome] = useState(sede.nome);
   const [adAccountId, setAdAccountId] = useState(sede.adAccountId);
@@ -406,8 +482,8 @@ function SedeRow({
   }
 
   return (
-    <div className="rounded-xl border border-ink-300 p-3 space-y-2.5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Nome sede">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} />
         </Field>
@@ -418,7 +494,7 @@ function SedeRow({
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Target CPA (€, opzionale)">
           <Input type="number" step="0.01" value={targetCpa} onChange={(e) => setTargetCpa(e.target.value)} />
         </Field>
@@ -426,7 +502,7 @@ function SedeRow({
           <Input type="number" step="0.01" value={targetCpl} onChange={(e) => setTargetCpl(e.target.value)} />
         </Field>
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 items-end">
         <Field label="Budget mensile (€, opz.)">
           <Input type="number" step="0.01" value={targetBudgetMensile} onChange={(e) => setTargetBudgetMensile(e.target.value)} />
         </Field>
@@ -450,30 +526,30 @@ function SedeRow({
           placeholder="Vuoto = usa la lista di default (Lead Ads classici)"
         />
       </Field>
-      <label className="flex items-start gap-2 text-xs text-ink-700 cursor-pointer">
+      <label className="flex items-start gap-2.5 text-sm text-ink-700 cursor-pointer">
         <input
           type="checkbox"
           checked={tutteLeCampagne}
           onChange={(e) => setTutteLeCampagne(e.target.checked)}
-          className="accent-current text-brand mt-0.5"
+          className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer mt-0.5 flex-shrink-0"
         />
         <span>
           Considera tutte le campagne dell&apos;account
-          <span className="block text-[11px] text-ink-500">
+          <span className="block text-xs text-ink-500 mt-0.5">
             Se non è spuntato e la sede ha campagne con &quot;ALC&quot; nel nome, KPI, grafici e dashboard contano di default solo
             quelle. Spuntalo quando tutte le campagne dell&apos;account sono gestite dall&apos;agenzia.
           </span>
         </span>
       </label>
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-          <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="accent-current text-brand" />
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+        <label className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
+          <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
           Sede attiva
         </label>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {salvato && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
-              <CheckCircle2 size={14} /> Salvato
+            <span role="status" className="flex items-center gap-1 text-xs font-bold text-ok">
+              <CheckCircle2 size={16} aria-hidden="true" /> Salvato
             </span>
           )}
           <Button
@@ -491,24 +567,30 @@ function SedeRow({
           )}
         </div>
       </div>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
-
-      {ruoloAdmin && sede.adAccountId && (
-        <div className="pt-2 mt-1 border-t border-ink-300/60">
-          <BackfillCampagneBlock sedeId={sede.sedeId} />
-        </div>
+      {errore && (
+        <p role="alert" className="text-xs font-semibold text-critico">
+          {errore}
+        </p>
       )}
 
-      <div className="pt-2 mt-1 border-t border-ink-300/60">
-        <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
-      </div>
-
-      <div className="pt-2 mt-1 border-t border-ink-300/60">
-        <CategorieCommercialiBlock sedeId={sede.sedeId} categorie={categorie} onSalvato={onCategorieSalvato} ruoloAdmin={ruoloAdmin} />
-      </div>
-
-      <div className="pt-2 mt-1 border-t border-ink-300/60">
-        <VenditoriBlock sedeId={sede.sedeId} venditori={venditori} onSalvato={onVenditoriSalvato} ruoloAdmin={ruoloAdmin} />
+      <div>
+        <SezioneSede titolo="Connessione GHL/Squadd" riepilogo={riepilogoSezione(letture.ghl, ghlConnessione ? "collegata" : "non collegata")}>
+          <GhlConnessioneBlock sedeId={sede.sedeId} connessione={ghlConnessione} onSalvato={onGhlSalvato} ruoloAdmin={ruoloAdmin} />
+        </SezioneSede>
+        <SezioneSede
+          titolo="Categorie commerciali"
+          riepilogo={riepilogoSezione(letture.categorie, categorie.length === 0 ? "nessuna" : `${categorie.length} su 3`)}
+        >
+          <CategorieCommercialiBlock sedeId={sede.sedeId} categorie={categorie} onSalvato={onCategorieSalvato} ruoloAdmin={ruoloAdmin} />
+        </SezioneSede>
+        <SezioneSede titolo="Venditori" riepilogo={riepilogoSezione(letture.venditori, venditori.length === 0 ? "nessuno" : String(venditori.length))}>
+          <VenditoriBlock sedeId={sede.sedeId} venditori={venditori} onSalvato={onVenditoriSalvato} ruoloAdmin={ruoloAdmin} />
+        </SezioneSede>
+        {ruoloAdmin && sede.adAccountId && (
+          <SezioneSede titolo="Recupero storico campagne">
+            <BackfillCampagneBlock sedeId={sede.sedeId} />
+          </SezioneSede>
+        )}
       </div>
 
       {mostraConfermaElimina && (
@@ -538,6 +620,23 @@ function SedeRow({
         />
       )}
     </div>
+  );
+}
+
+/** Una parte della sede che si apre a richiesta (GHL, categorie, venditori, recupero storico): il
+ * titolo dice cos'è e in che stato è, il contenuto resta montato anche da chiuso. */
+function SezioneSede({ titolo, riepilogo, children }: { titolo: string; riepilogo?: string; children: ReactNode }) {
+  return (
+    <details className="group border-t border-linea last:border-b">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 py-2 [&::-webkit-details-marker]:hidden">
+        <span className="flex flex-wrap items-baseline gap-x-2">
+          <span className="text-sm font-bold text-ink-900">{titolo}</span>
+          {riepilogo && <span className="text-xs font-medium text-ink-500">{riepilogo}</span>}
+        </span>
+        <ChevronDown size={18} aria-hidden="true" className="shrink-0 text-ink-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="pb-4 pt-1">{children}</div>
+    </details>
   );
 }
 
@@ -578,8 +677,7 @@ function BackfillCampagneBlock({ sedeId }: { sedeId: string }) {
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-ink-700">Recupero storico campagne</p>
-      <p className="text-[11px] text-ink-500">
+      <p className="text-xs text-ink-500">
         La sincronizzazione automatica guarda solo gli ultimi giorni: una campagna in pausa da tempo può non essere mai
         stata salvata, per nessun periodo. Recuperala una volta da qui — poi resta aggiornata da sola.
       </p>
@@ -589,8 +687,8 @@ function BackfillCampagneBlock({ sedeId }: { sedeId: string }) {
           {caricamento ? "Recupero…" : "Recupera storico"}
         </Button>
       </div>
-      {risultato && <p className="text-[11px] text-green-600">{risultato}</p>}
-      {errore && <p className="text-[11px] text-red-600">{errore}</p>}
+      {risultato && <p className="text-xs text-ok">{risultato}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
     </div>
   );
 }
@@ -656,7 +754,6 @@ function GhlConnessioneBlock({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Connessione GHL/Squadd</p>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
         <Field label="Location ID">
           <Input value={locationId} onChange={(e) => setLocationId(e.target.value)} placeholder="Location ID GHL" />
@@ -673,7 +770,7 @@ function GhlConnessioneBlock({
           />
         </Field>
       </div>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex gap-2">
         <Button type="button" size="sm" onClick={salva} disabled={salvando || !puoSalvare}>
           {salvando ? "Salvataggio…" : connessione ? "Aggiorna connessione" : "Collega"}
@@ -798,32 +895,32 @@ function GhlCalendariPicker({ connessione, onSalvato }: { connessione: GhlConnes
     return <p className="text-xs text-ink-500 pt-2">Caricamento calendari…</p>;
   }
   if (stato === "errore") {
-    return <p className="text-xs text-red-600 pt-2">{erroreCaricamento}</p>;
+    return <p className="text-xs text-critico pt-2">{erroreCaricamento}</p>;
   }
   if (calendari.length === 0) {
     return <p className="text-xs text-ink-500 pt-2">Nessun calendario trovato su questa location.</p>;
   }
 
   return (
-    <div className="space-y-2 pt-2 border-t border-ink-300/60 mt-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">
+    <div className="space-y-2 pt-2 border-t border-linea mt-2">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500">
         Calendari da includere negli appuntamenti
       </p>
       <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
         {calendari.map((c) => (
-          <label key={c.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+          <label key={c.id} className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
             <input
               type="checkbox"
               checked={selezionati.has(c.id)}
               onChange={() => toggle(c.id)}
-              className="accent-current text-brand"
+              className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0"
             />
             <span className="truncate">{c.name}</span>
-            <span className="text-ink-400 flex-shrink-0">({c.calendarType})</span>
+            <span className="text-ink-500 flex-shrink-0">({c.calendarType})</span>
           </label>
         ))}
       </div>
-      {erroreSalvataggio && <p className="text-xs text-red-600">{erroreSalvataggio}</p>}
+      {erroreSalvataggio && <p className="text-xs text-critico">{erroreSalvataggio}</p>}
       <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
         {salvando ? "Salvataggio…" : "Salva calendari"}
       </Button>
@@ -903,28 +1000,28 @@ function GhlPipelinePicker({ connessione, onSalvato }: { connessione: GhlConness
     return <p className="text-xs text-ink-500 pt-2">Caricamento pipeline…</p>;
   }
   if (stato === "errore") {
-    return <p className="text-xs text-red-600 pt-2">{erroreCaricamento}</p>;
+    return <p className="text-xs text-critico pt-2">{erroreCaricamento}</p>;
   }
   if (pipeline.length === 0) {
     return null;
   }
 
   return (
-    <div className="space-y-2 pt-2 border-t border-ink-300/60 mt-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Pipeline di questa sede</p>
+    <div className="space-y-2 pt-2 border-t border-linea mt-2">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500">Pipeline di questa sede</p>
       <p className="text-xs text-ink-500">
         Nessuna selezionata = la sede vale per tutta la location. Seleziona le pipeline solo quando più sedi condividono la stessa
         location GHL: vendite e appuntamenti conteranno solo i contatti con un&apos;opportunità in quelle pipeline.
       </p>
       <div className="space-y-1 max-h-40 overflow-y-auto pr-1">
         {pipeline.map((p) => (
-          <label key={p.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-            <input type="checkbox" checked={selezionate.has(p.id)} onChange={() => toggle(p.id)} className="accent-current text-brand" />
+          <label key={p.id} className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
+            <input type="checkbox" checked={selezionate.has(p.id)} onChange={() => toggle(p.id)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
             <span className="truncate">{p.name}</span>
           </label>
         ))}
       </div>
-      {erroreSalvataggio && <p className="text-xs text-red-600">{erroreSalvataggio}</p>}
+      {erroreSalvataggio && <p className="text-xs text-critico">{erroreSalvataggio}</p>}
       <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
         {salvando ? "Salvataggio…" : "Salva pipeline"}
       </Button>
@@ -957,7 +1054,6 @@ function CategorieCommercialiBlock({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Categorie commerciali</p>
       {categorie.length === 0 && !attiva && (
         <p className="text-xs text-ink-500">
           Nessuna — il ritmo mensile (tab KPI) mostra solo il totale sede.
@@ -1143,12 +1239,12 @@ function CategoriaCommercialeRow({
         >
           <div className="space-y-1 max-h-32 overflow-y-auto pr-1">
             {pipelineDisponibili.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+              <label key={p.id} className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={pipelineSelezionate.has(p.id)}
                   onChange={() => togglePipeline(p.id)}
-                  className="accent-current text-brand"
+                  className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0"
                 />
                 <span className="truncate">{p.name}</span>
               </label>
@@ -1157,11 +1253,11 @@ function CategoriaCommercialeRow({
         </Field>
       )}
       <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {salvato && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+            <span className="flex items-center gap-1 text-xs font-semibold text-ok">
               <CheckCircle2 size={14} /> Salvato
             </span>
           )}
@@ -1248,9 +1344,9 @@ function NuovaCategoriaCommercialeForm({
         <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Acquisition" />
       </Field>
       <CampiTargetCategoria valori={target} onChange={(campo, valore) => setTarget((t) => ({ ...t, [campo]: valore }))} />
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome.trim()}>
+        <Button variant="crea" type="button" size="sm" onClick={crea} disabled={creando || !nome.trim()}>
           {creando ? "Creazione…" : "Crea categoria"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onAnnulla}>
@@ -1283,7 +1379,6 @@ function VenditoriBlock({
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Venditori</p>
       {venditori.length === 0 && !attiva && (
         <p className="text-xs text-ink-500">
           Nessuno — la vista &quot;Performance venditori&quot; (tab KPI) resta vuota finché non ne aggiungi almeno uno.
@@ -1369,11 +1464,11 @@ function VenditoreRow({
       >
         <Input value={ghlUserId} onChange={(e) => setGhlUserId(e.target.value)} placeholder="id utente GHL" />
       </Field>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           {salvato && (
-            <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
+            <span className="flex items-center gap-1 text-xs font-semibold text-ok">
               <CheckCircle2 size={14} /> Salvato
             </span>
           )}
@@ -1459,9 +1554,9 @@ function NuovoVenditoreForm({
           <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} placeholder="es. 20" />
         </Field>
       </div>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome.trim() || !capienzaValida}>
+        <Button variant="crea" type="button" size="sm" onClick={crea} disabled={creando || !nome.trim() || !capienzaValida}>
           {creando ? "Creazione…" : "Crea venditore"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={onAnnulla}>
@@ -1538,7 +1633,7 @@ export function NuovaSedeForm({ clienteId }: { clienteId: string }) {
           <Input value={adAccountId} onChange={(e) => setAdAccountId(e.target.value)} placeholder="Solo cifre, senza act_" />
         </Field>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Target CPA (€, opzionale)">
           <Input type="number" step="0.01" value={targetCpa} onChange={(e) => setTargetCpa(e.target.value)} />
         </Field>
@@ -1546,9 +1641,9 @@ export function NuovaSedeForm({ clienteId }: { clienteId: string }) {
           <Input type="number" step="0.01" value={targetCpl} onChange={(e) => setTargetCpl(e.target.value)} />
         </Field>
       </div>
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex gap-2">
-        <Button type="button" size="sm" onClick={crea} disabled={creando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}>
+        <Button variant="crea" type="button" size="sm" onClick={crea} disabled={creando || !nome || (adAccountId !== "" && !/^\d+$/.test(adAccountId))}>
           {creando ? "Creazione…" : "Crea sede"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setAttiva(false)}>

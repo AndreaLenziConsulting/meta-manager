@@ -28,7 +28,7 @@ export function GuidaCollegareGhl() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="font-heading font-bold text-ink-900 text-base">1. Crea il token in GHL (Private Integration)</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">1. Crea il token in GHL (Private Integration)</h3>
         <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-brand">
           <li>Entra nel sub-account GHL del cliente (non nell&apos;agenzia/agency view — deve essere la location specifica).</li>
           <li>
@@ -49,7 +49,7 @@ export function GuidaCollegareGhl() {
           <li>Salva e genera il token.</li>
         </ol>
 
-        <div className="rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 p-3 flex items-start gap-2 text-xs">
+        <div className="rounded-xl bg-attenzione-tenue border border-attenzione/20 text-attenzione p-3 flex items-start gap-2 text-xs">
           <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
           <p>
             GHL mostra il token <strong>una sola volta</strong>, subito dopo averlo generato — copialo immediatamente.
@@ -60,7 +60,7 @@ export function GuidaCollegareGhl() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="font-heading font-bold text-ink-900 text-base">2. Trova il Location ID</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">2. Trova il Location ID</h3>
         <p>
           È l&apos;identificativo della location (sub-account) su GHL — lo trovi in{" "}
           <strong>Settings → Business Profile</strong>{" "}
@@ -71,7 +71,7 @@ export function GuidaCollegareGhl() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="font-heading font-bold text-ink-900 text-base">3. Collegalo nell&apos;app</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">3. Collegalo nell&apos;app</h3>
         <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-brand">
           <li>
             Apri <strong>Clienti</strong> → il cliente → icona di modifica (matita).
@@ -88,7 +88,7 @@ export function GuidaCollegareGhl() {
       </section>
 
       <section className="space-y-3">
-        <h3 className="font-heading font-bold text-ink-900 text-base">4. Scegli i calendari da contare</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">4. Scegli i calendari da contare</h3>
         <p>
           Subito dopo il collegamento riuscito, l&apos;app mostra l&apos;elenco dei calendari trovati su quella
           location — spunta quelli che sono davvero pagine di prenotazione per i clienti (una location porta spesso
@@ -98,7 +98,7 @@ export function GuidaCollegareGhl() {
         </p>
       </section>
 
-      <div className="rounded-xl bg-green-50 border border-green-100 text-green-700 p-3 flex items-start gap-2 text-xs">
+      <div className="rounded-xl bg-ok-tenue border border-ok/20 text-ok p-3 flex items-start gap-2 text-xs">
         <CheckCircle2 size={14} className="flex-shrink-0 mt-0.5" />
         <p>
           Fatto: da qui in avanti il tab KPI di quella sede mostra appuntamenti e vendite in diretta da GHL. Il token

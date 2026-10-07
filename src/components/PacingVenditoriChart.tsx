@@ -95,7 +95,7 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
   }, [clienteId, sedeId, haConnessioneGhl]);
 
   if (caricamento) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore) return <p className="text-sm text-red-600">{errore}</p>;
+  if (errore) return <p className="text-sm text-critico">{errore}</p>;
   if (!dati) return null;
 
   const venditori = dati.sede.venditori ?? [];

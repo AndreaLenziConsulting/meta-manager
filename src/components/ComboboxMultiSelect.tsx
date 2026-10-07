@@ -60,8 +60,15 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
         setQuery("");
       }
     }
+    function handleTasto(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleTasto);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleTasto);
+    };
   }, [open]);
 
   function emetti(nuovoSet: Set<string>) {
@@ -91,14 +98,16 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
       >
-        <Filter size={14} className="text-ink-500" />
+        <Filter size={16} aria-hidden="true" className="text-ink-500" />
         {tutteSelezionate ? `${etichettaTutti} (${tuttiGliId.length})` : `${attive.size}/${tuttiGliId.length} ${nomePlurale}`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4">
           {ricercabile && (
             <input
               autoFocus
@@ -106,13 +115,14 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Cerca…"
-              className="w-full rounded-lg border border-ink-300 px-2.5 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition mb-2"
+              aria-label={`Cerca fra ${nomePlurale}`}
+              className="w-full min-h-8 rounded-lg border border-bordo-campo bg-surface-card px-2.5 py-1 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition-colors mb-2"
             />
           )}
           <button
             type="button"
             onClick={toggleTutte}
-            className="w-full text-left text-xs font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2"
+            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2 cursor-pointer"
           >
             {tutteSelezionate ? "Deseleziona tutte" : "Seleziona tutte"}
           </button>
@@ -124,15 +134,15 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
               return (
                 <div key={chiave || "_"}>
                   {haGruppi && chiave && (
-                    <label className="flex items-center gap-2 text-xs font-semibold text-ink-900 cursor-pointer">
-                      <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="accent-current text-brand" />
+                    <label className="flex min-h-8 items-center gap-2.5 text-sm font-bold text-ink-900 cursor-pointer">
+                      <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
                       {chiave}
                     </label>
                   )}
                   <div className={haGruppi && chiave ? "mt-1 ml-5 space-y-1" : "space-y-1"}>
                     {lista.map((o) => (
-                      <label key={o.id} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-                        <input type="checkbox" checked={attive.has(o.id)} onChange={() => toggleOpzione(o.id)} className="accent-current text-brand flex-shrink-0" />
+                      <label key={o.id} className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
+                        <input type="checkbox" checked={attive.has(o.id)} onChange={() => toggleOpzione(o.id)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
                         <span className="truncate">{o.label}</span>
                       </label>
                     ))}

@@ -38,7 +38,7 @@ export function PerformancePrevisionale({ seed }: { seed: ScenarioRoi }) {
   return (
     <div className="rounded-xl border border-ink-300 bg-surface-card p-4 space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="font-heading font-bold text-ink-900 text-sm">Performance previsionale</p>
+        <p className="font-heading text-xl leading-[26px] font-bold text-ink-900">Performance previsionale</p>
         <Button variant="secondary" size="sm" onClick={() => setScenario(seed)}>
           Riporta al punto di partenza
         </Button>
@@ -98,7 +98,7 @@ export function PerformancePrevisionale({ seed }: { seed: ScenarioRoi }) {
 function OutputRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-ink-500">{label}</p>
+      <p className="text-xs font-bold uppercase tracking-[.12em] text-ink-500">{label}</p>
       <p className="font-semibold text-ink-900 tabular-nums">{value}</p>
     </div>
   );

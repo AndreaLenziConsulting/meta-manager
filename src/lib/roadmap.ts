@@ -139,6 +139,18 @@ export function attivitaInRitardo(attivita: AttivitaClienteRow[], oggi: string =
     .sort((a, b) => (a.dataFine < b.dataFine ? -1 : a.dataFine > b.dataFine ? 1 : 0));
 }
 
+/** Giorni in avanti che contano come "in scadenza" nella vista "Da fare ora" della pagina Attività. */
+export const GIORNI_FINESTRA_DA_FARE_ORA = 7;
+
+/**
+ * Un'attività è "da fare ora" se non è fatta e la sua scadenza è già passata oppure cade entro i
+ * prossimi GIORNI_FINESTRA_DA_FARE_ORA giorni (oggi compreso). È la vista con cui si apre la pagina
+ * Attività (07/10/2026): prima si apriva su tutte le attività di tutti i clienti, 240 righe.
+ */
+export function attivitaDaFareOra(attivita: AttivitaClienteRow, oggi: string = oggiIso()): boolean {
+  return attivita.stato !== "done" && attivita.dataFine <= aggiungiGiorni(oggi, GIORNI_FINESTRA_DA_FARE_ORA);
+}
+
 /** Raggruppa le righe di roadmap multi-cliente (come le restituisce getAttivitaCliente()) per clienteId. */
 export function raggruppaAttivitaPerCliente(attivita: AttivitaClienteRow[]): Map<string, AttivitaClienteRow[]> {
   const mappa = new Map<string, AttivitaClienteRow[]>();

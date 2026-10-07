@@ -218,7 +218,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
   }
 
   if (caricamento && !dati) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore && !dati) return <p className="text-sm text-red-600">{errore}</p>;
+  if (errore && !dati) return <p className="text-sm text-critico">{errore}</p>;
   if (!dati) return null;
 
   const haRoadmap = dati.gruppi.some((g) => g.attivita.length > 0);
@@ -247,7 +247,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
 
   return (
     <div className="space-y-3">
-      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {errore && <p className="text-sm text-critico">{errore}</p>}
 
       <FaseCompletataBanner fasi={fasiCompletate} />
 
@@ -259,7 +259,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
       />
 
       {!haRoadmap ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
+        <div className="rounded-xl border border-linea bg-surface-card p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
           <div className="text-center max-w-sm">
             <h3 className="text-base font-semibold text-ink-900">Nessuna roadmap</h3>
             {dati.cliente.prodottoId && dati.cliente.dataInizioProgetto ? (
@@ -271,7 +271,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
                   type="button"
                   onClick={handleGeneraRoadmap}
                   disabled={generando}
-                  className="mt-4 rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 text-white text-sm font-semibold px-4 py-2.5 transition"
+                  className="mt-4 alc-btn alc-btn--crea"
                 >
                   {generando ? "Generazione…" : "Genera roadmap"}
                 </button>

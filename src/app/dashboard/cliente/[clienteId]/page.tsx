@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { getClienti, getConsulenti, getGhlConnessioni, getSedi } from "@/lib/sheets";
@@ -6,8 +7,27 @@ import { settimanaCorrente } from "@/lib/roadmap";
 import { SchedaCliente } from "@/components/SchedaCliente";
 import { styleTemaCliente } from "@/lib/temaCliente";
 
-export default async function ClienteSchedaPage({ params }: { params: Promise<{ clienteId: string }> }) {
+// Nella scheda del browser c'è il nome del cliente ("Niteko · Meta Manager ALC"): con più clienti
+// aperti in schede diverse prima erano tutte uguali. Solo per chi può vedere quel cliente; la
+// lettura dell'elenco è la stessa della pagina sotto (in cache per questa richiesta, nessuna in più).
+export async function generateMetadata({ params }: { params: Promise<{ clienteId: string }> }): Promise<Metadata> {
   const { clienteId } = await params;
+  const sessione = await getSessione();
+  if (!sessione) return {};
+  const clienti = await getClienti();
+  if (!puoVedereCliente(sessione, clienteId, clienti)) return {};
+  return { title: clienti.find((c) => c.clienteId === clienteId)?.nome ?? "Cliente" };
+}
+
+export default async function ClienteSchedaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ clienteId: string }>;
+  searchParams: Promise<{ tab?: string | string[] }>;
+}) {
+  const { clienteId } = await params;
+  const { tab } = await searchParams;
   const sessione = await getSessione();
 
   if (!sessione) {
@@ -41,7 +61,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
     // ri-valuta var(--font-sans) per conto dei suoi discendenti. Ridichiararla su questo elemento
     // (dentro il quale --font-sans è già stata sovrascritta dallo style) la fa risolvere qui.
     <div
-      className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6 font-sans"
+      className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-6 space-y-6 font-sans"
       style={cliente ? styleTemaCliente(cliente) : undefined}
     >
       <SchedaCliente
@@ -62,6 +82,7 @@ export default async function ClienteSchedaPage({ params }: { params: Promise<{ 
         sedi={sediCliente}
         consulenti={consulenti}
         nomeConsulenteCorrente={nomeConsulenteCorrente}
+        tabIniziale={typeof tab === "string" ? tab : undefined}
       />
     </div>
   );

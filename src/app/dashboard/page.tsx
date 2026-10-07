@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMeetingCliente, getMetaDaily, getSedi } from "@/lib/sheets";
@@ -18,6 +19,13 @@ import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
 import { AvvisoSincronizzazioneMeta, type ProblemaSincronizzazioneVista } from "@/components/AvvisoSincronizzazioneMeta";
 import { diagnosticaDatiFermi, sediConDatiMetaFermi } from "@/lib/sincronizzazioneMeta";
 import { fetchSpesaCampagne } from "@/lib/meta";
+import { etichettaIntervallo } from "@/lib/periodo";
+import { Intestazione } from "@/components/ui/Intestazione";
+import { Nota } from "@/components/ui/Nota";
+import { CLASSE_PULSANTE, DIMENSIONE_PULSANTE, VARIANTE_PULSANTE } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
+
+export const metadata: Metadata = { title: "Clienti" };
 
 const GIORNI_FINESTRA = 7;
 
@@ -65,8 +73,11 @@ export default async function DashboardHomePage() {
 
   if (visibili.length === 0) {
     return (
-      <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8">
-        <p className="text-sm text-ink-500">Nessun cliente assegnato.</p>
+      <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+        <Intestazione titolo="Clienti." />
+        <Nota etichetta="Nessun cliente">
+          <p>Non hai ancora clienti assegnati. Quando un amministratore te ne assegna uno, lo trovi qui.</p>
+        </Nota>
       </div>
     );
   }
@@ -143,25 +154,19 @@ export default async function DashboardHomePage() {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="font-heading font-bold text-xl text-ink-900">Clienti</h2>
-          <p className="text-sm text-ink-500 mt-1">
-            Salute ads (ultimi 7 giorni, {daData} → {aData} — costo per lead vs target: le vendite sono
-            tracciate solo a livello mensile, quindi su questa finestra il segnale è sempre il costo per lead)
-            e stato dei lavori, {isAdmin ? "cliente per cliente." : "sui tuoi clienti."}
-          </p>
-        </div>
-        {isAdmin && (
-          <a
-            href="/dashboard/nuovo-cliente"
-            className="flex-shrink-0 rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
-          >
-            + Nuovo cliente
-          </a>
-        )}
-      </div>
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <Intestazione
+        sopratitolo={`Ultimi ${GIORNI_FINESTRA} giorni · ${etichettaIntervallo(daData, aData)}`}
+        titolo="Clienti."
+        sottotitolo={`Costo per lead contro il target e stato dei lavori, ${isAdmin ? "cliente per cliente" : "sui tuoi clienti"}.`}
+        azioni={
+          isAdmin && (
+            <a href="/dashboard/nuovo-cliente" className={cn(CLASSE_PULSANTE, VARIANTE_PULSANTE.crea, DIMENSIONE_PULSANTE.md)}>
+              + Nuovo cliente
+            </a>
+          )
+        }
+      />
       <AvvisoSincronizzazioneMeta problemi={problemiSincronizzazione} />
       <RiepilogoAllarmiAdmin riepilogo={riepilogo} />
       <DashboardClienti items={itemsOrdinati} consulenti={consulenti} mostraToggle={isAdmin} />

@@ -206,7 +206,7 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
   }
 
   if (errore) {
-    return <p className="text-sm text-red-600">{errore}</p>;
+    return <p className="text-sm text-critico">{errore}</p>;
   }
 
   if (!risultati || risultati.length === 0) {
@@ -272,21 +272,20 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
 
       <Card padding="none" className="overflow-hidden">
         <div className="flex items-center gap-2 px-5 pt-5">
-          <div className="w-1 h-5 rounded-full bg-brand" />
-          <h3 className="font-heading font-bold text-ink-900 text-[15px]">Confronto fra sedi</h3>
+          <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Confronto fra sedi</h3>
         </div>
         <div className="overflow-x-auto mt-3">
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="border-b border-ink-300/60">
-                <th className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Metrica</th>
+                <th scope="col" className="text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500">Metrica</th>
                 {righe.map((r) => (
-                  <th key={r.sedeId} className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">
+                  <th key={r.sedeId} scope="col" className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">
                     {r.nome}
                   </th>
                 ))}
-                <th className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">Media</th>
-                <th className="text-left font-medium px-4 py-3 whitespace-nowrap text-ink-500">Chi è avanti</th>
+                <th scope="col" className="text-right font-medium px-4 py-3 whitespace-nowrap text-ink-500">Media</th>
+                <th scope="col" className="text-left font-medium px-4 py-3 whitespace-nowrap text-ink-500">Chi è avanti</th>
               </tr>
             </thead>
             <tbody>
@@ -324,7 +323,7 @@ export function PerformanceConfronto({ clienteId, sediDisponibili, da, a, campag
                             ))}
                           </div>
                         ) : (
-                          <span className="text-xs text-ink-300">—</span>
+                          <span className="text-xs text-ink-500">—</span>
                         )
                       ) : (
                         <span className="text-xs text-ink-500">dipende dalla spesa</span>

@@ -29,7 +29,7 @@ export function NuovoProspectForm({ commerciali }: { commerciali?: { commerciale
 
   if (!attivo) {
     return (
-      <Button type="button" onClick={() => setAttivo(true)}>
+      <Button variant="crea" type="button" onClick={() => setAttivo(true)}>
         + Nuovo prospect
       </Button>
     );
@@ -55,7 +55,7 @@ export function NuovoProspectForm({ commerciali }: { commerciali?: { commerciale
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 space-y-3">
       <Field label="Ragione sociale">
         <Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} placeholder="Es. Rossi Impianti Srl" required autoFocus />
       </Field>
@@ -79,9 +79,9 @@ export function NuovoProspectForm({ commerciali }: { commerciali?: { commerciale
       >
         <Input type="email" multiple value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+      {errore && <div className="px-3 py-2.5 rounded-lg bg-critico-tenue border border-critico/20 text-critico text-xs">{errore}</div>}
       <div className="flex gap-2">
-        <Button type="submit" disabled={creando || !ragioneSociale || (!!commerciali && !commercialeId)}>
+        <Button variant="crea" type="submit" disabled={creando || !ragioneSociale || (!!commerciali && !commercialeId)}>
           {creando ? "Creazione…" : "Crea prospect"}
         </Button>
         <Button type="button" variant="ghost" onClick={() => setAttivo(false)}>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  attivitaDaFareOra,
   attivitaInRitardo,
   dataFineSettimana,
   dataInizioSettimana,
@@ -301,5 +302,28 @@ describe("fasiCompletateRecenti", () => {
 
   it("nessuna fase completata di recente -> array vuoto", () => {
     expect(fasiCompletateRecenti([], "alc-07", oggi)).toEqual([]);
+  });
+});
+
+describe("attivitaDaFareOra", () => {
+  // Vista con cui si apre la pagina Attività: non fatta, e in ritardo o in scadenza entro 7 giorni.
+  const oggi = "2026-10-07";
+
+  it("in ritardo e non fatta: sì", () => {
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-09-20", stato: "todo" }), oggi)).toBe(true);
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-09-20", stato: "blocked" }), oggi)).toBe(true);
+  });
+
+  it("scade oggi o entro i prossimi 7 giorni: sì, estremo compreso", () => {
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-10-07", stato: "wip" }), oggi)).toBe(true);
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-10-14", stato: "todo" }), oggi)).toBe(true);
+  });
+
+  it("scade più in là di una settimana: no", () => {
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-10-15", stato: "todo" }), oggi)).toBe(false);
+  });
+
+  it("già fatta: no, anche se la scadenza è passata", () => {
+    expect(attivitaDaFareOra(riga({ dataFine: "2026-09-20", stato: "done" }), oggi)).toBe(false);
   });
 });

@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { CheckCircle2, Send } from "lucide-react";
 import { getSessione } from "@/lib/auth";
 import { getCommerciali, getProspect, getReportCommerciale } from "@/lib/sheets";
 import { prospectVisibili } from "@/lib/authz";
 import { NuovoProspectForm } from "@/components/NuovoProspectForm";
+import { Badge } from "@/components/ui/Badge";
+import { Intestazione, CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
+import { Nota } from "@/components/ui/Nota";
+import { formatDataBreve } from "@/lib/format";
+
+export const metadata: Metadata = { title: "Prospect" };
 
 export default async function ProspectListaPage() {
   const sessione = await getSessione();
@@ -26,13 +32,12 @@ export default async function ProspectListaPage() {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
-        <h2 className="font-heading font-bold text-xl text-ink-900">Prospect</h2>
-        <p className="text-sm text-ink-500 mt-1">
-          {sessione.ruolo === "admin" ? "Tutti i prospect di tutti i commerciali." : "I tuoi prospect."}
-        </p>
-      </div>
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <Intestazione
+        sopratitolo={sessione.ruolo === "admin" ? "Tutti i commerciali" : "I tuoi prospect"}
+        titolo="Prospect."
+        sottotitolo="Le aziende in trattativa e i report delle chiamate commerciali."
+      />
 
       {sessione.ruolo === "commerciale" && <NuovoProspectForm />}
       {sessione.ruolo === "admin" && (
@@ -42,28 +47,27 @@ export default async function ProspectListaPage() {
       )}
 
       {visibili.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
-          <p className="text-sm text-ink-500">Nessun prospect ancora.</p>
-        </div>
+        <Nota etichetta="Nessun prospect">
+          <p>Non c&apos;è ancora nessun prospect. Creane uno con il pulsante qui sopra.</p>
+        </Nota>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {visibili.map((p) => (
             <a
               key={p.prospectId}
               href={`/dashboard/commerciale/${encodeURIComponent(p.prospectId)}`}
-              className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 hover:shadow-md transition"
+              className="flex flex-col gap-2 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
             >
-              <div className="flex items-center gap-1.5">
-                <p className="font-heading font-bold text-ink-900 text-base truncate">{p.ragioneSociale}</p>
-                {p.clienteId ? (
-                  <CheckCircle2 size={15} className="text-green-600 flex-shrink-0" aria-label="Convertito in cliente" />
-                ) : (
-                  p.consulenteSuggeritoId && <Send size={13} className="text-brand flex-shrink-0" aria-label="Proposto per conversione" />
-                )}
-              </div>
-              {p.tipoBusiness && <p className="text-xs text-ink-500 mt-0.5">{p.tipoBusiness}</p>}
-              <p className="text-[11px] text-ink-500 mt-2.5 pt-2.5 border-t border-ink-300/60">
-                {ultimoReportPer.has(p.prospectId) ? `Ultimo report: ${ultimoReportPer.get(p.prospectId)}` : "Nessun report ancora"}
+              <p className={`${CLASSE_TITOLO_SEZIONE} truncate`}>{p.ragioneSociale}</p>
+              {/* Lo stato è scritto, non affidato a un'icona di 13px col significato nel tooltip. */}
+              {(p.clienteId || p.consulenteSuggeritoId) && (
+                <p>{p.clienteId ? <Badge tono="successo">Convertito in cliente</Badge> : <Badge tono="info">Proposto per la conversione</Badge>}</p>
+              )}
+              {p.tipoBusiness && <p className="text-sm text-ink-500">{p.tipoBusiness}</p>}
+              <p className="text-xs text-ink-500 mt-auto pt-3 border-t border-linea">
+                {ultimoReportPer.has(p.prospectId)
+                  ? `Ultimo report: ${formatDataBreve(ultimoReportPer.get(p.prospectId) ?? "")}`
+                  : "Nessun report ancora"}
               </p>
             </a>
           ))}

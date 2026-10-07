@@ -174,13 +174,13 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
   }
 
   if (caricamento && !meetingTeam && !meetingPubblico) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore && !meetingTeam && !meetingPubblico) return <p className="text-sm text-red-600">{errore}</p>;
+  if (errore && !meetingTeam && !meetingPubblico) return <p className="text-sm text-critico">{errore}</p>;
 
   const listaVuota = (meetingTeam?.length ?? meetingPubblico?.length ?? 0) === 0;
 
   return (
     <div className="space-y-3">
-      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {errore && <p className="text-sm text-critico">{errore}</p>}
 
       {clienteId && (
         <NuovoMeetingForm
@@ -196,7 +196,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       {clienteId && <AndamentoSentiment andamento={andamento} />}
 
       {listaVuota && (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+        <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessun meeting registrato.</p>
         </div>
       )}
@@ -221,28 +221,28 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                 </p>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
-                {m.sentiment && <span className="text-[11px] text-ink-500 max-w-[160px] truncate hidden sm:inline">{m.sentiment}</span>}
-                <span className="text-ink-300 text-xs">{aperto ? "▲" : "▼"}</span>
+                {m.sentiment && <span className="text-xs text-ink-500 max-w-[160px] truncate hidden sm:inline">{m.sentiment}</span>}
+                <span className="text-ink-500 text-xs">{aperto ? "▲" : "▼"}</span>
               </div>
             </button>
 
             {aperto && inModifica && bozza && (
               <div className="space-y-3">
                 <MeetingReportView meeting={bozza} clienteNome={clienteNome} onChange={(u) => setBozza({ ...bozza, ...u })} />
-                {erroreEdit && <p className="text-xs text-red-600">{erroreEdit}</p>}
+                {erroreEdit && <p className="text-xs text-critico">{erroreEdit}</p>}
                 <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={salvaModifica}
                     disabled={salvandoEdit}
-                    className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+                    className="alc-btn"
                   >
                     {salvandoEdit ? "Salvataggio…" : "Salva modifiche"}
                   </button>
                   <button
                     type="button"
                     onClick={annullaModifica}
-                    className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
+                    className="alc-btn alc-btn--neutro"
                   >
                     Annulla
                   </button>
@@ -266,7 +266,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                     <button
                       type="button"
                       onClick={() => handleEliminaMeeting(m.meetingId)}
-                      className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 hover:underline"
+                      className="inline-flex items-center gap-1 text-xs font-semibold text-critico hover:underline"
                     >
                       <Trash2 size={12} className="flex-shrink-0" />
                       Elimina
@@ -283,7 +283,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       {meetingPubblico?.map((m) => {
         const aperto = espanso === m.meetingId;
         return (
-          <div key={m.meetingId} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
+          <div key={m.meetingId} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}

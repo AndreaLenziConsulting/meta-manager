@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Calendar, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input, Select } from "@/components/ui/Input";
-import { MESI_BREVI } from "@/lib/format";
+import { formatDataBreve, MESI_BREVI } from "@/lib/format";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import {
   etichettaIntervallo,
@@ -60,13 +60,13 @@ function MeseCalendario({
   const celle: (number | null)[] = [...Array(offset).fill(null), ...Array.from({ length: giorniNelMese }, (_, i) => i + 1)];
 
   return (
-    <div className="min-w-0">
-      <p className="text-sm font-semibold text-ink-900 text-center mb-2">
+    <div className="min-w-0" role="group" aria-label={`${MESI_BREVI[m - 1]} ${anno}`}>
+      <p aria-hidden="true" className="text-sm font-bold text-ink-900 text-center mb-2">
         {MESI_BREVI[m - 1].toLowerCase()} {anno}
       </p>
       <div className="grid grid-cols-7 gap-y-0.5 text-center">
         {GIORNI_SETTIMANA.map((g) => (
-          <span key={g} className="text-[11px] text-ink-500 py-1">
+          <span key={g} aria-hidden="true" className="text-xs font-medium text-ink-500 py-1">
             {g}
           </span>
         ))}
@@ -82,11 +82,15 @@ function MeseCalendario({
               type="button"
               disabled={futuro}
               onClick={() => onGiorno(iso)}
+              // Il nome è la data per esteso ("7 ott 2026"), non il solo numero del giorno; lo stato
+              // dice se è un estremo del periodo o un giorno compreso.
+              aria-label={`${formatDataBreve(iso)}${estremo ? (iso === da && iso === a ? ", giorno scelto" : iso === da ? ", inizio del periodo" : ", fine del periodo") : dentro ? ", nel periodo" : ""}`}
+              aria-pressed={estremo || dentro}
               className={`h-8 text-xs tabular-nums transition-colors ${
                 futuro
-                  ? "text-ink-300 cursor-not-allowed"
+                  ? "text-ink-500 opacity-50 cursor-not-allowed"
                   : estremo
-                    ? "bg-brand text-white font-semibold rounded-lg cursor-pointer"
+                    ? "bg-brand text-white font-bold rounded-lg cursor-pointer"
                     : dentro
                       ? "bg-brand-light text-ink-900 cursor-pointer"
                       : "text-ink-700 hover:bg-surface rounded-lg cursor-pointer"
@@ -148,8 +152,16 @@ export function DateRangePicker({ valore, onChange }: Props) {
     function handleClick(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
+    // Esc chiude senza applicare, come "Annulla".
+    function handleTasto(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleTasto);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleTasto);
+    };
   }, [open]);
 
   function applicaPreset(id: PresetPeriodoId) {
@@ -209,28 +221,44 @@ export function DateRangePicker({ valore, onChange }: Props) {
       <button
         type="button"
         onClick={() => (open ? setOpen(false) : apri())}
-        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Periodo: ${etichettaBottone}. Clicca per cambiarlo`}
+        className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
       >
-        <Calendar size={14} className="text-ink-500" />
+        <Calendar size={16} aria-hidden="true" className="text-ink-500" />
         {etichettaBottone}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-[min(760px,calc(100vw-2rem))] rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4 flex flex-col sm:flex-row gap-4">
+        <div
+          role="dialog"
+          aria-label="Scegli il periodo"
+          className="absolute z-20 mt-2 w-[min(780px,calc(100vw-2rem))] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 flex flex-col sm:flex-row gap-4"
+        >
           {/* Preset — stessa colonna di Meta: lista a radio, scorrevole. */}
-          <div className="sm:w-44 flex-shrink-0 sm:border-r border-b sm:border-b-0 border-ink-300/60 pb-3 sm:pb-0 sm:pr-3 max-h-72 sm:max-h-[420px] overflow-y-auto space-y-0.5">
+          <div
+            role="radiogroup"
+            aria-label="Periodi predefiniti"
+            className="sm:w-48 flex-shrink-0 sm:border-r border-b sm:border-b-0 border-linea pb-3 sm:pb-0 sm:pr-3 max-h-72 sm:max-h-[440px] overflow-y-auto"
+          >
             {PRESET_PERIODO.map((p) => {
               const attivo = pendingPreset === p.id;
               return (
                 <button
                   key={p.id}
                   type="button"
+                  role="radio"
+                  aria-checked={attivo}
                   onClick={() => applicaPreset(p.id)}
-                  className={`w-full flex items-center gap-2 text-left text-xs px-2 py-1.5 rounded-lg transition-colors cursor-pointer ${
-                    attivo ? "bg-brand-light text-brand font-semibold" : "text-ink-700 hover:bg-surface"
+                  className={`w-full min-h-8 flex items-center gap-2.5 text-left text-sm px-2 py-1 rounded-lg transition-colors cursor-pointer ${
+                    attivo ? "bg-brand-light text-brand font-bold" : "text-ink-700 hover:bg-surface"
                   }`}
                 >
-                  <span className={`w-3.5 h-3.5 rounded-full border shrink-0 ${attivo ? "border-brand bg-brand" : "border-ink-300"}`} />
+                  <span
+                    aria-hidden="true"
+                    className={`w-4 h-4 rounded-full border-2 shrink-0 ${attivo ? "border-brand bg-brand shadow-[inset_0_0_0_3px_var(--superficie)]" : "border-bordo-campo"}`}
+                  />
                   {p.label}
                 </button>
               );
@@ -243,10 +271,10 @@ export function DateRangePicker({ valore, onChange }: Props) {
               <button
                 type="button"
                 onClick={() => setMeseVisibile((m) => spostaMese(m, -1))}
-                className="mt-0.5 w-7 h-7 rounded-md hover:bg-surface text-ink-500 flex items-center justify-center cursor-pointer shrink-0"
+                className="-mt-1 w-8 h-8 rounded-full hover:bg-surface text-ink-700 flex items-center justify-center cursor-pointer shrink-0"
                 aria-label="Mese precedente"
               >
-                <ChevronLeft size={16} />
+                <ChevronLeft size={18} aria-hidden="true" />
               </button>
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4 min-w-0">
                 <MeseCalendario mese={spostaMese(meseVisibile, -1)} da={pendingDa} a={pendingA} oggi={oggi} onGiorno={onGiorno} />
@@ -256,23 +284,24 @@ export function DateRangePicker({ valore, onChange }: Props) {
                 type="button"
                 onClick={() => setMeseVisibile((m) => spostaMese(m, 1))}
                 disabled={meseVisibile >= oggi.slice(0, 7)}
-                className="mt-0.5 w-7 h-7 rounded-md hover:bg-surface text-ink-500 flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="-mt-1 w-8 h-8 rounded-full hover:bg-surface text-ink-700 flex items-center justify-center cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
                 aria-label="Mese successivo"
               >
-                <ChevronRight size={16} />
+                <ChevronRight size={18} aria-hidden="true" />
               </button>
             </div>
 
             {/* Riga periodo principale: preset + date digitabili, come in Meta. */}
             <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-center">
               <Select
+                aria-label="Periodo predefinito"
                 value={pendingPreset}
                 onChange={(e) => {
                   const v = e.target.value;
                   if (isPresetPeriodoId(v)) applicaPreset(v);
                   else setPendingPreset("personalizzato");
                 }}
-                className="text-xs py-2"
+                className="min-h-10 py-2"
               >
                 {PRESET_PERIODO.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -283,6 +312,7 @@ export function DateRangePicker({ valore, onChange }: Props) {
               </Select>
               <Input
                 type="date"
+                aria-label="Data di inizio"
                 value={pendingDa}
                 max={oggi}
                 onChange={(e) => {
@@ -290,10 +320,11 @@ export function DateRangePicker({ valore, onChange }: Props) {
                   setPendingPreset("personalizzato");
                   setErrore(null);
                 }}
-                className="w-auto text-xs py-2"
+                className="w-auto min-h-10 py-2"
               />
               <Input
                 type="date"
+                aria-label="Data di fine"
                 value={pendingA}
                 max={oggi}
                 onChange={(e) => {
@@ -301,23 +332,24 @@ export function DateRangePicker({ valore, onChange }: Props) {
                   setPendingPreset("personalizzato");
                   setErrore(null);
                 }}
-                className="w-auto text-xs py-2"
+                className="w-auto min-h-10 py-2"
               />
             </div>
 
             {/* Confronto: automatico (stesso numero di giorni subito prima) o scelto a mano. */}
-            <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer w-fit">
-              <input type="checkbox" checked={confrontaAttivo} onChange={(e) => setConfrontaAttivo(e.target.checked)} className="accent-current text-brand" />
+            <label className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer w-fit">
+              <input type="checkbox" checked={confrontaAttivo} onChange={(e) => setConfrontaAttivo(e.target.checked)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
               Confronta
             </label>
             {confrontaAttivo && (
               <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-2 items-center">
-                <Select value={confrontoModo} onChange={(e) => setConfrontoModo(e.target.value as "automatico" | "personalizzato")} className="text-xs py-2">
+                <Select aria-label="Periodo di confronto" value={confrontoModo} onChange={(e) => setConfrontoModo(e.target.value as "automatico" | "personalizzato")} className="min-h-10 py-2">
                   <option value="automatico">Periodo precedente (automatico)</option>
                   <option value="personalizzato">Personalizzato</option>
                 </Select>
                 <Input
                   type="date"
+                  aria-label="Inizio del periodo di confronto"
                   value={confrontoModo === "automatico" ? confrontoAutomatico.da : confrontoDa}
                   disabled={confrontoModo === "automatico"}
                   max={oggi}
@@ -325,10 +357,11 @@ export function DateRangePicker({ valore, onChange }: Props) {
                     setConfrontoDa(e.target.value);
                     setErrore(null);
                   }}
-                  className="w-auto text-xs py-2"
+                  className="w-auto min-h-10 py-2"
                 />
                 <Input
                   type="date"
+                  aria-label="Fine del periodo di confronto"
                   value={confrontoModo === "automatico" ? confrontoAutomatico.a : confrontoA}
                   disabled={confrontoModo === "automatico"}
                   max={oggi}
@@ -336,25 +369,29 @@ export function DateRangePicker({ valore, onChange }: Props) {
                     setConfrontoA(e.target.value);
                     setErrore(null);
                   }}
-                  className="w-auto text-xs py-2"
+                  className="w-auto min-h-10 py-2"
                 />
               </div>
             )}
 
-            {errore && <p className="text-xs text-red-600">{errore}</p>}
+            {errore && (
+              <p role="alert" className="text-xs font-semibold text-critico">
+                {errore}
+              </p>
+            )}
 
-            <div className="flex justify-end gap-2 pt-2 border-t border-ink-300/60">
+            <div className="flex justify-end gap-2 pt-3 border-t border-linea">
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="text-xs font-medium px-3 py-1.5 rounded-lg text-ink-500 hover:bg-surface transition-colors cursor-pointer"
+                className="alc-btn alc-btn--neutro alc-btn--piccolo"
               >
                 Annulla
               </button>
               <button
                 type="button"
                 onClick={applica}
-                className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-cta hover:bg-cta-dark text-white transition-colors cursor-pointer"
+                className="alc-btn alc-btn--piccolo"
               >
                 Aggiorna
               </button>

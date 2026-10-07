@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo, isPeriodoMensile, meseDiPeriodo } from "./kpi";
+import { computeKpi, computeKpiPerCampagna, computeSpesaLeadPeriodo, haRisultatiCommercialiNelPeriodo, isPeriodoMensile, meseDiPeriodo } from "./kpi";
 import type { Campagna, RisultatoCommercialeRow, MetaDailyRow } from "@/types/kpi";
 
 const SEDE = "s1";
@@ -514,5 +514,33 @@ describe("isolamento tra canali con lo stesso campaignId", () => {
     const r = computeSpesaLeadPeriodo("multi-canale", SEDE, "2026-06-01", "2026-06-30", metaDailyDueCanali, campagneDueCanali);
     expect(r.investimento).toBe(600); // 100 (meta) + 500 (google), entrambe valide per la sede
     expect(r.numeroLead).toBe(60);
+  });
+});
+
+describe("haRisultatiCommercialiNelPeriodo", () => {
+  // Serve alle tessere del tab KPI: senza righe inserite a mano lo zero di appuntamenti/vendite non
+  // è un dato, e la tessera deve dire "Non compilato".
+  it("vero se una riga mensile della sede cade per intero nel periodo", () => {
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-06-01", "2026-06-30", RISULTATI_COMMERCIALI)).toBe(true);
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-06", "2026-06", RISULTATI_COMMERCIALI)).toBe(true);
+  });
+
+  it("falso se il mese è coperto solo in parte: stessa regola di computeKpi, quella riga non conta", () => {
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-06-10", "2026-07-05", RISULTATI_COMMERCIALI)).toBe(false);
+  });
+
+  it("falso per un altro periodo, un altro cliente o un'altra sede", () => {
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-07-01", "2026-07-31", RISULTATI_COMMERCIALI)).toBe(false);
+    expect(haRisultatiCommercialiNelPeriodo("altro-cliente", SEDE, "2026-06-01", "2026-06-30", RISULTATI_COMMERCIALI)).toBe(false);
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", "un-altra-sede", "2026-06-01", "2026-06-30", RISULTATI_COMMERCIALI)).toBe(false);
+  });
+
+  it("una riga settimanale conta se lunedì e domenica stanno entrambi nel periodo", () => {
+    const settimanale: RisultatoCommercialeRow[] = [
+      { periodo: "2026-06-15", clienteId: "alc-01", sedeId: SEDE, tipoCampagna: "Prospecting", richieste: 0, appuntamentiFissati: 0, appuntamentiEffettuati: 0, vendite: 0, fatturato: 0 },
+    ];
+    // Presente anche se i suoi numeri sono tutti zero: qualcuno ha compilato, e zero è un dato vero.
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-06-15", "2026-06-21", settimanale)).toBe(true);
+    expect(haRisultatiCommercialiNelPeriodo("alc-01", SEDE, "2026-06-15", "2026-06-20", settimanale)).toBe(false);
   });
 });

@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { MeetingGlobali } from "@/components/MeetingGlobali";
+import { Intestazione } from "@/components/ui/Intestazione";
+
+export const metadata: Metadata = { title: "Meeting" };
 
 /**
  * Vista aggregata di tutti i meeting dei clienti visibili (tutti per l'admin, i propri per il
@@ -19,13 +23,12 @@ export default async function MeetingGlobaliPage() {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
-        <h2 className="font-heading font-bold text-xl text-ink-900">Meeting</h2>
-        <p className="text-sm text-ink-500 mt-1">
-          {sessione.ruolo === "admin" ? "Tutti i meeting di tutti i clienti." : "Tutti i meeting dei tuoi clienti."}
-        </p>
-      </div>
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <Intestazione
+        sopratitolo={sessione.ruolo === "admin" ? "Tutti i clienti" : "I tuoi clienti"}
+        titolo="Meeting."
+        sottotitolo="I report degli incontri con i clienti, dal più recente."
+      />
       <MeetingGlobali />
     </div>
   );

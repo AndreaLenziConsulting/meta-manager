@@ -102,6 +102,14 @@ describe("guessTipoCampagnaFromNome", () => {
   it("usa solo il primo blocco tra parentesi quadre", () => {
     expect(guessTipoCampagnaFromNome("[Prospecting] variante [B]")).toBe("Prospecting");
   });
+
+  it("[ALC] in testa è l'etichetta dell'agenzia, non un tipo: si guarda il prefisso dopo", () => {
+    expect(guessTipoCampagnaFromNome("[ALC] [Prospecting] lead form")).toBe("Prospecting");
+    expect(guessTipoCampagnaFromNome("[alc][Retargeting] 30gg")).toBe("Retargeting");
+    // Nessun altro prefisso: resta da classificare a mano, mai il tipo "Alc".
+    expect(guessTipoCampagnaFromNome("[ALC] lead form mobilieri")).toBe("");
+    expect(guessTipoCampagnaFromNome("[Alc]")).toBe("");
+  });
 });
 
 describe("toNumber / toNumberOrNull", () => {

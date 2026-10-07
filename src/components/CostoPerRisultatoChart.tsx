@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { formatEuro, formatSettimana } from "@/lib/format";
+import { formatEuro, formatEuroIntero, formatSettimana } from "@/lib/format";
 import { calcolaCostoPerRisultatoSettimanale, type PuntoCostoPerRisultato } from "@/lib/costoPerRisultatoSettimanale";
 
 const HEIGHT = 158;
@@ -129,7 +129,7 @@ export function CostoPerRisultatoChart({
           </li>
         </ul>
       </div>
-      <p className="text-[11px] text-ink-500 mb-2">
+      <p className="text-xs text-ink-500 mb-2">
         Due assi con scale diverse (€ totali a sinistra, €/unità a destra): leggi l&apos;andamento di ogni linea nel tempo, non confrontare le
         altezze fra linee diverse.
       </p>
@@ -145,14 +145,14 @@ export function CostoPerRisultatoChart({
           {yTicksSpesa.map((tick) => (
             <g key={`sx-${tick}`}>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yForSpesa(tick)} y2={yForSpesa(tick)} stroke="var(--gridline)" strokeWidth={1} />
-              <text x={PAD_LEFT - 8} y={yForSpesa(tick) + 3} textAnchor="end" fontSize={10} fill="var(--series-1)">
-                {formatEuro(tick)}
+              <text x={PAD_LEFT - 8} y={yForSpesa(tick) + 3} textAnchor="end" fontSize={12} fill="var(--series-1)">
+                {formatEuroIntero(tick)}
               </text>
             </g>
           ))}
           {yTicksUnitario.map((tick) => (
-            <text key={`dx-${tick}`} x={WIDTH - PAD_RIGHT + 8} y={yForUnitario(tick) + 3} textAnchor="start" fontSize={10} fill="var(--text-muted)">
-              {formatEuro(tick)}
+            <text key={`dx-${tick}`} x={WIDTH - PAD_RIGHT + 8} y={yForUnitario(tick) + 3} textAnchor="start" fontSize={12} fill="var(--text-muted)">
+              {formatEuroIntero(tick)}
             </text>
           ))}
 
@@ -180,7 +180,7 @@ export function CostoPerRisultatoChart({
 
           {punti.map((p, i) =>
             i % passoEtichette === 0 ? (
-              <text key={p.settimana} x={xFor(i)} y={HEIGHT + 18} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+              <text key={p.settimana} x={xFor(i)} y={HEIGHT + 18} textAnchor="middle" fontSize={12} fill="var(--text-muted)">
                 {p.etichetta}
               </text>
             ) : null

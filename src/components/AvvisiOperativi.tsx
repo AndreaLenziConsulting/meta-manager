@@ -1,59 +1,84 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown } from "lucide-react";
 import type { AvvisoOperativo, TonoAvviso } from "@/lib/avvisiOperativi";
-import { STILE_LIVELLO, type LivelloStato } from "@/lib/statusStyles";
+import type { LivelloStato } from "@/lib/statusStyles";
+import { Badge } from "@/components/ui/Badge";
+import { Card } from "@/components/ui/Card";
+import { Nota, type TonoNota } from "@/components/ui/Nota";
+import { CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
 
 const TONO_A_LIVELLO: Record<TonoAvviso, LivelloStato> = { attenzione: "attenzione", "da-sistemare": "critico", "da-sapere": "info" };
+const TONO_A_NOTA: Record<TonoAvviso, TonoNota> = { attenzione: "attenzione", "da-sistemare": "critico", "da-sapere": "accento" };
 const ETICHETTA_TONO: Record<TonoAvviso, string> = { attenzione: "attenzione", "da-sistemare": "da sistemare", "da-sapere": "da sapere" };
-const ORDINE_TONO: TonoAvviso[] = ["attenzione", "da-sistemare", "da-sapere"];
+// Prima ciò che va sistemato, poi ciò che merita attenzione, in fondo le cose solo da sapere.
+const ORDINE_TONO: TonoAvviso[] = ["da-sistemare", "attenzione", "da-sapere"];
 
 /**
- * Blocco 4 del redesign KPI — pannello comprimibile di avvisi operativi automatici, ispirato a "Il
- * punto in breve" di hygge-casa-dashboard. Il chiamante (KpiSection.tsx) lo gated su
- * Boolean(clienteId): mai sul link pubblico `code`, mai per un ruolo commerciale (che non arriva
- * mai a un clienteId, vedi authz.ts). Default APERTO, con un riepilogo compatto in testata sempre
- * visibile (anche da chiuso) — nessuno stato vuoto nascosto: "Nessun avviso al momento" è comunque
- * un'informazione, non l'assenza del pannello.
+ * Avvisi operativi automatici del tab KPI. Il chiamante (KpiSection.tsx) li mostra solo al team
+ * (`clienteId`): mai sul link pubblico `code`, mai per un ruolo commerciale.
+ *
+ * Stanno SOTTO le sei tessere dei numeri, non sopra (audit UX del 06/10/2026: quattro avvisi
+ * spingevano i numeri fuori dalla prima schermata). Il riepilogo in testata è sempre visibile; il
+ * pannello si apre da solo soltanto quando c'è qualcosa "da sistemare" — il resto si legge con un
+ * clic. Una volta che la persona lo apre o lo chiude, resta come l'ha lasciato.
  */
 export function AvvisiOperativi({ avvisi }: { avvisi: AvvisoOperativo[] }) {
-  const [aperto, setAperto] = useState(true);
+  const [scelta, setScelta] = useState<boolean | null>(null);
+  const idElenco = useId();
+  const aperto = scelta ?? avvisi.some((a) => a.tono === "da-sistemare");
 
   const conteggi = ORDINE_TONO.map((tono) => ({ tono, count: avvisi.filter((a) => a.tono === tono).length })).filter(
     (c) => c.count > 0
   );
-  const riepilogo =
-    avvisi.length === 0
-      ? "Nessun avviso al momento"
-      : `${avvisi.length} ${avvisi.length === 1 ? "avviso" : "avvisi"} — ${conteggi
-          .map((c) => `${c.count} ${ETICHETTA_TONO[c.tono]}`)
-          .join(", ")}`;
+  const ordinati = ORDINE_TONO.flatMap((tono) => avvisi.filter((a) => a.tono === tono));
+
+  if (avvisi.length === 0) {
+    return (
+      <Card className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <h3 className={CLASSE_TITOLO_SEZIONE}>Avvisi operativi</h3>
+        <p className="text-sm text-ink-500">Nessun avviso al momento.</p>
+      </Card>
+    );
+  }
 
   return (
-    <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
-      <button type="button" onClick={() => setAperto((a) => !a)} className="w-full flex items-center justify-between gap-3 cursor-pointer">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="w-1 h-5 rounded-full bg-brand shrink-0" />
-          <h3 className="font-heading font-bold text-ink-900 text-[15px] shrink-0">Avvisi operativi</h3>
-          <span className="text-xs text-ink-500 truncate">{riepilogo}</span>
-        </div>
-        <ChevronDown size={16} className={`text-ink-500 shrink-0 transition-transform ${aperto ? "rotate-180" : ""}`} />
+    <Card>
+      <button
+        type="button"
+        onClick={() => setScelta(!aperto)}
+        aria-expanded={aperto}
+        aria-controls={idElenco}
+        className="-m-2 flex w-[calc(100%+1rem)] min-h-11 items-center justify-between gap-3 rounded-lg p-2 text-left cursor-pointer hover:bg-surface transition-colors"
+      >
+        <span className="flex flex-wrap items-center gap-x-3 gap-y-2 min-w-0">
+          <span className={CLASSE_TITOLO_SEZIONE}>Avvisi operativi</span>
+          {conteggi.map((c) => (
+            <Badge key={c.tono} tono={TONO_A_LIVELLO[c.tono]}>
+              {c.count} {ETICHETTA_TONO[c.tono]}
+            </Badge>
+          ))}
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 text-xs font-semibold text-ink-500">
+          {aperto ? "Nascondi" : "Mostra"}
+          <ChevronDown size={18} aria-hidden="true" className={`transition-transform ${aperto ? "rotate-180" : ""}`} />
+        </span>
       </button>
 
-      {aperto && avvisi.length > 0 && (
-        <div className="mt-4 space-y-2.5">
-          {avvisi.map((a) => {
-            const stile = STILE_LIVELLO[TONO_A_LIVELLO[a.tono]];
-            return (
-              <div key={a.id} className={`rounded-xl border px-3.5 py-2.5 ${stile.classe}`}>
-                <p className="text-xs font-semibold">{a.titolo}</p>
-                <p className="text-xs mt-0.5 opacity-90">{a.messaggio}</p>
-              </div>
-            );
-          })}
-        </div>
+      {aperto && (
+        <ul id={idElenco} className="mt-4 space-y-2.5">
+          {ordinati.map((a) => (
+            <li key={a.id}>
+              <Nota tono={TONO_A_NOTA[a.tono]} etichetta={ETICHETTA_TONO[a.tono]} compatta>
+                <p>
+                  <strong className="font-bold text-ink-900">{a.titolo.replace(/[.:]$/, "")}.</strong> {a.messaggio}
+                </p>
+              </Nota>
+            </li>
+          ))}
+        </ul>
       )}
-    </div>
+    </Card>
   );
 }

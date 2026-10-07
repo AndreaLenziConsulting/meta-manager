@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessione } from "@/lib/auth";
 import { getProspect } from "@/lib/sheets";
 import { puoVedereProspect } from "@/lib/authz";
 import { CalcolatoreBudgetProspect } from "@/components/CalcolatoreBudgetProspect";
+import { Intestazione } from "@/components/ui/Intestazione";
+
+export const metadata: Metadata = { title: "Calcolatore Budget" };
 
 /**
  * Sezione a parte del prospect, fuori dal report (vedi Prospect.calcolatoreBudget in
@@ -28,19 +32,19 @@ export default async function CalcolatoreProspectPage({ params }: { params: Prom
   const prospect = prospetti.find((p) => p.prospectId === prospectId)!;
 
   return (
-    <div className="max-w-screen-md mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
+    <div className="max-w-screen-md mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <div className="space-y-3">
         <Link
           href={`/dashboard/commerciale/${encodeURIComponent(prospectId)}`}
-          className="text-xs font-semibold text-brand hover:underline"
+          className="inline-flex min-h-8 items-center text-sm font-semibold text-brand hover:underline"
         >
           ← {prospect.ragioneSociale}
         </Link>
-        <h2 className="font-heading font-bold text-2xl text-ink-900 mt-2">Calcolatore Budget</h2>
-        <p className="text-sm text-ink-500 mt-1">
-          Da un fatturato mensile obiettivo a budget, appuntamenti e lead necessari — questi numeri vengono proposti
-          come target della Sede quando converti il prospect in cliente.
-        </p>
+        <Intestazione
+          sopratitolo="Prospect"
+          titolo="Calcolatore Budget."
+          sottotitolo="Da un fatturato mensile obiettivo a budget, appuntamenti e lead necessari. Diventano i target della sede quando converti il prospect in cliente."
+        />
       </div>
 
       <CalcolatoreBudgetProspect prospect={prospect} />

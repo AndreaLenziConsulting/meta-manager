@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { formatEuro, formatSettimana } from "@/lib/format";
+import { formatEuro, formatEuroIntero, formatSettimana } from "@/lib/format";
 import { calcolaSaldoNettoCumulato, type PuntoSaldoNetto } from "@/lib/saldoNettoCumulato";
 
 const HEIGHT = 158;
@@ -202,8 +202,8 @@ export function SaldoNettoCumulatoChart({
                 strokeWidth={1}
                 strokeDasharray={tick === 0 ? undefined : "3,3"}
               />
-              <text x={PAD_LEFT - 8} y={yFor(tick) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">
-                {formatEuro(tick)}
+              <text x={PAD_LEFT - 8} y={yFor(tick) + 3} textAnchor="end" fontSize={12} fill="var(--text-muted)">
+                {formatEuroIntero(tick)}
               </text>
             </g>
           ))}
@@ -228,7 +228,7 @@ export function SaldoNettoCumulatoChart({
 
           {punti.map((p, i) =>
             i % passoEtichette === 0 ? (
-              <text key={p.settimana} x={xFor(i)} y={HEIGHT + 18} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+              <text key={p.settimana} x={xFor(i)} y={HEIGHT + 18} textAnchor="middle" fontSize={12} fill="var(--text-muted)">
                 {p.etichetta}
               </text>
             ) : null

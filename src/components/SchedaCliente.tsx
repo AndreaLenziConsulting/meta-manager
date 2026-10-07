@@ -44,6 +44,9 @@ type Props = {
   // Nome del consulente della sessione corrente, per il quick-filter "Le mie task" del tab
   // Attività — vedi lo stesso prop in AttivitaTab.tsx.
   nomeConsulenteCorrente?: string;
+  // Sezione da aprire, letta dall'indirizzo (`?tab=attivita`) lato server in
+  // dashboard/cliente/[clienteId]/page.tsx. Assente = KPI.
+  tabIniziale?: string;
 };
 
 export function SchedaCliente({
@@ -62,14 +65,28 @@ export function SchedaCliente({
   sedi = [],
   consulenti = [],
   nomeConsulenteCorrente,
+  tabIniziale,
 }: Props) {
-  const [tabAttivo, setTabAttivo] = useState("kpi");
+  const [tabScelto, setTabScelto] = useState(tabIniziale ?? "kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
   const [meetingDaEvidenziare, setMeetingDaEvidenziare] = useState<string | null>(null);
 
+  // La sezione aperta sta anche nell'indirizzo (audit UX del 06/10/2026: ricaricando la pagina o
+  // mandando il link a un collega si tornava sempre su KPI). `replaceState` e non `pushState`: il
+  // tasto "indietro" continua a riportare all'elenco clienti, non alla sezione di prima. Solo
+  // nell'area team: sul link pubblico `code` l'indirizzo resta quello consegnato al cliente.
+  function apriTab(id: string) {
+    setTabScelto(id);
+    if (code) return;
+    const url = new URL(window.location.href);
+    if (id === "kpi") url.searchParams.delete("tab");
+    else url.searchParams.set("tab", id);
+    window.history.replaceState(null, "", url);
+  }
+
   function vaiAMeeting(meetingId: string) {
     setMeetingDaEvidenziare(meetingId);
-    setTabAttivo("meeting");
+    apriTab("meeting");
   }
 
   // Attività è riservata al team: mai visibile sul link cliente pubblico (`code`), a prescindere da
@@ -131,6 +148,10 @@ export function SchedaCliente({
       : []),
   ];
 
+  // Un `?tab=` che non corrisponde a nessuna sezione visibile (scritto a mano, o di un ruolo che
+  // quella sezione non la vede) vale KPI.
+  const tabAttivo = items.some((i) => i.id === tabScelto) ? tabScelto : "kpi";
+
   if (items.length === 1) {
     return <KpiSection code={code} clienteId={clienteId} haConnessioneGhl={haConnessioneGhl} ruoloAdmin={ruoloAdmin} />;
   }
@@ -160,7 +181,7 @@ export function SchedaCliente({
           restituisce anche la riga "Settimana N" + link rapidi — passata qui come `trailing` così
           finisce sulla STESSA riga delle tab sotto, allineata a destra (richiesta utente, 09/2026),
           invece che in una riga tutta sua sopra. */}
-      <Accordion items={items} aperto={tabAttivo} onChange={setTabAttivo} trailing={header} />
+      <Accordion items={items} aperto={tabAttivo} onChange={apriTab} trailing={header} etichetta="Sezioni del cliente" />
     </div>
   );
 }

@@ -67,14 +67,14 @@ export function ProspectDatiCommerciali({
   const nomeConsulenteSuggerito = consulenti?.find((c) => c.consulenteId === prospect.consulenteSuggeritoId)?.nome;
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-semibold text-ink-900">Dati commerciali</p>
         <div className="flex items-center gap-3">
           {convertito ? (
             <Link
               href={`/dashboard/cliente/${encodeURIComponent(prospect.clienteId)}`}
-              className="flex items-center gap-1.5 text-xs font-semibold text-green-700 hover:underline"
+              className="flex items-center gap-1.5 text-xs font-semibold text-ok hover:underline"
             >
               <CheckCircle2 size={14} /> Convertito in cliente
             </Link>
@@ -112,7 +112,7 @@ export function ProspectDatiCommerciali({
             <button
               type="button"
               onClick={() => setConfermaEliminaAperta(true)}
-              className="text-ink-500 hover:text-red-600 transition cursor-pointer"
+              className="text-ink-500 hover:text-critico transition cursor-pointer"
               aria-label="Elimina prospect"
             >
               <Trash2 size={14} />
@@ -132,7 +132,7 @@ export function ProspectDatiCommerciali({
           <Dato label="Margine medio su vendita" value={formatPct(prospect.targetMargineVenditaPct)} />
           {prospect.driveFolderUrl && (
             <div className="col-span-2 sm:col-span-4">
-              <p className="text-[10px] uppercase tracking-wide text-ink-500">Cartella Drive</p>
+              <p className="text-xs font-bold uppercase tracking-[.12em] text-ink-500">Cartella Drive</p>
               <a
                 href={prospect.driveFolderUrl}
                 target="_blank"
@@ -258,7 +258,7 @@ function ProponiConversioneModal({
           </Select>
         </Field>
 
-        {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+        {errore && <div className="px-3 py-2.5 rounded-lg bg-critico-tenue border border-critico/20 text-critico text-xs">{errore}</div>}
 
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
           <Button type="button" disabled={salvando} onClick={() => salva(consulenteSuggeritoId)}>
@@ -281,7 +281,7 @@ function ProponiConversioneModal({
 function Dato({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-[10px] uppercase tracking-wide text-ink-500">{label}</p>
+      <p className="text-xs font-bold uppercase tracking-[.12em] text-ink-500">{label}</p>
       <p className="text-sm font-semibold text-ink-900 tabular-nums">{value}</p>
     </div>
   );
@@ -399,7 +399,7 @@ function ModificaDatiCommercialiModal({
           </Field>
         </div>
 
-        {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+        {errore && <div className="px-3 py-2.5 rounded-lg bg-critico-tenue border border-critico/20 text-critico text-xs">{errore}</div>}
 
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
           <Button type="submit" disabled={salvando}>

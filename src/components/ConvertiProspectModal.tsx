@@ -154,7 +154,7 @@ export function ConvertiProspectModal({
         </div>
 
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500 mb-2">
+          <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500 mb-2">
             Target commerciali della sede (opzionali)
             {precompilatoDaCalcolatore && " — precompilati dal Calcolatore Budget del prospect, verificali"}
           </p>
@@ -196,7 +196,7 @@ export function ConvertiProspectModal({
 
         {haDatiCommercialiProspect && (
           <div className="rounded-xl border border-ink-300 bg-surface p-3 space-y-1.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-ink-500">
+            <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500">
               Dati commerciali del prospect — solo di riferimento, non copiati sopra
             </p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs text-ink-700">
@@ -212,10 +212,10 @@ export function ConvertiProspectModal({
           <p className="text-xs text-ink-500">La cartella Drive del prospect verrà collegata anche al nuovo cliente.</p>
         )}
 
-        {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+        {errore && <div className="px-3 py-2.5 rounded-lg bg-critico-tenue border border-critico/20 text-critico text-xs">{errore}</div>}
 
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
-          <Button type="submit" disabled={salvando || !nome || !consulenteId}>
+          <Button variant="crea" type="submit" disabled={salvando || !nome || !consulenteId}>
             {salvando ? "Conversione…" : "Crea cliente"}
           </Button>
           <Button type="button" variant="ghost" onClick={onClose}>

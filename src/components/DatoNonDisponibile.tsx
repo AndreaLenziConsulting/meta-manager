@@ -18,7 +18,7 @@ export function DatoNonDisponibile({ motivo, className }: DatoNonDisponibileProp
       title={testo}
       aria-label={testo}
       className={cn(
-        "inline-flex h-4 w-4 shrink-0 cursor-help select-none items-center justify-center rounded-full border border-ink-300 text-[9px] font-semibold leading-none text-ink-300",
+        "inline-flex h-5 w-5 shrink-0 cursor-help select-none items-center justify-center rounded-full border border-bordo-campo text-xs font-bold leading-none text-ink-500",
         className
       )}
     >

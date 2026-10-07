@@ -8,7 +8,7 @@ import type { TroncamentoInfo } from "@/lib/estrazione";
 import type { MeetingDataLoose } from "@/types/meeting";
 
 const inputClass =
-  "w-full rounded-xl border border-ink-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition";
+  "w-full min-h-11 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition-colors";
 const inputClassFlex = inputClass.replace("w-full ", "");
 const labelClass = "text-xs font-semibold text-ink-700 mb-1 block";
 
@@ -137,7 +137,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
       <button
         type="button"
         onClick={() => setMostraForm(true)}
-        className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+        className="alc-btn alc-btn--crea"
       >
         + Nuovo meeting
       </button>
@@ -149,7 +149,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
       {esitoInvio && (
         <div
           className={`rounded-xl border p-3 flex items-start justify-between gap-3 text-xs ${
-            esitoInvio.inviata ? "bg-green-50 border-green-100 text-green-700" : "bg-yellow-50 border-yellow-100 text-yellow-800"
+            esitoInvio.inviata ? "bg-ok-tenue border-ok/20 text-ok" : "bg-attenzione-tenue border-attenzione/20 text-attenzione"
           }`}
         >
           <p className="flex items-start gap-1.5">
@@ -171,7 +171,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
       )}
 
       {!anteprima && (
-        <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
+        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
           <form onSubmit={handleEstrai} className="space-y-2">
             {!clienteIdFisso && (
               <div>
@@ -207,14 +207,14 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
               <button
                 type="submit"
                 disabled={estraendo || !url || !clienteId}
-                className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition whitespace-nowrap"
+                className="alc-btn whitespace-nowrap"
               >
                 {estraendo ? "Estrazione…" : "Estrai"}
               </button>
               <button
                 type="button"
                 onClick={chiudiEResetta}
-                className="rounded-xl border border-ink-300 text-sm font-semibold px-3 py-2.5 text-ink-500 hover:bg-surface transition"
+                className="alc-btn alc-btn--neutro"
               >
                 Annulla
               </button>
@@ -229,7 +229,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
                 mezzo…
               </p>
             )}
-            {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
+            {erroreForm && <p className="text-xs text-critico">{erroreForm}</p>}
           </form>
         </div>
       )}
@@ -239,7 +239,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
           <h4 className="text-sm font-semibold text-ink-900">Anteprima — verifica e modifica prima di salvare</h4>
 
           {troncamento && (
-            <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
+            <p className="text-xs bg-attenzione-tenue border border-attenzione/20 text-attenzione rounded-lg px-3 py-2.5">
               La chiamata era più lunga di quanto il modello riesca ad analizzare in un colpo solo: elaborati{" "}
               {troncamento.caratteriElaborati.toLocaleString("it-IT")} di{" "}
               {troncamento.caratteriTotali.toLocaleString("it-IT")} caratteri (
@@ -268,21 +268,21 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
               checked={inviaAutomatica}
               disabled={!clienteEmail}
               onChange={(e) => setInviaAutomatica(e.target.checked)}
-              className="accent-current text-brand"
+              className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0"
             />
             {clienteEmail
               ? `Invia email al cliente in automatico (a ${clienteEmail}, con PDF allegato)`
               : "Invia email al cliente in automatico — aggiungi l'email del cliente nella scheda cliente per abilitarlo"}
           </label>
 
-          {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
+          {erroreForm && <p className="text-xs text-critico">{erroreForm}</p>}
 
           <div className="flex gap-2 pt-2 border-t border-ink-300/40">
             <button
               type="button"
               onClick={handleSalva}
               disabled={salvando}
-              className="rounded-xl bg-cta hover:bg-cta-dark disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+              className="alc-btn"
             >
               {salvando ? (inviaAutomatica ? "Salvataggio e invio…" : "Salvataggio…") : "Salva"}
             </button>
@@ -292,7 +292,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
                 setAnteprima(null);
                 setTroncamento(null);
               }}
-              className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition"
+              className="alc-btn alc-btn--neutro"
             >
               Annulla
             </button>

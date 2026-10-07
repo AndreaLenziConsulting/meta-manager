@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut, Shield } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { iniziali } from "@/lib/format";
 import type { Ruolo } from "@/types/kpi";
 
@@ -13,12 +14,22 @@ const ETICHETTA_RUOLO: Record<Ruolo, string> = {
 };
 
 /**
- * Sostituisce ClientSwitcher.tsx nella barra in alto (l'utente lo trovava poco utile ormai che la
- * navigazione clienti vive nella Sidebar/pagina Clienti) — mostra invece chi ha effettuato
- * l'accesso, con un menu a tendina per uscire. Nessun logout esisteva prima in tutta l'app: questo
- * è anche il primo punto in cui diventa possibile, non solo un indicatore statico.
+ * Chi ha effettuato l'accesso, con un menu a tendina per uscire. Due posti:
+ * - `laterale`: in fondo al menù laterale su schermo grande (il menu si apre verso l'alto);
+ *   `compatto` = rail compressa, resta solo il cerchio;
+ * - `barra` (default): nella barra in alto su telefono, solo il cerchio, menu verso il basso.
  */
-export function AccountMenu({ ruolo, nome }: { ruolo: Ruolo; nome: string | null }) {
+export function AccountMenu({
+  ruolo,
+  nome,
+  posizione = "barra",
+  compatto = false,
+}: {
+  ruolo: Ruolo;
+  nome: string | null;
+  posizione?: "barra" | "laterale";
+  compatto?: boolean;
+}) {
   const router = useRouter();
   const [aperto, setAperto] = useState(false);
   const [uscendo, setUscendo] = useState(false);
@@ -29,8 +40,15 @@ export function AccountMenu({ ruolo, nome }: { ruolo: Ruolo; nome: string | null
     function chiudiSeFuori(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setAperto(false);
     }
+    function chiudiConEsc(e: KeyboardEvent) {
+      if (e.key === "Escape") setAperto(false);
+    }
     document.addEventListener("mousedown", chiudiSeFuori);
-    return () => document.removeEventListener("mousedown", chiudiSeFuori);
+    document.addEventListener("keydown", chiudiConEsc);
+    return () => {
+      document.removeEventListener("mousedown", chiudiSeFuori);
+      document.removeEventListener("keydown", chiudiConEsc);
+    };
   }, [aperto]);
 
   async function handleEsci() {
@@ -43,36 +61,55 @@ export function AccountMenu({ ruolo, nome }: { ruolo: Ruolo; nome: string | null
     }
   }
 
+  const laterale = posizione === "laterale";
+  const mostraNome = laterale && !compatto;
+  const etichetta = nome ?? ETICHETTA_RUOLO[ruolo];
+
   return (
     <div className="relative" ref={rootRef}>
       <button
         type="button"
         onClick={() => setAperto((v) => !v)}
-        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-2.5 py-1.5 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
-      >
-        {nome ? (
-          <span className="w-6 h-6 rounded-full bg-brand text-white text-[11px] font-semibold flex items-center justify-center flex-shrink-0">
-            {iniziali(nome)}
-          </span>
-        ) : (
-          <Shield size={16} className="text-brand flex-shrink-0" />
+        aria-haspopup="menu"
+        aria-expanded={aperto}
+        aria-label={mostraNome ? undefined : `Account: ${etichetta}`}
+        title={mostraNome ? undefined : etichetta}
+        className={cn(
+          "flex min-h-11 items-center gap-3 rounded-lg text-left text-sm text-ink-900 transition cursor-pointer hover:bg-surface",
+          laterale ? "w-full px-2" : "px-1.5"
         )}
-        <span className="hidden sm:inline font-medium truncate max-w-[140px]">{nome ?? ETICHETTA_RUOLO[ruolo]}</span>
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+          {nome ? iniziali(nome) : <Shield size={16} aria-hidden="true" />}
+        </span>
+        {mostraNome && (
+          <span className="min-w-0">
+            <span className="block truncate font-semibold">{etichetta}</span>
+            {nome && <span className="block truncate text-xs text-ink-500">{ETICHETTA_RUOLO[ruolo]}</span>}
+          </span>
+        )}
       </button>
 
       {aperto && (
-        <div className="absolute right-0 top-full mt-2 z-20 w-52 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg py-1.5">
-          <div className="px-3 py-2 border-b border-ink-300/60">
-            <p className="text-sm font-semibold text-ink-900 truncate">{nome ?? ETICHETTA_RUOLO[ruolo]}</p>
+        <div
+          role="menu"
+          className={cn(
+            "absolute z-30 w-52 rounded-xl border border-linea bg-surface-card py-1.5 shadow-[var(--shadow-alta)]",
+            laterale ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2"
+          )}
+        >
+          <div className="px-3 py-2 border-b border-linea">
+            <p className="text-sm font-semibold text-ink-900 truncate">{etichetta}</p>
             {nome && <p className="text-xs text-ink-500">{ETICHETTA_RUOLO[ruolo]}</p>}
           </div>
           <button
             type="button"
+            role="menuitem"
             onClick={handleEsci}
             disabled={uscendo}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-50 transition-colors cursor-pointer"
+            className="w-full flex min-h-11 items-center gap-2 px-3 text-sm font-semibold text-critico hover:bg-critico-tenue disabled:opacity-50 transition-colors cursor-pointer"
           >
-            <LogOut size={15} />
+            <LogOut size={16} aria-hidden="true" />
             {uscendo ? "Uscita…" : "Esci"}
           </button>
         </div>

@@ -10,7 +10,9 @@ import { Tabs } from "@/components/Tabs";
 import { DateRangePicker, type SelezionePeriodo } from "@/components/DateRangePicker";
 import { etichettaIntervallo, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "@/lib/periodo";
 import { Button } from "@/components/ui/Button";
-import { SintesiTessere } from "@/components/SintesiTessere";
+import { Input } from "@/components/ui/Input";
+import { Nota } from "@/components/ui/Nota";
+import { SintesiTessere, type StatoFontiCommerciali } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
 import { AndamentoCommerciale } from "@/components/AndamentoCommerciale";
@@ -400,6 +402,18 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const overlayGhlPrecedente = datiPrecedenti
     ? applicaOverlayGhl(datiPrecedenti.totale, ghlDatiPrecedenti, { filtroCampagneAttivo: campagneSelezionate !== null })
     : null;
+  // Stato delle fonti dei numeri commerciali per le tessere (vedi SintesiTessere.tsx): finché GHL
+  // non ha risposto le tessere dicono "lettura in corso", e senza righe inserite a mano né GHL dicono
+  // "Non compilato" — mai uno zero che non è un dato. `ghlDati` resta quello del periodo precedente
+  // durante un cambio periodo (non torna null), quindi qui "in arrivo" vale solo al primo caricamento.
+  const fontiCommerciali = useMemo<StatoFontiCommerciali>(
+    () => ({
+      manualePresente: Boolean(dati?.risultatiCommercialiNelPeriodo),
+      ghlInArrivo: Boolean(clienteId && haConnessioneGhl) && ghlDati === null && !ghlErrore,
+      ghlErrore,
+    }),
+    [dati, clienteId, haConnessioneGhl, ghlDati, ghlErrore]
+  );
   // Stesso overlay anche sul grafico: senza questo il fatturato del grafico resterebbe quello di
   // RisultatiCommerciali (spesso 0) mentre le tessere sopra mostrano già i numeri GHL — un'incoerenza visibile
   // sulla stessa pagina. Vedi applicaOverlayGhlTrend in kpiGhlOverlay.ts. Memoizzato (non un valore
@@ -602,6 +616,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
           {dati && dati.sediDisponibili.length > 1 && (
             <Tabs
+              etichetta="Sede"
               tabs={dati.sediDisponibili.map((s) => ({ id: s.sedeId, label: s.nome }))}
               attivo={dati.sede.sedeId}
               onChange={(id) => setSedeScelta({ contesto: contestoCliente, sedeId: id })}
@@ -627,25 +642,31 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
         <div className="flex flex-wrap items-center gap-3">
           {clienteId && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleAggiornaKpi}
-              disabled={sincronizzando}
-              className="flex items-center gap-2 bg-surface-card py-2 shadow-sm"
-            >
-              <RefreshCw size={14} className={sincronizzando ? "animate-spin" : ""} />
+            <Button variant="secondary" onClick={handleAggiornaKpi} disabled={sincronizzando} className="min-h-10 bg-surface-card py-2">
+              <RefreshCw size={16} aria-hidden="true" className={sincronizzando ? "animate-spin" : ""} />
               {sincronizzando ? "Aggiornamento…" : "Aggiorna KPI"}
             </Button>
           )}
 
-          {esitoSync && <span className="text-xs text-ink-500">{esitoSync}</span>}
+          {esitoSync && (
+            <span role="status" className="text-xs text-ink-500">
+              {esitoSync}
+            </span>
+          )}
         </div>
       </div>
 
-      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {errore && (
+        <Nota tono="critico" etichetta="Dati non caricati" role="alert">
+          <p>{errore}</p>
+        </Nota>
+      )}
 
-      {caricamento && !dati && <p className="text-sm text-ink-500">Caricamento…</p>}
+      {caricamento && !dati && (
+        <p role="status" className="text-sm text-ink-500">
+          Caricamento…
+        </p>
+      )}
 
       {dati && (
         <div className="space-y-6" style={{ opacity: caricamento ? 0.6 : 1, transition: "opacity 150ms" }}>
@@ -661,64 +682,64 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               un'azione diretta inline, un messaggio di solo testo nella lista gli toglierebbe
               proprio quella. */}
           {clienteId && !dati.sede.adAccountId && (
-            <div className="rounded-xl bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
-              <p>
-                Nessun ad account Meta collegato per questa sede — niente da sincronizzare, i KPI restano a zero finché
-                non lo colleghi.
-              </p>
+            <Nota tono="attenzione" etichetta="Ad account non collegato">
+              <p>Questa sede non ha un ad account Meta: non c&apos;è niente da sincronizzare e i numeri delle campagne restano vuoti finché non lo colleghi.</p>
               {ruoloAdmin &&
                 (adAccountAperto ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <input
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <Input
                       type="text"
+                      inputMode="numeric"
+                      aria-label="Id dell'ad account Meta"
                       value={adAccountBozza}
                       onChange={(e) => setAdAccountBozza(e.target.value)}
                       placeholder="Solo cifre, senza act_"
                       autoFocus
-                      className="rounded-lg border border-yellow-200 bg-white px-2.5 py-1.5 text-xs text-ink-900 outline-none focus:ring-2 focus:ring-yellow-300 w-48"
+                      className="w-56"
                     />
-                    <button
-                      type="button"
-                      onClick={handleSalvaAdAccount}
-                      disabled={salvandoAdAccount}
-                      className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-                    >
+                    <Button onClick={handleSalvaAdAccount} disabled={salvandoAdAccount}>
                       {salvandoAdAccount ? "Salvataggio…" : "Salva"}
-                    </button>
-                    <button
-                      type="button"
+                    </Button>
+                    <Button
+                      variant="ghost"
                       onClick={() => {
                         setAdAccountAperto(false);
                         setErroreAdAccount(null);
                       }}
-                      className="text-yellow-800/70 hover:text-yellow-900 text-xs font-medium px-1 cursor-pointer"
                     >
                       Annulla
-                    </button>
+                    </Button>
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setAdAccountAperto(true)}
-                    className="rounded-lg bg-yellow-800 hover:bg-yellow-900 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
-                  >
-                    + Aggiungi ad account
-                  </button>
+                  <div className="mt-2">
+                    <Button variant="crea" size="sm" onClick={() => setAdAccountAperto(true)}>
+                      + Aggiungi ad account
+                    </Button>
+                  </div>
                 ))}
-              {erroreAdAccount && <p className="text-red-600">{erroreAdAccount}</p>}
-            </div>
+              {erroreAdAccount && (
+                <p role="alert" className="font-semibold text-critico">
+                  {erroreAdAccount}
+                </p>
+              )}
+            </Nota>
           )}
 
-          {/* Blocco 4 — mai sul link pubblico `code` (gated su clienteId, mai valorizzato lì). */}
-          {clienteId && <AvvisiOperativi avvisi={avvisiOperativi} />}
-
+          {/* Prima i sei numeri, poi gli avvisi (audit UX del 06/10/2026: gli avvisi spingevano i
+              numeri fuori dalla prima schermata). */}
           <SintesiTessere
             totale={dati.totale}
             overlayGhl={overlayGhl}
             totalePrecedente={datiPrecedenti?.totale ?? null}
             overlayGhlPrecedente={overlayGhlPrecedente}
+            fonti={fontiCommerciali}
+            manualePresentePrecedente={Boolean(datiPrecedenti?.risultatiCommercialiNelPeriodo)}
+            vistaCliente={Boolean(code)}
             etichettaConfronto={periodo.confronto ? `vs ${etichettaIntervallo(periodo.confronto.da, periodo.confronto.a)}` : undefined}
           />
+
+          {/* Blocco 4 — mai sul link pubblico `code` (gated su clienteId, mai valorizzato lì). */}
+          {clienteId && <AvvisiOperativi avvisi={avvisiOperativi} />}
 
           <BoxGrafici
             funnel={{

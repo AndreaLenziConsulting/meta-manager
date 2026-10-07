@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessione } from "@/lib/auth";
@@ -7,6 +8,17 @@ import { calcolaCalcolatoreBudget } from "@/lib/roiSimulatore";
 import { formatEuro } from "@/lib/format";
 import { ProspectTab } from "@/components/ProspectTab";
 import { ProspectDatiCommerciali } from "@/components/ProspectDatiCommerciali";
+import { Intestazione } from "@/components/ui/Intestazione";
+
+// Nella scheda del browser il nome dell'azienda, solo per chi può vedere quel prospect.
+export async function generateMetadata({ params }: { params: Promise<{ prospectId: string }> }): Promise<Metadata> {
+  const { prospectId } = await params;
+  const sessione = await getSessione();
+  if (!sessione || sessione.ruolo === "consulente") return {};
+  const prospect = await getProspect();
+  if (!puoVedereProspect(sessione, prospectId, prospect)) return {};
+  return { title: prospect.find((x) => x.prospectId === prospectId)?.ragioneSociale ?? "Prospect" };
+}
 
 export default async function ProspectDettaglioPage({ params }: { params: Promise<{ prospectId: string }> }) {
   const { prospectId } = await params;
@@ -39,15 +51,18 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
   const outputCalcolatore = p.calcolatoreBudget ? calcolaCalcolatoreBudget(p.calcolatoreBudget) : null;
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
-        <Link href="/dashboard/commerciale" className="text-xs font-semibold text-brand hover:underline">
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <div className="space-y-3">
+        <Link href="/dashboard/commerciale" className="inline-flex min-h-8 items-center text-sm font-semibold text-brand hover:underline">
           ← Tutti i prospect
         </Link>
-        <h2 className="font-heading font-bold text-2xl text-ink-900 mt-2">{p.ragioneSociale}</h2>
-        <p className="text-sm text-ink-500 mt-1">
-          {[p.tipoBusiness, p.fatturato, p.sedi].filter(Boolean).join(" · ") || "Nessun dato anagrafico ancora — verrà popolato dal primo report."}
-        </p>
+        <Intestazione
+          sopratitolo="Prospect"
+          titolo={p.ragioneSociale}
+          sottotitolo={
+            [p.tipoBusiness, p.fatturato, p.sedi].filter(Boolean).join(" · ") || "Nessun dato anagrafico ancora: arriva con il primo report."
+          }
+        />
       </div>
       <ProspectDatiCommerciali
         prospect={p}
@@ -59,12 +74,12 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
 
       <Link
         href={`/dashboard/commerciale/${encodeURIComponent(p.prospectId)}/calcolatore`}
-        className="block rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4 hover:border-brand transition-colors"
+        className="block rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4 hover:border-brand transition-colors"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-sm font-semibold text-ink-900">Calcolatore Budget</p>
-            <p className="text-xs text-ink-500 mt-0.5 truncate">
+            <p className="text-base font-bold text-ink-900">Calcolatore Budget</p>
+            <p className="text-sm text-ink-500 mt-0.5 truncate">
               {outputCalcolatore?.budgetMensile != null
                 ? `Budget necessario ${formatEuro(outputCalcolatore.budgetMensile)} · Fatturato obiettivo ${formatEuro(p.calcolatoreBudget?.fatturatoMensile ?? null)}`
                 : "Non ancora compilato — ricava budget, appuntamenti e lead necessari da un fatturato obiettivo"}

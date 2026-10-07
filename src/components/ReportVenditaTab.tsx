@@ -55,7 +55,7 @@ export function ReportVenditaTab({ clienteId }: { clienteId: string }) {
 
   if (reportLista.length === 0 && !haCalcolatore) {
     return (
-      <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+      <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
         <p className="text-sm text-ink-500">Nessun report commerciale né calcolatore di vendita collegato a questo cliente.</p>
       </div>
     );
@@ -64,7 +64,7 @@ export function ReportVenditaTab({ clienteId }: { clienteId: string }) {
   return (
     <div className="space-y-4">
       {haCalcolatore && (
-        <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 sm:p-6">
+        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6">
           <p className="text-sm font-semibold text-ink-900">Calcolatore Budget</p>
           <p className="text-xs text-ink-500 mt-0.5 mb-1">Proiezione compilata dal commerciale prima della vendita.</p>
           <SimulatoreRoi value={calcolatoreBudget} onChange={() => {}} editable={false} />
@@ -80,13 +80,13 @@ export function ReportVenditaTab({ clienteId }: { clienteId: string }) {
                 <button
                   type="button"
                   onClick={() => setEspanso(aperto ? null : r.reportId)}
-                  className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-2xl border border-ink-300 bg-surface-card shadow-sm transition-colors cursor-pointer"
+                  className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-ink-900 truncate">{r.dati.titolo || "(senza titolo)"}</p>
                     <p className="text-xs text-ink-500">{formatDataBreve(r.data)}</p>
                   </div>
-                  <span className="text-ink-300 text-xs flex-shrink-0">{aperto ? "▲" : "▼"}</span>
+                  <span className="text-ink-500 text-xs flex-shrink-0">{aperto ? "▲" : "▼"}</span>
                 </button>
 
                 {aperto && <ReportCommercialeView report={r.dati} />}

@@ -56,8 +56,15 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
     function handleClick(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
+    function handleTasto(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleTasto);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleTasto);
+    };
   }, [open]);
 
   function emetti(nuovoSet: Set<string>) {
@@ -87,9 +94,11 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
       >
-        <Filter size={14} className="text-ink-500" />
+        <Filter size={16} aria-hidden="true" className="text-ink-500" />
         {predefinito?.attivo
           ? `Solo campagne ALC (${attive.size}/${tuttiGliId.length})`
           : tutteSelezionate
@@ -98,16 +107,16 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4">
           <button
             type="button"
             onClick={toggleTutte}
-            className="w-full text-left text-xs font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2"
+            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2 cursor-pointer"
           >
             {tutteSelezionate ? "Deseleziona tutte" : "Seleziona tutte"}
           </button>
           {predefinito && (
-            <div className="mb-2 px-2 text-[11px] text-ink-500">
+            <div className="mb-2 px-2 text-xs text-ink-500">
               {predefinito.attivo ? (
                 <p>Filtro predefinito: solo le campagne con ALC nel nome. Per vederle tutte usa &quot;Seleziona tutte&quot;.</p>
               ) : (
@@ -128,8 +137,8 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
               const tuttiNelGruppo = idsGruppo.every((id) => attive.has(id));
               return (
                 <div key={chiave}>
-                  <label className="flex items-center gap-2 text-xs font-semibold text-ink-900 cursor-pointer">
-                    <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="accent-current text-brand" />
+                  <label className="flex min-h-8 items-center gap-2.5 text-sm font-bold text-ink-900 cursor-pointer">
+                    <input type="checkbox" checked={tuttiNelGruppo} onChange={() => toggleGruppo(idsGruppo)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
                     {etichetta}
                   </label>
                   <div className="mt-1 ml-5 space-y-1">
@@ -141,7 +150,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
                             type="checkbox"
                             checked={attive.has(c.campaignId)}
                             onChange={() => toggleCampagna(c.campaignId)}
-                            className="accent-current text-brand"
+                            className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0"
                           />
                           {stato && (
                             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${stato.puntino}`} title={stato.label} />

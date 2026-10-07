@@ -142,9 +142,9 @@ export function SimulatoreRoi({
 function KpiCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className={highlight ? "rounded-xl bg-brand-light px-4 py-3" : "rounded-xl border border-ink-300/60 bg-surface-card px-3 py-2.5"}>
-      <p className={highlight ? "text-[10px] uppercase tracking-widest font-semibold text-brand" : "text-[10px] uppercase tracking-wide text-ink-500"}>{label}</p>
+      <p className={highlight ? "text-xs uppercase tracking-[.12em] font-semibold text-brand" : "text-xs font-bold uppercase tracking-[.12em] text-ink-500"}>{label}</p>
       <p className={highlight ? "mt-1 text-lg font-heading font-bold text-ink-900 tabular-nums" : "mt-1 text-sm font-semibold text-ink-900 tabular-nums"}>{value}</p>
-      {sub && <p className="text-[11px] text-ink-500 mt-0.5">{sub}</p>}
+      {sub && <p className="text-xs text-ink-500 mt-0.5">{sub}</p>}
     </div>
   );
 }
@@ -183,13 +183,13 @@ function PianoAnnualeTable({ input }: { input: CalcolatoreBudgetInput }) {
       <table className="w-full text-xs border-collapse min-w-[560px]">
         <thead>
           <tr className="border-b border-ink-300/60">
-            <th className="text-left font-medium px-2 py-2 text-ink-500">Mese</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">Appuntamenti</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">App./sett.</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">Vendite</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">Budget</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">Margine</th>
-            <th className="text-right font-medium px-2 py-2 text-ink-500">Fatt. prog.</th>
+            <th scope="col" className="text-left font-medium px-2 py-2 text-ink-500">Mese</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">Appuntamenti</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">App./sett.</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">Vendite</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">Budget</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">Margine</th>
+            <th scope="col" className="text-right font-medium px-2 py-2 text-ink-500">Fatt. prog.</th>
           </tr>
         </thead>
         <tbody>
@@ -209,7 +209,7 @@ function PianoAnnualeTable({ input }: { input: CalcolatoreBudgetInput }) {
           <tr className="bg-brand-light">
             <td className="px-2 py-2.5 font-semibold text-brand">Totale anno</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-brand">{formatNumero(totaleAppuntamenti)}</td>
-            <td className="px-2 py-2.5 text-right text-ink-400">—</td>
+            <td className="px-2 py-2.5 text-right text-ink-500">—</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatNumero(totaleVendite)}</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatEuro(totaleBudget)}</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatEuro(totaleMargine)}</td>

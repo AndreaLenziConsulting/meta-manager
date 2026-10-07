@@ -51,7 +51,7 @@ export function BloccoPacing({
       {(titolo || sottotitolo) && (
         <div className="flex items-baseline justify-between gap-2 mb-2">
           {titolo && <p className="text-xs font-semibold text-ink-700">{titolo}</p>}
-          {sottotitolo && <p className="text-[11px] text-ink-500">{sottotitolo}</p>}
+          {sottotitolo && <p className="text-xs text-ink-500">{sottotitolo}</p>}
         </div>
       )}
       <div className={concluso ? "relative" : "relative pt-5"}>
@@ -63,7 +63,7 @@ export function BloccoPacing({
           <>
             <div className="absolute top-5 bottom-0 w-px z-10 pointer-events-none" style={{ left: `${fraz * 100}%`, backgroundColor: "var(--baseline)" }} />
             <span
-              className="absolute top-0 z-10 -translate-x-1/2 text-[10px] font-semibold whitespace-nowrap pointer-events-none"
+              className="absolute top-0 z-10 -translate-x-1/2 text-xs font-semibold whitespace-nowrap pointer-events-none"
               style={{ left: `${fraz * 100}%`, color: "var(--text-muted)" }}
             >
               Oggi
@@ -95,13 +95,13 @@ function RigaPacing({ metrica, concluso }: { metrica: MetricaPacing; concluso: b
       {/* Traccia grigia neutra (gray-200, non ink-*: nessuno step abbastanza chiaro mappato — vedi
           il commento sul marker sopra) + riempimento colorato per stato — spec "meter" della skill
           dataviz: il riempimento porta la severità, la traccia è solo il contenitore neutro. */}
-      <div className="h-3 rounded-full bg-gray-200 overflow-hidden">
+      <div className="h-3 rounded-full bg-linea overflow-hidden">
         <div
           className="h-full rounded-full transition-[width]"
           style={{ width: `${Math.min(Math.max(percentuale, 0), 100)}%`, backgroundColor: COLORE_STATO_PACING[metrica.stato] }}
         />
       </div>
-      <p className="text-[11px] mt-1" style={{ color: COLORE_STATO_PACING[metrica.stato] }}>
+      <p className="text-xs mt-1" style={{ color: COLORE_STATO_PACING[metrica.stato] }}>
         {(concluso ? ETICHETTA_STATO_CONCLUSO : ETICHETTA_STATO_PACING)[metrica.stato]}
       </p>
     </div>

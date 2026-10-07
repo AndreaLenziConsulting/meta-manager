@@ -163,7 +163,7 @@ export function PacingTargetChart({
     return (
       <div className="space-y-4">
         {selettore}
-        <p className="text-sm text-red-600">{errore}</p>
+        <p className="text-sm text-critico">{errore}</p>
       </div>
     );
   }
@@ -266,7 +266,7 @@ export function PacingTargetChart({
       </p>
       {ghlInCaricamento && <p className="text-xs text-ink-500">Appuntamenti, vendite e cluster in caricamento… compaiono tra pochi secondi.</p>}
       {ghlFallito && (
-        <p className="text-xs text-red-600">Dati commerciali non disponibili: restano solo i Risultati Commerciali inseriti a mano.</p>
+        <p className="text-xs text-critico">Dati commerciali non disponibili: restano solo i Risultati Commerciali inseriti a mano.</p>
       )}
       <div className="space-y-5">
         {!ghlInCaricamento &&
@@ -307,7 +307,7 @@ export function PacingTargetChart({
 function SelettoreMese({ mese, meseMassimo, onChange }: { mese: string; meseMassimo: string; onChange: (mese: string) => void }) {
   const alMassimo = mese >= meseMassimo;
   const classeFreccia =
-    "h-8 w-8 inline-flex items-center justify-center rounded-lg border border-[var(--glass-border-soft)] text-ink-700 hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed";
+    "h-8 w-8 inline-flex items-center justify-center rounded-lg border border-linea text-ink-700 hover:bg-surface disabled:opacity-40 disabled:cursor-not-allowed";
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <button type="button" className={classeFreccia} onClick={() => onChange(spostaMese(mese, -1))} aria-label="Mese precedente">

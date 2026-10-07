@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
+import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import type { KpiGroup, RigaCampagna } from "@/types/kpi";
 import type { GhlBreakdownCampagna } from "@/types/ghl";
 import type { AnagraficaInserzioneFuoriPeriodo, InserzioneConStato } from "@/lib/inserzioniOutlier";
@@ -14,12 +15,12 @@ import {
   type RisultatiGhl,
 } from "@/lib/dettaglioGhl";
 import { valutaCampagna } from "@/lib/valutazioneCampagna";
-import { formatCanale, formatDataBreve, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
+import { formatCanale, formatDataBreve, formatDecimale, formatEuro, formatNumero, formatPercentuale, formatStatoCampagna } from "@/lib/format";
 import { Tabs } from "@/components/Tabs";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { PallinoStato } from "@/components/ui/PallinoStato";
-import { DatoNonDisponibile } from "@/components/DatoNonDisponibile";
+import { CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
 
 // Tabella Dettaglio (blocco 7 del redesign KPI). Tre viste: per tipo campagna, per singola
 // campagna, per singola inserzione (quest'ultima solo per consulente/admin).
@@ -39,15 +40,21 @@ import { DatoNonDisponibile } from "@/components/DatoNonDisponibile";
 // non hanno un dato a quella granularità e non mostrano le colonne. Tutta la logica di
 // riconciliazione (righe "senza spesa nel periodo", riga di residuo, totale = totale sede) è in
 // lib/dettaglioGhl.ts, vedi il commento in cima a quel file.
+//
+// Forma (07/10/2026): "Tabella" del Design System ALC — intestazioni in maiuscolo su `sfondo`, prima
+// colonna in grassetto `inchiostro`, numeri a destra con cifre tabellari, riga di totale su
+// `accento-tenue`. Le viste per campagna e per inserzione si ordinano cliccando l'intestazione di
+// una colonna e si possono restringere alle sole righe con appuntamenti o vendite: con una
+// cinquantina di inserzioni, di cui poche con un risultato, prima non c'era modo di trovarle.
 const COLONNE_TIPO: { key: keyof KpiGroup; label: string; format: (v: number | null) => string; evidenzia?: boolean }[] = [
   { key: "investimento", label: "Investimento", format: formatEuro },
   { key: "impressions", label: "Impression", format: formatNumero },
   { key: "cpm", label: "CPM", format: formatEuro },
   { key: "clicLink", label: "Clic sul link", format: formatNumero },
-  { key: "costoPerClic", label: "Costo/clic", format: formatEuro },
+  { key: "costoPerClic", label: "Costo per clic", format: formatEuro },
   { key: "ctrClicLink", label: "CTR link", format: formatPercentuale },
   { key: "numeroLead", label: "Lead", format: formatNumero, evidenzia: true },
-  { key: "costoPerLead", label: "Costo/Lead", format: formatEuro },
+  { key: "costoPerLead", label: "Costo per lead", format: formatEuro },
 ];
 
 type Vista = "tipo" | "campagna" | "inserzione";
@@ -81,42 +88,107 @@ export type DettaglioInserzioni = {
   altre: Record<string, AnagraficaInserzioneFuoriPeriodo>;
 };
 
-const RIGA = "border-b border-[var(--glass-border-soft)]";
-const TH = "text-right font-medium px-4 py-3 text-ink-500";
-const TH_SINISTRA = "text-left font-medium px-4 py-3 text-ink-500";
-const TH_PRIMA = "text-left font-medium px-5 py-3 sticky left-0 bg-surface-card text-ink-500";
-const TD = "text-right px-4 py-3 whitespace-nowrap tabular-nums text-ink-700";
-const TD_LEAD = "text-right px-4 py-3 whitespace-nowrap tabular-nums font-bold text-brand";
-const TD_TOTALE = "text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-ink-900";
-const TD_TOTALE_LEAD = "text-right px-4 py-3 font-semibold whitespace-nowrap tabular-nums text-brand";
-const TD_PRIMA = "px-5 py-3 sticky left-0 bg-surface-card text-ink-900 font-medium";
-const RIGA_TOTALE = "bg-[var(--glass-content-strong)]";
-const TD_PRIMA_TOTALE = "px-5 py-3 font-semibold sticky left-0 bg-[var(--glass-content-strong)] text-ink-900";
-const SOTTOTITOLO = "text-[11px] text-ink-500 font-normal";
+const TABELLA = "w-full border-collapse text-sm leading-5 text-ink-700";
+const RIGA = "border-b border-linea";
+const TH_BASE = "bg-surface px-2.5 py-3 text-[11px] leading-4 font-bold uppercase tracking-[.1em] text-ink-500 align-bottom";
+const TH = `${TH_BASE} text-right`;
+const TH_SINISTRA = `${TH_BASE} text-left`;
+const TH_PRIMA = `${TH_BASE} pl-5 text-left sticky left-0 min-w-[168px]`;
+const TD = "text-right px-2.5 py-3 whitespace-nowrap tabular-nums";
+const TD_LEAD = "text-right px-2.5 py-3 whitespace-nowrap tabular-nums font-bold text-brand";
+const TD_TOTALE = "text-right px-2.5 py-3 font-extrabold whitespace-nowrap tabular-nums text-ink-900";
+const TD_TOTALE_LEAD = "text-right px-2.5 py-3 font-extrabold whitespace-nowrap tabular-nums text-brand";
+const TD_PRIMA = "pl-5 pr-2.5 py-3 sticky left-0 bg-surface-card text-left font-semibold text-ink-900";
+const RIGA_TOTALE = "bg-brand-light";
+const TD_PRIMA_TOTALE = "pl-5 pr-2.5 py-3 sticky left-0 bg-brand-light text-left font-extrabold text-ink-900";
+const SOTTOTITOLO = "text-xs leading-4 text-ink-500 font-normal";
+
+type Verso = "asc" | "desc";
+type Ordine<K extends string> = { chiave: K; verso: Verso } | null;
+
+/** Ordina una copia delle righe. I dati mancanti (`null`) restano sempre in fondo, in entrambi i
+ * versi: una riga senza dato non è né la più alta né la più bassa. */
+function ordinaRighe<T, K extends string>(righe: T[], ordine: Ordine<K>, valori: Record<K, (riga: T) => number | string | null>): T[] {
+  if (!ordine) return righe;
+  const leggi = valori[ordine.chiave];
+  const segno = ordine.verso === "asc" ? 1 : -1;
+  return righe.slice().sort((a, b) => {
+    const va = leggi(a);
+    const vb = leggi(b);
+    if (va === null && vb === null) return 0;
+    if (va === null) return 1;
+    if (vb === null) return -1;
+    if (typeof va === "string" || typeof vb === "string") return segno * String(va).localeCompare(String(vb), "it");
+    return segno * (va - vb);
+  });
+}
+
+/** Clic su un'intestazione: la prima volta ordina (dal più alto per i numeri, dalla A per i nomi),
+ * la seconda inverte. */
+function prossimoOrdine<K extends string>(attuale: Ordine<K>, chiave: K, testuale: boolean): Ordine<K> {
+  if (attuale?.chiave === chiave) return { chiave, verso: attuale.verso === "asc" ? "desc" : "asc" };
+  return { chiave, verso: testuale ? "asc" : "desc" };
+}
+
+function ThOrdinabile<K extends string>({
+  chiave,
+  ordine,
+  onOrdina,
+  classe = TH,
+  children,
+}: {
+  chiave: K;
+  ordine: Ordine<K>;
+  onOrdina: (chiave: K) => void;
+  classe?: string;
+  children: ReactNode;
+}) {
+  const attivo = ordine?.chiave === chiave ? ordine.verso : null;
+  const Icona = attivo === "asc" ? ArrowUp : attivo === "desc" ? ArrowDown : ChevronsUpDown;
+  return (
+    <th scope="col" aria-sort={attivo === "asc" ? "ascending" : attivo === "desc" ? "descending" : "none"} className={classe}>
+      <button
+        type="button"
+        onClick={() => onOrdina(chiave)}
+        title="Ordina per questa colonna"
+        className={`-my-1 inline-flex min-h-6 items-end gap-1 py-1 text-inherit font-bold uppercase tracking-[.1em] cursor-pointer hover:text-ink-900 ${attivo ? "text-ink-900" : ""}`}
+      >
+        <span>{children}</span>
+        <Icona size={12} aria-hidden="true" className={`mb-0.5 shrink-0 ${attivo ? "" : "opacity-60"}`} />
+      </button>
+    </th>
+  );
+}
+
+const COLONNE_RISULTATI = [
+  { chiave: "appuntamentiFissati", label: "App. fissati" },
+  { chiave: "appuntamentiEffettuati", label: "App. effettuati" },
+  { chiave: "vendite", label: "Vendite" },
+  { chiave: "fatturato", label: "Fatturato" },
+] as const;
+type ChiaveRisultati = (typeof COLONNE_RISULTATI)[number]["chiave"];
 
 function IntestazioniRisultati() {
   return (
     <>
-      <th className={TH}>App. fissati</th>
-      <th className={TH}>App. effettuati</th>
-      <th className={TH}>Vendite</th>
-      <th className={TH}>Fatturato</th>
+      {COLONNE_RISULTATI.map((c) => (
+        <th key={c.chiave} scope="col" className={TH}>
+          {c.label}
+        </th>
+      ))}
     </>
   );
 }
 
 /** Le 4 celle commerciali di una riga. `risultati` null = nessun contatto attribuito a quella riga:
- * "non disponibile" con il motivo, mai uno zero silenzioso. */
+ * lo dice una sola cella larga quattro colonne, con il motivo scritto — mai uno zero silenzioso, e
+ * non più quattro "?" da interrogare col mouse (120 su una pagina di inserzioni). */
 function CelleRisultati({ risultati, motivoAssente, classe = TD }: { risultati: RisultatiGhl | null; motivoAssente?: string; classe?: string }) {
   if (!risultati) {
     return (
-      <>
-        {[0, 1, 2, 3].map((i) => (
-          <td key={i} className="text-right px-4 py-3">
-            <DatoNonDisponibile motivo={motivoAssente} className="ml-auto" />
-          </td>
-        ))}
-      </>
+      <td colSpan={4} className="px-2.5 py-3 text-right text-xs text-ink-500">
+        {motivoAssente ?? "Dato non disponibile"}
+      </td>
     );
   }
   return (
@@ -136,7 +208,7 @@ function CelleSenzaDatoMeta({ quante }: { quante: number }) {
   return (
     <>
       {Array.from({ length: quante }, (_, i) => (
-        <td key={i} className="text-right px-4 py-3 text-ink-300">
+        <td key={i} className="text-right px-2.5 py-3 text-ink-500">
           —
         </td>
       ))}
@@ -147,17 +219,62 @@ function CelleSenzaDatoMeta({ quante }: { quante: number }) {
 function RigaResiduo({ titolo, spiegazione, celleMeta, residuo }: { titolo: string; spiegazione: string; celleMeta: number; residuo: RisultatiGhl }) {
   return (
     <tr className={RIGA}>
-      <td className={TD_PRIMA}>
+      <th scope="row" className={TD_PRIMA}>
         <span className="flex flex-col">
           {titolo}
           <span className={SOTTOTITOLO}>{spiegazione}</span>
         </span>
-      </td>
+      </th>
       <CelleSenzaDatoMeta quante={celleMeta} />
       <CelleRisultati risultati={residuo} />
     </tr>
   );
 }
+
+type ChiaveCampagna =
+  | "nome"
+  | "investimento"
+  | "impressions"
+  | "cpm"
+  | "clicLink"
+  | "costoPerClic"
+  | "ctrClicLink"
+  | "frequenza"
+  | "numeroLead"
+  | "costoPerLead"
+  | ChiaveRisultati;
+type RigaVistaCampagna = { campagna: RigaCampagna; frequenza: number | null; risultati: RisultatiGhl | null };
+
+const VALORI_CAMPAGNA: Record<ChiaveCampagna, (r: RigaVistaCampagna) => number | string | null> = {
+  nome: (r) => r.campagna.nomeCampagna,
+  investimento: (r) => r.campagna.investimento,
+  impressions: (r) => r.campagna.impressions,
+  cpm: (r) => r.campagna.cpm,
+  clicLink: (r) => r.campagna.clicLink,
+  costoPerClic: (r) => r.campagna.costoPerClic,
+  ctrClicLink: (r) => r.campagna.ctrClicLink,
+  frequenza: (r) => r.frequenza,
+  numeroLead: (r) => r.campagna.numeroLead,
+  costoPerLead: (r) => r.campagna.costoPerLead,
+  appuntamentiFissati: (r) => r.risultati?.appuntamentiFissati ?? null,
+  appuntamentiEffettuati: (r) => r.risultati?.appuntamentiEffettuati ?? null,
+  vendite: (r) => r.risultati?.vendite ?? null,
+  fatturato: (r) => r.risultati?.fatturato ?? null,
+};
+
+type ChiaveInserzione = "nome" | "spesa" | "lead" | "costoPerLead" | ChiaveRisultati;
+type RigaVistaInserzione = { inserzione: InserzioneConStato; costoPerLead: number | null; risultati: RisultatiGhl | null };
+
+const VALORI_INSERZIONE: Record<ChiaveInserzione, (r: RigaVistaInserzione) => number | string | null> = {
+  nome: (r) => r.inserzione.adName || r.inserzione.adId,
+  spesa: (r) => r.inserzione.spesa,
+  lead: (r) => r.inserzione.lead,
+  costoPerLead: (r) => r.costoPerLead,
+  appuntamentiFissati: (r) => r.risultati?.appuntamentiFissati ?? null,
+  appuntamentiEffettuati: (r) => r.risultati?.appuntamentiEffettuati ?? null,
+  vendite: (r) => r.risultati?.vendite ?? null,
+  fatturato: (r) => r.risultati?.fatturato ?? null,
+};
 
 export function DettaglioCampagneEsteso({
   gruppi,
@@ -195,6 +312,13 @@ export function DettaglioCampagneEsteso({
 }) {
   const [vista, setVista] = useState<Vista>("tipo");
   const tabs = mostraValutazione ? [TAB_TIPO, TAB_CAMPAGNA, TAB_INSERZIONE] : [TAB_TIPO, TAB_CAMPAGNA];
+  // Ordinamento scelto cliccando un'intestazione — null = ordine di partenza (campagne come
+  // arrivano dal server, inserzioni per spesa).
+  const [ordineCampagne, setOrdineCampagne] = useState<Ordine<ChiaveCampagna>>(null);
+  const [ordineInserzioni, setOrdineInserzioni] = useState<Ordine<ChiaveInserzione>>(null);
+  // "Solo con appuntamenti o vendite": nasconde le righe senza nessun risultato commerciale. Vale
+  // per le viste per campagna e per inserzione; i totali restano quelli dell'intera sede.
+  const [soloConRisultati, setSoloConRisultati] = useState(false);
 
   // Etichetta canale accanto al tipo_campagna nella vista "per singola campagna" — SOLO quando è
   // davvero presente più di un canale (Meta/Google Ads), stesso principio "invisibile con un solo
@@ -249,39 +373,66 @@ export function DettaglioCampagneEsteso({
     ghl.stato === "assente" &&
     (totale.appuntamentiFissati > 0 || totale.appuntamentiEffettuati > 0 || totale.numeroVendite > 0 || totale.fatturato > 0);
 
-  // Vista "per singola inserzione": inserzioni Meta del periodo (ordinate per spesa, ristrette alle
-  // campagne selezionate se c'è un filtro) + inserzioni senza spesa nel periodo con risultati GHL.
+  // Righe della vista "per singola campagna": la campagna con la sua frequenza e i suoi risultati
+  // GHL, poi ordinate e ristrette secondo le scelte fatte in tabella.
+  const righeCampagne = useMemo(() => {
+    const tutte: RigaVistaCampagna[] = campagne.map((campagna) => {
+      const breakdown = ghl.stato === "ok" ? ghl.perCampagna[campagna.campaignId] : undefined;
+      return { campagna, frequenza: frequenzaPerCampagna[campagna.campaignId] ?? null, risultati: breakdown ? risultatiDaBreakdown(breakdown) : null };
+    });
+    const visibili = soloConRisultati && ghl.stato === "ok" ? tutte.filter((r) => r.risultati && haRisultati(r.risultati)) : tutte;
+    return { righe: ordinaRighe(visibili, ordineCampagne, VALORI_CAMPAGNA), nascoste: tutte.length - visibili.length };
+  }, [campagne, ghl, frequenzaPerCampagna, soloConRisultati, ordineCampagne]);
+
+  // Vista "per singola inserzione": inserzioni Meta del periodo (per spesa finché non si sceglie un
+  // altro ordine, ristrette alle campagne selezionate se c'è un filtro) + inserzioni senza spesa nel
+  // periodo con risultati GHL.
   const vistaInserzioni = useMemo(() => {
-    const righe = (filtroCampagne ? inserzioni.righe.filter((i) => filtroCampagne.has(i.campaignId)) : inserzioni.righe)
+    const delPeriodo = (filtroCampagne ? inserzioni.righe.filter((i) => filtroCampagne.has(i.campaignId)) : inserzioni.righe)
       .slice()
       .sort((a, b) => b.spesa - a.spesa);
-    const spesa = righe.reduce((s, i) => s + i.spesa, 0);
-    const lead = righe.reduce((s, i) => s + i.lead, 0);
+    const spesa = delPeriodo.reduce((s, i) => s + i.spesa, 0);
+    const lead = delPeriodo.reduce((s, i) => s + i.lead, 0);
     const totaleMeta = { spesa, lead, costoPerLead: lead ? spesa / lead : null };
-    if (ghl.stato !== "ok") return { righe, totaleMeta, fuoriPeriodo: [], residuo: null, totaleGhl: null };
+    const tutte: RigaVistaInserzione[] = delPeriodo.map((inserzione) => {
+      const breakdown = ghl.stato === "ok" ? ghl.perInserzione[inserzione.adId] : undefined;
+      return {
+        inserzione,
+        costoPerLead: inserzione.lead ? inserzione.spesa / inserzione.lead : null,
+        risultati: breakdown ? risultatiDaBreakdown(breakdown) : null,
+      };
+    });
+    const visibili = soloConRisultati && ghl.stato === "ok" ? tutte.filter((r) => r.risultati && haRisultati(r.risultati)) : tutte;
+    const righe = ordinaRighe(visibili, ordineInserzioni, VALORI_INSERZIONE);
+    const nascoste = tutte.length - visibili.length;
+    if (ghl.stato !== "ok") return { righe, nascoste, totaleMeta, fuoriPeriodo: [], residuo: null, totaleGhl: null };
     const fuoriPeriodo = inserzioniFuoriPeriodoConRisultati({
       perInserzione: ghl.perInserzione,
-      idMostrati: new Set(righe.map((i) => i.adId)),
+      idMostrati: new Set(delPeriodo.map((i) => i.adId)),
       anagrafica: inserzioni.altre,
       filtroCampagne,
     });
-    const attribuiti = [
-      ...righe.flatMap((i) => (ghl.perInserzione[i.adId] ? [risultatiDaBreakdown(ghl.perInserzione[i.adId])] : [])),
-      ...fuoriPeriodo.map((i) => i.risultati),
-    ];
-    return { righe, totaleMeta, fuoriPeriodo, residuo: residuoNonAttribuito(ghl.totale, attribuiti), totaleGhl: ghl.totale };
-  }, [ghl, inserzioni, filtroCampagne]);
+    const attribuiti = [...tutte.flatMap((r) => (r.risultati ? [r.risultati] : [])), ...fuoriPeriodo.map((i) => i.risultati)];
+    return { righe, nascoste, totaleMeta, fuoriPeriodo, residuo: residuoNonAttribuito(ghl.totale, attribuiti), totaleGhl: ghl.totale };
+  }, [ghl, inserzioni, filtroCampagne, soloConRisultati, ordineInserzioni]);
 
   const mostraRisultatiTipo = ghlCampagne !== null || manualePerTipo;
   // Colonne fra il nome e le colonne commerciali nella vista "per singola campagna": Stato + 6
-  // metriche + (Frequenza) + Lead + Costo/Lead.
+  // metriche + (Frequenza) + Lead + Costo per lead.
   const colonneMetaCampagna = mostraValutazione ? 10 : 9;
+
+  const ordinaCampagne = (chiave: ChiaveCampagna) => setOrdineCampagne((o) => prossimoOrdine(o, chiave, chiave === "nome"));
+  const ordinaInserzioni = (chiave: ChiaveInserzione) => setOrdineInserzioni((o) => prossimoOrdine(o, chiave, chiave === "nome"));
 
   const nota =
     ghl.stato === "caricamento" ? (
-      <p className="px-5 mt-3 text-xs text-ink-500">Appuntamenti e vendite in caricamento…</p>
+      <p role="status" className="px-5 mt-3 text-xs text-ink-500">
+        Appuntamenti e vendite in caricamento…
+      </p>
     ) : ghl.stato === "errore" ? (
-      <p className="px-5 mt-3 text-xs text-red-600">Dati commerciali non disponibili al momento: appuntamenti e vendite non sono mostrati.</p>
+      <p role="alert" className="px-5 mt-3 text-xs font-semibold text-critico">
+        Dati commerciali non disponibili al momento: appuntamenti e vendite non sono mostrati.
+      </p>
     ) : ghl.stato === "ok" && ghl.fonte === "foglio" ? (
       <p className="px-5 mt-3 text-xs text-ink-500">
         Appuntamenti e vendite arrivano dal file contatti del cliente e sono collegati alla campagna e all&apos;inserzione del modulo
@@ -296,29 +447,43 @@ export function DettaglioCampagneEsteso({
       <p className="px-5 mt-3 text-xs text-ink-500">Appuntamenti e vendite arrivano dai Risultati Commerciali inseriti a mano per tipo campagna.</p>
     ) : null;
 
+  // Solo dove ha senso: viste con molte righe e colonne commerciali presenti.
+  const filtroRisultati = ghl.stato === "ok" && vista !== "tipo" && (
+    <label className="mx-5 mt-3 inline-flex min-h-8 items-center gap-2 text-sm text-ink-700 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={soloConRisultati}
+        onChange={(e) => setSoloConRisultati(e.target.checked)}
+        className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer"
+      />
+      Solo con appuntamenti o vendite
+    </label>
+  );
+
   return (
     <Card padding="none" className="overflow-hidden">
-      <div className="flex items-center justify-between px-5 pt-5 flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          <div className="w-1 h-5 rounded-full bg-brand" />
-          <h3 className="font-heading font-bold text-ink-900 text-[15px]">Dettaglio</h3>
-        </div>
+      <div className="flex items-center justify-between px-5 pt-5 flex-wrap gap-3">
+        <h3 className={CLASSE_TITOLO_SEZIONE}>Dettaglio</h3>
         <Tabs
+          etichetta="Livello di dettaglio"
           tabs={tabs}
           attivo={vista}
           onChange={(id) => setVista(id === "campagna" ? "campagna" : id === "inserzione" ? "inserzione" : "tipo")}
         />
       </div>
       {nota}
+      {filtroRisultati}
 
       {vista === "tipo" && (
-        <div className="overflow-x-auto mt-3">
-          <table className={`w-full text-xs border-collapse ${mostraRisultatiTipo ? "min-w-[1150px]" : "min-w-[800px]"}`}>
+        <div className="overflow-x-auto mt-4">
+          <table className={`${TABELLA} ${mostraRisultatiTipo ? "min-w-[1080px]" : "min-w-[800px]"}`}>
             <thead>
               <tr className={RIGA}>
-                <th className={TH_PRIMA}>Tipo campagna</th>
+                <th scope="col" className={TH_PRIMA}>
+                  Tipo campagna
+                </th>
                 {COLONNE_TIPO.map((c) => (
-                  <th key={c.key} className={TH}>
+                  <th key={c.key} scope="col" className={TH}>
                     {c.label}
                   </th>
                 ))}
@@ -328,7 +493,9 @@ export function DettaglioCampagneEsteso({
             <tbody>
               {gruppi.map((g) => (
                 <tr key={g.tipoCampagna} className={RIGA}>
-                  <td className={TD_PRIMA}>{g.tipoCampagna}</td>
+                  <th scope="row" className={TD_PRIMA}>
+                    {g.tipoCampagna}
+                  </th>
                   {COLONNE_TIPO.map((c) => (
                     <td key={c.key} className={c.evidenzia ? TD_LEAD : TD}>
                       {c.format(g[c.key] as number | null)}
@@ -353,12 +520,12 @@ export function DettaglioCampagneEsteso({
               ))}
               {ghlCampagne?.tipiFuoriPeriodo.map((t) => (
                 <tr key={`fuori-periodo::${t.tipo}`} className={RIGA}>
-                  <td className={TD_PRIMA}>
+                  <th scope="row" className={TD_PRIMA}>
                     <span className="flex flex-col">
                       {t.tipo}
                       <span className={SOTTOTITOLO}>senza spesa nel periodo</span>
                     </span>
-                  </td>
+                  </th>
                   <CelleSenzaDatoMeta quante={COLONNE_TIPO.length} />
                   <CelleRisultati risultati={t.risultati} />
                 </tr>
@@ -372,7 +539,9 @@ export function DettaglioCampagneEsteso({
                 />
               )}
               <tr className={RIGA_TOTALE}>
-                <td className={TD_PRIMA_TOTALE}>Totale</td>
+                <th scope="row" className={TD_PRIMA_TOTALE}>
+                  Totale
+                </th>
                 {COLONNE_TIPO.map((c) => (
                   <td key={c.key} className={c.evidenzia ? TD_TOTALE_LEAD : TD_TOTALE}>
                     {c.format(totale[c.key] as number | null)}
@@ -398,29 +567,57 @@ export function DettaglioCampagneEsteso({
       )}
 
       {vista === "campagna" && (
-        <div className="overflow-x-auto mt-3">
-          <table className={`w-full text-xs border-collapse ${ghlCampagne ? "min-w-[1450px]" : "min-w-[1100px]"}`}>
+        <div className="overflow-x-auto mt-4">
+          <table className={`${TABELLA} ${ghlCampagne ? "min-w-[1560px]" : "min-w-[1180px]"}`}>
             <thead>
               <tr className={RIGA}>
-                <th className={TH_PRIMA}>Campagna</th>
-                <th className={TH_SINISTRA}>Stato</th>
-                <th className={TH}>Investimento</th>
-                <th className={TH}>Impression</th>
-                <th className={TH}>CPM</th>
-                <th className={TH}>Clic sul link</th>
-                <th className={TH}>Costo/clic</th>
-                <th className={TH}>CTR link</th>
-                {mostraValutazione && <th className={TH}>Frequenza</th>}
-                <th className={TH}>Lead</th>
-                <th className={TH}>Costo/Lead</th>
-                {ghlCampagne && <IntestazioniRisultati />}
+                <ThOrdinabile chiave="nome" ordine={ordineCampagne} onOrdina={ordinaCampagne} classe={TH_PRIMA}>
+                  Campagna
+                </ThOrdinabile>
+                <th scope="col" className={TH_SINISTRA}>
+                  Stato
+                </th>
+                <ThOrdinabile chiave="investimento" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Investimento
+                </ThOrdinabile>
+                <ThOrdinabile chiave="impressions" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Impression
+                </ThOrdinabile>
+                <ThOrdinabile chiave="cpm" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  CPM
+                </ThOrdinabile>
+                <ThOrdinabile chiave="clicLink" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Clic sul link
+                </ThOrdinabile>
+                <ThOrdinabile chiave="costoPerClic" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Costo per clic
+                </ThOrdinabile>
+                <ThOrdinabile chiave="ctrClicLink" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  CTR link
+                </ThOrdinabile>
+                {mostraValutazione && (
+                  <ThOrdinabile chiave="frequenza" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                    Frequenza
+                  </ThOrdinabile>
+                )}
+                <ThOrdinabile chiave="numeroLead" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Lead
+                </ThOrdinabile>
+                <ThOrdinabile chiave="costoPerLead" ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                  Costo per lead
+                </ThOrdinabile>
+                {ghlCampagne &&
+                  COLONNE_RISULTATI.map((col) => (
+                    <ThOrdinabile key={col.chiave} chiave={col.chiave} ordine={ordineCampagne} onOrdina={ordinaCampagne}>
+                      {col.label}
+                    </ThOrdinabile>
+                  ))}
               </tr>
             </thead>
             <tbody>
-              {campagne.map((c) => {
+              {righeCampagne.righe.map(({ campagna: c, frequenza, risultati }) => {
                 const stato = formatStatoCampagna(c.stato);
                 const attiva = c.stato === "ACTIVE";
-                const frequenza = frequenzaPerCampagna[c.campaignId] ?? null;
                 // Una campagna non attiva (in pausa/archiviata/eliminata) non è azionabile ora — il
                 // pallino resta grigio a prescindere da CPL/Frequenza, mai un giudizio su qualcosa
                 // che non si può più correggere in questo momento.
@@ -429,16 +626,15 @@ export function DettaglioCampagneEsteso({
                   : !attiva
                     ? { livello: "non-valutabile" as const, motivo: "Campagna non attiva" }
                     : valutaCampagna({ costoPerLead: c.costoPerLead, frequenza, targetCpl });
-                const breakdown = ghl.stato === "ok" ? ghl.perCampagna[c.campaignId] : undefined;
                 return (
                   <tr key={`${c.canale ?? "meta"}::${c.campaignId}`} className={RIGA}>
-                    <td className={TD_PRIMA}>
+                    <th scope="row" className={TD_PRIMA}>
                       <span className="flex items-start gap-2">
                         {valutazione && (
                           <PallinoStato
                             tono={valutazione.livello === "non-valutabile" ? "neutro" : valutazione.livello}
                             motivo={valutazione.motivo}
-                            className="mt-1"
+                            className="mt-2"
                           />
                         )}
                         <span className="flex flex-col">
@@ -449,15 +645,15 @@ export function DettaglioCampagneEsteso({
                           </span>
                         </span>
                       </span>
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap">
+                    </th>
+                    <td className="px-2.5 py-3 whitespace-nowrap">
                       {stato ? (
                         <>
                           <Badge classe={stato.classe}>{stato.label}</Badge>
-                          {c.statoDal && <span className="block text-[11px] text-ink-500 mt-1">dal {formatDataBreve(c.statoDal)}</span>}
+                          {c.statoDal && <span className="block text-xs text-ink-500 mt-1">dal {formatDataBreve(c.statoDal)}</span>}
                         </>
                       ) : (
-                        <span className="text-xs text-ink-300">—</span>
+                        <span className="text-xs text-ink-500">—</span>
                       )}
                     </td>
                     <td className={TD}>{formatEuro(c.investimento)}</td>
@@ -466,26 +662,21 @@ export function DettaglioCampagneEsteso({
                     <td className={TD}>{formatNumero(c.clicLink)}</td>
                     <td className={TD}>{formatEuro(c.costoPerClic)}</td>
                     <td className={TD}>{formatPercentuale(c.ctrClicLink)}</td>
-                    {mostraValutazione && <td className={TD}>{frequenza !== null ? frequenza.toFixed(2) : "—"}</td>}
+                    {mostraValutazione && <td className={TD}>{formatDecimale(frequenza)}</td>}
                     <td className={TD_LEAD}>{formatNumero(c.numeroLead)}</td>
                     <td className={TD}>{formatEuro(c.costoPerLead)}</td>
-                    {ghlCampagne && (
-                      <CelleRisultati
-                        risultati={breakdown ? risultatiDaBreakdown(breakdown) : null}
-                        motivoAssente="Nessun contatto attribuito a questa campagna"
-                      />
-                    )}
+                    {ghlCampagne && <CelleRisultati risultati={risultati} motivoAssente="Nessun contatto attribuito" />}
                   </tr>
                 );
               })}
               {ghlCampagne?.fuoriPeriodo.map((c) => (
                 <tr key={`fuori-periodo::${c.campaignId}`} className={RIGA}>
-                  <td className={TD_PRIMA}>
+                  <th scope="row" className={TD_PRIMA}>
                     <span className="flex flex-col">
                       {c.nomeCampagna}
                       <span className={SOTTOTITOLO}>{c.tipoCampagna} · senza spesa nel periodo</span>
                     </span>
-                  </td>
+                  </th>
                   <CelleSenzaDatoMeta quante={colonneMetaCampagna} />
                   <CelleRisultati risultati={c.risultati} />
                 </tr>
@@ -498,6 +689,9 @@ export function DettaglioCampagneEsteso({
                   residuo={ghlCampagne.residuo}
                 />
               )}
+              {righeCampagne.nascoste > 0 && (
+                <RigaNascoste colonne={1 + colonneMetaCampagna + 4} quante={righeCampagne.nascoste} cosa={["campagna nascosta", "campagne nascoste"]} />
+              )}
               {campagne.length === 0 && !ghlCampagne?.fuoriPeriodo.length && (
                 <tr>
                   <td colSpan={1 + colonneMetaCampagna + (ghlCampagne ? 4 : 0)} className="px-5 py-6 text-center text-ink-500">
@@ -507,15 +701,17 @@ export function DettaglioCampagneEsteso({
               )}
               {(campagne.length > 0 || Boolean(ghlCampagne?.fuoriPeriodo.length)) && (
                 <tr className={RIGA_TOTALE}>
-                  <td className={TD_PRIMA_TOTALE}>Totale</td>
-                  <td className="px-4 py-3" />
+                  <th scope="row" className={TD_PRIMA_TOTALE}>
+                    Totale
+                  </th>
+                  <td className="px-2.5 py-3" />
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.investimento)}</td>
                   <td className={TD_TOTALE}>{formatNumero(totaleCampagne.impressions)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.cpm)}</td>
                   <td className={TD_TOTALE}>{formatNumero(totaleCampagne.clicLink)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.costoPerClic)}</td>
                   <td className={TD_TOTALE}>{formatPercentuale(totaleCampagne.ctrClicLink)}</td>
-                  {mostraValutazione && <td className="px-4 py-3" />}
+                  {mostraValutazione && <td className="px-2.5 py-3" />}
                   <td className={TD_TOTALE_LEAD}>{formatNumero(totaleCampagne.numeroLead)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.costoPerLead)}</td>
                   {ghlCampagne && <CelleRisultati risultati={ghlCampagne.totale} classe={TD_TOTALE} />}
@@ -528,48 +724,59 @@ export function DettaglioCampagneEsteso({
 
       {vista === "inserzione" &&
         (inserzioni.stato === "caricamento" ? (
-          <p className="px-5 py-6 text-sm text-ink-500">Caricamento inserzioni…</p>
+          <p role="status" className="px-5 py-6 text-sm text-ink-500">
+            Caricamento inserzioni…
+          </p>
         ) : inserzioni.stato === "errore" ? (
-          <p className="px-5 py-6 text-sm text-red-600">
+          <p role="alert" className="px-5 py-6 text-sm font-semibold text-critico">
             Dati Meta sulle inserzioni non disponibili al momento: Meta non ha risposto alla richiesta. Riprova tra poco.
           </p>
         ) : (
-          <div className="overflow-x-auto mt-3">
-            <table className={`w-full text-xs border-collapse ${vistaInserzioni.totaleGhl ? "min-w-[1100px]" : "min-w-[750px]"}`}>
+          <div className="overflow-x-auto mt-4">
+            <table className={`${TABELLA} ${vistaInserzioni.totaleGhl ? "min-w-[1120px]" : "min-w-[750px]"}`}>
               <thead>
                 <tr className={RIGA}>
-                  <th className={TH_PRIMA}>Inserzione</th>
-                  <th className={TH_SINISTRA}>Stato</th>
-                  <th className={TH}>Investimento</th>
-                  <th className={TH}>Lead</th>
-                  <th className={TH}>Costo/Lead</th>
-                  {vistaInserzioni.totaleGhl && <IntestazioniRisultati />}
+                  <ThOrdinabile chiave="nome" ordine={ordineInserzioni} onOrdina={ordinaInserzioni} classe={TH_PRIMA}>
+                    Inserzione
+                  </ThOrdinabile>
+                  <th scope="col" className={TH_SINISTRA}>
+                    Stato
+                  </th>
+                  <ThOrdinabile chiave="spesa" ordine={ordineInserzioni} onOrdina={ordinaInserzioni}>
+                    Investimento
+                  </ThOrdinabile>
+                  <ThOrdinabile chiave="lead" ordine={ordineInserzioni} onOrdina={ordinaInserzioni}>
+                    Lead
+                  </ThOrdinabile>
+                  <ThOrdinabile chiave="costoPerLead" ordine={ordineInserzioni} onOrdina={ordinaInserzioni}>
+                    Costo per lead
+                  </ThOrdinabile>
+                  {vistaInserzioni.totaleGhl &&
+                    COLONNE_RISULTATI.map((col) => (
+                      <ThOrdinabile key={col.chiave} chiave={col.chiave} ordine={ordineInserzioni} onOrdina={ordinaInserzioni}>
+                        {col.label}
+                      </ThOrdinabile>
+                    ))}
                 </tr>
               </thead>
               <tbody>
-                {vistaInserzioni.righe.map((i) => {
+                {vistaInserzioni.righe.map(({ inserzione: i, costoPerLead, risultati }) => {
                   const stato = formatStatoCampagna(i.stato);
-                  const breakdown = ghl.stato === "ok" ? ghl.perInserzione[i.adId] : undefined;
                   return (
                     <tr key={i.adId} className={RIGA}>
-                      <td className={TD_PRIMA}>
+                      <th scope="row" className={TD_PRIMA}>
                         <span className="flex flex-col">
                           {i.adName || `Inserzione ${i.adId}`}
                           <span className={SOTTOTITOLO}>{i.nomeCampagna}</span>
                         </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-300">—</span>}
+                      </th>
+                      <td className="px-2.5 py-3 whitespace-nowrap">
+                        {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-500">—</span>}
                       </td>
                       <td className={TD}>{formatEuro(i.spesa)}</td>
                       <td className={TD_LEAD}>{formatNumero(i.lead)}</td>
-                      <td className={TD}>{formatEuro(i.lead ? i.spesa / i.lead : null)}</td>
-                      {vistaInserzioni.totaleGhl && (
-                        <CelleRisultati
-                          risultati={breakdown ? risultatiDaBreakdown(breakdown) : null}
-                          motivoAssente="Nessun contatto attribuito a questa inserzione"
-                        />
-                      )}
+                      <td className={TD}>{formatEuro(costoPerLead)}</td>
+                      {vistaInserzioni.totaleGhl && <CelleRisultati risultati={risultati} motivoAssente="Nessun contatto attribuito" />}
                     </tr>
                   );
                 })}
@@ -577,7 +784,7 @@ export function DettaglioCampagneEsteso({
                   const stato = formatStatoCampagna(i.stato);
                   return (
                     <tr key={`fuori-periodo::${i.adId}`} className={RIGA}>
-                      <td className={TD_PRIMA}>
+                      <th scope="row" className={TD_PRIMA}>
                         <span className="flex flex-col">
                           {i.adName || `Inserzione ${i.adId}`}
                           <span className={SOTTOTITOLO}>
@@ -586,9 +793,9 @@ export function DettaglioCampagneEsteso({
                               : "non trovata nell'account Meta (archiviata o eliminata) · senza spesa nel periodo"}
                           </span>
                         </span>
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-300">—</span>}
+                      </th>
+                      <td className="px-2.5 py-3 whitespace-nowrap">
+                        {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-500">—</span>}
                       </td>
                       <CelleSenzaDatoMeta quante={3} />
                       <CelleRisultati risultati={i.risultati} />
@@ -603,17 +810,22 @@ export function DettaglioCampagneEsteso({
                     residuo={vistaInserzioni.residuo}
                   />
                 )}
-                {vistaInserzioni.righe.length === 0 && vistaInserzioni.fuoriPeriodo.length === 0 && (
+                {vistaInserzioni.nascoste > 0 && (
+                  <RigaNascoste colonne={9} quante={vistaInserzioni.nascoste} cosa={["inserzione nascosta", "inserzioni nascoste"]} />
+                )}
+                {vistaInserzioni.righe.length === 0 && vistaInserzioni.nascoste === 0 && vistaInserzioni.fuoriPeriodo.length === 0 && (
                   <tr>
                     <td colSpan={5 + (vistaInserzioni.totaleGhl ? 4 : 0)} className="px-5 py-6 text-center text-ink-500">
                       Nessuna inserzione con spesa nel periodo selezionato.
                     </td>
                   </tr>
                 )}
-                {(vistaInserzioni.righe.length > 0 || vistaInserzioni.fuoriPeriodo.length > 0) && (
+                {(vistaInserzioni.righe.length > 0 || vistaInserzioni.nascoste > 0 || vistaInserzioni.fuoriPeriodo.length > 0) && (
                   <tr className={RIGA_TOTALE}>
-                    <td className={TD_PRIMA_TOTALE}>Totale</td>
-                    <td className="px-4 py-3" />
+                    <th scope="row" className={TD_PRIMA_TOTALE}>
+                      Totale
+                    </th>
+                    <td className="px-2.5 py-3" />
                     <td className={TD_TOTALE}>{formatEuro(vistaInserzioni.totaleMeta.spesa)}</td>
                     <td className={TD_TOTALE_LEAD}>{formatNumero(vistaInserzioni.totaleMeta.lead)}</td>
                     <td className={TD_TOTALE}>{formatEuro(vistaInserzioni.totaleMeta.costoPerLead)}</td>
@@ -625,5 +837,18 @@ export function DettaglioCampagneEsteso({
           </div>
         ))}
     </Card>
+  );
+}
+
+/** Riga che dichiara quante righe il filtro "Solo con appuntamenti o vendite" sta nascondendo: il
+ * totale sotto resta quello di tutta la sede, e chi legge deve sapere perché non è la somma delle
+ * righe che vede. */
+function RigaNascoste({ colonne, quante, cosa }: { colonne: number; quante: number; cosa: [string, string] }) {
+  return (
+    <tr className={RIGA}>
+      <td colSpan={colonne} className="px-5 py-3 text-xs text-ink-500">
+        {quante} {quante === 1 ? cosa[0] : cosa[1]} perché senza appuntamenti né vendite. Il totale le comprende.
+      </td>
+    </tr>
   );
 }

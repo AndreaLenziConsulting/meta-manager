@@ -97,8 +97,8 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
     return (
       <Card padding="lg" className="space-y-4">
         <div className="flex items-center gap-2">
-          <CheckCircle2 size={20} className="text-green-600" />
-          <h3 className="font-heading font-bold text-ink-900">Cliente creato</h3>
+          <CheckCircle2 size={20} className="text-ok" />
+          <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Cliente creato</h3>
         </div>
 
         <div className="space-y-2 text-sm">
@@ -127,28 +127,28 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         </div>
 
         {prodottoId && !esito.roadmapGenerata && (
-          <div className="rounded-lg bg-yellow-50 border border-yellow-100 text-yellow-800 text-xs p-3 space-y-2">
+          <div className="rounded-lg bg-attenzione-tenue border border-attenzione/20 text-attenzione text-xs p-3 space-y-2">
             <p>La generazione della roadmap non è riuscita. Il cliente esiste comunque, puoi riprovare.</p>
             <button
               type="button"
               onClick={handleRigeneraRoadmap}
               disabled={rigenerando}
-              className="rounded-lg bg-yellow-800 hover:bg-yellow-900 disabled:opacity-50 text-white text-xs font-semibold px-3 py-1.5 transition cursor-pointer"
+              className="alc-btn alc-btn--secondario alc-btn--piccolo bg-surface-card"
             >
               {rigenerando ? "Riprovo…" : "Riprova generazione roadmap"}
             </button>
           </div>
         )}
-        {errore && <p className="text-xs text-red-600">{errore}</p>}
+        {errore && <p className="text-xs text-critico">{errore}</p>}
 
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
           <a
             href={`/dashboard/cliente/${encodeURIComponent(esito.clienteId)}`}
-            className="rounded-xl bg-cta hover:bg-cta-dark text-white text-sm font-semibold px-4 py-2.5 transition active:scale-[.98]"
+            className="alc-btn"
           >
             Vai alla scheda cliente
           </a>
-          <a href="/dashboard" className="rounded-xl border border-ink-300 text-sm font-semibold px-4 py-2.5 text-ink-700 hover:bg-surface transition">
+          <a href="/dashboard" className="alc-btn alc-btn--neutro">
             Torna alla home
           </a>
         </div>
@@ -157,7 +157,7 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 space-y-4">
       <Field label="Nome cliente">
         <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Es. Mobilieri Bianchi Srl" required />
       </Field>
@@ -211,8 +211,8 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         )}
       </div>
 
-      <label className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
-        <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="accent-current text-brand" />
+      <label className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
+        <input type="checkbox" checked={mostraTabExtra} onChange={(e) => setMostraTabExtra(e.target.checked)} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
         Il cliente vede anche il tab Meeting (oltre a KPI)
       </label>
 
@@ -248,9 +248,9 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
         />
       </div>
 
-      {errore && <div className="px-3 py-2.5 rounded-lg bg-red-50 border border-red-100 text-red-700 text-xs">{errore}</div>}
+      {errore && <div className="px-3 py-2.5 rounded-lg bg-critico-tenue border border-critico/20 text-critico text-xs">{errore}</div>}
 
-      <Button type="submit" disabled={caricamento || !nome || !consulenteId} className="w-full">
+      <Button variant="crea" type="submit" disabled={caricamento || !nome || !consulenteId} className="w-full">
         {caricamento ? "Creazione…" : "Crea cliente"}
       </Button>
     </form>

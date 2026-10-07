@@ -6,6 +6,7 @@ import { iniziali } from "@/lib/format";
 import { raggruppaPerConsulente, type SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { ClienteRiga } from "@/components/SaluteClienti";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
+import { CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
 import type { Consulente } from "@/types/kpi";
 
 /**
@@ -35,7 +36,7 @@ export function ClientiPerConsulente({
 
   if (gruppi.every((g) => g.items.length === 0) && nonAssegnati.length === 0) {
     return (
-      <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-6 text-sm text-ink-500">
+      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -48,7 +49,7 @@ export function ClientiPerConsulente({
           <div key={consulente.consulenteId}>
             <IntestazioneGruppo nome={consulente.nome} conteggio={itemsConsulente.length} />
             {itemsConsulente.length > 0 ? (
-              <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
+              <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
                 {itemsConsulente.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}
@@ -59,7 +60,7 @@ export function ClientiPerConsulente({
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-ink-500 italic">Nessun cliente assegnato ancora.</p>
+              <p className="text-sm text-ink-500">Nessun cliente assegnato ancora.</p>
             )}
           </div>
         ))}
@@ -67,7 +68,7 @@ export function ClientiPerConsulente({
         {nonAssegnati.length > 0 && (
           <div>
             <IntestazioneGruppo nome="Non assegnato" conteggio={nonAssegnati.length} />
-            <div className="rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-tile),inset_0_1px_0_var(--glass-highlight)] overflow-hidden divide-y divide-[var(--glass-border-soft)]">
+            <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
               {nonAssegnati.map((item) => (
                 <ClienteRiga
                   key={item.cliente.clienteId}
@@ -101,12 +102,12 @@ export function ClientiPerConsulente({
 function IntestazioneGruppo({ nome, conteggio }: { nome: string; conteggio: number }) {
   return (
     <div className="flex items-center gap-3 mb-3">
-      <span className="w-7 h-7 rounded-full bg-brand text-white text-xs font-semibold flex items-center justify-center flex-shrink-0">
+      <span aria-hidden="true" className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
         {iniziali(nome)}
       </span>
-      <span className="font-heading font-bold text-ink-900">{nome}</span>
-      <span className="flex-1 border-t border-ink-300/60" aria-hidden="true" />
-      <span className="text-[11px] font-semibold text-ink-500 uppercase tracking-wide flex-shrink-0">
+      <h2 className={CLASSE_TITOLO_SEZIONE}>{nome}</h2>
+      <span className="flex-1 border-t border-linea" aria-hidden="true" />
+      <span className="text-xs font-medium text-ink-500 flex-shrink-0">
         {conteggio > 0 ? `${conteggio} client${conteggio > 1 ? "i" : "e"}` : "In arrivo"}
       </span>
     </div>

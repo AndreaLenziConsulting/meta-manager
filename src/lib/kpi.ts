@@ -182,6 +182,36 @@ export type KpiComputationResult = {
  * (i risultati commerciali non sono tracciati per singola campagna, quindi non sono divisibili
  * ulteriormente).
  */
+/** Il periodo di una riga di RisultatiCommerciali (mese `YYYY-MM` o settimana = data del lunedì) sta
+ * per intero fra `inizio` e `fine` (giorni inclusi)? È la regola con cui computeKpi decide se la
+ * riga conta: un periodo coperto solo in parte resta fuori, mai una quota inventata. */
+function periodoInteramenteContenuto(periodo: string, inizio: string, fine: string): boolean {
+  const mensile = isPeriodoMensile(periodo);
+  const inizioRiga = mensile ? `${periodo}-01` : periodo;
+  const fineRiga = mensile ? ultimoGiornoDelMese(periodo) : aggiungiGiorni(periodo, 6);
+  return inizioRiga >= inizio && fineRiga <= fine;
+}
+
+/**
+ * Per questa sede e questo periodo esiste almeno una riga di RisultatiCommerciali inserita a mano?
+ * Serve alle tessere del tab KPI (07/10/2026): senza righe, appuntamenti/vendite/fatturato letti da
+ * RisultatiCommerciali valgono 0 nei totali di computeKpi, ma quello zero vuol dire "nessuno ha
+ * compilato", non "zero vendite" — la tessera deve dire "Non compilato", mai un falso zero. Stessa
+ * regola di contenimento di computeKpi (periodoInteramenteContenuto).
+ */
+export function haRisultatiCommercialiNelPeriodo(
+  clienteId: string,
+  sedeId: string,
+  da: string,
+  a: string,
+  risultatiCommerciali: RisultatoCommercialeRow[]
+): boolean {
+  const { da: inizio, a: fine } = normalizzaIntervallo(da, a);
+  return risultatiCommerciali.some(
+    (row) => row.clienteId === clienteId && row.sedeId === sedeId && periodoInteramenteContenuto(row.periodo, inizio, fine)
+  );
+}
+
 export function computeKpi(
   clienteId: string,
   sedeId: string,
@@ -295,10 +325,7 @@ export function computeKpi(
     // periodo coperto solo in parte viene escluso (vedi il commento in cima alla funzione). Il mese
     // di appartenenza (per gruppi/trend) resta quello del lunedì per una riga settimanale
     // (meseDiPeriodo).
-    const mensile = isPeriodoMensile(row.periodo);
-    const inizioRiga = mensile ? `${row.periodo}-01` : row.periodo;
-    const fineRiga = mensile ? ultimoGiornoDelMese(row.periodo) : aggiungiGiorni(row.periodo, 6);
-    if (inizioRiga < inizio || fineRiga > fine) continue;
+    if (!periodoInteramenteContenuto(row.periodo, inizio, fine)) continue;
     const meseRiga = meseDiPeriodo(row.periodo);
 
     const tipoCampagna = row.tipoCampagna || NON_CLASSIFICATA;

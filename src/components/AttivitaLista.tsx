@@ -13,13 +13,15 @@ import {
   SENTINELLA_NON_ASSEGNATO,
 } from "@/lib/assegnatari";
 import { UndoToast } from "@/components/ui/UndoToast";
+import { Badge } from "@/components/ui/Badge";
+import { PulsanteIcona } from "@/components/ui/PulsanteIcona";
 import { GruppoCollassabile } from "@/components/GruppoCollassabile";
 
 const STATI_MENU: StatoAttivita[] = ["todo", "wip", "done", "blocked"];
 const COL_RESPONSABILE = "w-[130px]";
-const COL_SCADENZA = "w-[120px]";
+const COL_SCADENZA = "w-[156px]";
 const COL_STATO = "w-14";
-const COL_AZIONI = "w-6";
+const COL_AZIONI = "w-8";
 // Dentro un gruppo-stato con più righe di questa soglia, si mostrano solo le prime finché non si
 // clicca "Mostra altre" — 66 task in un'unica lista (il caso reale che ha motivato il redesign)
 // altrimenti si scorrono tutte insieme senza nessun punto di respiro.
@@ -80,8 +82,13 @@ type Props = {
  *
  * Nota sul contenitore dei gruppi: niente `overflow-hidden` sulla card (a differenza di una prima
  * versione) — tagliava i menu a tendina delle ultime righe di ogni gruppo. Gli angoli arrotondati
- * dell'header colorato si ottengono con `rounded-t-2xl` esplicito sull'header stesso, non più
- * per ritaglio del genitore.
+ * dell'header si ottengono con `rounded-t-xl` esplicito sull'header stesso, non più per ritaglio
+ * del genitore.
+ *
+ * Allineamento al Design System ALC (07/10/2026): l'intestazione di ogni gruppo-stato non è più una
+ * fascia piena con testo bianco (bianco su giallo e su grigio non si leggeva: 1,9:1) ma una riga su
+ * `sfondo` con il badge dello stato e il conteggio; casella "fatta", stato e menu hanno un bersaglio
+ * di almeno 32px; nessun testo sotto i 12px.
  */
 export function AttivitaLista({
   attivita,
@@ -176,13 +183,13 @@ export function AttivitaLista({
   return (
     <div className="space-y-4">
       {gruppi.length === 0 ? (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+        <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessuna attività.</p>
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-3 px-5 text-[10px] font-semibold uppercase tracking-wide text-ink-500">
-            <span className="w-4 flex-shrink-0" /> {/* colonna checkbox */}
+          <div className="flex items-center gap-3 px-5 text-[11px] leading-4 font-bold uppercase tracking-[.1em] text-ink-500">
+            <span className="w-5 flex-shrink-0" /> {/* colonna checkbox */}
             <IntestazioneOrdinabile colonna="descrizione" sort={sort} onClick={handleClickColonna} className="flex-1 text-left">
               Task
             </IntestazioneOrdinabile>
@@ -194,14 +201,15 @@ export function AttivitaLista({
             </IntestazioneOrdinabile>
             <span className={`flex-shrink-0 ${COL_STATO} text-right`}>Stato</span>
             <span className={`flex-shrink-0 ${COL_AZIONI}`} />
-            <button
-              type="button"
+            <PulsanteIcona
+              etichetta={compatta ? "Passa alla vista normale" : "Passa alla vista compatta"}
+              dimensione="sm"
+              aria-pressed={compatta}
               onClick={() => setCompatta((v) => !v)}
-              title={compatta ? "Vista normale" : "Vista compatta"}
-              className="flex-shrink-0 text-ink-400 hover:text-ink-700 transition-colors cursor-pointer normal-case"
+              className="-mr-2"
             >
-              {compatta ? <Rows3 size={14} /> : <Rows4 size={14} />}
-            </button>
+              {compatta ? <Rows3 size={16} aria-hidden="true" /> : <Rows4 size={16} aria-hidden="true" />}
+            </PulsanteIcona>
           </div>
 
           {gruppi.map((gruppo) => {
@@ -214,18 +222,20 @@ export function AttivitaLista({
             const oltreSoglia = righeOrdinate.length > SOGLIA_MOSTRA_ALTRE;
             const righe = espanso ? righeOrdinate : righeOrdinate.slice(0, SOGLIA_MOSTRA_ALTRE);
             return (
-              <div key={gruppo.stato} className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm">
+              <div key={gruppo.stato} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)]">
                 <GruppoCollassabile
                   aperto={aperto}
                   onToggle={() => toggleGruppo(gruppo.stato)}
                   // Niente `overflow-hidden` sulla card (tagliava i menu a tendina delle righe, vedi
                   // il commento in cima al file) — da chiuso l'header è anche il fondo della card,
                   // serve arrotondare anche sotto per non lasciare gli angoli squadrati a vista.
-                  headerClassName={`gap-2 px-5 py-2 text-white ${info.puntino} ${aperto ? "rounded-t-2xl" : "rounded-2xl"}`}
+                  headerClassName={`gap-2.5 px-5 bg-surface text-ink-500 hover:bg-brand-light/60 transition-colors ${
+                    aperto ? "rounded-t-xl border-b border-linea" : "rounded-xl"
+                  }`}
                   titolo={
                     <>
-                      <span className="text-xs font-semibold uppercase tracking-wide">{info.label}</span>
-                      <span className="text-[11px] opacity-80">{gruppo.attivita.length}</span>
+                      <Badge classe={info.classe}>{info.label}</Badge>
+                      <span className="text-xs font-bold tabular-nums text-ink-700">{gruppo.attivita.length}</span>
                     </>
                   }
                 >
@@ -265,7 +275,7 @@ export function AttivitaLista({
                       <button
                         type="button"
                         onClick={() => setGruppiEspansi((prev) => new Set(prev).add(gruppo.stato))}
-                        className="w-full text-center text-xs font-semibold text-brand hover:underline py-2.5 border-t border-surface cursor-pointer"
+                        className="w-full min-h-11 text-center text-sm font-semibold text-brand hover:bg-brand-light/60 border-t border-linea rounded-b-xl cursor-pointer"
                       >
                         Mostra altre {righeOrdinate.length - SOGLIA_MOSTRA_ALTRE}
                       </button>
@@ -315,11 +325,12 @@ function IntestazioneOrdinabile({
     <button
       type="button"
       onClick={() => onClick(colonna)}
-      title="Ordina"
-      className={`inline-flex items-center gap-1 cursor-pointer hover:text-ink-700 transition-colors ${attiva ? "text-ink-700" : ""} ${className}`}
+      title="Ordina per questa colonna"
+      aria-label={`Ordina per ${String(children).toLowerCase()}${attiva ? (sort.direzione === "asc" ? ", ordine crescente" : ", ordine decrescente") : ""}`}
+      className={`inline-flex min-h-8 items-center gap-1 uppercase tracking-[.1em] font-bold cursor-pointer hover:text-ink-900 transition-colors ${attiva ? "text-ink-900" : ""} ${className}`}
     >
       {children}
-      <Icona size={11} className={`flex-shrink-0 ${attiva ? "opacity-100" : "opacity-40"}`} />
+      <Icona size={12} aria-hidden="true" className={`flex-shrink-0 ${attiva ? "opacity-100" : "opacity-60"}`} />
     </button>
   );
 }
@@ -335,7 +346,7 @@ function AvatarAssegnatario({ nome }: { nome: string }) {
     return (
       <span
         title={nome}
-        className="w-6 h-6 rounded-full bg-brand/10 text-brand text-[10px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+        className="w-7 h-7 rounded-full bg-brand-light text-brand text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
       >
         {iniziali(nome)}
       </span>
@@ -345,7 +356,7 @@ function AvatarAssegnatario({ nome }: { nome: string }) {
     return (
       <span
         title="Cliente"
-        className="w-6 h-6 rounded-full bg-ink-900 text-white text-[9px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+        className="w-7 h-7 rounded-full bg-notte text-su-notte text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
       >
         CL
       </span>
@@ -355,7 +366,7 @@ function AvatarAssegnatario({ nome }: { nome: string }) {
   return (
     <span
       title={tipo === "ruolo" ? `Da assegnare: ${nome}` : SENTINELLA_NON_ASSEGNATO}
-      className="w-6 h-6 rounded-full border-2 border-dashed border-ink-300 text-ink-400 text-[10px] flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+      className="w-7 h-7 rounded-full border-2 border-dashed border-bordo-campo bg-surface-card text-ink-500 text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
     >
       ?
     </span>
@@ -366,12 +377,18 @@ function StackAssegnatari({ assegnatari, onClick }: { assegnatari: string[]; onC
   const visibili = assegnatari.slice(0, 3);
   const extra = assegnatari.length - visibili.length;
   return (
-    <button type="button" onClick={onClick} title="Cambia assegnatari" className="flex items-center -space-x-1.5 cursor-pointer flex-shrink-0">
+    <button
+      type="button"
+      onClick={onClick}
+      title="Cambia assegnatari"
+      aria-label={`Assegnatari: ${assegnatari.join(", ")}. Clicca per cambiarli`}
+      className="flex min-h-8 items-center -space-x-1.5 rounded-full cursor-pointer flex-shrink-0"
+    >
       {visibili.map((nome, i) => (
         <AvatarAssegnatario key={i} nome={nome} />
       ))}
       {extra > 0 && (
-        <span className="w-6 h-6 rounded-full bg-ink-300/60 text-ink-700 text-[10px] font-semibold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card">
+        <span className="w-7 h-7 rounded-full bg-surface text-ink-700 text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card">
           +{extra}
         </span>
       )}
@@ -424,16 +441,16 @@ function PopoverAssegnatari({
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2.5">
-      <p className="text-xs font-semibold text-ink-900">Assegnatari</p>
-      <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
+    <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
+      <p className="text-sm font-bold text-ink-900">Assegnatari</p>
+      <div className="max-h-56 overflow-y-auto pr-1">
         {tutteLeOpzioni.map((nome) => (
-          <label key={nome} className="flex items-center gap-2 text-xs text-ink-700 cursor-pointer">
+          <label key={nome} className="flex min-h-8 items-center gap-2.5 text-sm text-ink-700 cursor-pointer">
             <input
               type="checkbox"
               checked={selezionati.has(nome)}
               onChange={() => toggle(nome)}
-              className="accent-current text-brand flex-shrink-0"
+              className="h-[18px] w-[18px] accent-[var(--brand-primary)] flex-shrink-0 cursor-pointer"
             />
             <span className="truncate">{nome}</span>
           </label>
@@ -450,24 +467,26 @@ function PopoverAssegnatari({
             }
           }}
           placeholder="Aggiungi un nome…"
-          className="flex-1 min-w-0 rounded-lg border border-ink-300 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition"
+          aria-label="Nome da aggiungere agli assegnatari"
+          className="flex-1 min-w-0 min-h-8 rounded-lg border border-bordo-campo px-2.5 py-1 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition"
         />
         <button
           type="button"
           onClick={aggiungiLibero}
-          className="rounded-lg border border-ink-300 text-xs font-semibold px-2 text-ink-700 hover:bg-surface transition cursor-pointer flex-shrink-0"
+          aria-label="Aggiungi il nome"
+          className="alc-btn alc-btn--neutro alc-btn--piccolo flex-shrink-0"
         >
           +
         </button>
       </div>
-      <div className="flex justify-end gap-2 pt-1 border-t border-ink-300/40">
-        <button type="button" onClick={onChiudi} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
+      <div className="flex justify-end gap-2 pt-3 border-t border-linea">
+        <button type="button" onClick={onChiudi} className="alc-btn alc-btn--neutro alc-btn--piccolo">
           Annulla
         </button>
         <button
           type="button"
           onClick={salva}
-          className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-cta hover:bg-cta-dark text-white cursor-pointer"
+          className="alc-btn alc-btn--piccolo"
         >
           Salva
         </button>
@@ -532,23 +551,26 @@ function RigaAttivita({
 
   return (
     <div
-      className={`group flex items-start gap-3 px-5 hover:bg-surface/70 transition-colors border-t border-surface first:border-t-0 ${
-        compatta ? "py-1.5" : "py-3"
+      className={`group flex items-start gap-3 px-5 hover:bg-surface/70 transition-colors border-t border-linea first:border-t-0 ${
+        compatta ? "py-1" : "py-2.5"
       }`}
     >
-      <input
-        type="checkbox"
-        checked={attivita.stato === "done"}
-        onChange={(e) => onSceltaStato(e.target.checked ? "done" : "todo")}
-        title={attivita.stato === "done" ? "Segna come da fare" : "Segna come fatta"}
-        className="w-4 h-4 mt-1 rounded border-ink-300 text-brand focus:ring-2 focus:ring-brand/30 cursor-pointer flex-shrink-0"
-      />
+      {/* La casella è di 20px ma il bersaglio (l'etichetta attorno) è di 32px. */}
+      <label className="-m-1.5 flex h-8 w-8 flex-shrink-0 items-center justify-center cursor-pointer" title={attivita.stato === "done" ? "Segna come da fare" : "Segna come fatta"}>
+        <input
+          type="checkbox"
+          checked={attivita.stato === "done"}
+          onChange={(e) => onSceltaStato(e.target.checked ? "done" : "todo")}
+          aria-label={`${attivita.stato === "done" ? "Segna come da fare" : "Segna come fatta"}: ${attivita.descrizione}`}
+          className="h-5 w-5 accent-[var(--brand-primary)] cursor-pointer"
+        />
+      </label>
 
       <div className="min-w-0 flex-1">
         {/* line-clamp (non più truncate a 1 riga) — segnalato dall'utente: i task lunghi (la norma,
             non l'eccezione) restavano illeggibili tagliati alla prima riga. 2 righe bastano per la
             stragrande maggioranza dei titoli reali; title= resta come rete per il residuo più lungo. */}
-        <p className="text-ink-900 text-sm line-clamp-2 break-words" title={attivita.descrizione}>
+        <p className={`text-ink-900 text-sm leading-5 line-clamp-2 break-words ${compatta ? "py-1" : "pt-0.5"}`} title={attivita.descrizione}>
           {attivita.descrizione}
         </p>
         {/* Seconda riga (badge cliente/fase/meeting/nota) nascosta in modalità compatta — solo il
@@ -566,7 +588,7 @@ function RigaAttivita({
               target="_blank"
               rel="noopener noreferrer"
               title={`Vai alla scheda di ${nomeCliente}`}
-              className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-md bg-ink-900 text-white hover:bg-ink-700 cursor-pointer transition-colors truncate max-w-[160px]"
+              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-notte text-su-notte hover:brightness-125 cursor-pointer transition truncate max-w-[180px]"
             >
               {nomeCliente}
             </a>
@@ -576,9 +598,9 @@ function RigaAttivita({
               type="button"
               onClick={() => onVaiAMeeting(meetingId)}
               title={`${attivita.fase} — vai al meeting`}
-              className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 cursor-pointer transition-colors"
+              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-brand-light text-brand hover:brightness-95 cursor-pointer transition"
             >
-              <Calendar size={11} className="flex-shrink-0" />
+              <Calendar size={12} aria-hidden="true" className="flex-shrink-0" />
               {faseCompatta(attivita.fase, true)}
             </button>
           ) : (
@@ -586,18 +608,18 @@ function RigaAttivita({
             // nessun badge vuoto al posto di quello col nome fase, mai un pill senza contenuto.
             attivita.fase && (
               <span
-                className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[220px] ${
-                  isMeeting ? "bg-blue-50 text-blue-600 border border-blue-100" : "bg-ink-300/40 text-ink-500 border border-ink-300"
+                className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full truncate max-w-[220px] ${
+                  isMeeting ? "bg-brand-light text-brand" : "bg-surface text-ink-500 shadow-[inset_0_0_0_1px_var(--linea)]"
                 }`}
                 title={attivita.fase}
               >
-                {isMeeting && <Calendar size={11} className="flex-shrink-0" />}
+                {isMeeting && <Calendar size={12} aria-hidden="true" className="flex-shrink-0" />}
                 {faseCompatta(attivita.fase, isMeeting)}
               </span>
             )
           )}
           {attivita.notaTeam && (
-            <span className="text-[10px] text-red-500 italic truncate max-w-[200px]" title={attivita.notaTeam}>
+            <span className="text-xs font-semibold text-critico truncate max-w-[240px]" title={attivita.notaTeam}>
               &ldquo;{attivita.notaTeam}&rdquo;
             </span>
           )}
@@ -629,7 +651,7 @@ function RigaAttivita({
           value={attivita.dataFine}
           onChange={(e) => e.target.value && onCambiaScadenza(e.target.value)}
           onClick={(e) => e.currentTarget.showPicker?.()}
-          aria-label="Cambia scadenza"
+          aria-label={`Scadenza: ${scadenza.testo}. Clicca per cambiarla`}
           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
         />
         {/* Niente padding orizzontale qui (a differenza dei badge fase/cliente sopra, che sono vere
@@ -637,8 +659,8 @@ function RigaAttivita({
             pixel rispetto all'intestazione "Scadenza" sopra, allineata a sinistra senza padding —
             colonna e valore sembravano disallineati. */}
         <span
-          className={`pointer-events-none block text-xs py-0.5 truncate ${
-            scadenza.scaduta ? "text-red-600 font-semibold" : "text-ink-500"
+          className={`pointer-events-none flex min-h-8 items-center text-xs truncate ${
+            scadenza.scaduta ? "text-critico font-bold" : "text-ink-700"
           }`}
         >
           {scadenza.testo}
@@ -650,24 +672,28 @@ function RigaAttivita({
           type="button"
           onClick={menuAperto ? onChiudiMenu : onApriMenu}
           title={`Stato: ${info.label} — clicca per cambiare`}
-          className={`cursor-pointer flex items-center gap-0.5 px-1.5 py-1 rounded-lg border ${info.classe}`}
+          aria-label={`Stato: ${info.label}. Clicca per cambiarlo`}
+          aria-haspopup="menu"
+          aria-expanded={menuAperto}
+          className={`cursor-pointer flex h-8 items-center gap-1 px-2.5 rounded-full border ${info.classe}`}
         >
-          <span className={`w-2 h-2 rounded-full ${info.puntino}`} />
-          <ChevronDown size={12} className="opacity-60" />
+          <span aria-hidden="true" className={`w-2 h-2 rounded-full ${info.puntino}`} />
+          <ChevronDown size={14} aria-hidden="true" />
         </button>
 
         {menuAperto && (
-          <div className="absolute right-0 top-full mt-1 z-20 w-36 rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1">
+          <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] py-1">
             {STATI_MENU.map((s) => {
               const opzione = formatStatoAttivita(s);
               return (
                 <button
                   key={s}
                   type="button"
+                  role="menuitem"
                   onClick={() => onSceltaStato(s)}
-                  className="w-full text-left px-3 py-1.5 text-xs text-ink-700 hover:bg-surface cursor-pointer flex items-center gap-2"
+                  className="w-full min-h-9 text-left px-3 text-sm text-ink-700 hover:bg-surface cursor-pointer flex items-center gap-2.5"
                 >
-                  <span className={`w-2 h-2 rounded-sm ${opzione.puntino}`} />
+                  <span aria-hidden="true" className={`w-2 h-2 rounded-full ${opzione.puntino}`} />
                   {opzione.label}
                 </button>
               );
@@ -676,25 +702,26 @@ function RigaAttivita({
         )}
 
         {popoverBloccoAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-ink-300 bg-surface-card shadow-lg p-3 space-y-2">
-            <p className="text-xs font-semibold text-ink-900">Perché è bloccata?</p>
+          <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
+            <p className="text-sm font-bold text-ink-900">Perché è bloccata?</p>
             <textarea
               autoFocus
               value={notaBozza}
               onChange={(e) => onNotaBozzaChange(e.target.value)}
               rows={2}
               placeholder="Motivo del blocco…"
-              className="w-full rounded-lg border border-ink-300 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
+              aria-label="Motivo del blocco"
+              className="w-full rounded-lg border border-bordo-campo px-2.5 py-2 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition resize-none"
             />
             <div className="flex justify-end gap-2">
-              <button type="button" onClick={onChiudiBlocco} className="text-[11px] font-medium px-2 py-1 rounded-lg text-ink-500 hover:bg-ink-300/40 cursor-pointer">
+              <button type="button" onClick={onChiudiBlocco} className="alc-btn alc-btn--neutro alc-btn--piccolo">
                 Annulla
               </button>
               <button
                 type="button"
                 onClick={onConfermaBlocco}
                 disabled={!notaBozza.trim()}
-                className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-red-500 hover:bg-red-600 disabled:opacity-40 text-white cursor-pointer disabled:cursor-not-allowed"
+                className="alc-btn alc-btn--critico alc-btn--piccolo"
               >
                 Blocca
               </button>
@@ -706,21 +733,24 @@ function RigaAttivita({
       <div className={`relative flex-shrink-0 ${COL_AZIONI} flex justify-end`}>
         {/* Visibile on-hover su desktop (sm:), sempre visibile su touch/viewport piccoli — niente
             affordance nascosta senza un modo di scoprirla su schermi piccoli. */}
-        <button
-          type="button"
+        <PulsanteIcona
+          etichetta="Altre azioni"
+          dimensione="sm"
+          aria-haspopup="menu"
+          aria-expanded={menuKebabAperto}
           onClick={menuKebabAperto ? onChiudiKebab : onApriKebab}
-          title="Altre azioni"
-          className="text-ink-300 hover:text-ink-700 transition-colors cursor-pointer sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100"
+          className="sm:opacity-0 sm:group-hover:opacity-100 sm:focus-visible:opacity-100 sm:aria-expanded:opacity-100"
         >
-          <MoreVertical size={16} />
-        </button>
+          <MoreVertical size={18} aria-hidden="true" />
+        </PulsanteIcona>
 
         {menuKebabAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-40 rounded-xl border border-ink-300 bg-surface-card shadow-lg py-1">
+          <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-40 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] py-1">
             <button
               type="button"
+              role="menuitem"
               onClick={onElimina}
-              className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50 cursor-pointer"
+              className="w-full min-h-9 text-left px-3 text-sm font-semibold text-critico hover:bg-critico-tenue cursor-pointer"
             >
               Elimina
             </button>

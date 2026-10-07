@@ -63,7 +63,7 @@ describe("generaAvvisiOperativi", () => {
       id: "frequenza-alta",
       tono: "attenzione",
       titolo: "Frequenza alta",
-      messaggio: "A (2.80) — creatività da rinnovare.",
+      messaggio: "A (2,80) — creatività da rinnovare.",
     });
 
     const molte = generaAvvisiOperativi({
@@ -76,7 +76,7 @@ describe("generaAvvisiOperativi", () => {
         { nomeCampagna: "E", frequenza: 2.7 },
       ],
     });
-    expect(molte[0].messaggio).toBe("A (2.80), B (3.10), C (2.60) e altre 2 — creatività da rinnovare.");
+    expect(molte[0].messaggio).toBe("A (2,80), B (3,10), C (2,60) e altre 2 — creatività da rinnovare.");
   });
 
   it("mese senza RisultatiCommerciali elenca i mesi coinvolti", () => {
@@ -269,7 +269,7 @@ describe("generaAvvisiOperativi", () => {
       id: "inserzioni-outlier",
       tono: "attenzione",
       titolo: "Inserzioni outlier",
-      messaggio: `Video A (${formatEuro(30)}) — costo per lead oltre 2.5× il target, valuta di spegnerle.`,
+      messaggio: `Video A (${formatEuro(30)}) — costo per lead oltre 2,5× il target, valuta di spegnerle.`,
     });
 
     const molte = generaAvvisiOperativi({
@@ -281,7 +281,7 @@ describe("generaAvvisiOperativi", () => {
         inserzioneOutlier({ adId: "d", adName: "D" }),
       ],
     });
-    expect(molte[0].messaggio).toBe(`A (${formatEuro(30)}), B (${formatEuro(30)}), C (${formatEuro(30)}) e altre 1 — costo per lead oltre 2.5× il target, valuta di spegnerle.`);
+    expect(molte[0].messaggio).toBe(`A (${formatEuro(30)}), B (${formatEuro(30)}), C (${formatEuro(30)}) e altre 1 — costo per lead oltre 2,5× il target, valuta di spegnerle.`);
   });
 
   it("inserzione outlier senza lead (CPL Infinity) mostra 'nessun lead' invece di un numero", () => {

@@ -134,7 +134,7 @@ export function AndamentoAppuntamentiChart({
           {yTicks.map((tick) => (
             <g key={tick}>
               <line x1={PAD_LEFT} x2={WIDTH - PAD_RIGHT} y1={yFor(tick)} y2={yFor(tick)} stroke="var(--gridline)" strokeWidth={1} />
-              <text x={PAD_LEFT - 8} y={yFor(tick) + 3} textAnchor="end" fontSize={10} fill="var(--text-muted)">
+              <text x={PAD_LEFT - 8} y={yFor(tick) + 3} textAnchor="end" fontSize={12} fill="var(--text-muted)">
                 {formatNumero(tick)}
               </text>
             </g>
@@ -164,7 +164,7 @@ export function AndamentoAppuntamentiChart({
 
           {punti.map((p, i) =>
             i % passoEtichette === 0 ? (
-              <text key={p.settimana} x={PAD_LEFT + i * groupW + groupW / 2} y={HEIGHT + 18} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+              <text key={p.settimana} x={PAD_LEFT + i * groupW + groupW / 2} y={HEIGHT + 18} textAnchor="middle" fontSize={12} fill="var(--text-muted)">
                 {p.etichetta}
               </text>
             ) : null

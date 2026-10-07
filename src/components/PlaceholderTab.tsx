@@ -1,6 +1,6 @@
 export function PlaceholderTab({ titolo, descrizione }: { titolo: string; descrizione: string }) {
   return (
-    <div className="rounded-2xl border-2 border-dashed border-gray-200 bg-white p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
+    <div className="rounded-xl border border-linea bg-surface-card p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
       <div className="text-center max-w-xs">
         <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4 bg-brand-light">
           <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-brand">
@@ -10,8 +10,8 @@ export function PlaceholderTab({ titolo, descrizione }: { titolo: string; descri
             <line x1="16" y1="2" x2="16" y2="6" />
           </svg>
         </div>
-        <h3 className="text-base font-semibold text-gray-900">{titolo}</h3>
-        <p className="text-sm text-gray-500 mt-1.5">{descrizione}</p>
+        <h3 className="text-base font-semibold text-ink-900">{titolo}</h3>
+        <p className="text-sm text-ink-500 mt-1.5">{descrizione}</p>
       </div>
     </div>
   );

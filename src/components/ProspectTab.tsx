@@ -93,11 +93,11 @@ function ReportAzioni({
           {mostraEmail ? "Nascondi email" : "Genera email di follow-up"}
         </Button>
       </div>
-      {errorePdf && <p className="text-xs text-red-600">{errorePdf}</p>}
+      {errorePdf && <p className="text-xs text-critico">{errorePdf}</p>}
       {mostraEmail && testoEmail !== null && (
         <div className="space-y-1.5">
           <textarea
-            className="w-full rounded-xl border border-ink-300 px-3 py-2.5 text-xs leading-relaxed outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand transition resize-none"
+            className="w-full min-h-11 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-500 focus:border-brand transition-colors leading-relaxed resize-none"
             rows={8}
             value={testoEmail}
             onChange={(e) => setTestoEmail(e.target.value)}
@@ -262,16 +262,16 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
   }
 
   if (caricamento && !reportLista) return <p className="text-sm text-ink-500">Caricamento…</p>;
-  if (errore && !reportLista) return <p className="text-sm text-red-600">{errore}</p>;
+  if (errore && !reportLista) return <p className="text-sm text-critico">{errore}</p>;
 
   return (
     <div className="space-y-3">
-      {errore && <p className="text-sm text-red-600">{errore}</p>}
+      {errore && <p className="text-sm text-critico">{errore}</p>}
 
       {esitoInvio && (
         <div
           className={`rounded-xl border p-3 flex items-start justify-between gap-3 text-xs ${
-            esitoInvio.inviata ? "bg-green-50 border-green-100 text-green-700" : "bg-yellow-50 border-yellow-100 text-yellow-800"
+            esitoInvio.inviata ? "bg-ok-tenue border-ok/20 text-ok" : "bg-attenzione-tenue border-attenzione/20 text-attenzione"
           }`}
         >
           <p>
@@ -286,9 +286,9 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
       )}
 
       {!anteprima && (
-        <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-4">
+        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
           {!mostraForm ? (
-            <Button type="button" onClick={() => setMostraForm(true)}>
+            <Button variant="crea" type="button" onClick={() => setMostraForm(true)}>
               + Nuovo report
             </Button>
           ) : (
@@ -324,7 +324,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
                   tentativi automatici in caso di errore transitorio: può richiedere fino a tre minuti…
                 </p>
               )}
-              {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
+              {erroreForm && <p className="text-xs text-critico">{erroreForm}</p>}
             </form>
           )}
         </div>
@@ -335,7 +335,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
           <h4 className="text-sm font-semibold text-ink-900">Anteprima — verifica e modifica prima di salvare</h4>
 
           {troncamento && (
-            <p className="text-xs bg-yellow-50 border border-yellow-100 text-yellow-800 rounded-lg px-3 py-2.5">
+            <p className="text-xs bg-attenzione-tenue border border-attenzione/20 text-attenzione rounded-lg px-3 py-2.5">
               La chiamata era più lunga di quanto il modello riesca ad analizzare in un colpo solo: elaborati{" "}
               {troncamento.caratteriElaborati.toLocaleString("it-IT")} di{" "}
               {troncamento.caratteriTotali.toLocaleString("it-IT")} caratteri (
@@ -354,20 +354,20 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
             onCambiaTestoEmail={setEmailBozza}
           />
 
-          <label className={`flex items-center gap-2 text-xs pt-1 ${prospectEmail ? "text-ink-700 cursor-pointer" : "text-ink-300"}`}>
+          <label className={`flex items-center gap-2 text-xs pt-1 ${prospectEmail ? "text-ink-700 cursor-pointer" : "text-ink-500"}`}>
             <input
               type="checkbox"
               checked={inviaAutomatica}
               disabled={!prospectEmail}
               onChange={(e) => setInviaAutomatica(e.target.checked)}
-              className="accent-current text-brand"
+              className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0"
             />
             {prospectEmail
               ? `Invia email al prospect in automatico (a ${prospectEmail}, con PDF allegato)`
               : "Invia email al prospect in automatico — aggiungi l'email del prospect per abilitarlo"}
           </label>
 
-          {erroreForm && <p className="text-xs text-red-600">{erroreForm}</p>}
+          {erroreForm && <p className="text-xs text-critico">{erroreForm}</p>}
 
           <div className="flex gap-2 pt-2 border-t border-ink-300/60">
             <Button type="button" onClick={handleSalva} disabled={salvando}>
@@ -388,7 +388,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
       )}
 
       {reportLista?.length === 0 && !anteprima && (
-        <div className="rounded-2xl border-2 border-dashed border-ink-300 bg-surface-card p-8 text-center">
+        <div className="rounded-xl border border-linea bg-surface-card p-8 text-center">
           <p className="text-sm text-ink-500">Nessun report registrato.</p>
         </div>
       )}
@@ -401,19 +401,19 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : r.reportId)}
-              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-2xl border border-ink-300 bg-surface-card shadow-sm transition-colors cursor-pointer"
+              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
             >
               <div className="min-w-0">
                 <p className="font-semibold text-ink-900 truncate">{r.dati.titolo || "(senza titolo)"}</p>
                 <p className="text-xs text-ink-500">{formatDataBreve(r.data)}</p>
               </div>
-              <span className="text-ink-300 text-xs flex-shrink-0">{aperto ? "▲" : "▼"}</span>
+              <span className="text-ink-500 text-xs flex-shrink-0">{aperto ? "▲" : "▼"}</span>
             </button>
 
             {aperto && inModifica && bozza && (
               <div className="space-y-3">
                 <ReportCommercialeView report={bozza} onChange={(u) => setBozza({ ...bozza, ...u })} />
-                {erroreEdit && <p className="text-xs text-red-600">{erroreEdit}</p>}
+                {erroreEdit && <p className="text-xs text-critico">{erroreEdit}</p>}
                 <div className="flex gap-2">
                   <Button type="button" onClick={salvaModifica} disabled={salvandoEdit}>
                     {salvandoEdit ? "Salvataggio…" : "Salva modifiche"}

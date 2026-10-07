@@ -1,4 +1,4 @@
-import { CloudOff } from "lucide-react";
+import { Nota } from "@/components/ui/Nota";
 import type { ProblemaSincronizzazione } from "@/lib/sincronizzazioneMeta";
 import { formatDataBreve, formatEuro } from "@/lib/format";
 
@@ -29,29 +29,23 @@ export function AvvisoSincronizzazioneMeta({ problemi }: { problemi: ProblemaSin
   const haSincronizzazioneFallita = problemi.some((p) => p.causa === "sincronizzazione");
 
   return (
-    <div className="rounded-2xl border border-red-100 bg-red-50 p-5">
-      <div className="flex items-center gap-2.5">
-        <CloudOff size={20} className="text-red-500 flex-shrink-0" />
-        <p className="text-sm font-semibold text-red-700">
-          Dati Meta non aggiornati per {problemi.length === 1 ? "1 sede" : `${problemi.length} sedi`}
-        </p>
-      </div>
+    <Nota tono="critico" etichetta={`Dati Meta non aggiornati · ${problemi.length === 1 ? "1 sede" : `${problemi.length} sedi`}`}>
       {rifiutoComune && (
-        <p className="text-xs text-ink-700 mt-2">
+        <p>
           Meta rifiuta le richieste dell&apos;app con lo stesso messaggio su {dettagliRifiuto.length} sedi: «{rifiutoComune}». Finché non
           viene risolto la sincronizzazione resta ferma. Se il messaggio parla di token scaduto o non valido, va generato un nuovo token
           e aggiornato su Vercel.
         </p>
       )}
       {haSincronizzazioneFallita && (
-        <p className="text-xs text-ink-700 mt-2">
+        <p>
           Dove su Meta risulta spesa non arrivata in app, la sincronizzazione automatica non è andata a buon fine: apri il cliente e
           premi &quot;Aggiorna KPI&quot;. Se mancano più di 3 giorni usa &quot;Recupera storico campagne&quot; in Modifica cliente.
         </p>
       )}
-      <ul className="mt-3 space-y-1.5">
+      <ul className="mt-1 space-y-1">
         {problemi.map((p) => (
-          <li key={`${p.clienteId}|${p.sedeId}`} className="text-xs text-ink-700">
+          <li key={`${p.clienteId}|${p.sedeId}`}>
             <a href={`/dashboard/cliente/${p.clienteId}`} className="font-semibold text-ink-900 underline underline-offset-2">
               {p.nomeCliente}
             </a>
@@ -70,6 +64,6 @@ export function AvvisoSincronizzazioneMeta({ problemi }: { problemi: ProblemaSin
           </li>
         ))}
       </ul>
-    </div>
+    </Nota>
   );
 }

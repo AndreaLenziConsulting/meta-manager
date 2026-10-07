@@ -115,12 +115,12 @@ export function FunnelConversioneChart({
                 <rect x={0} y={top} width={WIDTH} height={ROW_H} fill="transparent" />
 
                 <circle cx={labelX + 5} cy={rowCenterY - 14} r={5} fill={COLORI[i]} />
-                <text x={labelX + 16} y={rowCenterY - 10} fontSize={11} fontWeight={600} fill="var(--text-secondary)" style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
+                <text x={labelX + 16} y={rowCenterY - 10} fontSize={12} fontWeight={600} fill="var(--text-secondary)" style={{ textTransform: "uppercase", letterSpacing: "0.03em" }}>
                   {s.etichetta}
                 </text>
                 <text x={labelX + 16} y={rowCenterY + 12} fontSize={19} fontWeight={700} fill="var(--text-primary)">
                   {formatNumero(s.conteggio)}
-                  <tspan fontSize={11} fontWeight={400} fill="var(--text-muted)">
+                  <tspan fontSize={12} fontWeight={400} fill="var(--text-muted)">
                     {"  "}
                     {s.percentualeSuLead !== null ? `${formatPercentuale(s.percentualeSuLead)} dei lead` : "—"}
                   </tspan>

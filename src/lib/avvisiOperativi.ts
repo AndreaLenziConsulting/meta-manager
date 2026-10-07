@@ -4,7 +4,7 @@ import type { InserzioneOutlier } from "@/lib/inserzioniOutlier";
 import { SOGLIA_OUTLIER_CPL } from "@/lib/inserzioniOutlier";
 import type { ConfrontoTarget, ConfrontoTargetCommerciali } from "@/lib/targetCommerciali";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
-import { formatEuro, formatMese, formatNumero } from "@/lib/format";
+import { formatDecimale, formatEuro, formatMese, formatNumero } from "@/lib/format";
 
 export type TonoAvviso = "attenzione" | "da-sistemare" | "da-sapere";
 export type AvvisoOperativo = { id: string; tono: TonoAvviso; titolo: string; messaggio: string };
@@ -91,7 +91,7 @@ export function generaAvvisiOperativi(input: {
 
   if (input.campagneFrequenzaAlta.length > 0) {
     // Elenca le prime 3 per nome, riassume il resto — mai una riga lunghissima con decine di nomi.
-    const nomi = input.campagneFrequenzaAlta.slice(0, 3).map((c) => `${c.nomeCampagna} (${c.frequenza.toFixed(2)})`);
+    const nomi = input.campagneFrequenzaAlta.slice(0, 3).map((c) => `${c.nomeCampagna} (${formatDecimale(c.frequenza)})`);
     const restanti = input.campagneFrequenzaAlta.length - nomi.length;
     const suffisso = restanti > 0 ? ` e altre ${restanti}` : "";
     avvisi.push({
@@ -116,7 +116,7 @@ export function generaAvvisiOperativi(input: {
       id: "inserzioni-outlier",
       tono: "attenzione",
       titolo: "Inserzioni outlier",
-      messaggio: `${nomi.join(", ")}${suffisso} — costo per lead oltre ${SOGLIA_OUTLIER_CPL}× il target, valuta di spegnerle.`,
+      messaggio: `${nomi.join(", ")}${suffisso} — costo per lead oltre ${formatDecimale(SOGLIA_OUTLIER_CPL, 1)}× il target, valuta di spegnerle.`,
     });
   }
 

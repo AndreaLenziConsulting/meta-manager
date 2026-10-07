@@ -97,47 +97,58 @@ export function BoxGrafici({
     function handleClick(e: MouseEvent) {
       if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
     }
+    function handleTasto(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleTasto);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleTasto);
+    };
   }, [open]);
 
   const attivo = OPZIONI.find((o) => o.id === selezionato) ?? OPZIONI[0];
 
   return (
-    <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <div className="w-1 h-5 rounded-full bg-brand" />
-          <h3 className="font-heading font-bold text-ink-900 text-[15px]">{attivo.label}</h3>
+          <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{attivo.label}</h3>
         </div>
 
         <div className="relative" ref={rootRef}>
           <button
             type="button"
             onClick={() => setOpen((o) => !o)}
-            className="flex items-center gap-2 rounded-xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel)] px-3 py-2 text-sm text-ink-900 shadow-sm hover:border-brand/40 transition cursor-pointer"
+            aria-haspopup="menu"
+            aria-expanded={open}
+            aria-label={`Grafico mostrato: ${attivo.label}. Clicca per cambiarlo`}
+            className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
           >
-            <LineChart size={14} className="text-ink-500" />
+            <LineChart size={16} aria-hidden="true" className="text-ink-500" />
             {attivo.label}
-            <ChevronDown size={12} className="text-ink-500" />
+            <ChevronDown size={16} aria-hidden="true" className="text-ink-500" />
           </button>
 
           {open && (
-            <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-[var(--glass-border-soft)] bg-surface-card backdrop-blur-lg supports-[backdrop-filter]:bg-[var(--glass-panel-strong)] shadow-lg p-2">
+            <div role="menu" className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-2">
               {OPZIONI.map((o) => (
                 <button
                   key={o.id}
                   type="button"
+                  role="menuitemradio"
+                  aria-checked={o.id === selezionato}
                   onClick={() => {
                     setSelezionato(o.id);
                     setOpen(false);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer ${
                     o.id === selezionato ? "bg-brand-light" : "hover:bg-surface"
                   }`}
                 >
                   <p className={`text-sm font-semibold ${o.id === selezionato ? "text-brand" : "text-ink-900"}`}>{o.label}</p>
-                  <p className="text-[11px] text-ink-500">{o.descrizione}</p>
+                  <p className="text-xs text-ink-500">{o.descrizione}</p>
                 </button>
               ))}
             </div>

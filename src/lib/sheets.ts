@@ -1502,12 +1502,20 @@ export async function getCampagne(opts?: { noCache?: boolean }): Promise<Campagn
  * Prova a dedurre il tipo_campagna dal prefisso tra parentesi quadre nel nome campagna
  * (convenzione di naming: "[Progetto] resto del nome"). Torna stringa vuota se non riconosce
  * il pattern, così la campagna resta "da classificare" a mano invece di prendere un valore sbagliato.
+ *
+ * "[ALC]" in testa non è un tipo: è l'etichetta con cui l'agenzia marca le proprie campagne (vedi
+ * src/lib/campagneAlc.ts). Si salta e si guarda il prefisso successivo — "[ALC] [Prospecting] …" è
+ * "Prospecting", "[ALC] lead form" resta da classificare. Prima diventava il tipo campagna "Alc".
  */
 export function guessTipoCampagnaFromNome(nomeCampagna: string): string {
-  const match = nomeCampagna.match(/^\[([^\]]+)\]/);
-  const testo = match?.[1]?.trim();
-  if (!testo) return "";
-  return testo.charAt(0).toUpperCase() + testo.slice(1).toLowerCase();
+  let resto = nomeCampagna.trimStart();
+  for (;;) {
+    const match = resto.match(/^\[([^\]]+)\]/);
+    const testo = match?.[1]?.trim();
+    if (!match || !testo) return "";
+    if (testo.toLowerCase() !== "alc") return testo.charAt(0).toUpperCase() + testo.slice(1).toLowerCase();
+    resto = resto.slice(match[0].length).trimStart();
+  }
 }
 
 /**

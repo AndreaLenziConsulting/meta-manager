@@ -20,10 +20,13 @@ export function Accordion({
   aperto,
   onChange,
   trailing,
+  etichetta,
 }: {
   items: AccordionItemDef[];
   aperto: string;
   onChange: (id: string) => void;
+  /** Nome del gruppo di schede per gli screen reader (es. "Sezioni del cliente"). */
+  etichetta?: string;
   // Contenuto accessorio sulla stessa riga delle tab, spinto a destra (richiesta utente,
   // 09/2026: "allineare i link alle tab del cliente mantenendole sulla destra") — es. i link
   // rapidi Drive/Landing/Appuntamenti di ClienteHeader.tsx, che prima stavano in una riga
@@ -35,7 +38,7 @@ export function Accordion({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Tabs tabs={items.map(({ id, label }) => ({ id, label }))} attivo={aperto} onChange={onChange} />
+        <Tabs tabs={items.map(({ id, label }) => ({ id, label }))} attivo={aperto} onChange={onChange} etichetta={etichetta} />
         {trailing}
       </div>
       {attivo?.content}

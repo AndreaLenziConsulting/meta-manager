@@ -23,10 +23,9 @@ export function AndamentoCommerciale({
   haConnessioneGhl: boolean;
 }) {
   return (
-    <div className="rounded-[20px] border border-[var(--glass-border-soft)] bg-surface-card shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] p-5">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center gap-2 mb-3">
-        <div className="w-1 h-5 rounded-full bg-brand" />
-        <h3 className="font-heading font-bold text-ink-900 text-[15px]">Andamento commerciale</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Andamento commerciale</h3>
       </div>
       <PacingVenditoriChart clienteId={clienteId} sedeId={sedeId} haConnessioneGhl={haConnessioneGhl} />
     </div>

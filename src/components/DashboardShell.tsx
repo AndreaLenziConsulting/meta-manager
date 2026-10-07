@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
+import { PulsanteIcona } from "@/components/ui/PulsanteIcona";
 import { Sidebar } from "@/components/Sidebar";
 import { AccountMenu } from "@/components/AccountMenu";
 import { TopbarSlotProvider } from "@/components/TopbarSlot";
@@ -67,50 +69,51 @@ export function DashboardShell({
 
   return (
     <TopbarSlotProvider slotEl={topbarSlotEl}>
-      {/* Tela di sfondo "Vetro ALC": colore superficie + pallinato sottile (stesso trattamento del
-          mockup di riferimento), su QUESTO contenitore — non su body globale, per non toccare
-          login/report pubblico. La riga sotto (Sidebar + colonna contenuto) è apposta TRASPARENTE:
-          prima aveva un suo `bg-surface` opaco che copriva per intero le sagome sfocate qui sotto,
-          rendendole invisibili — bug corretto qui (10/09/2026, "il live non somiglia al mockup"). */}
-      <div className="relative min-h-screen bg-surface bg-[radial-gradient(var(--grid-dot)_1px,transparent_1px)] [background-size:24px_24px]">
-        {/* Due sagome sfocate NEUTRE (ink-300, mai un colore di brand) danno il rilievo che serve
-            al backdrop-filter di Sidebar/barra sticky per leggersi, più un accenno discreto di blu
-            che firma la pagina senza dominarla. `fixed` (non `absolute`): resta ancorato al
-            viewport a prescindere dagli antenati `sticky`/overflow del guscio, e non contribuisce
-            mai allo scroll orizzontale della pagina. */}
-        <div className="pointer-events-none fixed -z-10 rounded-full bg-ink-300 opacity-90 blur-[100px] w-[820px] h-[820px] -top-[360px] -right-[260px]" />
-        <div className="pointer-events-none fixed -z-10 rounded-full bg-ink-300 opacity-80 blur-[100px] w-[640px] h-[640px] -bottom-[300px] -left-[200px]" />
-        <div className="pointer-events-none fixed -z-10 rounded-full bg-brand opacity-[0.16] blur-[100px] w-[460px] h-[460px] -top-[180px] left-[22%]" />
-
-        <div className="flex min-h-screen">
-          <Sidebar
-            ruolo={ruolo}
-            pathname={pathname}
-            collapsed={collapsed}
-            onToggleCollapsed={toggleCollapsed}
-            mobileOpen={mobileOpen}
-            onCloseMobile={() => setMobileOpen(false)}
-          />
-          <div className="flex-1 min-w-0 flex flex-col">
-            {/* "Bubble" flottante (richiesta utente, 09/2026, su mockup di riferimento) invece della
-                barra piatta a tutta larghezza di prima: margine su tutti i lati (incluso sopra,
-                anche da ferma in cima allo scroll) + bordi arrotondati + ombra pannello, così la
-                tela puntinata di sfondo resta visibile intorno, non solo sotto. */}
-            <div className="sticky top-4 z-10 mx-4 sm:mx-6 h-14 flex items-center justify-between gap-3 rounded-2xl bg-surface-card border border-[var(--glass-border-soft)] shadow-[var(--shadow-panel),inset_0_1px_0_var(--glass-highlight)] backdrop-blur-xl backdrop-saturate-150 supports-[backdrop-filter]:bg-[var(--glass-chrome-strong)] px-6">
-              <button
-                type="button"
-                onClick={() => setMobileOpen(true)}
-                className="lg:hidden text-ink-700 hover:text-brand transition cursor-pointer"
-                aria-label="Apri menu"
-              >
-                <Menu size={22} />
-              </button>
-              {/* Slot per ClienteHeader.tsx (torna-indietro + nome cliente) — vedi TopbarSlot.tsx. */}
-              <div ref={setTopbarSlotEl} className="flex-1 min-w-0 flex items-center gap-3" />
+      {/* Primo elemento raggiungibile col tasto Tab: porta dritto al contenuto, saltando il menù. */}
+      <a href="#contenuto" className="salta-al-contenuto">
+        Salta al contenuto
+      </a>
+      {/* Fondo `sfondo` pieno, come vuole il Design System ALC: card bianche con bordo e ombra sopra un
+          grigio-azzurro chiaro. La tela puntinata con le sagome sfocate del redesign "vetro" è stata
+          tolta il 07/10/2026 insieme alle superfici traslucide. */}
+      <div className="flex min-h-screen bg-surface">
+        <Sidebar
+          ruolo={ruolo}
+          pathname={pathname}
+          collapsed={collapsed}
+          onToggleCollapsed={toggleCollapsed}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+          account={<AccountMenu ruolo={ruolo} nome={nomeAccount} posizione="laterale" compatto={collapsed} />}
+        />
+        <div className="flex-1 min-w-0 flex flex-col">
+          {/* Barra in alto. Su telefono c'è sempre (menù, logo, account). Su schermo grande porta solo
+              il contesto del cliente aperto (torna indietro, nome, modifica: vedi TopbarSlot.tsx) e
+              sparisce quando è vuota — prima restava una barra bianca con dentro il solo account, che
+              ora sta in fondo al menù laterale. */}
+          <div className="sticky top-0 z-30 bg-surface lg:px-8 lg:pt-4 lg:has-[[data-topbar-slot]:empty]:hidden">
+          <div className="flex h-14 items-center gap-2 border-b border-linea bg-surface-card px-2 lg:rounded-xl lg:border lg:px-4 lg:shadow-[var(--shadow-card)]">
+            <PulsanteIcona etichetta="Apri menu" dimensione="lg" onClick={() => setMobileOpen(true)} className="order-1 text-ink-700 lg:hidden">
+              <Menu size={22} aria-hidden="true" />
+            </PulsanteIcona>
+            {/* Slot per ClienteHeader.tsx — vedi TopbarSlot.tsx. `peer`: quando è vuoto, su telefono
+                al suo posto si vede il logo. */}
+            <div ref={setTopbarSlotEl} data-topbar-slot className="peer order-3 flex min-w-0 flex-1 items-center gap-3 empty:hidden" />
+            <Image
+              src="/lenzi.webp"
+              alt="Andrea Lenzi Consulting"
+              width={110}
+              height={38}
+              className="order-2 mr-auto hidden h-8 w-auto object-contain peer-empty:block lg:!hidden"
+            />
+            <div className="order-4 lg:hidden">
               <AccountMenu ruolo={ruolo} nome={nomeAccount} />
             </div>
-            <main className="flex-1">{children}</main>
           </div>
+          </div>
+          <main id="contenuto" tabIndex={-1} className="flex-1 outline-none">
+            {children}
+          </main>
         </div>
       </div>
     </TopbarSlotProvider>

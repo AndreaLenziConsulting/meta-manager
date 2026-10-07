@@ -10,8 +10,7 @@ export function NoteMetodologiche({ ghlConnesso, calendariConfigurati }: { ghlCo
   return (
     <Card padding="md" className="space-y-3">
       <div className="flex items-center gap-2">
-        <div className="w-1 h-5 rounded-full bg-brand" />
-        <h3 className="font-heading font-bold text-ink-900 text-[15px]">Come sono letti i dati</h3>
+        <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Come sono letti i dati</h3>
       </div>
 
       <ul className="space-y-2.5 text-[13px] text-ink-500 leading-relaxed list-disc pl-5">

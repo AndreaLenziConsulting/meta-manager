@@ -1,6 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { GUIDE } from "@/lib/guide";
+import { Intestazione, CLASSE_TITOLO_SEZIONE } from "@/components/ui/Intestazione";
+
+export const metadata: Metadata = { title: "Guida" };
 
 /**
  * Indice della macro-sezione "Guida" — tutorial su come usare la piattaforma (non sui clienti,
@@ -14,21 +18,18 @@ export default async function GuidaIndicePage() {
   }
 
   return (
-    <div className="max-w-screen-2xl mx-auto px-6 sm:px-8 py-8 space-y-6">
-      <div>
-        <h2 className="font-heading font-bold text-xl text-ink-900">Guida</h2>
-        <p className="text-sm text-ink-500 mt-1">Tutorial su come usare la piattaforma.</p>
-      </div>
+    <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
+      <Intestazione titolo="Guida." sottotitolo="Come si usa la piattaforma, un passaggio alla volta." />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {GUIDE.map((g) => (
           <a
             key={g.slug}
             href={`/dashboard/guida/${g.slug}`}
-            className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 hover:shadow-md transition"
+            className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
           >
-            <p className="font-heading font-bold text-ink-900 text-base">{g.titolo}</p>
-            <p className="text-sm text-ink-500 mt-1.5">{g.descrizione}</p>
+            <p className={CLASSE_TITOLO_SEZIONE}>{g.titolo}</p>
+            <p className="text-sm leading-[22px] text-ink-500 mt-1.5">{g.descrizione}</p>
           </a>
         ))}
       </div>

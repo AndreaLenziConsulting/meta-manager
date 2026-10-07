@@ -1,4 +1,4 @@
-import { formatEuro } from "@/lib/format";
+import { formatDecimale, formatEuro } from "@/lib/format";
 
 export type LivelloCampagna = "successo" | "attenzione" | "critico" | "non-valutabile";
 export type EsitoValutazioneCampagna = { livello: LivelloCampagna; motivo: string };
@@ -32,9 +32,9 @@ function valutaFrequenza(frequenza: number | null): { livello: LivelloCampagna; 
     return { livello: "non-valutabile", motivo: "Frequenza non disponibile" };
   }
   if (frequenza > SOGLIA_FREQUENZA) {
-    return { livello: "attenzione", motivo: `Frequenza a ${frequenza.toFixed(2)}, sopra la soglia di ${SOGLIA_FREQUENZA}` };
+    return { livello: "attenzione", motivo: `Frequenza a ${formatDecimale(frequenza)}, sopra la soglia di ${formatDecimale(SOGLIA_FREQUENZA, 1)}` };
   }
-  return { livello: "successo", motivo: `Frequenza a ${frequenza.toFixed(2)}, sotto la soglia di ${SOGLIA_FREQUENZA}` };
+  return { livello: "successo", motivo: `Frequenza a ${formatDecimale(frequenza)}, sotto la soglia di ${formatDecimale(SOGLIA_FREQUENZA, 1)}` };
 }
 
 /**

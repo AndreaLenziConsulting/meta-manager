@@ -24,7 +24,7 @@ export function AndamentoSentiment({ andamento }: { andamento: AndamentoSentimen
   if (andamento.serie.length === 0) return null;
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm px-4 py-3 flex items-center gap-3 flex-wrap">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] px-4 py-3 flex items-center gap-3 flex-wrap">
       <p className="text-xs font-semibold text-ink-700 shrink-0">Andamento sentiment</p>
       <div className="flex items-center gap-1.5">
         {andamento.serie.map((p) => {
@@ -42,7 +42,7 @@ export function AndamentoSentiment({ andamento }: { andamento: AndamentoSentimen
         })}
       </div>
       {andamento.aRischio && (
-        <span className="text-xs font-semibold text-red-600 inline-flex items-center gap-1 ml-auto">
+        <span className="text-xs font-semibold text-critico inline-flex items-center gap-1 ml-auto">
           <TrendingDown size={13} /> clima in calo — segui da vicino
         </span>
       )}

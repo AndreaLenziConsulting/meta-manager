@@ -41,8 +41,13 @@ export function GruppoCollassabile({
 
   return (
     <div>
-      <button type="button" onClick={handleClick} className={cn("w-full flex items-center gap-2 cursor-pointer text-left", headerClassName)}>
-        <ChevronDown size={14} className={cn("flex-shrink-0 transition-transform", !aperto && "-rotate-90")} />
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-expanded={aperto}
+        className={cn("w-full min-h-11 flex items-center gap-2 cursor-pointer text-left", headerClassName)}
+      >
+        <ChevronDown size={16} aria-hidden="true" className={cn("flex-shrink-0 transition-transform", !aperto && "-rotate-90")} />
         {titolo}
       </button>
       {aperto && children}

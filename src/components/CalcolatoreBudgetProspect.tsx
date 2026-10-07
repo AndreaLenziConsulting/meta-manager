@@ -43,16 +43,16 @@ export function CalcolatoreBudgetProspect({ prospect }: { prospect: Prospect }) 
   }
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm p-5 sm:p-6 space-y-4">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6 space-y-4">
       <SimulatoreRoi value={valore} onChange={setValore} editable />
 
-      {errore && <p className="text-xs text-red-600">{errore}</p>}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
 
       <div className="flex items-center gap-3 pt-2 border-t border-ink-300/60">
         <Button type="button" onClick={handleSalva} disabled={salvando}>
           {salvando ? "Salvataggio…" : "Salva modifiche"}
         </Button>
-        {salvato && <span className="text-xs font-medium text-green-700">Salvato</span>}
+        {salvato && <span className="text-xs font-medium text-ok">Salvato</span>}
       </div>
     </div>
   );

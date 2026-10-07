@@ -48,17 +48,17 @@ export function MeetingReportView({
   const actionItems = meeting.actionItems ?? [];
 
   return (
-    <div className="rounded-2xl border border-ink-300 bg-surface-card shadow-sm overflow-hidden">
+    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Header */}
-      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand">
+      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand-dark border-l-4 border-l-blu-luce">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
-            <p className="text-blue-100 text-[10px] font-medium uppercase tracking-widest mb-2">Meeting Report</p>
+            <p className="text-accento-su-notte text-xs leading-4 font-bold uppercase tracking-[.12em] mb-2">Meeting Report</p>
             <EditableInline
               value={meeting.title ?? ""}
               onChange={(v) => set({ title: v })}
               editable={editable}
-              className="text-white text-xl sm:text-2xl font-bold leading-tight break-words w-full bg-transparent placeholder-white/60"
+              className="font-heading text-su-notte text-2xl sm:text-[28px] sm:leading-[34px] font-extrabold break-words w-full bg-transparent placeholder:text-su-notte-secondario"
               placeholder="Titolo meeting"
             />
           </div>
@@ -81,7 +81,7 @@ export function MeetingReportView({
               value={meeting.date ?? ""}
               onChange={(v) => set({ date: v })}
               editable={editable}
-              className="text-blue-100 bg-transparent placeholder-blue-200/60 w-24"
+              className="text-su-notte-secondario bg-transparent placeholder:text-su-notte-secondario w-24"
               placeholder="GG/MM/AAAA"
             />
           </MetaItem>
@@ -91,7 +91,7 @@ export function MeetingReportView({
               value={meeting.duration ?? ""}
               onChange={(v) => set({ duration: v })}
               editable={editable}
-              className="text-blue-100 bg-transparent placeholder-blue-200/60 w-20"
+              className="text-su-notte-secondario bg-transparent placeholder:text-su-notte-secondario w-20"
               placeholder="durata"
             />
           </MetaItem>
@@ -108,7 +108,7 @@ export function MeetingReportView({
         {/* Cliente / Referente / Data consulenza */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-xl bg-brand-light px-4 py-3">
-            <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">Cliente</p>
+            <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">Cliente</p>
             <p className="mt-1 text-sm font-semibold text-ink-900 truncate">{clienteNome || "—"}</p>
           </div>
           <InfoBlock label="Referente" value={meeting.referente ?? ""} onChange={(v) => set({ referente: v })} editable={editable} />
@@ -248,7 +248,7 @@ function ActionItemsEditor({
       <ul className="mt-3 space-y-2">
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm">
-            <span className="mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white bg-brand">{i + 1}</span>
+            <span className="mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-white bg-brand">{i + 1}</span>
             <span className="text-ink-700 flex-1">{item.text}</span>
             {item.assignee && <span className="text-xs text-ink-500 font-medium flex-shrink-0">{item.assignee}</span>}
           </li>
@@ -269,22 +269,22 @@ function ActionItemsEditor({
     <div className="mt-3 space-y-1.5">
       {items.map((item, i) => (
         <div key={i} className="group flex items-start gap-2 text-sm">
-          <span className="mt-1.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-[10px] font-bold text-white bg-brand">{i + 1}</span>
+          <span className="mt-1.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-white bg-brand">{i + 1}</span>
           <input
             type="text"
             value={item.text}
             onChange={(e) => update(i, { text: e.target.value })}
             placeholder="Descrizione azione"
-            className="flex-1 rounded-md border border-transparent hover:border-ink-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-ink-700"
+            className="flex-1 rounded-md border border-transparent hover:border-bordo-campo focus:border-brand px-2 py-1 transition-colors text-ink-700"
           />
           <input
             type="text"
             value={item.assignee || ""}
             onChange={(e) => update(i, { assignee: e.target.value })}
             placeholder="Assegnatario"
-            className="w-32 rounded-md border border-transparent hover:border-ink-300 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 px-2 py-1 outline-none transition-colors text-xs text-ink-500 font-medium"
+            className="w-32 rounded-md border border-transparent hover:border-bordo-campo focus:border-brand px-2 py-1 transition-colors text-xs text-ink-500 font-medium"
           />
-          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-500 hover:text-red-500 px-1 mt-1.5" aria-label="Rimuovi">
+          <button type="button" onClick={() => remove(i)} className="opacity-0 group-hover:opacity-100 transition-opacity text-ink-500 hover:text-critico px-1 mt-1.5" aria-label="Rimuovi">
             ×
           </button>
         </div>
@@ -328,21 +328,22 @@ function ParticipantsEditor({
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
       {items.map((p, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full text-xs font-medium text-white bg-brand">
+        <span key={i} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full text-xs font-bold text-white bg-brand">
           <input
             type="text"
             value={p}
             onChange={(e) => update(i, e.target.value)}
-            className="bg-transparent outline-none border-none w-[100px] sm:w-auto sm:min-w-[80px] focus:ring-0 placeholder-white/60"
+            aria-label="Nome del partecipante"
+            className="bg-transparent border-none w-[100px] sm:w-auto sm:min-w-[80px] placeholder:text-white/70 focus-visible:outline-white"
             style={{ width: `${Math.max(p.length, 6)}ch` }}
             placeholder="nome"
           />
-          <button type="button" onClick={() => remove(i)} className="text-white/70 hover:text-white text-base leading-none" aria-label="Rimuovi">
+          <button type="button" onClick={() => remove(i)} className="-my-1 -mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-white hover:bg-white/20 text-base leading-none cursor-pointer focus-visible:outline-white" aria-label={`Rimuovi ${p || "partecipante"}`}>
             ×
           </button>
         </span>
       ))}
-      <button type="button" onClick={add} className="text-xs font-medium hover:underline text-brand">
+      <button type="button" onClick={add} className="inline-flex min-h-8 items-center text-sm font-semibold hover:underline text-brand cursor-pointer">
         + partecipante
       </button>
     </div>
@@ -351,14 +352,13 @@ function ParticipantsEditor({
 
 // ─── Helper statici ──────────────────────────────────────────────────
 function MetaItem({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center gap-1.5 text-blue-100 text-sm">{children}</div>;
+  return <div className="flex items-center gap-1.5 text-su-notte-secondario text-sm">{children}</div>;
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2">
-      <div className="w-1 h-5 rounded-full bg-brand" />
-      <h3 className="font-semibold text-ink-900 text-[15px]">{children}</h3>
+      <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{children}</h3>
     </div>
   );
 }
@@ -378,13 +378,13 @@ function InfoBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-[10px] uppercase tracking-widest font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
       {editable ? (
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-blue-200 focus:border-blue-300 focus:ring-2 focus:ring-blue-100 rounded px-2 -mx-2 py-1 outline-none transition-colors"
+          className="mt-1 w-full text-sm font-semibold text-ink-900 bg-transparent border border-transparent hover:border-bordo-campo focus:border-brand rounded-md px-2 -mx-2 py-1 transition-colors"
           placeholder={placeholder || `Inserisci ${label.toLowerCase()}`}
         />
       ) : (
@@ -408,7 +408,7 @@ function KpiBlock({
   if (!editable && !text) return null;
   return (
     <div className="rounded-xl border border-ink-300/40 p-4 bg-surface-card">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-brand">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-brand">{label}</p>
       <div className="mt-2">
         <EditableTextarea value={text} onChange={onChange} editable={editable} className="text-sm text-ink-700 leading-relaxed" placeholder="—" />
       </div>
