@@ -78,6 +78,9 @@ export type DettaglioGhl =
       // Totale sede del periodo (già ristretto alle campagne selezionate se un filtro è attivo) —
       // la riga Totale della tabella, e la base da cui si calcola il residuo non attribuito.
       totale: RisultatiGhl;
+      // Presente se per questa sede appuntamenti e/o vendite si leggono dagli stadi di pipeline
+      // (src/lib/ghlStadi.ts): la nota in testa lo dice, col limite che comporta.
+      daStadi?: { appuntamenti: boolean; vendite: boolean; nonTrovati: string[] };
     };
 
 /** Inserzioni Meta del periodo (/api/meta-inserzioni). `altre` = anagrafica delle inserzioni senza
@@ -457,6 +460,18 @@ export function DettaglioCampagneEsteso({
         Appuntamenti e vendite arrivano dal file contatti del cliente e sono collegati alla campagna e all&apos;inserzione del modulo
         compilato. Contano i contatti arrivati nel periodo, nello stato in cui si trovano oggi nel file.
       </p>
+    ) : ghl.stato === "ok" && ghl.daStadi ? (
+      <div className="px-5 mt-3 space-y-1 text-xs text-ink-500">
+        <p>
+          {/* Una stringa sola: scritto come testo dopo la parentesi graffa, lo spazio fra soggetto e verbo spariva. */}
+          {`${ghl.daStadi.appuntamenti && ghl.daStadi.vendite ? "Appuntamenti e vendite" : ghl.daStadi.appuntamenti ? "Gli appuntamenti" : "Le vendite"} si leggono dagli stadi della pipeline su GHL, e sono attribuiti alla campagna e all'inserzione da cui è nato il contatto. Ogni contatto conta una volta, alla data del suo ultimo spostamento di stadio: GHL non conserva i passaggi precedenti, quindi i numeri di un periodo passato possono calare quando i contatti avanzano.`}
+        </p>
+        {ghl.daStadi.nonTrovati.length > 0 && (
+          <p className="font-semibold text-attenzione">
+            In queste pipeline uno stadio scelto non esiste, e lì non si conta: {ghl.daStadi.nonTrovati.join("; ")}. Si corregge da Modifica cliente, nella connessione GHL della sede.
+          </p>
+        )}
+      </div>
     ) : ghl.stato === "ok" ? (
       <p className="px-5 mt-3 text-xs text-ink-500">
         Appuntamenti e vendite arrivano da GHL e sono attribuiti alla campagna e all&apos;inserzione da cui è nato il contatto. Contano

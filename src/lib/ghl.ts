@@ -56,10 +56,22 @@ async function ghlPost<T>(path: string, token: string, body: unknown): Promise<T
   return (await res.json()) as T;
 }
 
-/** GET /opportunities/pipelines — elenco pipeline di una location (solo id + nome). */
-export async function fetchPipeline(locationId: string, token: string): Promise<GhlPipeline[]> {
-  const body = await ghlGet<{ pipelines?: { id: string; name: string }[] }>("/opportunities/pipelines", token, { locationId });
-  return (body.pipelines ?? []).map((p) => ({ id: p.id, name: p.name }));
+/**
+ * GET /opportunities/pipelines — le pipeline di una location, ognuna con i suoi stadi nell'ordine in
+ * cui GHL li mostra (`position`, verificato con una chiamata reale l'08/10/2026). Una pipeline senza
+ * stadi in risposta torna con l'elenco vuoto.
+ */
+export async function fetchPipeline(locationId: string, token: string): Promise<Required<GhlPipeline>[]> {
+  const body = await ghlGet<{ pipelines?: { id: string; name: string; stages?: { id: string; name: string; position?: number }[] }[] }>(
+    "/opportunities/pipelines",
+    token,
+    { locationId }
+  );
+  return (body.pipelines ?? []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    stadi: (p.stages ?? []).map((st, i) => ({ id: st.id, name: st.name, position: st.position ?? i })).sort((a, b) => a.position - b.position),
+  }));
 }
 
 /** GET /calendars/ — elenco calendari di una location. */

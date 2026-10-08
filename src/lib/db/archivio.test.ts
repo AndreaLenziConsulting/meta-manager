@@ -133,6 +133,19 @@ describe("sedi e ciò che appartiene a una sede", () => {
     await expect(archivio.aggiornaGhlConnessione({ connessioneId: "nessuna", note: "x" })).rejects.toThrow("Connessione GHL non trovata: nessuna");
   });
 
+  it("connessione GHL: gli stadi di pipeline nascono vuoti, si salvano e non toccano il resto", async () => {
+    const vuoti = { appuntamentoFissato: "", appuntamentoEffettuato: "", vendita: "", ignorati: [] };
+    expect((await archivio.getGhlConnessioni())[0].stadi).toEqual(vuoti);
+    const stadi = { appuntamentoFissato: "Videocall 1 - Programmata", appuntamentoEffettuato: "Videocall 1 - Effettuata", vendita: "Acconto Versato", ignorati: ["OLD"] };
+    await archivio.aggiornaGhlConnessione({ connessioneId: "g1", stadi });
+    expect((await archivio.getGhlConnessioni())[0]).toMatchObject({ stadi, calendarIds: ["cal-b", "cal-a"], pipelineIds: ["p1"] });
+    // Un salvataggio che non parla degli stadi li lascia come sono; uno che li azzera li azzera.
+    await archivio.aggiornaGhlConnessione({ connessioneId: "g1", note: "nota" });
+    expect((await archivio.getGhlConnessioni())[0].stadi).toEqual(stadi);
+    await archivio.aggiornaGhlConnessione({ connessioneId: "g1", stadi: vuoti, note: "" });
+    expect((await archivio.getGhlConnessioni())[0].stadi).toEqual(vuoti);
+  });
+
   it("categorie commerciali: lette in ordine di `ordine`, aggiornabili, eliminabili", async () => {
     const base = { sedeId: "alc--seconda", targetBudgetMensile: null, targetLeadSettimana: null, targetAppuntamentiSettimana: null, targetFatturatoMensile: null };
     await archivio.creaCategoriaCommerciale({ ...base, categoriaId: "cat-b", nome: "+30 ettari", ordine: 2 });

@@ -104,6 +104,10 @@ export const TABELLE: Tabella[] = [
       { nome: "creata_il", tipo: "timestamptz", seAssente: "now()" },
       { nome: "calendar_ids", tipo: "text[]", lista: true },
       { nome: "pipeline_ids", tipo: "text[]", lista: true },
+      // Stadi di pipeline che valgono come appuntamento e vendita (migrazione 20261008180000). Una
+      // riga che arriva senza questo campo — una connessione appena creata, o la copia da un database
+      // a cui la migrazione non è ancora stata applicata — prende l'oggetto vuoto.
+      { nome: "stadi", tipo: "jsonb", seAssente: "'{}'::jsonb" },
     ],
   },
   {

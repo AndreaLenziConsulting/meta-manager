@@ -14,6 +14,9 @@
  * Cosa fa:
  *   - crea un Postgres in memoria con lo schema di supabase/migrations (le stesse migrazioni del vero);
  *   - copia i dati dal database vero (DATABASE_URL di .env.local), in sola lettura: su quello non scrive mai;
+ *   - se al database vero manca una colonna che il codice conosce già (una migrazione scritta ma non
+ *     ancora applicata), la salta e lo dice: nella copia quella colonna prende il suo valore
+ *     predefinito. Così si può provare il codice nuovo PRIMA di toccare lo schema del vero;
  *   - NON copia le password di consulenti e commerciali: al loro posto mette password di prova
  *     ("prova-<id>" per un consulente, "prova-comm-<id>" per un commerciale), così in locale si può
  *     entrare come chiunque senza conoscere le password vere.
@@ -23,7 +26,7 @@
 import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 import { apriPgliteConSchema } from "@/lib/db/inMemoria";
 import { apriDatabase, collegamentoLocale, leggiStringaConnessione, urlDatabase } from "@/lib/db/postgres";
-import { TABELLE, sqlInserimento, sqlLettura, type RigaTabella } from "@/lib/db/tabelle";
+import { TABELLE, sqlInserimento, sqlLettura, type RigaTabella, type Tabella } from "@/lib/db/tabelle";
 import type { Sessione } from "@/lib/db/tipi";
 
 const RIGHE_PER_LOTTO = 1000;
@@ -44,8 +47,17 @@ async function copiaDalVero(prova: Sessione): Promise<void> {
     // Una transazione di sola lettura: qualunque scrittura sul database vero verrebbe rifiutata da Postgres stesso.
     await vero.transazione(async (tx) => {
       await tx.script("set transaction read only");
+      const colonneVere = new Map<string, Set<string>>();
+      for (const c of await tx.esegui<{ table_name: string; column_name: string }>("select table_name, column_name from information_schema.columns where table_schema = 'public'")) {
+        if (!colonneVere.has(c.table_name)) colonneVere.set(c.table_name, new Set());
+        colonneVere.get(c.table_name)?.add(c.column_name);
+      }
       for (const t of TABELLE) {
-        const righe = (await tx.esegui(sqlLettura(t))).map((r) => passwordDiProva(t.nome, r));
+        const presenti = colonneVere.get(t.nome) ?? new Set<string>();
+        const mancanti = t.colonne.filter((c) => !presenti.has(c.nome)).map((c) => c.nome);
+        if (mancanti.length > 0) console.log(`  (${t.nome}: nel database vero manca ancora ${mancanti.join(", ")} — migrazione da applicare)`);
+        const daLeggere: Tabella = { ...t, colonne: t.colonne.filter((c) => presenti.has(c.nome)) };
+        const righe = (await tx.esegui(sqlLettura(daLeggere))).map((r) => passwordDiProva(t.nome, r));
         for (let i = 0; i < righe.length; i += RIGHE_PER_LOTTO) {
           await prova.esegui(sqlInserimento(t), [JSON.stringify(righe.slice(i, i + RIGHE_PER_LOTTO))]);
         }

@@ -620,6 +620,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
       perCampagna: ghlDati.perCampagna,
       perInserzione: ghlDati.perInserzione ?? {},
       totale: risultatiDaBreakdown(ghlDati),
+      daStadi: ghlDati.daStadi,
     };
   }, [clienteId, haConnessioneGhl, ghlDati, ghlErrore]);
   const inserzioniDettaglio = useMemo<DettaglioInserzioni>(

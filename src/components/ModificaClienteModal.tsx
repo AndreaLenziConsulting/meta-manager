@@ -14,6 +14,8 @@ import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente"
 import { ProdottoCliente } from "@/components/ProdottoCliente";
 import { Tabs } from "@/components/Tabs";
 import { Nota } from "@/components/ui/Nota";
+import { erroreStadi, nomiStadi, stadiEscludibili } from "@/lib/ghlStadi";
+import type { StadiGhl } from "@/types/ghl";
 
 /** Come torna GET /api/ghl-connessioni — mai il token vero, solo una versione mascherata. */
 type GhlConnessioneVista = {
@@ -23,13 +25,14 @@ type GhlConnessioneVista = {
   tokenMascherato: string;
   calendarIds: string[];
   pipelineIds: string[];
+  stadi: StadiGhl;
 };
 
 /** Come torna GET /api/ghl-connessioni/calendari. */
 type GhlCalendarioVista = { id: string; name: string; calendarType: string };
 
 /** Come torna GET /api/ghl-connessioni/pipeline. */
-type GhlPipelineVista = { id: string; name: string };
+type GhlPipelineVista = { id: string; name: string; stadi?: { id: string; name: string; position: number }[] };
 
 type Props = {
   cliente: Cliente;
@@ -802,6 +805,7 @@ function GhlConnessioneBlock({
       </div>
       {connessione && <GhlCalendariPicker connessione={connessione} onSalvato={onSalvato} />}
       {connessione && <GhlPipelinePicker connessione={connessione} onSalvato={onSalvato} />}
+      {connessione && <GhlStadiPicker connessione={connessione} onSalvato={onSalvato} />}
 
       {mostraConfermaElimina && connessione && (
         <ConfermaEliminazioneModal
@@ -1039,6 +1043,146 @@ function GhlPipelinePicker({ connessione, onSalvato }: { connessione: GhlConness
       <Button type="button" size="sm" onClick={salvaSelezione} disabled={salvando}>
         {salvando ? "Salvataggio…" : "Salva pipeline"}
       </Button>
+    </div>
+  );
+}
+
+/**
+ * Sceglie quali STADI di pipeline valgono come appuntamento e come vendita (08/10/2026) — per i
+ * clienti che su GHL non usano il calendario né lo stato "vinta" ma spostano i contatti di stadio
+ * (Agricobots: "Videocall 1 - Programmata", "Videocall 1 - Effettuata", "Acconto Versato - Diventa
+ * Cliente"). Tutto vuoto = come sempre. Le regole e il limite del metodo stanno in
+ * src/lib/ghlStadi.ts; qui ci sono la scelta e la spiegazione per chi sceglie.
+ *
+ * Gli stadi proposti sono quelli delle pipeline della sede (o di tutta la location, se la sede non
+ * ne ha scelte): si sceglie un NOME, che vale per tutte le pipeline che hanno uno stadio con quel nome.
+ */
+function GhlStadiPicker({ connessione, onSalvato }: { connessione: GhlConnessioneVista; onSalvato: () => void }) {
+  const [stato, setStato] = useState<"caricamento" | "ok" | "errore">("caricamento");
+  const [pipeline, setPipeline] = useState<GhlPipelineVista[]>([]);
+  const [erroreCaricamento, setErroreCaricamento] = useState<string | null>(null);
+  const [stadi, setStadi] = useState<StadiGhl>(connessione.stadi);
+  const [salvando, setSalvando] = useState(false);
+  const [erroreSalvataggio, setErroreSalvataggio] = useState<string | null>(null);
+  const [salvato, setSalvato] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    Promise.resolve()
+      .then(() => {
+        setStato("caricamento");
+        return fetch(`/api/ghl-connessioni/pipeline?connessioneId=${encodeURIComponent(connessione.connessioneId)}`, { signal: controller.signal });
+      })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body.error || "Errore nel caricamento degli stadi");
+        setPipeline((body.pipeline ?? []) as GhlPipelineVista[]);
+        setStato("ok");
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        setErroreCaricamento(err.message);
+        setStato("errore");
+      });
+    return () => controller.abort();
+  }, [connessione.connessioneId]);
+
+  if (stato === "caricamento") return <p className="text-xs text-ink-500 pt-2">Caricamento stadi…</p>;
+  if (stato === "errore") return <p className="text-xs text-critico pt-2">{erroreCaricamento}</p>;
+
+  const dellaSede = (connessione.pipelineIds.length > 0 ? pipeline.filter((p) => connessione.pipelineIds.includes(p.id)) : pipeline).map((p) => ({ id: p.id, name: p.name, stadi: p.stadi ?? [] }));
+  // Uno stadio già salvato che GHL non ha più (rinominato o tolto) resta in elenco: si vede cosa c'era.
+  const nomi = Array.from(new Set([...nomiStadi(dellaSede), stadi.appuntamentoFissato, stadi.appuntamentoEffettuato, stadi.vendita, ...stadi.ignorati].filter(Boolean)));
+  if (nomi.length === 0) return null;
+
+  const errore = erroreStadi(stadi);
+  const inUso = Boolean(stadi.appuntamentoFissato || stadi.appuntamentoEffettuato || stadi.vendita);
+  const escludibili = stadiEscludibili(dellaSede, stadi);
+  const imposta = (campi: Partial<StadiGhl>) => {
+    setStadi((prima) => ({ ...prima, ...campi }));
+    setSalvato(false);
+    setErroreSalvataggio(null);
+  };
+  const cambiaIgnorato = (nome: string) => imposta({ ignorati: stadi.ignorati.includes(nome) ? stadi.ignorati.filter((n) => n !== nome) : [...stadi.ignorati, nome] });
+
+  async function salva() {
+    setErroreSalvataggio(null);
+    setSalvando(true);
+    try {
+      const res = await fetch("/api/ghl-connessioni", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        // Senza nessuno stadio scelto quelli "da non contare" non hanno senso: si salva tutto vuoto.
+        body: JSON.stringify({ connessioneId: connessione.connessioneId, stadi: inUso ? stadi : { appuntamentoFissato: "", appuntamentoEffettuato: "", vendita: "", ignorati: [] } }),
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
+      setSalvato(true);
+      onSalvato();
+    } catch (err) {
+      setErroreSalvataggio(err instanceof Error ? err.message : "Errore sconosciuto");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  const scelta = (etichetta: string, campo: "appuntamentoFissato" | "appuntamentoEffettuato" | "vendita") => (
+    <Field label={etichetta}>
+      <Select value={stadi[campo]} onChange={(e) => imposta({ [campo]: e.target.value })} disabled={salvando}>
+        <option value="">Non usare gli stadi</option>
+        {nomi.map((nome) => (
+          <option key={nome} value={nome}>
+            {nome}
+          </option>
+        ))}
+      </Select>
+    </Field>
+  );
+
+  return (
+    <div className="space-y-3 pt-2 border-t border-linea mt-2">
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-ink-500">Appuntamenti e vendite dagli stadi</p>
+      <p className="text-xs text-ink-500">
+        Solo per chi su GHL non usa il calendario né lo stato &quot;vinta&quot;, ma sposta i contatti di stadio. Scegli da quale stadio un contatto conta: vale per quello stadio e per tutti quelli che
+        vengono dopo nella pipeline. Lasciando tutto su &quot;Non usare gli stadi&quot; resta com&apos;è: appuntamenti dai calendari, vendite dalle opportunità vinte.
+      </p>
+      {/* Uno sotto l'altro, a tutta larghezza: i nomi degli stadi sono lunghi e in tre colonne si troncavano. */}
+      <div className="space-y-2.5">
+        {scelta("Appuntamento fissato da", "appuntamentoFissato")}
+        {scelta("Appuntamento effettuato da", "appuntamentoEffettuato")}
+        {scelta("Vendita da", "vendita")}
+      </div>
+      {escludibili.length > 0 && (
+        <fieldset className="space-y-1">
+          <legend className="text-xs text-ink-700">Fra gli stadi che vengono dopo, quali non contare mai (per esempio un archivio in fondo alla pipeline):</legend>
+          <div className="flex flex-wrap gap-x-4 gap-y-1">
+            {escludibili.map((nome) => (
+              <label key={nome} className="flex min-h-8 items-center gap-2 text-sm text-ink-700 cursor-pointer">
+                <input type="checkbox" checked={stadi.ignorati.includes(nome)} onChange={() => cambiaIgnorato(nome)} disabled={salvando} className="h-[18px] w-[18px] accent-[var(--brand-primary)] cursor-pointer flex-shrink-0" />
+                {nome}
+              </label>
+            ))}
+          </div>
+        </fieldset>
+      )}
+      {inUso && (
+        <p className="text-xs text-ink-500">
+          Da sapere: GHL dice solo in che stadio è un contatto adesso e quando ci è entrato. Ogni contatto conta una volta, alla data del suo ultimo spostamento: i numeri di un periodo passato possono
+          calare quando i contatti avanzano. Con gli appuntamenti dagli stadi, i calendari scelti sopra non vengono più contati.
+        </p>
+      )}
+      {errore && <p className="text-xs text-critico">{errore}</p>}
+      {erroreSalvataggio && <p className="text-xs text-critico">{erroreSalvataggio}</p>}
+      <div className="flex flex-wrap items-center gap-3">
+        <Button type="button" size="sm" onClick={salva} disabled={salvando || Boolean(errore)}>
+          {salvando ? "Salvataggio…" : "Salva stadi"}
+        </Button>
+        {salvato && (
+          <span role="status" className="text-xs text-ink-500">
+            Salvato.
+          </span>
+        )}
+      </div>
     </div>
   );
 }

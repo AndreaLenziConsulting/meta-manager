@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { aggiornaGhlConnessione, creaGhlConnessione, getGhlConnessioni, getSedi } from "@/lib/archivio";
+import { erroreStadi, normalizzaStadi } from "@/lib/ghlStadi";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
       tokenMascherato: maschera(c.privateToken),
       calendarIds: c.calendarIds,
       pipelineIds: c.pipelineIds ?? [],
+      stadi: normalizzaStadi(c.stadi),
     }));
   return NextResponse.json({ connessioni: risultato });
 }
@@ -97,6 +99,8 @@ type BodyPatch = {
   note?: string;
   calendarIds?: string[];
   pipelineIds?: string[];
+  // Stadi di pipeline che valgono come appuntamento e vendita: vedi src/lib/ghlStadi.ts.
+  stadi?: unknown;
 };
 
 export async function PATCH(req: NextRequest) {
@@ -119,6 +123,12 @@ export async function PATCH(req: NextRequest) {
   // sovrascriverlo. `undefined` (campo assente dal body) resta comunque "non toccare".
   const privateToken = body.privateToken?.trim();
 
+  const stadi = body.stadi !== undefined ? normalizzaStadi(body.stadi) : undefined;
+  const erroreNegliStadi = stadi ? erroreStadi(stadi) : null;
+  if (erroreNegliStadi) {
+    return NextResponse.json({ error: erroreNegliStadi }, { status: 400 });
+  }
+
   const connessioni = await getGhlConnessioni();
   if (!connessioni.some((c) => c.connessioneId === connessioneId)) {
     return NextResponse.json({ error: "Connessione GHL non trovata" }, { status: 404 });
@@ -133,6 +143,7 @@ export async function PATCH(req: NextRequest) {
       note: body.note,
       calendarIds: body.calendarIds,
       pipelineIds: Array.isArray(body.pipelineIds) ? body.pipelineIds.map((id) => String(id).trim()).filter(Boolean) : undefined,
+      stadi,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {

@@ -25,7 +25,7 @@ import type {
 } from "@/types/kpi";
 import type { MeetingClienteRow, MeetingDataLoose } from "@/types/meeting";
 import type { CalcolatoreBudgetInput, Commerciale, Prospect, ReportCommercialeDataLoose, ReportCommercialeRow } from "@/types/prospect";
-import type { GhlConnessione } from "@/types/ghl";
+import type { GhlConnessione, StadiGhl } from "@/types/ghl";
 import type { ConnessioneCanale } from "@/types/connessioniCanale";
 
 const TAB = {
@@ -902,10 +902,14 @@ export type AggiornaGhlConnessioneInput = {
   calendarIds?: string[];
   // undefined = non toccare; [] = nessun filtro, la sede torna a valere per tutta la location.
   pipelineIds?: string[];
+  // undefined = non toccare. Stadi di pipeline che valgono come appuntamento e vendita (08/10/2026,
+  // vedi src/lib/ghlStadi.ts): si salvano solo sul database, il foglio non ha una colonna per loro.
+  stadi?: StadiGhl;
 };
 
 /** Aggiorna solo i campi esplicitamente presenti in `input` di una connessione GHL esistente. */
 export async function aggiornaGhlConnessione(input: AggiornaGhlConnessioneInput): Promise<void> {
+  if (input.stadi !== undefined) soloSulDatabase("Scegliere gli stadi di pipeline di una connessione GHL");
   const { sheets, sheetId } = getSheetsClient();
   const res = await sheets.spreadsheets.values.get({
     spreadsheetId: sheetId,

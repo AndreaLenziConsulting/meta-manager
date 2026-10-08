@@ -5,6 +5,7 @@ import type { Sessione } from "@/lib/db/tipi";
 import { SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
 import type { AttivitaClienteRow, Canale, Cliente, CredenzialeAccesso, RuoloSquadra, StatoAttivita } from "@/types/kpi";
+import { normalizzaStadi } from "@/lib/ghlStadi";
 import type { MeetingDataLoose } from "@/types/meeting";
 import type { Prospect, ReportCommercialeDataLoose } from "@/types/prospect";
 
@@ -256,6 +257,7 @@ export const getGhlConnessioni: typeof Foglio.getGhlConnessioni = async () =>
     creataIl: testo(r.creata_il),
     calendarIds: lista(r.calendar_ids),
     pipelineIds: lista(r.pipeline_ids),
+    stadi: normalizzaStadi(r.stadi),
   }));
 
 export const creaGhlConnessione: typeof Foglio.creaGhlConnessione = async (input) => {
@@ -291,6 +293,7 @@ export const aggiornaGhlConnessione: typeof Foglio.aggiornaGhlConnessione = asyn
       note: input.note,
       calendar_ids: input.calendarIds,
       pipeline_ids: input.pipelineIds,
+      stadi: input.stadi,
     }
   );
 };

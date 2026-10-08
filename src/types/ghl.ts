@@ -30,11 +30,34 @@ export type GhlConnessione = {
   // appuntamenti) è ristretto ai contatti con un'opportunità in una di queste pipeline — vedi
   // restringiAllePipeline in src/lib/ghl.ts. Opzionale per non toccare le fixture di test esistenti.
   pipelineIds?: string[];
+  // Per i clienti che tracciano appuntamenti e vendite come STADI di pipeline (08/10/2026, vedi
+  // StadiGhl e src/lib/ghlStadi.ts). Assente o tutto vuoto = come sempre: calendari e stato "vinta".
+  stadi?: StadiGhl;
+};
+
+/**
+ * Quali stadi di pipeline valgono come appuntamento e come vendita per una sede (08/10/2026). Sono
+ * NOMI di stadio, non identificativi: una sede ha spesso più pipeline con gli stessi stadi (Agricobots:
+ * tre per paese), e il nome vale per tutte. Chi sta nello stadio indicato, o in uno successivo
+ * nell'ordine della pipeline, conta. Stringa vuota = non usato.
+ */
+export type StadiGhl = {
+  appuntamentoFissato: string;
+  appuntamentoEffettuato: string;
+  vendita: string;
+  /** Stadi che non contano mai, nemmeno se vengono dopo (un "OLD" in fondo alla pipeline). */
+  ignorati: string[];
 };
 
 /** Una pipeline di opportunità della location (GET /opportunities/pipelines), solo id + nome: serve
  * al selettore in ModificaClienteModal.tsx, gli stadi non servono a nessun calcolo. */
-export type GhlPipeline = { id: string; name: string };
+export type GhlPipeline = {
+  id: string;
+  name: string;
+  // Gli stadi della pipeline, nell'ordine in cui GHL li mostra (08/10/2026: servono a contare
+  // appuntamenti e vendite per stadio, vedi src/lib/ghlStadi.ts). Opzionale per le fixture di test.
+  stadi?: { id: string; name: string; position: number }[];
+};
 
 /**
  * `calendarType` verificato con una chiamata reale: "round_robin" | "personal" | "collective".
@@ -115,6 +138,11 @@ export type GhlOpportunita = {
   // Pipeline in cui si trova l'opportunità — presente su ogni oggetto di /opportunities/search
   // (verificato con una chiamata reale, 01/10/2026). Opzionale solo per le fixture di test.
   pipelineId?: string;
+  // Lo stadio in cui l'opportunità si trova ADESSO e quando ci è entrata — presenti su ogni oggetto
+  // di /opportunities/search (verificato l'08/10/2026 su 1.939 opportunità di Agricobots). GHL non
+  // dà la storia dei passaggi: solo l'ultimo. Vedi src/lib/ghlStadi.ts.
+  pipelineStageId?: string;
+  lastStageChangeAt?: string;
   monetaryValue: number;
   status: string; // "open" | "won" | "lost" | "abandoned" nei fatti osservati, string per sicurezza
   source: string;
@@ -245,4 +273,9 @@ export type GhlRiepilogoResponse =
       // Quali contatti contano in `perVenditore` e `perVenditoreSettimanale` (vedi PerimetroVenditori).
       // Assente = "tutti".
       perimetroVenditori?: PerimetroVenditori;
+      // Presente solo se per questa sede appuntamenti e/o vendite si leggono dagli stadi di pipeline
+      // invece che da calendari e stato "vinta" (vedi src/lib/ghlStadi.ts): la pagina lo dice, col
+      // limite che comporta. `nonTrovati`: "pipeline: stadio" per ogni stadio configurato che in una
+      // pipeline della sede non esiste — lì quel conteggio manca.
+      daStadi?: { appuntamenti: boolean; vendite: boolean; nonTrovati: string[] };
     };

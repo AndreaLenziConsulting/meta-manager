@@ -14,6 +14,7 @@ import {
   contaContattiSenzaTagNelPeriodo,
   fetchContattiPerTag,
   fetchOpportunita,
+  fetchPipeline,
   mappaCampagnaPerContatto,
   mappaInserzionePerContatto,
   pipelineDiCategoria,
@@ -27,6 +28,8 @@ import {
   riepilogoSenzaTag,
   venditoriGhlNelPerimetro,
 } from "@/lib/ghl";
+import { applicaStadi, normalizzaStadi, usoStadi } from "@/lib/ghlStadi";
+import { conCacheGhl } from "@/lib/ghlRichieste";
 import type { GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
@@ -76,6 +79,11 @@ function meseCorrente(): string {
  * primo per contatto — è carico di lavoro, non attribuzione marketing, vedi riepilogoPerVenditoreGhl.
  * Dall'08/10/2026 segue il filtro `campagne` come le tessere (scelta dell'utente), e
  * `perimetroVenditori` dice se il filtro è stato applicato: vedi venditoriGhlNelPerimetro.
+ *
+ * Stadi di pipeline (08/10/2026, per Agricobots): se la connessione della sede indica quali stadi
+ * valgono come appuntamento e come vendita (GhlConnessione.stadi), appuntamenti e vendite si leggono
+ * da lì invece che da calendari e stato "vinta" — vedi src/lib/ghlStadi.ts, col limite che comporta.
+ * La risposta lo dichiara in `daStadi`.
  */
 export async function GET(req: NextRequest) {
   const sessione = await getSessione();
@@ -151,8 +159,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const [{ appuntamenti: appuntamentiLocation, calendariFalliti }, opportunitaLocation, categorieAutomatiche, venditoriConGhl] = await Promise.all([
-      fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
+    const stadi = normalizzaStadi(connessione.stadi);
+    const uso = usoStadi(stadi);
+    const [{ appuntamenti: appuntamentiLocation, calendariFalliti }, opportunitaLocation, categorieAutomatiche, venditoriConGhl, pipelineLocation] = await Promise.all([
+      // Con gli appuntamenti letti dagli stadi i calendari non servono: non si interrogano nemmeno.
+      uso.appuntamenti
+        ? Promise.resolve({ appuntamenti: [], calendariFalliti: 0 })
+        : fetchAppuntamenti(connessione.locationId, connessione.privateToken, connessione.calendarIds, startMs, endMs),
       // Nessun filtro status server-side (a differenza di prima di questa feature): serve TUTTA la
       // location per costruire mappaCampagna sotto — un contatto con appuntamento ma opportunità
       // ancora "open" (non vinta) porterebbe comunque la sua attribuzione, persa se si fetchasse
@@ -167,16 +180,26 @@ export async function GET(req: NextRequest) {
       // Venditore in types/kpi.ts. Nessuna chiamata GHL in più: assignedTo/assignedUserId sono già
       // su appuntamenti/opportunitaGrezze già scaricati sopra, il join sotto è puro filtro locale.
       getVenditori().then((tutti) => tutti.filter((v) => v.sedeId === sede.sedeId && v.attivo && v.ghlUserId.trim())),
+      // Gli stadi di ogni pipeline, solo se la sede conta per stadio: una chiamata in più, condivisa
+      // per un minuto fra le richieste della stessa pagina come le opportunità.
+      uso.appuntamenti || uso.vendite
+        ? conCacheGhl(`pipeline|${connessione.locationId}`, () => fetchPipeline(connessione.locationId, connessione.privateToken))
+        : Promise.resolve([]),
     ]);
 
     // Perimetro della sede dentro la location (GhlConnessione.pipelineIds, 01/10/2026): PRIMA di ogni
     // altro calcolo, così tutto ciò che segue vale solo per questa sede. Senza pipeline configurate
     // è un no-op e la sede copre l'intera location come sempre. Vedi restringiAllePipeline.
-    const { opportunita: opportunitaGrezze, appuntamenti } = restringiAllePipeline(
-      opportunitaLocation,
-      appuntamentiLocation,
-      connessione.pipelineIds ?? []
-    );
+    const dellaSede = restringiAllePipeline(opportunitaLocation, appuntamentiLocation, connessione.pipelineIds ?? []);
+    // Subito dopo il perimetro e prima di tutto il resto: per una sede che conta per stadio, gli
+    // appuntamenti e le vendite di qui in giù sono quelli degli stadi (vedi applicaStadi).
+    const { opportunita: opportunitaGrezze, appuntamenti, daStadi } = applicaStadi({
+      opportunita: dellaSede.opportunita,
+      appuntamentiCalendario: dellaSede.appuntamenti,
+      pipeline: pipelineLocation,
+      stadi,
+    });
+    const appuntamentiDisponibili = uso.appuntamenti || connessione.calendarIds.length > 0;
 
     // Sempre applicata, non un filtro opzionale — vedi il commento su primoAppuntamentoPerContatto.
     const appuntamentiPrimi = primoAppuntamentoPerContatto(appuntamenti);
@@ -263,14 +286,14 @@ export async function GET(req: NextRequest) {
 
     const risposta: GhlRiepilogoResponse = {
       connesso: true,
-      calendariConfigurati: connessione.calendarIds.length > 0,
+      // "Gli appuntamenti si possono contare": dai calendari scelti, oppure dagli stadi di pipeline.
+      calendariConfigurati: appuntamentiDisponibili,
       appuntamenti: riepilogoAppuntamenti(appuntamentiScoped, startMs, endMs),
       opportunita: riepilogoOpportunita(opportunitaScoped, startMs, endMs),
       fatturatoPerSettimana: fatturatoGhlPerSettimana(opportunitaScoped, startMs, endMs),
       // Vuoto se calendari non ancora scelti — stesso motivo di appuntamenti sopra (0 non sarebbe
       // un dato vero), vedi il commento su appuntamentiPerSettimana in types/ghl.ts.
-      appuntamentiPerSettimana:
-        connessione.calendarIds.length > 0 ? appuntamentiGhlPerSettimana(appuntamentiScoped, startMs, endMs) : [],
+      appuntamentiPerSettimana: appuntamentiDisponibili ? appuntamentiGhlPerSettimana(appuntamentiScoped, startMs, endMs) : [],
       calendariFalliti,
       perCampagna,
       perInserzione,
@@ -280,6 +303,7 @@ export async function GET(req: NextRequest) {
       perVenditore,
       perVenditoreSettimanale,
       perimetroVenditori,
+      daStadi,
     };
     return NextResponse.json(risposta);
   } catch (err) {
