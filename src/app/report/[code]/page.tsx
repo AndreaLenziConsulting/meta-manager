@@ -26,7 +26,9 @@ export default async function ReportPage({ params }: { params: Promise<{ code: s
     // font-sans qui, non solo nello style: font-family è dichiarato sul <body> (fuori da questo
     // wrapper) e le proprietà ereditate si "congelano" al valore già calcolato lì — vedi lo stesso
     // commento in dashboard/cliente/[clienteId]/page.tsx.
-    <div className="min-h-screen bg-surface font-sans" style={styleTemaCliente(cliente)}>
+    // `--barra-fissa`: l'altezza dell'intestazione qui sotto, che resta in alto (64px più il bordo). La
+    // legge la striscia dei filtri del tab KPI per fermarsi subito sotto (StrisciaFiltri.tsx).
+    <div className="min-h-screen bg-surface font-sans [--barra-fissa:65px]" style={styleTemaCliente(cliente)}>
       <AppHeader subtitle={cliente.nome} />
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 space-y-6">
         <h1>

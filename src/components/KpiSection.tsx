@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { PencilLine, RefreshCw } from "lucide-react";
+import { ArrowUp, PencilLine, RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso, type DettaglioGhl, type DettaglioInserzioni } from "@/components/DettaglioCampagneEsteso";
 import { CampagneFilter } from "@/components/CampagneFilter";
@@ -10,7 +10,9 @@ import { Tabs } from "@/components/Tabs";
 import { DateRangePicker, type SelezionePeriodo } from "@/components/DateRangePicker";
 import { etichettaIntervallo, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "@/lib/periodo";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { Input, Select } from "@/components/ui/Input";
+import { PulsanteIcona } from "@/components/ui/PulsanteIcona";
+import { StrisciaFiltri } from "@/components/StrisciaFiltri";
 import { Nota } from "@/components/ui/Nota";
 import { SintesiTessere, type StatoFontiCommerciali } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
@@ -58,6 +60,8 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   }));
   const { da, a } = periodo;
   const { da: daPrecedente, a: aPrecedente } = periodo.confronto ?? periodoPrecedente(da, a);
+  // La riga dei filtri in cima: quando esce dallo schermo, StrisciaFiltri ne mostra la forma compatta.
+  const rigaFiltri = useRef<HTMLDivElement>(null);
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [errore, setErrore] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
@@ -656,13 +660,67 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     });
   }, [clienteId, dati, attivitaInRitardoCount, ghlDati, haConnessioneGhl, ghlErrore, campagneFrequenzaAlta, inserzioniOutlier, confrontoTarget]);
 
+  function tornaAiFiltri() {
+    const senzaMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    rigaFiltri.current?.scrollIntoView({ behavior: senzaMovimento ? "auto" : "smooth", block: "center" });
+  }
+
   return (
-    <div className="viz-root space-y-6">
+    <div className="viz-root">
+      {/* Gli stessi filtri della riga qui sotto, in forma compatta: compaiono fissi in alto quando
+          quella riga è uscita dallo schermo (vedi StrisciaFiltri.tsx). Anche sul link pubblico. */}
+      <StrisciaFiltri rigaPiena={rigaFiltri}>
+        <DateRangePicker valore={periodo} onChange={setPeriodo} compatto />
+        {dati && dati.sediDisponibili.length > 1 && (
+          <Select
+            aria-label="Sede"
+            value={dati.sede.sedeId}
+            onChange={(e) => setSedeScelta({ contesto: contestoCliente, sedeId: e.target.value })}
+            // Su telefono la tendina è stretta (un nome lungo si tronca): periodo e sede stanno su una
+            // riga, le campagne sulla seconda, anche a 360px. Senza, la striscia era alta tre righe.
+            className="w-auto max-w-[8rem] min-h-8 py-1 pl-2.5 pr-2 text-[13px] leading-[18px] sm:max-w-none sm:pr-7"
+          >
+            {dati.sediDisponibili.map((s) => (
+              <option key={s.sedeId} value={s.sedeId}>
+                {s.nome}
+              </option>
+            ))}
+          </Select>
+        )}
+        {dati && (
+          <CampagneFilter
+            compatto
+            campagneDisponibili={dati.campagneDisponibili}
+            selezionate={campagneSelezionate}
+            onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, scelta: selezionate ?? "tutte" })}
+            predefinito={
+              predefiniteSede
+                ? {
+                    attivo: sceltaCampagne === "predefinito",
+                    onRipristina: () => setFiltroCampagne({ contesto: contestoAttuale, scelta: "predefinito" }),
+                  }
+                : undefined
+            }
+          />
+        )}
+        {/* Anche mentre risponde GHL, che arriva dopo i numeri di Meta: chi cambia periodo guardando i
+            venditori in fondo deve sapere che quei numeri stanno ancora arrivando. */}
+        {(caricamento || ghlVenditori.stato === "caricamento") && (
+          <span role="status" className="text-xs text-ink-500">
+            Aggiornamento…
+          </span>
+        )}
+        <PulsanteIcona etichetta="Torna in cima, alla riga dei filtri" dimensione="sm" onClick={tornaAiFiltri} className="ml-auto">
+          <ArrowUp size={16} aria-hidden="true" />
+        </PulsanteIcona>
+      </StrisciaFiltri>
+
+      <div className="space-y-6">
       {/* Riga filtri: data, sede (solo se il cliente ne ha più di una — un filtro come gli altri,
           non più accostata al nome cliente come prima di questo redesign), campagne. Azione +
           relativo esito a destra. Prima cosa dentro la sezione KPI (blocco 3), sempre — anche
           durante il caricamento, mai preceduta da avvisi/banner. */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
+      <div ref={rigaFiltri} className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {/* Selettore periodo unico in stile Meta (preset + due calendari a giorni + confronto),
               anche sul link pubblico `code`: sostituisce il picker a mesi che già ci stava, non
@@ -882,6 +940,8 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           )}
         </div>
       )}
+
+      </div>
 
       {risultatiAperti && clienteId && dati && (
         <RisultatiCommercialiModal

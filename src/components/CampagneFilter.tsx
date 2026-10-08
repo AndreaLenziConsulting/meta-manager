@@ -13,9 +13,11 @@ type Props = {
   // src/lib/campagneAlc.ts): `attivo` = la selezione mostrata È quel predefinito, non una scelta
   // fatta a mano; `onRipristina` ci torna.
   predefinito?: { attivo: boolean; onRipristina: () => void };
+  /** Forma compatta, per la striscia dei filtri che resta in alto mentre si scorre (StrisciaFiltri.tsx). */
+  compatto?: boolean;
 };
 
-export function CampagneFilter({ campagneDisponibili, selezionate, onChange, predefinito }: Props) {
+export function CampagneFilter({ campagneDisponibili, selezionate, onChange, predefinito, compatto = false }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -90,24 +92,32 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
   }
 
   return (
-    <div className="relative" ref={rootRef}>
+    // Compatto: su telefono il pannello si allinea al bordo della striscia, non a questo pulsante
+    // (stesso motivo di DateRangePicker).
+    <div className={compatto ? "sm:relative" : "relative"} ref={rootRef}>
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
+        className={`flex items-center gap-2 rounded-lg border border-bordo-campo bg-surface-card text-ink-900 hover:border-brand transition cursor-pointer ${
+          compatto ? "min-h-8 px-2.5 py-1 text-[13px] leading-[18px]" : "min-h-10 px-3 py-2 text-sm"
+        }`}
       >
-        <Filter size={16} aria-hidden="true" className="text-ink-500" />
+        <Filter size={compatto ? 14 : 16} aria-hidden="true" className="text-ink-500" />
         {predefinito?.attivo
-          ? `Solo campagne ALC (${attive.size}/${tuttiGliId.length})`
+          ? `${compatto ? "Campagne ALC" : "Solo campagne ALC"} (${attive.size}/${tuttiGliId.length})`
           : tutteSelezionate
             ? `Tutte le campagne (${tuttiGliId.length})`
             : `${attive.size}/${tuttiGliId.length} campagne`}
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4">
+        <div
+          role="dialog"
+          aria-label="Scegli le campagne"
+          className={`absolute z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 ${compatto ? "left-0" : ""}`}
+        >
           <button
             type="button"
             onClick={toggleTutte}

@@ -76,7 +76,10 @@ export function DashboardShell({
       {/* Fondo `sfondo` pieno, come vuole il Design System ALC: card bianche con bordo e ombra sopra un
           grigio-azzurro chiaro. La tela puntinata con le sagome sfocate del redesign "vetro" è stata
           tolta il 07/10/2026 insieme alle superfici traslucide. */}
-      <div className="flex min-h-screen bg-surface">
+      {/* `--barra-fissa`: quanto è alta la barra che resta in alto (56px su telefono; 72px su schermo
+          grande, col suo margine sopra). La legge chi deve fermarsi subito sotto: la striscia dei
+          filtri del tab KPI (StrisciaFiltri.tsx). Se cambia l'altezza della barra, va cambiata qui. */}
+      <div className="flex min-h-screen bg-surface [--barra-fissa:56px] lg:[--barra-fissa:72px]">
         <Sidebar
           ruolo={ruolo}
           pathname={pathname}

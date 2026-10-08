@@ -1,4 +1,4 @@
-import { formatDataBreve } from "@/lib/format";
+import { formatDataBreve, giornoMeseBreve } from "@/lib/format";
 import { settimanaDiData, ultimoGiornoDelMese } from "@/lib/kpi";
 import { aggiungiGiorni, giorniTra, oggiIso } from "@/lib/roadmap";
 
@@ -111,4 +111,11 @@ export function intervalloPreset(id: PresetPeriodoId, oggi: string = oggiIso()):
 /** "27 ago 2026 – 25 set 2026" (un solo giorno: "25 set 2026") — etichetta del bottone del picker. */
 export function etichettaIntervallo(da: string, a: string): string {
   return da === a ? formatDataBreve(da) : `${formatDataBreve(da)} – ${formatDataBreve(a)}`;
+}
+
+/** Come sopra ma con l'anno scritto una volta sola quando i due giorni sono dello stesso anno:
+ * "27 ago – 25 set 2026". Per gli spazi stretti (la striscia dei filtri su telefono). */
+export function etichettaIntervalloBreve(da: string, a: string): string {
+  if (da === a || da.slice(0, 4) !== a.slice(0, 4)) return etichettaIntervallo(da, a);
+  return `${giornoMeseBreve(da)} – ${formatDataBreve(a)}`;
 }

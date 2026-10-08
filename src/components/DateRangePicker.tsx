@@ -7,6 +7,7 @@ import { formatDataBreve, MESI_BREVI } from "@/lib/format";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import {
   etichettaIntervallo,
+  etichettaIntervalloBreve,
   etichettaPreset,
   intervalloPreset,
   isPresetPeriodoId,
@@ -31,7 +32,16 @@ export type SelezionePeriodo = {
   confronto: Intervallo | null;
 };
 
-type Props = { valore: SelezionePeriodo; onChange: (v: SelezionePeriodo) => void };
+type Props = {
+  valore: SelezionePeriodo;
+  onChange: (v: SelezionePeriodo) => void;
+  /**
+   * Forma compatta, per la striscia dei filtri che resta in alto mentre si scorre (StrisciaFiltri.tsx):
+   * pulsante più basso con le sole date, e pannello che non esce dallo schermo — la striscia è ferma,
+   * quindi ciò che sporge sotto non si raggiungerebbe scorrendo la pagina.
+   */
+  compatto?: boolean;
+};
 
 const GIORNI_SETTIMANA = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
 
@@ -115,7 +125,7 @@ function MeseCalendario({
  * lib/periodo.ts), nessuna aritmetica di calendario propria: aggiungiGiorni/spostaMese/
  * ultimoGiornoDelMese arrivano dalle librerie già in uso.
  */
-export function DateRangePicker({ valore, onChange }: Props) {
+export function DateRangePicker({ valore, onChange, compatto = false }: Props) {
   const oggi = oggiIso();
   const [open, setOpen] = useState(false);
   const [pendingDa, setPendingDa] = useState(valore.da);
@@ -217,24 +227,38 @@ export function DateRangePicker({ valore, onChange }: Props) {
   const etichettaBottone = `${valore.preset === "personalizzato" ? "" : `${etichettaPreset(valore.preset)}: `}${etichettaIntervallo(valore.da, valore.a)}`;
 
   return (
-    <div className="relative" ref={rootRef}>
+    // Compatto: su telefono il pannello si allinea al bordo della striscia (che è `relative`), non a
+    // questo pulsante, altrimenti uscirebbe dallo schermo a destra.
+    <div className={compatto ? "sm:relative" : "relative"} ref={rootRef}>
       <button
         type="button"
         onClick={() => (open ? setOpen(false) : apri())}
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-label={`Periodo: ${etichettaBottone}. Clicca per cambiarlo`}
-        className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
+        className={`flex items-center gap-2 rounded-lg border border-bordo-campo bg-surface-card text-ink-900 hover:border-brand transition cursor-pointer ${
+          compatto ? "min-h-8 px-2.5 py-1 text-[13px] leading-[18px]" : "min-h-10 px-3 py-2 text-sm"
+        }`}
       >
-        <Calendar size={16} aria-hidden="true" className="text-ink-500" />
-        {etichettaBottone}
+        <Calendar size={compatto ? 14 : 16} aria-hidden="true" className="text-ink-500" />
+        {compatto ? (
+          // Su telefono l'anno una volta sola: così nella striscia ci sta accanto un altro filtro.
+          <>
+            <span className="sm:hidden">{etichettaIntervalloBreve(valore.da, valore.a)}</span>
+            <span className="hidden sm:inline">{etichettaIntervallo(valore.da, valore.a)}</span>
+          </>
+        ) : (
+          etichettaBottone
+        )}
       </button>
 
       {open && (
         <div
           role="dialog"
           aria-label="Scegli il periodo"
-          className="absolute z-20 mt-2 w-[min(780px,calc(100vw-2rem))] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 flex flex-col sm:flex-row gap-4"
+          className={`absolute z-20 mt-2 w-[min(780px,calc(100vw-2rem))] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 flex flex-col sm:flex-row gap-4 ${
+            compatto ? "left-0 max-h-[calc(100dvh_-_var(--barra-fissa,0px)_-_5rem)] overflow-y-auto" : ""
+          }`}
         >
           {/* Preset — stessa colonna di Meta: lista a radio, scorrevole. */}
           <div

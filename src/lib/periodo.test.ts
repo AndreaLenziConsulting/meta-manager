@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { etichettaIntervallo, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "./periodo";
+import { etichettaIntervallo, etichettaIntervalloBreve, intervalloPreset, mesiEquivalenti, periodoPrecedente } from "./periodo";
 import { normalizzaIntervallo } from "./kpi";
 
 // 2026-09-25 è un venerdì: la settimana corrente parte da lunedì 2026-09-21.
@@ -64,5 +64,16 @@ describe("etichettaIntervallo", () => {
   it("due giorni distinti con trattino, un giorno solo senza", () => {
     expect(etichettaIntervallo("2026-08-27", "2026-09-25")).toBe("27 ago 2026 – 25 set 2026");
     expect(etichettaIntervallo("2026-09-25", "2026-09-25")).toBe("25 set 2026");
+  });
+});
+
+describe("etichettaIntervalloBreve", () => {
+  it("nello stesso anno scrive l'anno una volta sola", () => {
+    expect(etichettaIntervalloBreve("2026-08-27", "2026-09-25")).toBe("27 ago – 25 set 2026");
+  });
+
+  it("a cavallo di due anni li scrive entrambi, e un giorno solo resta com'è", () => {
+    expect(etichettaIntervalloBreve("2025-12-20", "2026-01-10")).toBe("20 dic 2025 – 10 gen 2026");
+    expect(etichettaIntervalloBreve("2026-09-25", "2026-09-25")).toBe("25 set 2026");
   });
 });
