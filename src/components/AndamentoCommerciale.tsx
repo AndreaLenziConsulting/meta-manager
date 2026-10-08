@@ -21,8 +21,10 @@ const OPZIONI: OpzioneGrafico<Vista>[] = [
  * Il riquadro dei venditori in fondo al tab KPI. Dall'08/10/2026 è fatto come quello dei grafici del
  * marketing (BoxGrafici.tsx), su richiesta dell'utente: segue il periodo scelto in alto e ha la
  * stessa tendina per passare da un grafico all'altro. Per ora i grafici sono due:
- *   - "Andamento venditori" (nuovo, quello che si apre): totali e andamento nel periodo scelto;
- *   - "Ritmo sul target": la vista di prima, che guarda il mese in corso qualunque sia il periodo.
+ *   - "Andamento venditori" (nuovo, quello che si apre): totali e andamento nel periodo scelto, e
+ *     per le campagne scelte (il filtro campagne vale anche qui dall'08/10/2026, scelta dell'utente);
+ *   - "Ritmo sul target": la vista di prima, che guarda il mese in corso qualunque siano il periodo
+ *     e le campagne scelti in alto.
  * Un grafico nuovo si aggiunge qui: una voce in OPZIONI e il suo componente sotto.
  *
  * Mai sul link pubblico del cliente: lo decide chi lo monta (KpiSection.tsx).
@@ -37,6 +39,7 @@ export function AndamentoCommerciale({
   a,
   ghl,
   mensili,
+  filtroCampagneAttivo,
   onRisultatiSalvati,
 }: {
   clienteId: string;
@@ -51,11 +54,16 @@ export function AndamentoCommerciale({
   ghl: GhlPerVenditori;
   /** I risultati inseriti a mano, per i soli mesi interi nel periodo. */
   mensili: RisultatoMensileVenditore[];
+  /** Vero se in alto è scelto un sottoinsieme di campagne (anche quello predefinito della sede). */
+  filtroCampagneAttivo: boolean;
   onRisultatiSalvati: () => void;
 }) {
   const [vista, setVista] = useState<Vista>("andamento");
   const [inserimentoAperto, setInserimentoAperto] = useState(false);
-  const andamento = useMemo(() => costruisciAndamentoVenditori({ venditori, settimane, da, a, ghl, mensili }), [venditori, settimane, da, a, ghl, mensili]);
+  const andamento = useMemo(
+    () => costruisciAndamentoVenditori({ venditori, settimane, da, a, ghl, mensili, filtroCampagneAttivo }),
+    [venditori, settimane, da, a, ghl, mensili, filtroCampagneAttivo]
+  );
   const attiva = OPZIONI.find((o) => o.id === vista) ?? OPZIONI[0];
   // I risultati si inseriscono a mano solo per chi non arriva da GHL.
   const aMano = venditori.filter((v) => !venditoreDaGhl(v, ghl));
@@ -66,6 +74,12 @@ export function AndamentoCommerciale({
         <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{venditori.length === 0 ? "Venditori" : attiva.label}</h3>
         {venditori.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
+            {/* GHL può metterci qualche secondo: oltre ai numeri attenuati, lo si dice anche a parole. */}
+            {vista === "andamento" && andamento.inAggiornamento && (
+              <span role="status" className="text-xs text-ink-500">
+                Aggiornamento…
+              </span>
+            )}
             {aMano.length > 0 && (
               <Button variant="secondary" size="sm" onClick={() => setInserimentoAperto(true)}>
                 <PencilLine size={14} aria-hidden="true" />

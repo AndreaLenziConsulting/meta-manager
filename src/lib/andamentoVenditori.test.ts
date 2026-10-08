@@ -4,11 +4,13 @@ import type { Venditore } from "@/types/kpi";
 
 const venditore = (id: string, ghlUserId = ""): Venditore => ({ venditoreId: id, sedeId: "s1", nome: id.toUpperCase(), capienzaAppuntamentiMensile: 0, attivo: true, ghlUserId });
 const SETTIMANE = ["2026-09-07", "2026-09-14", "2026-09-21"];
-const PERIODO = { da: "2026-09-09", a: "2026-09-27", settimane: SETTIMANE };
+const PERIODO = { da: "2026-09-09", a: "2026-09-27", settimane: SETTIMANE, filtroCampagneAttivo: false };
 
 const ghlOk = (over: Partial<Extract<GhlPerVenditori, { stato: "ok" }>> = {}): GhlPerVenditori => ({
   stato: "ok",
   calendariCollegati: true,
+  perimetro: "tutti",
+  inAggiornamento: false,
   perVenditore: {
     anna: { appuntamenti: { totali: 10, confermati: 8, annullati: 2, effettuati: 6 }, opportunita: { vendite: 2, fatturato: 9000 } },
     luca: { appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 }, opportunita: { vendite: 0, fatturato: 0 } },
@@ -98,7 +100,7 @@ describe("venditori con risultati inseriti a mano", () => {
     { mese: "2026-09", venditoreId: "luca", appuntamentiFissati: 3, vendite: 0, fatturato: 0 },
   ];
   const venditori = [venditore("anna"), venditore("luca"), venditore("mai")];
-  const dueMesi = { da: "2026-08-01", a: "2026-09-30", settimane: ["2026-07-27", "2026-08-03"] };
+  const dueMesi = { da: "2026-08-01", a: "2026-09-30", settimane: ["2026-07-27", "2026-08-03"], filtroCampagneAttivo: false };
 
   it("somma i mesi interi nel periodo; gli appuntamenti effettuati a mano non esistono", () => {
     const { righe } = costruisciAndamentoVenditori({ venditori, ...dueMesi, ghl: { stato: "assente" }, mensili });
@@ -135,11 +137,60 @@ describe("sede con venditori da GHL e venditori a mano insieme", () => {
   it("il grafico resta a settimane con i soli venditori da GHL; gli altri stanno nella tabella", () => {
     const venditori = [venditore("anna", "u-anna"), venditore("mario")];
     const mensili = [{ mese: "2026-09", venditoreId: "mario", appuntamentiFissati: 4, vendite: 1, fatturato: 2000 }];
-    const esito = costruisciAndamentoVenditori({ venditori, da: "2026-09-01", a: "2026-09-30", settimane: SETTIMANE, ghl: ghlOk(), mensili });
+    const esito = costruisciAndamentoVenditori({ venditori, da: "2026-09-01", a: "2026-09-30", settimane: SETTIMANE, ghl: ghlOk(), mensili, filtroCampagneAttivo: false });
     expect(esito.grana).toBe("settimana");
     expect(esito.nelGrafico).toEqual(["anna"]);
     expect(esito.fuoriDalGrafico).toEqual(["mario"]);
     expect(esito.righe[1]).toMatchObject({ fonte: "manuale", disponibilita: "ok", appuntamentiFissati: 4, fatturato: 2000 });
     expect(Object.keys(esito.punti[0].valori)).toEqual(["anna"]);
+  });
+});
+
+describe("il filtro campagne e i venditori", () => {
+  const daGhl = [venditore("anna", "u-anna"), venditore("luca", "u-luca")];
+  const misti = [venditore("anna", "u-anna"), venditore("mario")];
+  const mensili = [{ mese: "2026-09", venditoreId: "mario", appuntamentiFissati: 4, vendite: 1, fatturato: 2000 }];
+  const settembre = { da: "2026-09-01", a: "2026-09-30", settimane: SETTIMANE };
+
+  it("senza filtro i numeri da GHL valgono per tutti i contatti, e niente è da segnalare", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: daGhl, ...PERIODO, ghl: ghlOk(), mensili: [] });
+    expect(esito).toMatchObject({ perimetroGhl: "tutti", manualiNonDivisi: false, inAggiornamento: false });
+  });
+
+  it("dice quando i numeri da GHL sono solo quelli delle campagne scelte", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: daGhl, ...PERIODO, filtroCampagneAttivo: true, ghl: ghlOk({ perimetro: "campagne-scelte" }), mensili: [] });
+    expect(esito.perimetroGhl).toBe("campagne-scelte");
+    expect(esito.manualiNonDivisi).toBe(false);
+  });
+
+  it("dice quando il filtro c'è ma GHL non distingue le campagne: i numeri restano su tutti i contatti", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: daGhl, ...PERIODO, filtroCampagneAttivo: true, ghl: ghlOk({ perimetro: "non-distinguibili" }), mensili: [] });
+    expect(esito.perimetroGhl).toBe("non-distinguibili");
+  });
+
+  it("i risultati inseriti a mano non si dividono per campagna: col filtro attivo restano gli stessi, e lo segnala", () => {
+    const senza = costruisciAndamentoVenditori({ venditori: misti, ...settembre, filtroCampagneAttivo: false, ghl: ghlOk(), mensili });
+    const con = costruisciAndamentoVenditori({ venditori: misti, ...settembre, filtroCampagneAttivo: true, ghl: ghlOk({ perimetro: "campagne-scelte" }), mensili });
+    expect(con.righe[1]).toEqual(senza.righe[1]);
+    expect(senza.manualiNonDivisi).toBe(false);
+    expect(con.manualiNonDivisi).toBe(true);
+  });
+
+  it("una sede che non legge da GHL non ha un perimetro GHL, solo i risultati a mano non divisi", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: misti, ...settembre, filtroCampagneAttivo: true, ghl: { stato: "assente" }, mensili });
+    expect(esito).toMatchObject({ perimetroGhl: null, manualiNonDivisi: true, inAggiornamento: false });
+  });
+
+  it("finché GHL non ha risposto non si sa quali contatti contano", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: daGhl, ...PERIODO, filtroCampagneAttivo: true, ghl: { stato: "caricamento" }, mensili: [] });
+    expect(esito.perimetroGhl).toBeNull();
+    expect(esito.inAggiornamento).toBe(false);
+  });
+
+  it("cambiando solo le campagne i numeri di prima restano, segnati come in aggiornamento", () => {
+    const esito = costruisciAndamentoVenditori({ venditori: daGhl, ...PERIODO, filtroCampagneAttivo: true, ghl: ghlOk({ inAggiornamento: true }), mensili: [] });
+    expect(esito.inAggiornamento).toBe(true);
+    expect(esito.statoGrafico).toBe("ok");
+    expect(esito.righe[0]).toMatchObject({ disponibilita: "ok", appuntamentiFissati: 10 });
   });
 });

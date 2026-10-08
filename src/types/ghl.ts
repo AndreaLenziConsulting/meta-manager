@@ -146,6 +146,18 @@ export type GhlBreakdownCampagna = {
  * vendite e fatturato — vedi andamentoPerVenditoreGhl in src/lib/ghl.ts. */
 export type GhlSettimanaVenditore = { settimana: string; fissati: number; effettuati: number; vendite: number; fatturato: number };
 
+/**
+ * Quali contatti contano nei numeri per venditore (08/10/2026: l'utente ha scelto che il filtro
+ * campagne valga anche per i venditori):
+ *   - "tutti": nessun filtro campagne — ogni appuntamento e ogni vendita del venditore;
+ *   - "campagne-scelte": solo i contatti arrivati dalle campagne del filtro. Restano fuori anche i
+ *     contatti senza campagna (passaparola, non tracciati);
+ *   - "non-distinguibili": un filtro c'è, ma su GHL nessun contatto di questa sede risulta arrivato
+ *     da una campagna (`campagneAttribuibili` falso: traffico non tracciato). Restringere darebbe
+ *     zero a tutti, un falso zero: contano tutti, e va detto.
+ */
+export type PerimetroVenditori = "tutti" | "campagne-scelte" | "non-distinguibili";
+
 /** Come GhlBreakdownCampagna, ma per UN tag contatto GHL (Fase 3 categorie commerciali, 11/2026) —
  * vedi riepilogoPerTag in src/lib/ghl.ts. `richieste` in più rispetto a GhlBreakdownCampagna: qui
  * il "lead" è il contatto stesso taggato (join diretto), mentre per una campagna Meta il lead è già
@@ -230,4 +242,7 @@ export type GhlRiepilogoResponse =
       // ha avuto almeno un appuntamento o una vendita: le altre valgono zero. Stessa griglia di
       // settimane di `appuntamentiPerSettimana` (quelle di bordo sono intere).
       perVenditoreSettimanale?: Record<string, GhlSettimanaVenditore[]>;
+      // Quali contatti contano in `perVenditore` e `perVenditoreSettimanale` (vedi PerimetroVenditori).
+      // Assente = "tutti".
+      perimetroVenditori?: PerimetroVenditori;
     };

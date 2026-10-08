@@ -1,7 +1,7 @@
 import { formatMese, formatSettimana } from "@/lib/format";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import { spostaMese } from "@/lib/periodo";
-import type { GhlBreakdownCampagna, GhlSettimanaVenditore } from "@/types/ghl";
+import type { GhlBreakdownCampagna, GhlSettimanaVenditore, PerimetroVenditori } from "@/types/ghl";
 import type { RisultatoVenditoreRow, Venditore } from "@/types/kpi";
 
 /**
@@ -16,6 +16,11 @@ import type { RisultatoVenditoreRow, Venditore } from "@/types/kpi";
  *
  * Mai un falso zero: un venditore per cui nessuno ha inserito risultati è "non compilato", non zero;
  * uno che GHL non ha restituito è "non disponibile". Lo zero è solo quello che una fonte ha detto.
+ *
+ * Il filtro campagne della pagina (08/10/2026, scelta dell'utente): vale per i numeri che arrivano
+ * da GHL, che il server restringe ai contatti di quelle campagne e dice se ci è riuscito
+ * (`perimetro`). I risultati inseriti a mano non portano la campagna: restano quelli inseriti, e il
+ * riquadro lo scrive (`manualiNonDivisi`) invece di lasciar credere che siano filtrati.
  */
 
 /** Cosa si sa di GHL per i venditori di questa sede, in questo momento. */
@@ -27,6 +32,14 @@ export type GhlPerVenditori =
       stato: "ok";
       /** Senza calendari collegati GHL non sa nulla degli appuntamenti: non è zero, è ignoto. */
       calendariCollegati: boolean;
+      /** Quali contatti contano in questi numeri: tutti, o solo quelli delle campagne scelte. */
+      perimetro: PerimetroVenditori;
+      /**
+       * I numeri sono ancora quelli del filtro campagne di prima: i nuovi stanno arrivando. Restano
+       * sullo schermo, attenuati, invece di lasciare il posto a "lettura in corso": chi cambia le
+       * campagne guardando i venditori vede i numeri cambiare, non il riquadro che si svuota.
+       */
+      inAggiornamento: boolean;
       perVenditore: Record<string, GhlBreakdownCampagna>;
       perSettimana: Record<string, GhlSettimanaVenditore[]>;
     };
@@ -66,6 +79,12 @@ export type AndamentoVenditori = {
   /** Venditori con soli risultati mensili, quando il grafico è a settimane: stanno solo nella tabella. */
   fuoriDalGrafico: string[];
   statoGrafico: "ok" | "caricamento" | "non-disponibile";
+  /** Quali contatti contano nei numeri arrivati da GHL; null se da GHL non c'è (ancora) nessun numero. */
+  perimetroGhl: PerimetroVenditori | null;
+  /** C'è un filtro campagne e qualche venditore ha risultati inseriti a mano, che per campagna non si possono dividere. */
+  manualiNonDivisi: boolean;
+  /** I numeri da GHL sono ancora quelli del filtro campagne di prima (vedi GhlPerVenditori). */
+  inAggiornamento: boolean;
 };
 
 /** I mesi (AAAA-MM) che stanno per intero fra `da` e `a` (giorni inclusi). */
@@ -140,10 +159,17 @@ export function costruisciAndamentoVenditori(input: {
   a: string;
   ghl: GhlPerVenditori;
   mensili: RisultatoMensileVenditore[];
+  /** Vero se in alto è scelto un sottoinsieme di campagne (anche quello predefinito della sede). */
+  filtroCampagneAttivo: boolean;
 }): AndamentoVenditori {
-  const { venditori, settimane, da, a, ghl, mensili } = input;
+  const { venditori, settimane, da, a, ghl, mensili, filtroCampagneAttivo } = input;
   const righe = venditori.map((v) => rigaDi(v, ghl, mensili));
   const daGhl = venditori.filter((v) => venditoreDaGhl(v, ghl));
+  const perimetri = {
+    perimetroGhl: daGhl.length > 0 && ghl.stato === "ok" ? ghl.perimetro : null,
+    manualiNonDivisi: filtroCampagneAttivo && daGhl.length < venditori.length,
+    inAggiornamento: daGhl.length > 0 && ghl.stato === "ok" && ghl.inAggiornamento,
+  };
 
   if (daGhl.length > 0) {
     const perVenditore = new Map(
@@ -167,6 +193,7 @@ export function costruisciAndamentoVenditori(input: {
       nelGrafico: daGhl.map((v) => v.venditoreId),
       fuoriDalGrafico: venditori.filter((v) => !venditoreDaGhl(v, ghl)).map((v) => v.venditoreId),
       statoGrafico: ghl.stato === "ok" ? "ok" : ghl.stato === "caricamento" ? "caricamento" : "non-disponibile",
+      ...perimetri,
     };
   }
 
@@ -186,5 +213,6 @@ export function costruisciAndamentoVenditori(input: {
     nelGrafico: venditori.map((v) => v.venditoreId),
     fuoriDalGrafico: [],
     statoGrafico: "ok",
+    ...perimetri,
   };
 }

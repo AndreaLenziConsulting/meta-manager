@@ -6,6 +6,7 @@ import { oggiIso } from "@/lib/roadmap";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import { calcolaPacingMensile } from "@/lib/targetPacing";
 import { calcolaQuoteVenditori } from "@/lib/venditori";
+import { PARAMETRO_TUTTE_LE_CAMPAGNE } from "@/lib/campagneAlc";
 import { BloccoPacing } from "@/components/BloccoPacing";
 import type { KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
@@ -82,7 +83,11 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
           return undefined;
         }
         const mese = meseCorrente();
-        const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese });
+        // Tutte le campagne, chiesto in modo esplicito: dall'08/10/2026 /api/ghl restringe i numeri
+        // per venditore al filtro campagne, e senza parametro applicherebbe il predefinito della sede
+        // (solo campagne ALC). Questa vista confronta il venditore con la sua quota del target, che
+        // vale per tutto il suo lavoro del mese: resta com'era, su tutti i contatti.
+        const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese, campagne: PARAMETRO_TUTTE_LE_CAMPAGNE });
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
           .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
@@ -159,7 +164,8 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
   return (
     <div className="space-y-4">
       <p className="text-xs text-ink-500">
-        Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — la quota di ciascun venditore è proporzionale alla capienza dichiarata.
+        Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — la quota di ciascun venditore è proporzionale alla capienza dichiarata. Non segue i filtri in alto: conta tutto il mese,
+        qualunque sia la campagna.
       </p>
       <div className="space-y-5">
         {blocchi.map(({ venditore, quota, metriche, chiusura, daGhl }) => (

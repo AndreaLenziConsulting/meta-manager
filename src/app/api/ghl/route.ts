@@ -24,11 +24,10 @@ import {
   riepilogoAppuntamenti,
   riepilogoOpportunita,
   riepilogoPerTag,
-  andamentoPerVenditoreGhl,
-  riepilogoPerVenditoreGhl,
   riepilogoSenzaTag,
+  venditoriGhlNelPerimetro,
 } from "@/lib/ghl";
-import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse, GhlSettimanaVenditore } from "@/types/ghl";
+import type { GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
 
 export const runtime = "nodejs";
 // Rete di sicurezza, non più il fix principale: il 25/09/2026 questa route arrivava a ~40s (la
@@ -75,6 +74,8 @@ function meseCorrente(): string {
  * assignedUserId/assignedTo (già presenti sugli oggetti GHL, zero chiamate in più a differenza di
  * perTag). A differenza di perTag/perCampagna, conta OGNI appuntamento del venditore, non solo il
  * primo per contatto — è carico di lavoro, non attribuzione marketing, vedi riepilogoPerVenditoreGhl.
+ * Dall'08/10/2026 segue il filtro `campagne` come le tessere (scelta dell'utente), e
+ * `perimetroVenditori` dice se il filtro è stato applicato: vedi venditoriGhlNelPerimetro.
  */
 export async function GET(req: NextRequest) {
   const sessione = await getSessione();
@@ -224,28 +225,21 @@ export async function GET(req: NextRequest) {
           ? riepilogoSenzaTag(richiesteSenzaTag, idTaggati, appuntamentiPrimi, opportunitaVinte, startMs, endMs)
           : undefined;
 
-    // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti
-    // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il
-    // carico di lavoro di un venditore ogni appuntamento tenuto conta, vedi riepilogoPerVenditoreGhl.
-    const perVenditore: Record<string, GhlBreakdownCampagna> = {};
-    const perVenditoreSettimanale: Record<string, GhlSettimanaVenditore[]> = {};
-    for (const venditore of venditoriConGhl) {
-      perVenditore[venditore.venditoreId] = riepilogoPerVenditoreGhl(
-        venditore.ghlUserId.trim(),
-        appuntamenti,
-        opportunitaVinte,
-        startMs,
-        endMs
-      );
-      // Lo stesso, settimana per settimana, per il grafico "Andamento venditori".
-      perVenditoreSettimanale[venditore.venditoreId] = andamentoPerVenditoreGhl(venditore.ghlUserId.trim(), appuntamenti, opportunitaVinte, startMs, endMs);
-    }
-
     // Sempre calcolato (non solo quando `campagne` è in query): alimenta la tabella "per singola
     // campagna" di DettaglioCampagneEsteso, che può essere aperta indipendentemente dal filtro
     // campagne delle tessere.
     const perCampagna = breakdownGhlPerCampagna(appuntamentiPrimi, opportunitaVinte, mappaCampagna, startMs, endMs);
     const campagneAttribuibili = Object.keys(perCampagna).length > 0;
+
+    // Fase 4: zero chiamate GHL in più — join locale su assignedUserId/assignedTo, già presenti
+    // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il
+    // carico di lavoro di un venditore ogni appuntamento tenuto conta, vedi riepilogoPerVenditoreGhl.
+    // Dall'08/10/2026 col filtro campagne della pagina: vedi venditoriGhlNelPerimetro.
+    const {
+      perimetro: perimetroVenditori,
+      perVenditore,
+      perVenditoreSettimanale,
+    } = venditoriGhlNelPerimetro({ venditori: venditoriConGhl, appuntamenti, opportunitaVinte, mappaCampagna, campagneFiltro, campagneAttribuibili, startMs, endMs });
     // Stesso perimetro "tutta la sede" di perCampagna, a livello di singola inserzione — nessuna
     // chiamata GHL in più, l'id inserzione è sulle stesse opportunità già scaricate sopra.
     const perInserzione = breakdownGhlPerInserzione(
@@ -285,6 +279,7 @@ export async function GET(req: NextRequest) {
       senzaTag,
       perVenditore,
       perVenditoreSettimanale,
+      perimetroVenditori,
     };
     return NextResponse.json(risposta);
   } catch (err) {

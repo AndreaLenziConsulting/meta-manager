@@ -107,6 +107,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // venditori invece mostra numeri per venditore con accanto il periodo nuovo, e lì un numero del
   // periodo di prima non deve comparire: finché le due cose non combaciano dice "lettura in corso".
   const [periodoGhl, setPeriodoGhl] = useState<string | null>(null);
+  // E per quale filtro campagne (il valore di `parametroCampagne`, "" = predefinito). Dall'08/10/2026
+  // il filtro vale anche per i venditori: finché arrivano i numeri del filtro nuovo, quelli di prima
+  // restano nel riquadro, attenuati (vedi `inAggiornamento` in andamentoVenditori.ts).
+  const [campagneGhl, setCampagneGhl] = useState<string | null>(null);
   // Stesse due variabili ma per il periodo precedente (confronto sotto alle tessere) — null finché
   // il rispettivo fetch non è arrivato o se non c'è un periodo precedente comparabile.
   const [datiPrecedenti, setDatiPrecedenti] = useState<KpiResponse | null>(null);
@@ -298,6 +302,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           .then((body: GhlRiepilogoResponse | null) => {
             setGhlDati(body);
             setPeriodoGhl(`${sedeGhl}|${da}|${a}`);
+            setCampagneGhl(parametroCampagne ?? "");
           });
       })
       .catch((err) => {
@@ -430,10 +435,12 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return {
       stato: "ok",
       calendariCollegati: ghlDati.calendariConfigurati,
+      perimetro: ghlDati.perimetroVenditori ?? "tutti",
+      inAggiornamento: campagneGhl !== (parametroCampagne ?? ""),
       perVenditore: ghlDati.perVenditore ?? {},
       perSettimana: ghlDati.perVenditoreSettimanale ?? {},
     };
-  }, [clienteId, haConnessioneGhl, ghlErrore, ghlDati, periodoGhl, sedeGhl, da, a]);
+  }, [clienteId, haConnessioneGhl, ghlErrore, ghlDati, periodoGhl, campagneGhl, parametroCampagne, sedeGhl, da, a]);
   // I lunedì delle settimane del periodo: la stessa griglia su cui disegnano i grafici del marketing.
   const settimanePeriodo = useMemo(() => (dati?.trendSettimanale ?? []).map((s) => s.settimana), [dati]);
 
@@ -687,32 +694,39 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             ))}
           </Select>
         )}
-        {dati && (
-          <CampagneFilter
-            compatto
-            campagneDisponibili={dati.campagneDisponibili}
-            selezionate={campagneSelezionate}
-            onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, scelta: selezionate ?? "tutte" })}
-            predefinito={
-              predefiniteSede
-                ? {
-                    attivo: sceltaCampagne === "predefinito",
-                    onRipristina: () => setFiltroCampagne({ contesto: contestoAttuale, scelta: "predefinito" }),
-                  }
-                : undefined
-            }
-          />
-        )}
-        {/* Anche mentre risponde GHL, che arriva dopo i numeri di Meta: chi cambia periodo guardando i
-            venditori in fondo deve sapere che quei numeri stanno ancora arrivando. */}
-        {(caricamento || ghlVenditori.stato === "caricamento") && (
-          <span role="status" className="text-xs text-ink-500">
-            Aggiornamento…
-          </span>
-        )}
-        <PulsanteIcona etichetta="Torna in cima, alla riga dei filtri" dimensione="sm" onClick={tornaAiFiltri} className="ml-auto">
-          <ArrowUp size={16} aria-hidden="true" />
-        </PulsanteIcona>
+        {/* Campagne, stato e freccia vanno a capo insieme: su telefono la freccia non resta mai sola
+            su una riga sua. Niente `relative` qui: su telefono il pannello delle campagne si allinea
+            al bordo della striscia (vedi `compatto` in CampagneFilter.tsx). */}
+        <div className="flex flex-auto items-center gap-2">
+          {dati && (
+            <CampagneFilter
+              compatto
+              campagneDisponibili={dati.campagneDisponibili}
+              selezionate={campagneSelezionate}
+              onChange={(selezionate) => setFiltroCampagne({ contesto: contestoAttuale, scelta: selezionate ?? "tutte" })}
+              predefinito={
+                predefiniteSede
+                  ? {
+                      attivo: sceltaCampagne === "predefinito",
+                      onRipristina: () => setFiltroCampagne({ contesto: contestoAttuale, scelta: "predefinito" }),
+                    }
+                  : undefined
+              }
+            />
+          )}
+          {/* Anche mentre risponde GHL, che arriva dopo i numeri di Meta: chi cambia periodo o campagne
+              guardando i venditori in fondo deve sapere che quei numeri stanno ancora arrivando. Su
+              telefono solo il simbolo che gira: la scritta farebbe andare a capo la freccia. */}
+          {(caricamento || ghlVenditori.stato === "caricamento" || (ghlVenditori.stato === "ok" && ghlVenditori.inAggiornamento)) && (
+            <span role="status" className="flex items-center gap-1.5 text-xs text-ink-500">
+              <RefreshCw size={14} aria-hidden="true" className="animate-spin motion-reduce:animate-none sm:hidden" />
+              <span className="sr-only sm:not-sr-only">Aggiornamento…</span>
+            </span>
+          )}
+          <PulsanteIcona etichetta="Torna in cima, alla riga dei filtri" dimensione="sm" onClick={tornaAiFiltri} className="ml-auto">
+            <ArrowUp size={16} aria-hidden="true" />
+          </PulsanteIcona>
+        </div>
       </StrisciaFiltri>
 
       <div className="space-y-6">
@@ -935,6 +949,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               a={a}
               ghl={ghlVenditori}
               mensili={dati.sede.risultatiVenditoriMensili ?? NESSUN_RISULTATO_MENSILE}
+              filtroCampagneAttivo={campagneSelezionate !== null}
               onRisultatiSalvati={rileggiSubito}
             />
           )}

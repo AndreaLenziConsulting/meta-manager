@@ -11,6 +11,7 @@ import {
   riepilogoPerTag,
   riepilogoPerVenditoreGhl,
   andamentoPerVenditoreGhl,
+  venditoriGhlNelPerimetro,
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 import { riepilogoSenzaTag } from "./ghl";
@@ -577,6 +578,64 @@ describe("riepilogoPerVenditoreGhl", () => {
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
       opportunita: { vendite: 0, fatturato: 0 },
     });
+  });
+});
+
+describe("venditoriGhlNelPerimetro: il filtro campagne vale anche per i venditori", () => {
+  // Tre contatti: uno dalla campagna 111, uno dalla 222, uno senza campagna (passaparola).
+  const mappaCampagna = new Map([
+    ["ct-111", "111"],
+    ["ct-222", "222"],
+  ]);
+  const appuntamenti = [
+    appuntamento({ id: "a1", contactId: "ct-111", assignedUserId: "u1", dateAdded: "2026-08-04T00:00:00Z" }),
+    appuntamento({ id: "a2", contactId: "ct-111", assignedUserId: "u1", dateAdded: "2026-08-11T00:00:00Z" }),
+    appuntamento({ id: "a3", contactId: "ct-222", assignedUserId: "u1", dateAdded: "2026-08-12T00:00:00Z" }),
+    appuntamento({ id: "a4", contactId: "ct-passaparola", assignedUserId: "u1", dateAdded: "2026-08-13T00:00:00Z" }),
+    appuntamento({ id: "a5", contactId: "ct-222", assignedUserId: "u2", dateAdded: "2026-08-13T00:00:00Z" }),
+  ];
+  const opportunitaVinte = [
+    opportunita({ id: "o1", contactId: "ct-111", assignedTo: "u1", status: "won", monetaryValue: 500, lastStatusChangeAt: "2026-08-10T00:00:00Z" }),
+    opportunita({ id: "o2", contactId: "ct-passaparola", assignedTo: "u1", status: "won", monetaryValue: 900, lastStatusChangeAt: "2026-08-14T00:00:00Z" }),
+  ];
+  const venditori = [
+    { venditoreId: "anna", ghlUserId: "u1" },
+    { venditoreId: "luca", ghlUserId: " u2 " },
+  ];
+  const base = { venditori, appuntamenti, opportunitaVinte, mappaCampagna, startMs: AGOSTO_INIZIO, endMs: AGOSTO_FINE, oraAttualeMs: ORA_RIFERIMENTO };
+
+  it("senza filtro contano tutti i contatti, anche quelli senza campagna", () => {
+    const esito = venditoriGhlNelPerimetro({ ...base, campagneFiltro: null, campagneAttribuibili: true });
+    expect(esito.perimetro).toBe("tutti");
+    expect(esito.perVenditore.anna.appuntamenti.totali).toBe(4);
+    expect(esito.perVenditore.anna.opportunita).toEqual({ vendite: 2, fatturato: 1400 });
+    expect(esito.perVenditore.luca.appuntamenti.totali).toBe(1);
+  });
+
+  it("con un filtro contano solo i contatti di quelle campagne: restano fuori le altre e i contatti senza campagna", () => {
+    const esito = venditoriGhlNelPerimetro({ ...base, campagneFiltro: new Set(["111"]), campagneAttribuibili: true });
+    expect(esito.perimetro).toBe("campagne-scelte");
+    // Entrambi gli appuntamenti con lo stesso contatto: per un venditore ogni appuntamento conta.
+    expect(esito.perVenditore.anna.appuntamenti.totali).toBe(2);
+    expect(esito.perVenditore.anna.opportunita).toEqual({ vendite: 1, fatturato: 500 });
+    // Uno zero vero: GHL è stato letto, e dalla campagna 111 a Luca non è arrivato nessuno.
+    expect(esito.perVenditore.luca.appuntamenti.totali).toBe(0);
+  });
+
+  it("l'andamento per settimana segue lo stesso filtro dei totali", () => {
+    const tutti = venditoriGhlNelPerimetro({ ...base, campagneFiltro: null, campagneAttribuibili: true });
+    const filtrati = venditoriGhlNelPerimetro({ ...base, campagneFiltro: new Set(["111"]), campagneAttribuibili: true });
+    const somma = (righe: { fissati: number; fatturato: number }[]) => righe.reduce((s, r) => ({ fissati: s.fissati + r.fissati, fatturato: s.fatturato + r.fatturato }), { fissati: 0, fatturato: 0 });
+    expect(somma(tutti.perVenditoreSettimanale.anna)).toEqual({ fissati: 4, fatturato: 1400 });
+    expect(somma(filtrati.perVenditoreSettimanale.anna)).toEqual({ fissati: 2, fatturato: 500 });
+    expect(filtrati.perVenditoreSettimanale.luca).toEqual([]);
+  });
+
+  it("se GHL non attribuisce nessun contatto a una campagna il filtro non si applica: contano tutti, mai un falso zero", () => {
+    const esito = venditoriGhlNelPerimetro({ ...base, mappaCampagna: new Map(), campagneFiltro: new Set(["111"]), campagneAttribuibili: false });
+    expect(esito.perimetro).toBe("non-distinguibili");
+    expect(esito.perVenditore.anna.appuntamenti.totali).toBe(4);
+    expect(esito.perVenditore.anna.opportunita).toEqual({ vendite: 2, fatturato: 1400 });
   });
 });
 

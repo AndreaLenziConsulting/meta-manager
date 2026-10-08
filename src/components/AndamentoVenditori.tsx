@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Filter } from "lucide-react";
 import { Tabs } from "@/components/Tabs";
+import { Nota } from "@/components/ui/Nota";
 import { formatEuro, formatEuroIntero, formatNumero, formatPercentuale } from "@/lib/format";
 import type { AndamentoVenditori as Andamento, MisuraVenditori, RigaVenditore } from "@/lib/andamentoVenditori";
 
@@ -68,13 +70,17 @@ function formatMisura(misura: MisuraVenditori, valore: number | null): string {
  *
  * Un asse solo: le tre misure hanno scale diverse, quindi si guardano una per volta invece di
  * sovrapporle su due assi. Dove un dato manca la linea si interrompe: non scende a zero.
+ *
+ * Col filtro campagne (08/10/2026) il riquadro dice sempre quali contatti sta contando: in cima
+ * quando i numeri da GHL sono solo quelli delle campagne scelte (o quando il filtro non si è potuto
+ * applicare), accanto a ogni nome, e nelle note in fondo.
  */
 export function AndamentoVenditori({ andamento }: { andamento: Andamento }) {
   const [misura, setMisura] = useState<MisuraVenditori>("appuntamenti");
   const [wrapRef, WIDTH] = useLarghezzaContenitore(720);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  const { righe, punti, grana, statoGrafico } = andamento;
+  const { righe, punti, grana, statoGrafico, perimetroGhl, manualiNonDivisi, inAggiornamento } = andamento;
   const serie = andamento.nelGrafico.slice(0, MAX_SERIE).map((id, i) => ({ id, nome: righe.find((r) => r.venditoreId === id)?.nome ?? id, colore: colore(i) }));
   const coloreDi = new Map(serie.map((s) => [s.id, s.colore]));
   const nomiFuori = [...andamento.fuoriDalGrafico, ...andamento.nelGrafico.slice(MAX_SERIE)].map((id) => righe.find((r) => r.venditoreId === id)?.nome ?? id);
@@ -126,6 +132,22 @@ export function AndamentoVenditori({ andamento }: { andamento: Andamento }) {
   return (
     // La larghezza si misura qui, sul contenitore che c'è sempre: il grafico compare solo quando ha dati.
     <div className="space-y-5" ref={wrapRef}>
+      {perimetroGhl === "campagne-scelte" && (
+        <p className="flex items-start gap-2 text-sm text-ink-700">
+          <Filter size={16} aria-hidden="true" className="mt-0.5 shrink-0 text-ink-500" />
+          <span>
+            <strong className="font-semibold text-ink-900">Solo le campagne scelte in alto.</strong> Contano gli appuntamenti e le vendite dei contatti arrivati da quelle campagne.
+          </span>
+        </p>
+      )}
+      {perimetroGhl === "non-distinguibili" && (
+        <Nota compatta etichetta="Filtro campagne non applicato qui">
+          Su GHL nessun contatto di questa sede risulta arrivato da una campagna: i venditori contano tutti i loro appuntamenti e tutte le loro vendite, anche se in alto è scelto un filtro.
+        </Nota>
+      )}
+
+      {/* Cambiate le campagne, i numeri di prima restano attenuati finché arrivano i nuovi: come il resto del tab KPI. */}
+      <div className="space-y-5" aria-busy={inAggiornamento} style={{ opacity: inAggiornamento ? 0.6 : 1, transition: "opacity 150ms" }}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[560px] border-collapse text-sm">
           <caption className="sr-only">Totali di ogni venditore nel periodo scelto</caption>
@@ -160,7 +182,11 @@ export function AndamentoVenditori({ andamento }: { andamento: Andamento }) {
                     {coloreDi.has(r.venditoreId) && <span aria-hidden="true" className="inline-block h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: coloreDi.get(r.venditoreId) }} />}
                     <span className="font-semibold text-ink-900">{r.nome}</span>
                   </span>
-                  <span className="block text-xs text-ink-500">{r.fonte === "ghl" ? "da GHL" : "inserito a mano, per mese"}</span>
+                  <span className="block text-xs text-ink-500">
+                    {r.fonte === "ghl"
+                      ? `da GHL${perimetroGhl === "campagne-scelte" ? " · solo campagne scelte" : ""}`
+                      : `inserito a mano, per mese${manualiNonDivisi ? " · non diviso per campagna" : ""}`}
+                  </span>
                 </th>
                 {r.disponibilita === "ok" ? (
                   <>
@@ -326,15 +352,25 @@ export function AndamentoVenditori({ andamento }: { andamento: Andamento }) {
           </div>
         </details>
       )}
+      </div>
 
       <div className="space-y-1 text-xs text-ink-500">
         {righe.some((r) => r.fonte === "ghl") && (
           <p>
-            Da GHL: ogni appuntamento e ogni vendita assegnati al venditore nel periodo, qualunque sia la campagna. Contano anche gli appuntamenti successivi con lo stesso contatto, quindi la somma può
-            superare gli appuntamenti delle tessere in alto, che contano solo il primo.
+            {perimetroGhl === "campagne-scelte"
+              ? "Da GHL: gli appuntamenti e le vendite assegnati al venditore nel periodo, solo per i contatti arrivati dalle campagne scelte in alto. Restano fuori anche i contatti senza campagna (passaparola, non tracciati): per contarli scegli tutte le campagne."
+              : perimetroGhl === "tutti"
+                ? "Da GHL: ogni appuntamento e ogni vendita assegnati al venditore nel periodo, qualunque sia la campagna."
+                : "Da GHL: ogni appuntamento e ogni vendita assegnati al venditore nel periodo."}{" "}
+            Contano anche gli appuntamenti successivi con lo stesso contatto, quindi la somma può superare gli appuntamenti delle tessere in alto, che contano solo il primo.
           </p>
         )}
-        {righe.some((r) => r.fonte === "manuale") && <p>Inseriti a mano: sono mensili, e contano solo i mesi che stanno per intero nel periodo scelto.</p>}
+        {righe.some((r) => r.fonte === "manuale") && (
+          <p>
+            Inseriti a mano: sono mensili, e contano solo i mesi che stanno per intero nel periodo scelto.
+            {manualiNonDivisi && " Non si possono dividere per campagna: restano quelli inseriti, anche col filtro campagne."}
+          </p>
+        )}
         {nomiFuori.length > 0 && (
           <p>
             Non {nomiFuori.length === 1 ? "è nel grafico" : "sono nel grafico"}: {nomiFuori.join(", ")}

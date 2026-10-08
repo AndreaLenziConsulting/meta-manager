@@ -1,6 +1,6 @@
 import { settimanaDiData } from "@/lib/kpi";
 import { conCacheGhl, richiestaGhlConRiprova } from "@/lib/ghlRichieste";
-import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline, GhlSettimanaVenditore } from "@/types/ghl";
+import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline, GhlSettimanaVenditore, PerimetroVenditori } from "@/types/ghl";
 
 /**
  * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
@@ -713,6 +713,53 @@ export function andamentoPerVenditoreGhl(
     v.fatturato = s.fatturato;
   }
   return Array.from(perSettimana.values()).sort((a, b) => a.settimana.localeCompare(b.settimana));
+}
+
+/**
+ * I numeri di tutti i venditori di una sede, col filtro campagne della pagina (08/10/2026: l'utente
+ * ha scelto che il filtro valga anche per il riquadro dei venditori, prima contavano sempre tutto).
+ *
+ * Con un filtro attivo contano solo gli appuntamenti e le vendite dei contatti arrivati da quelle
+ * campagne (`mappaCampagna`, vedi mappaCampagnaPerContatto): un contatto senza campagna resta fuori,
+ * come nelle tessere. Stessa regola di onestà delle tessere (kpiGhlOverlay.ts): se su GHL nessun
+ * contatto della sede è attribuito a una campagna (`campagneAttribuibili` falso), restringere
+ * darebbe zero a tutti — un falso zero. Allora i venditori contano tutto e `perimetro` lo dice, così
+ * il riquadro lo scrive invece di mostrare numeri che sembrano filtrati.
+ *
+ * Restano i criteri di riepilogoPerVenditoreGhl: ogni appuntamento conta, anche i successivi con lo
+ * stesso contatto.
+ */
+export function venditoriGhlNelPerimetro(input: {
+  venditori: { venditoreId: string; ghlUserId: string }[];
+  appuntamenti: GhlAppuntamento[];
+  opportunitaVinte: GhlOpportunita[];
+  mappaCampagna: Map<string, string>;
+  /** `null` = nessun filtro campagne. */
+  campagneFiltro: Set<string> | null;
+  campagneAttribuibili: boolean;
+  startMs: number;
+  endMs: number;
+  oraAttualeMs?: number;
+}): { perimetro: PerimetroVenditori; perVenditore: Record<string, GhlBreakdownCampagna>; perVenditoreSettimanale: Record<string, GhlSettimanaVenditore[]> } {
+  const { venditori, mappaCampagna, campagneFiltro, campagneAttribuibili, startMs, endMs, oraAttualeMs = Date.now() } = input;
+  const perimetro: PerimetroVenditori = !campagneFiltro ? "tutti" : campagneAttribuibili ? "campagne-scelte" : "non-distinguibili";
+  const nelFiltro = (contactId: string) => {
+    const campaignId = mappaCampagna.get(contactId);
+    return campaignId !== undefined && Boolean(campagneFiltro?.has(campaignId));
+  };
+  const ristretto = perimetro === "campagne-scelte";
+  const appuntamenti = ristretto ? input.appuntamenti.filter((a) => nelFiltro(a.contactId)) : input.appuntamenti;
+  const opportunitaVinte = ristretto ? input.opportunitaVinte.filter((o) => nelFiltro(o.contactId)) : input.opportunitaVinte;
+
+  const perVenditore: Record<string, GhlBreakdownCampagna> = {};
+  const perVenditoreSettimanale: Record<string, GhlSettimanaVenditore[]> = {};
+  for (const venditore of venditori) {
+    const ghlUserId = venditore.ghlUserId.trim();
+    perVenditore[venditore.venditoreId] = riepilogoPerVenditoreGhl(ghlUserId, appuntamenti, opportunitaVinte, startMs, endMs, oraAttualeMs);
+    // Lo stesso, settimana per settimana, per il grafico "Andamento venditori".
+    perVenditoreSettimanale[venditore.venditoreId] = andamentoPerVenditoreGhl(ghlUserId, appuntamenti, opportunitaVinte, startMs, endMs, oraAttualeMs);
+  }
+  return { perimetro, perVenditore, perVenditoreSettimanale };
 }
 
 /** Id pipeline di una categoria commerciale (CategoriaCommerciale.pipelineGhl, separati da virgola)
