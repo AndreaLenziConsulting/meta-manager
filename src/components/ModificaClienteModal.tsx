@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneModal";
 import { ConfermaEliminazioneNomeModal } from "@/components/ui/ConfermaEliminazioneNomeModal";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
+import { ProdottoCliente } from "@/components/ProdottoCliente";
 import { Tabs } from "@/components/Tabs";
 import { Nota } from "@/components/ui/Nota";
 
@@ -42,7 +43,7 @@ type Props = {
   onSalvato: () => void;
 };
 
-type SchedaModale = "cliente" | "aspetto" | "sedi" | "elimina";
+type SchedaModale = "cliente" | "aspetto" | "sedi" | "prodotto" | "elimina";
 // Lettura di un elenco collegato alle sedi (connessioni GHL, categorie, venditori).
 type StatoLettura = "caricamento" | "ok" | "errore";
 
@@ -54,7 +55,8 @@ function riepilogoSezione(stato: StatoLettura, quandoPronto: string): string {
 
 /**
  * Modifica di un cliente, divisa in schede (07/10/2026, audit UX): Cliente, Aspetto, Sedi e — solo
- * per l'admin — Elimina. Prima era un'unica colonna alta più di quattromila pixel con una
+ * per l'admin — Prodotto (08/10/2026: assegnare un prodotto a un cliente nato senza, vedi
+ * ProdottoCliente.tsx) ed Elimina. Prima era un'unica colonna alta più di quattromila pixel con una
  * settantina di campi, otto pulsanti "Salva" e cinque "Elimina" uno sotto l'altro. Dentro "Sedi" si
  * guarda una sede alla volta, e le parti meno usate (recupero storico, GHL, categorie, venditori) si
  * aprono a richiesta.
@@ -65,6 +67,9 @@ function riepilogoSezione(stato: StatoLettura, quandoPronto: string): string {
  */
 export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, onClose, onSalvato }: Props) {
   const [scheda, setScheda] = useState<SchedaModale>("cliente");
+  // La scheda Prodotto legge l'elenco dei prodotti: lo fa la prima volta che la si apre, non a ogni
+  // apertura della finestra. Poi resta montata come le altre.
+  const [prodottoAperto, setProdottoAperto] = useState(false);
   const [sedeScelta, setSedeScelta] = useState(sedi[0]?.sedeId ?? "");
   // La sede scelta può sparire (eliminata, e l'elenco si ricarica): si torna alla prima.
   const sedeAperta = sedi.some((s) => s.sedeId === sedeScelta) ? sedeScelta : (sedi[0]?.sedeId ?? "");
@@ -199,7 +204,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
     { id: "cliente", label: "Cliente" },
     { id: "aspetto", label: "Aspetto" },
     { id: "sedi", label: sedi.length > 1 ? `Sedi (${sedi.length})` : "Sede" },
-    ...(ruoloAdmin ? [{ id: "elimina" as const, label: "Elimina" }] : []),
+    ...(ruoloAdmin ? [{ id: "prodotto" as const, label: "Prodotto" }, { id: "elimina" as const, label: "Elimina" }] : []),
   ];
   const inAnagrafica = scheda === "cliente" || scheda === "aspetto";
 
@@ -209,7 +214,10 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
         etichetta="Sezioni della modifica cliente"
         tabs={schede}
         attivo={scheda}
-        onChange={(id) => setScheda(schede.find((s) => s.id === id)?.id ?? "cliente")}
+        onChange={(id) => {
+          setScheda(schede.find((s) => s.id === id)?.id ?? "cliente");
+          if (id === "prodotto") setProdottoAperto(true);
+        }}
       />
 
       <form onSubmit={handleSubmit} noValidate hidden={!inAnagrafica} className="space-y-5">
@@ -316,6 +324,12 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
           </Button>
         </div>
       </form>
+
+      {ruoloAdmin && prodottoAperto && (
+        <div hidden={scheda !== "prodotto"}>
+          <ProdottoCliente cliente={cliente} />
+        </div>
+      )}
 
       <div hidden={scheda !== "sedi"} className="space-y-4">
         <p className="text-sm leading-[22px] text-ink-500">

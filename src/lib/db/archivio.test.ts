@@ -506,6 +506,45 @@ describe("risultati inseriti a mano", () => {
   });
 });
 
+describe("assegnare un prodotto a un cliente che esiste già", () => {
+  const righe = [
+    attivita({ attivitaId: "delta::P1", clienteId: "delta", prodottoId: "prova", taskId: "P1", dataInizio: "2026-09-07", dataFine: "2026-09-13" }),
+    attivita({ attivitaId: "delta::P2", clienteId: "delta", prodottoId: "prova", taskId: "P2", dataInizio: "2026-09-14", dataFine: "2026-09-20" }),
+  ];
+  const delta = async () => (await archivio.getClienti()).find((c) => c.clienteId === "delta");
+  const attivitaDiDelta = async () => (await archivio.getAttivitaCliente()).filter((a) => a.clienteId === "delta");
+
+  it("scrive prodotto e data di inizio sul cliente e fa nascere le attività, insieme", async () => {
+    await archivio.creaCliente(nuovoCliente("delta", "codice-delta"));
+    // Un'attività aggiunta a mano prima dell'assegnazione, con lo stesso identificativo di una del modello: resta com'è.
+    await archivio.creaAttivitaPerCliente([attivita({ attivitaId: "delta::P2", clienteId: "delta", prodottoId: "manuale", taskId: "P2", descrizione: "Fatta a mano" })]);
+
+    expect(await archivio.assegnaProdottoACliente({ clienteId: "delta", prodottoId: "prova", dataInizioProgetto: "2026-09-07", righe })).toEqual({ attivitaCreate: 1 });
+    expect(await delta()).toMatchObject({ prodottoId: "prova", dataInizioProgetto: "2026-09-07" });
+    const sue = await attivitaDiDelta();
+    expect(sue.map((a) => a.attivitaId).sort()).toEqual(["delta::P1", "delta::P2"]);
+    expect(sue.find((a) => a.attivitaId === "delta::P2")?.descrizione).toBe("Fatta a mano");
+  });
+
+  it("chi ha già prodotto e data non ne riceve un altro, e non nasce nessuna attività", async () => {
+    const altra = [attivita({ attivitaId: "delta::P9", clienteId: "delta", prodottoId: "prova", taskId: "P9" })];
+    await expect(archivio.assegnaProdottoACliente({ clienteId: "delta", prodottoId: "prova", dataInizioProgetto: "2026-10-01", righe: altra })).rejects.toThrow("Il cliente ha già un prodotto assegnato");
+    expect(await delta()).toMatchObject({ dataInizioProgetto: "2026-09-07" });
+    expect((await attivitaDiDelta()).some((a) => a.attivitaId === "delta::P9")).toBe(false);
+  });
+
+  it("un cliente che non esiste è un errore, e non resta nessuna attività orfana", async () => {
+    const orfana = [attivita({ attivitaId: "nessuno::P1", clienteId: "nessuno", prodottoId: "prova", taskId: "P1" })];
+    await expect(archivio.assegnaProdottoACliente({ clienteId: "nessuno", prodottoId: "prova", dataInizioProgetto: "2026-10-01", righe: orfana })).rejects.toThrow("Cliente non trovato: nessuno");
+    expect((await archivio.getAttivitaCliente()).some((a) => a.clienteId === "nessuno")).toBe(false);
+  });
+
+  it("alla fine il cliente di prova se ne va con le sue attività", async () => {
+    await archivio.eliminaCliente("delta");
+    expect(await attivitaDiDelta()).toEqual([]);
+  });
+});
+
 describe("eliminare un cliente", () => {
   it("porta via sedi, attività e tappe; campagne e dati giornalieri restano come storico", async () => {
     await archivio.eliminaCliente("alc");

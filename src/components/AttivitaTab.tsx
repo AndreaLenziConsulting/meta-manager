@@ -278,8 +278,9 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
               </>
             ) : (
               <p className="text-sm text-ink-500 mt-1.5">
-                Questo cliente non ha un prodotto: la roadmap da modello nasce scegliendo il prodotto quando si crea il
-                cliente. Qui puoi aggiungere le attività a mano, dal pulsante sopra.
+                Questo cliente non ha un prodotto. L&apos;amministratore può assegnarlo da &quot;Modifica cliente&quot; (la matita accanto al
+                nome), nella scheda &quot;Prodotto&quot;: da lì nasce la roadmap del modello. Intanto puoi aggiungere le attività a mano, dal
+                pulsante sopra.
               </p>
             )}
           </div>

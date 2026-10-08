@@ -38,6 +38,7 @@ export const getClienti = scegli("getClienti");
 export const getClienteByAccessCode = scegli("getClienteByAccessCode");
 export const creaCliente = scegli("creaCliente");
 export const aggiornaCliente = scegli("aggiornaCliente");
+export const assegnaProdottoACliente = scegli("assegnaProdottoACliente");
 export const migraFunnelClientiEsistenti = scegli("migraFunnelClientiEsistenti");
 export const eliminaCliente = scegli("eliminaCliente");
 export const getSedi = scegli("getSedi");

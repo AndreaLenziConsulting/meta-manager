@@ -115,7 +115,14 @@ export function SchedaCliente({
             id: "attivita",
             label: "Attività",
             content: clienteId ? (
-              <AttivitaTab clienteId={clienteId} onVaiAMeeting={vaiAMeeting} consulenti={consulenti} nomeConsulenteCorrente={nomeConsulenteCorrente} />
+              <AttivitaTab
+                // Assegnato un prodotto da "Modifica cliente", la scheda riparte e rilegge le attività: la roadmap appena nata compare subito.
+                key={`${cliente?.prodottoId ?? ""}|${cliente?.dataInizioProgetto ?? ""}`}
+                clienteId={clienteId}
+                onVaiAMeeting={vaiAMeeting}
+                consulenti={consulenti}
+                nomeConsulenteCorrente={nomeConsulenteCorrente}
+              />
             ) : null,
           },
           {

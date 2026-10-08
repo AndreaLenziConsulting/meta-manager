@@ -4,7 +4,7 @@ import { sqlAggiornamento, sqlInserimento, sqlLettura, tabella, type RigaTabella
 import type { Sessione } from "@/lib/db/tipi";
 import { SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
-import type { Canale, Cliente, CredenzialeAccesso, RuoloSquadra, StatoAttivita } from "@/types/kpi";
+import type { AttivitaClienteRow, Canale, Cliente, CredenzialeAccesso, RuoloSquadra, StatoAttivita } from "@/types/kpi";
 import type { MeetingDataLoose } from "@/types/meeting";
 import type { Prospect, ReportCommercialeDataLoose } from "@/types/prospect";
 
@@ -904,28 +904,44 @@ export const getAttivitaCliente: typeof Foglio.getAttivitaCliente = async () =>
     ordine: numero(r.ordine),
   }));
 
+const rigaAttivita = (r: AttivitaClienteRow): RigaTabella => ({
+  attivita_id: r.attivitaId,
+  cliente_id: r.clienteId,
+  prodotto_id: r.prodottoId,
+  task_id: r.taskId,
+  blocco: r.blocco,
+  fase: r.fase,
+  descrizione: r.descrizione,
+  assegnatari: r.assegnatari,
+  tipo: r.tipo,
+  data_inizio: r.dataInizio,
+  data_fine: r.dataFine,
+  stato: r.stato,
+  nota_team: r.notaTeam,
+  ordine: intero(r.ordine),
+});
+// Un'attività che esiste già resta com'è (stessa regola del foglio: si aggiungono solo le nuove).
+const SOLO_ATTIVITA_NUOVE = "on conflict (attivita_id) do nothing";
+
 export const creaAttivitaPerCliente: typeof Foglio.creaAttivitaPerCliente = async (righe) => {
-  await inserisci(
-    "attivita_cliente",
-    righe.map((r) => ({
-      attivita_id: r.attivitaId,
-      cliente_id: r.clienteId,
-      prodotto_id: r.prodottoId,
-      task_id: r.taskId,
-      blocco: r.blocco,
-      fase: r.fase,
-      descrizione: r.descrizione,
-      assegnatari: r.assegnatari,
-      tipo: r.tipo,
-      data_inizio: r.dataInizio,
-      data_fine: r.dataFine,
-      stato: r.stato,
-      nota_team: r.notaTeam,
-      ordine: intero(r.ordine),
-    })),
-    // Un'attività che esiste già resta com'è (stessa regola del foglio: si aggiungono solo le nuove).
-    "on conflict (attivita_id) do nothing"
-  );
+  await inserisci("attivita_cliente", righe.map(rigaAttivita), SOLO_ATTIVITA_NUOVE);
+};
+
+export const assegnaProdottoACliente: typeof Foglio.assegnaProdottoACliente = async (input) => {
+  let attivitaCreate = 0;
+  await database().transazione(async (tx) => {
+    // Il cliente si rilegge qui dentro e resta fermo fino alla fine: due assegnazioni partite insieme
+    // (due finestre aperte) non si scavalcano, la seconda trova il prodotto già scritto.
+    const [riga] = await tx.esegui("select prodotto_id, data_inizio_progetto from public.clienti where cliente_id = $1 for update", [input.clienteId]);
+    if (!riga) throw new Error(`Cliente non trovato: ${input.clienteId}`);
+    const prodottoAttuale = testo(riga.prodotto_id);
+    if (prodottoAttuale && (riga.data_inizio_progetto || prodottoAttuale !== input.prodottoId)) {
+      throw new Error("Il cliente ha già un prodotto assegnato");
+    }
+    await aggiorna("clienti", { cliente_id: input.clienteId }, { prodotto_id: input.prodottoId, data_inizio_progetto: input.dataInizioProgetto }, tx);
+    attivitaCreate = await inserisci("attivita_cliente", input.righe.map(rigaAttivita), SOLO_ATTIVITA_NUOVE, tx);
+  });
+  return { attivitaCreate };
 };
 
 async function aggiornaAttivita(attivitaId: string, campi: RigaTabella): Promise<void> {

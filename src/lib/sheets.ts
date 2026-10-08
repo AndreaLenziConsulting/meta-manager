@@ -2440,3 +2440,14 @@ export type RisultatiVenditoriMeseInput = { sedeId: string; mese: string; righe:
 export async function salvaRisultatiVenditori(input: RisultatiVenditoriMeseInput): Promise<void> {
   soloSulDatabase(`Salvare i risultati dei venditori di ${input.mese}`);
 }
+
+export type AssegnaProdottoInput = { clienteId: string; prodottoId: string; dataInizioProgetto: string; righe: AttivitaClienteRow[] };
+
+/**
+ * Assegna un prodotto a un cliente che non ce l'ha (o gli completa la data di inizio che manca) e
+ * crea insieme le attività della sua roadmap: o tutte e due le cose, o nessuna. Torna quante
+ * attività sono nate — quelle che il cliente aveva già restano come sono. Vedi src/lib/assegnaProdotto.ts.
+ */
+export async function assegnaProdottoACliente(input: AssegnaProdottoInput): Promise<{ attivitaCreate: number }> {
+  soloSulDatabase(`Assegnare un prodotto a ${input.clienteId}`);
+}
