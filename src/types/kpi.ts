@@ -144,9 +144,9 @@ export type Venditore = {
 };
 
 /**
- * Risultati mensili di UN venditore — tab a sola lettura, inserita a mano nel foglio esattamente
- * come RisultatoCommercialeRow sotto (stessa filosofia: nessun form in-app per dati operativi
- * ricorrenti, solo per l'anagrafica Venditore sopra, che è config). `vendite` è qui solo
+ * Risultati mensili di UN venditore — inseriti a mano, come RisultatoCommercialeRow sotto: fino al
+ * 07/10/2026 nel foglio Google, dall'08/10/2026 dall'app (vedi salvaRisultatiVenditori in
+ * src/lib/archivio.ts). `vendite` è qui solo
  * informativo (percentuale di chiusura appuntamenti->vendite mostrata nella UI): a differenza di
  * appuntamentiFissati/fatturato, l'app non ha mai un target "numero vendite" da nessuna parte
  * (deliberato, vedi il commento su targetCommerciali.ts — nessun dato di profitto/chiusura target
@@ -161,15 +161,27 @@ export type RisultatoVenditoreRow = {
   fatturato: number;
 };
 
+// La password NON è qui (dall'08/10/2026): questo oggetto arriva fino al browser (elenco dei
+// consulenti nelle pagine), la password no — vedi CredenzialeAccesso sotto.
 export type Consulente = {
   consulenteId: string;
   nome: string;
-  password: string;
   attivo: boolean;
   // Mittente reale dell'invio automatico (Gmail API, delega a livello di dominio — vedi
   // src/lib/gmail.ts): l'email parte "da" questa casella, impersonata via service account.
   email: string;
 };
+
+/** Chi entra nell'app con una password propria (l'amministratore usa quella del team, che non sta nell'archivio). */
+export type RuoloSquadra = "consulente" | "commerciale";
+
+/**
+ * Con cosa una persona della squadra entra nell'app: `password` è il valore salvato nell'archivio,
+ * cioè la sua impronta (src/lib/password.ts), non la password. Serve solo all'accesso e alla pagina
+ * Impostazioni, e non lascia mai il server: per questo sta in un tipo a parte e non dentro
+ * Consulente/Commerciale.
+ */
+export type CredenzialeAccesso = { ruolo: RuoloSquadra; id: string; attivo: boolean; password: string };
 
 export type Ruolo = "admin" | "consulente" | "commerciale";
 
@@ -386,7 +398,7 @@ export type Prodotto = {
   note: string;
 };
 
-/** Riga del template di roadmap di un prodotto — mai scritta dall'app, solo letta ed editabile a mano sul foglio. */
+/** Riga del modello di roadmap di un prodotto — dall'08/10/2026 si modifica dalla pagina Impostazioni (prima a mano sul foglio). */
 export type TemplateTask = {
   prodottoId: string;
   taskId: string;

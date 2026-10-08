@@ -278,9 +278,8 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
               </>
             ) : (
               <p className="text-sm text-ink-500 mt-1.5">
-                Assegna un prodotto e una data di inizio progetto a questo cliente (foglio Clienti, colonne
-                prodotto_id/data_inizio_progetto) per generare la roadmap da un template — oppure aggiungi la prima
-                attività a mano dal pulsante sopra.
+                Questo cliente non ha un prodotto: la roadmap da modello nasce scegliendo il prodotto quando si crea il
+                cliente. Qui puoi aggiungere le attività a mano, dal pulsante sopra.
               </p>
             )}
           </div>

@@ -12,6 +12,10 @@ import * as database from "@/lib/db/archivio";
  * valore (o nessuno) per il foglio. Si legge a ogni chiamata: per tornare al foglio basta cambiare la
  * variabile, senza toccare il codice. I due archivi NON si tengono allineati da soli: ciò che viene
  * scritto in uno non compare nell'altro (vedi scripts/copia-foglio-nel-database.ts per la copia).
+ *
+ * Ciò che dall'08/10/2026 si gestisce dall'app invece che a mano (squadra, prodotti, modelli di
+ * attività, risultati commerciali) si scrive solo sul database: sul foglio quelle funzioni rispondono
+ * con un errore che lo dice.
  */
 type Archivio = typeof database;
 
@@ -53,6 +57,7 @@ export const creaVenditore = scegli("creaVenditore");
 export const aggiornaVenditore = scegli("aggiornaVenditore");
 export const eliminaVenditore = scegli("eliminaVenditore");
 export const getRisultatiVenditori = scegli("getRisultatiVenditori");
+export const salvaRisultatiVenditori = scegli("salvaRisultatiVenditori");
 export const getConnessioniCanale = scegli("getConnessioniCanale");
 export const creaConnessioneCanale = scegli("creaConnessioneCanale");
 export const aggiornaConnessioneCanale = scegli("aggiornaConnessioneCanale");
@@ -62,8 +67,18 @@ export const migraSediEsistenti = scegli("migraSediEsistenti");
 export const migraAssegnatariEsistenti = scegli("migraAssegnatariEsistenti");
 export const getConsulenti = scegli("getConsulenti");
 export const getCommerciali = scegli("getCommerciali");
+export const getCredenzialiAccesso = scegli("getCredenzialiAccesso");
+export const creaMembroSquadra = scegli("creaMembroSquadra");
+export const aggiornaMembroSquadra = scegli("aggiornaMembroSquadra");
+export const eliminaMembroSquadra = scegli("eliminaMembroSquadra");
 export const getProdotti = scegli("getProdotti");
+export const creaProdotto = scegli("creaProdotto");
+export const aggiornaProdotto = scegli("aggiornaProdotto");
+export const eliminaProdotto = scegli("eliminaProdotto");
 export const getTemplateAttivita = scegli("getTemplateAttivita");
+export const salvaTemplateTask = scegli("salvaTemplateTask");
+export const eliminaTemplateTask = scegli("eliminaTemplateTask");
+export const riordinaTemplateAttivita = scegli("riordinaTemplateAttivita");
 export const getCampagne = scegli("getCampagne");
 export const ensureCampagneMappate = scegli("ensureCampagneMappate");
 export const spostaCampagneASede = scegli("spostaCampagneASede");
@@ -73,6 +88,7 @@ export const getUltimoCambioPerCampagna = scegli("getUltimoCambioPerCampagna");
 export const getMetaDaily = scegli("getMetaDaily");
 export const upsertMetaDailyRows = scegli("upsertMetaDailyRows");
 export const getRisultatiCommerciali = scegli("getRisultatiCommerciali");
+export const salvaRisultatiCommerciali = scegli("salvaRisultatiCommerciali");
 export const getAttivitaCliente = scegli("getAttivitaCliente");
 export const creaAttivitaPerCliente = scegli("creaAttivitaPerCliente");
 export const aggiornaStatoAttivita = scegli("aggiornaStatoAttivita");

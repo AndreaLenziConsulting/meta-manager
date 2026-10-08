@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createSessionCookieValue,
-  verifyConsulentePassword,
-  verifyTeamPassword,
-  SESSION_COOKIE_NAME,
-} from "@/lib/auth";
-import { getCommerciali, getConsulenti } from "@/lib/archivio";
+import { createSessionCookieValue, verifyTeamPassword, SESSION_COOKIE_NAME } from "@/lib/auth";
+import { chiEntra } from "@/lib/accesso";
+import { getCredenzialiAccesso } from "@/lib/archivio";
 import type { Sessione } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -22,18 +18,9 @@ export async function POST(req: NextRequest) {
   if (verifyTeamPassword(password)) {
     sessione = { ruolo: "admin" };
   } else {
-    const consulenti = await getConsulenti();
-    const match = consulenti.find((c) => c.attivo && verifyConsulentePassword(password, c.password));
-    if (match) {
-      sessione = { ruolo: "consulente", consulenteId: match.consulenteId };
-    } else {
-      // verifyConsulentePassword è generica (solo confronto timing-safe) — riusata as-is anche qui.
-      const commerciali = await getCommerciali();
-      const matchCommerciale = commerciali.find((c) => c.attivo && verifyConsulentePassword(password, c.password));
-      if (matchCommerciale) {
-        sessione = { ruolo: "commerciale", commercialeId: matchCommerciale.commercialeId };
-      }
-    }
+    // Consulenti e commerciali: la password si confronta con l'impronta salvata di ognuno (vedi
+    // src/lib/accesso.ts e src/lib/password.ts), prima i consulenti.
+    sessione = await chiEntra(password, await getCredenzialiAccesso());
   }
 
   if (!sessione) {

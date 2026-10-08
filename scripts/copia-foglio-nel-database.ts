@@ -21,6 +21,7 @@ import {
   getCommerciali,
   getConnessioniCanale,
   getConsulenti,
+  getCredenzialiAccesso,
   getFasiCompletate,
   getGhlConnessioni,
   getMeetingCliente,
@@ -43,6 +44,7 @@ async function leggiFoglio(): Promise<DatiFoglio> {
   const [
     consulenti,
     commerciali,
+    credenziali,
     prodotti,
     templateAttivita,
     clienti,
@@ -64,6 +66,7 @@ async function leggiFoglio(): Promise<DatiFoglio> {
   ] = await Promise.all([
     getConsulenti(),
     getCommerciali(),
+    getCredenzialiAccesso(),
     getProdotti(),
     getTemplateAttivita(),
     getClienti(),
@@ -86,6 +89,7 @@ async function leggiFoglio(): Promise<DatiFoglio> {
   return {
     consulenti,
     commerciali,
+    credenziali,
     prodotti,
     templateAttivita,
     clienti,

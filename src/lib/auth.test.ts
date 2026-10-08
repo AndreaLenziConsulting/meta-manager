@@ -3,7 +3,6 @@ import {
   createSessionCookieValue,
   isValidSessionCookieValue,
   parseSessionCookieValue,
-  verifyConsulentePassword,
   verifyCronSecret,
   verifyGhlWebhookSecret,
   verifyTeamPassword,
@@ -64,16 +63,11 @@ describe("sessione firmata: round-trip e resistenza alla manomissione", () => {
   });
 });
 
-describe("verifyTeamPassword / verifyConsulentePassword", () => {
+describe("verifyTeamPassword", () => {
   it("accetta solo la password esatta", () => {
     expect(verifyTeamPassword("password-team-test")).toBe(true);
     expect(verifyTeamPassword("altra")).toBe(false);
     expect(verifyTeamPassword("")).toBe(false);
-  });
-
-  it("verifyConsulentePassword confronta contro il valore atteso passato esplicitamente", () => {
-    expect(verifyConsulentePassword("segreto123", "segreto123")).toBe(true);
-    expect(verifyConsulentePassword("segreto123", "altro")).toBe(false);
   });
 });
 

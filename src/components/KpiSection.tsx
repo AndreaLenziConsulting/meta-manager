@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { PencilLine, RefreshCw } from "lucide-react";
 import { BoxGrafici } from "@/components/BoxGrafici";
 import { DettaglioCampagneEsteso, type DettaglioGhl, type DettaglioInserzioni } from "@/components/DettaglioCampagneEsteso";
 import { CampagneFilter } from "@/components/CampagneFilter";
@@ -16,6 +16,7 @@ import { SintesiTessere, type StatoFontiCommerciali } from "@/components/Sintesi
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
 import { AndamentoCommerciale } from "@/components/AndamentoCommerciale";
+import { RisultatiCommercialiModal } from "@/components/RisultatiCommercialiModal";
 import { calcolaSalute } from "@/lib/salute";
 import { generaAvvisiOperativi } from "@/lib/avvisiOperativi";
 import { SOGLIA_FREQUENZA } from "@/lib/valutazioneCampagna";
@@ -67,6 +68,9 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   const frescoPerTickRef = useRef<number | null>(null);
   const [sincronizzando, setSincronizzando] = useState(false);
   const [esitoSync, setEsitoSync] = useState<string | null>(null);
+  // Finestra "Inserisci risultati" (08/10/2026): i risultati commerciali che prima si scrivevano a
+  // mano nel foglio Google. Solo vista interna, come il pulsante che la apre.
+  const [risultatiAperti, setRisultatiAperti] = useState(false);
   // Form inline "+ Aggiungi ad account" nell'avviso sotto — mai aperto di default, solo admin.
   const [adAccountAperto, setAdAccountAperto] = useState(false);
   const [adAccountBozza, setAdAccountBozza] = useState("");
@@ -388,6 +392,17 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return predefiniteSede ? new Set(predefiniteSede) : null;
   }, [sceltaCampagne, predefiniteSede]);
 
+  // Le righe della finestra "Inserisci risultati": un tipo di campagna per riga, quelli delle campagne
+  // che la scheda conta di suo (il predefinito della sede, se c'è) — un risultato inserito sotto un
+  // tipo che il filtro predefinito esclude non comparirebbe nei numeri. "" = campagne senza tipo
+  // ("Non classificata" nel resto della pagina). Senza campagne resta la sola riga senza tipo.
+  const tipiPerRisultati = useMemo(() => {
+    const anagrafica = dati?.anagraficaCampagne ?? EMPTY_ANAGRAFICA_CAMPAGNE;
+    const contate = predefiniteSede ? anagrafica.filter((c) => predefiniteSede.includes(c.campaignId)) : anagrafica;
+    const tipi = Array.from(new Set(contate.map((c) => (c.tipoCampagna === "Non classificata" ? "" : c.tipoCampagna)))).sort((x, y) => x.localeCompare(y));
+    return tipi.length > 0 ? tipi : [""];
+  }, [dati, predefiniteSede]);
+
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (scoped
   // alle campagne selezionate quando quella sede ha attribuzione disponibile), altrimenti da
   // RisultatiCommerciali come sempre — vedi kpiGhlOverlay.ts per il dettaglio di quali tessere e
@@ -641,6 +656,14 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          {/* Solo vista interna: sul link pubblico il cliente non inserisce nulla. */}
+          {clienteId && dati && (
+            <Button variant="secondary" onClick={() => setRisultatiAperti(true)} className="min-h-10 bg-surface-card py-2">
+              <PencilLine size={16} aria-hidden="true" />
+              Inserisci risultati
+            </Button>
+          )}
+
           {clienteId && (
             <Button variant="secondary" onClick={handleAggiornaKpi} disabled={sincronizzando} className="min-h-10 bg-surface-card py-2">
               <RefreshCw size={16} aria-hidden="true" className={sincronizzando ? "animate-spin" : ""} />
@@ -805,6 +828,28 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             <AndamentoCommerciale clienteId={clienteId} sedeId={dati.sede.sedeId} haConnessioneGhl={Boolean(haConnessioneGhl)} />
           )}
         </div>
+      )}
+
+      {risultatiAperti && clienteId && dati && (
+        <RisultatiCommercialiModal
+          // Cambiando sede con la finestra aperta non può succedere (la finestra copre i filtri), ma la
+          // chiave lega comunque ciò che si inserisce alla sede per cui è stata aperta.
+          key={dati.sede.sedeId}
+          clienteId={clienteId}
+          sedeId={dati.sede.sedeId}
+          nomeSede={dati.sediDisponibili.length > 1 ? dati.sede.nome : undefined}
+          tipiCampagna={tipiPerRisultati}
+          fonteAutomatica={Boolean(haConnessioneGhl)}
+          onClose={() => setRisultatiAperti(false)}
+          // I numeri sotto si rileggono subito, senza la cache: chi ha appena salvato deve vederli.
+          onSalvato={() =>
+            setRefreshTick((t) => {
+              const nuovo = t + 1;
+              frescoPerTickRef.current = nuovo;
+              return nuovo;
+            })
+          }
+        />
       )}
     </div>
   );

@@ -19,6 +19,7 @@ describe("migrazioni", () => {
     try {
       const registro = await db.esegui<{ version: string; name: string }>("select version, name from supabase_migrations.schema_migrations order by version");
       expect(registro[0]).toEqual({ version: "20261007160000", name: "schema_iniziale" });
+      expect(registro.map((r) => r.version)).toEqual(elencoMigrazioni(CARTELLA).map((m) => m.versione));
       // Rilanciare non fa nulla (rieseguire lo schema darebbe "relation already exists").
       expect(await applicaMigrazioni(db, elencoMigrazioni(CARTELLA))).toEqual([]);
     } finally {

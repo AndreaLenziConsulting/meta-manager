@@ -373,7 +373,7 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
             <>
               Cancella per sempre: anagrafica, tutte le sedi e le loro connessioni GHL, attività,
               meeting, fasi completate e risultati commerciali. Lo storico ads Meta (campagne e dati
-              giornalieri) resta nel foglio ma non sarà più visibile da nessuna parte dell&apos;app.
+              giornalieri) resta in archivio ma non sarà più visibile da nessuna parte dell&apos;app.
               Azione irreversibile.
             </>
           }
@@ -599,7 +599,7 @@ function SedeRow({
           messaggio={
             <>
               Cancella anche la sua connessione GHL, se presente. Lo storico ads (Campagne, risultati
-              commerciali) di questa sede resta nel foglio ma non sarà più visibile da nessuna parte
+              commerciali) di questa sede resta in archivio ma non sarà più visibile da nessuna parte
               dell&apos;app. Azione irreversibile.
             </>
           }
@@ -1487,8 +1487,8 @@ function VenditoreRow({
           titolo="Eliminare questo venditore?"
           messaggio={
             <>
-              La sua quota di carico si ridistribuisce sugli altri venditori attivi della sede. I dati
-              storici (RisultatiVenditori) restano invariati nel foglio.
+              La sua quota di carico si ridistribuisce sugli altri venditori attivi della sede. I risultati
+              mensili inseriti per lui vengono eliminati insieme a lui.
             </>
           }
           onClose={() => setMostraConfermaElimina(false)}

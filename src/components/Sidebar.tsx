@@ -10,6 +10,7 @@ import {
   ListChecks,
   PanelLeftClose,
   PanelLeftOpen,
+  Settings,
   Users,
   X,
   type LucideIcon,
@@ -80,6 +81,15 @@ const NAV_ITEMS: NavItem[] = [
     // cliente/prospect), visibile a tutto il team a differenza delle voci sopra.
     ruoli: ["admin", "consulente", "commerciale"],
     attiva: (p) => p.startsWith("/dashboard/guida"),
+  },
+  {
+    href: "/dashboard/impostazioni",
+    label: "Impostazioni",
+    icon: Settings,
+    // Squadra, prodotti e modelli di attività (08/10/2026): prima si cambiavano a mano nel foglio
+    // Google, poi nelle tabelle di Supabase. Solo amministratore, come la pagina.
+    ruoli: ["admin"],
+    attiva: (p) => p.startsWith("/dashboard/impostazioni"),
   },
 ];
 

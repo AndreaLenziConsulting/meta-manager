@@ -11,11 +11,13 @@ import type {
   CategoriaCommerciale,
   Cliente,
   Consulente,
+  CredenzialeAccesso,
   FaseCompletataRow,
   RisultatoCommercialeRow,
   RisultatoVenditoreRow,
   MetaDailyRow,
   Prodotto,
+  RuoloSquadra,
   Sede,
   StatoAttivita,
   TemplateTask,
@@ -1450,10 +1452,21 @@ export async function getConsulenti(): Promise<Consulente[]> {
     .map((r) => ({
       consulenteId: asText(r[0]),
       nome: asText(r[1]),
-      password: asText(r[2]),
       attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
       email: asText(r[4]),
     }));
+}
+
+/**
+ * Le password di consulenti e commerciali così come sono scritte nel foglio (colonna C delle due
+ * schede) — a parte da getConsulenti/getCommerciali, che arrivano fino al browser. Prima i
+ * consulenti, poi i commerciali: è l'ordine in cui l'accesso li prova.
+ */
+export async function getCredenzialiAccesso(): Promise<CredenzialeAccesso[]> {
+  const [consulenti, commerciali] = await Promise.all([readTab(TAB.consulenti), readTab(TAB.commerciali, { noCache: true })]);
+  const da = (ruolo: RuoloSquadra, rows: CellValue[][]): CredenzialeAccesso[] =>
+    rows.filter((r) => r[0]).map((r) => ({ ruolo, id: asText(r[0]), attivo: asText(r[3]).trim().toUpperCase() === "TRUE", password: asText(r[2]) }));
+  return [...da("consulente", consulenti), ...da("commerciale", commerciali)];
 }
 
 /** Stesso schema di Consulenti (consulenteId, nome, password, attivo, email) — ruolo "commerciale". */
@@ -1464,7 +1477,6 @@ export async function getCommerciali(): Promise<Commerciale[]> {
     .map((r) => ({
       commercialeId: asText(r[0]),
       nome: asText(r[1]),
-      password: asText(r[2]),
       attivo: asText(r[3]).trim().toUpperCase() === "TRUE",
       email: asText(r[4]),
     }));
@@ -2331,4 +2343,100 @@ export async function salvaReportCommerciale(record: ReportCommercialeRow): Prom
   });
   invalidateTabCache(TAB.reportCommerciale);
   return { aggiornato: true };
+}
+
+// ───────────────────────── Gestione dall'app: solo sul database ─────────────────────────
+
+/**
+ * Squadra, prodotti, modelli di attività e risultati inseriti a mano si gestiscono dall'app
+ * (08/10/2026) solo quando l'archivio è il database: vedi src/lib/db/archivio.ts. Sul foglio si
+ * compilavano a mano nelle schede, e il foglio dal 07/10/2026 è fermo: qui restano le firme (le
+ * stesse per i due archivi, vedi src/lib/archivio.ts) e un errore che lo dice.
+ */
+function soloSulDatabase(azione: string): never {
+  throw new Error(`${azione}: si può fare solo con l'archivio su database (ARCHIVIO_DATI=database).`);
+}
+
+export type NuovoMembroSquadraInput = {
+  ruolo: RuoloSquadra;
+  id: string;
+  nome: string;
+  email: string;
+  /** L'impronta della password (src/lib/password.ts), mai la password. */
+  password: string;
+};
+
+export async function creaMembroSquadra(input: NuovoMembroSquadraInput): Promise<void> {
+  soloSulDatabase(`Aggiungere ${input.nome} alla squadra`);
+}
+
+export type AggiornaMembroSquadraInput = {
+  ruolo: RuoloSquadra;
+  id: string;
+  nome?: string;
+  email?: string;
+  attivo?: boolean;
+  /** L'impronta della nuova password, mai la password. */
+  password?: string;
+};
+
+/** Cambiando il nome a un consulente, il nuovo nome sostituisce il vecchio fra gli assegnatari delle attività. */
+export async function aggiornaMembroSquadra(input: AggiornaMembroSquadraInput): Promise<void> {
+  soloSulDatabase(`Modificare ${input.id}`);
+}
+
+export async function eliminaMembroSquadra(ruolo: RuoloSquadra, id: string): Promise<void> {
+  soloSulDatabase(`Eliminare il ${ruolo} ${id}`);
+}
+
+export type NuovoProdottoInput = { prodottoId: string; nome: string; durataSettimane: number; note?: string };
+
+export async function creaProdotto(input: NuovoProdottoInput): Promise<void> {
+  soloSulDatabase(`Creare il prodotto "${input.nome}"`);
+}
+
+export type AggiornaProdottoInput = { prodottoId: string; nome?: string; attivo?: boolean; durataSettimane?: number; note?: string };
+
+export async function aggiornaProdotto(input: AggiornaProdottoInput): Promise<void> {
+  soloSulDatabase(`Modificare il prodotto ${input.prodottoId}`);
+}
+
+/** Con il prodotto se ne va il suo modello di attività. */
+export async function eliminaProdotto(prodottoId: string): Promise<void> {
+  soloSulDatabase(`Eliminare il prodotto ${prodottoId}`);
+}
+
+/** Crea l'attività del modello, o la aggiorna se il prodotto ne ha già una con lo stesso taskId. */
+export async function salvaTemplateTask(task: TemplateTask): Promise<{ aggiornato: boolean }> {
+  soloSulDatabase(`Salvare l'attività ${task.taskId} del modello`);
+}
+
+export async function eliminaTemplateTask(prodottoId: string, taskId: string): Promise<void> {
+  soloSulDatabase(`Eliminare l'attività ${taskId} dal modello di ${prodottoId}`);
+}
+
+/** Riassegna `ordine` (1, 2, 3…) alle attività del modello nell'ordine in cui sono elencate. */
+export async function riordinaTemplateAttivita(prodottoId: string, taskIdInOrdine: string[]): Promise<void> {
+  soloSulDatabase(`Riordinare le ${taskIdInOrdine.length} attività del modello di ${prodottoId}`);
+}
+
+export type RigaRisultatiCommerciali = Omit<RisultatoCommercialeRow, "periodo" | "clienteId" | "sedeId">;
+
+export type RisultatiCommercialiPeriodoInput = { clienteId: string; sedeId: string; periodo: string; righe: RigaRisultatiCommerciali[] };
+
+/**
+ * Sostituisce i risultati commerciali di una sede in un periodo (un mese o una settimana) con le
+ * righe date, una per tipo di campagna. Nessuna riga = quel periodo torna "non compilato".
+ */
+export async function salvaRisultatiCommerciali(input: RisultatiCommercialiPeriodoInput): Promise<void> {
+  soloSulDatabase(`Salvare i risultati commerciali di ${input.periodo}`);
+}
+
+export type RigaRisultatiVenditori = Omit<RisultatoVenditoreRow, "mese" | "sedeId">;
+
+export type RisultatiVenditoriMeseInput = { sedeId: string; mese: string; righe: RigaRisultatiVenditori[] };
+
+/** Come salvaRisultatiCommerciali, per i risultati mensili dei venditori di una sede. */
+export async function salvaRisultatiVenditori(input: RisultatiVenditoriMeseInput): Promise<void> {
+  soloSulDatabase(`Salvare i risultati dei venditori di ${input.mese}`);
 }

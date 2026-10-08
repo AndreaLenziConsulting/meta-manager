@@ -3,7 +3,7 @@ import { calcolaRiepilogo, ordinaPerPriorita, raggruppaPerConsulente, type Salut
 import type { AttivitaClienteRow, Cliente, Consulente } from "@/types/kpi";
 
 function consulente(over: Partial<Consulente>): Consulente {
-  return { consulenteId: "cons-1", nome: "Consulente", password: "x", attivo: true, email: "", ...over };
+  return { consulenteId: "cons-1", nome: "Consulente", attivo: true, email: "", ...over };
 }
 
 function cliente(over: Partial<Cliente>): Cliente {

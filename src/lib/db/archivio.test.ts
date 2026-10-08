@@ -4,7 +4,7 @@ import { usaDatabase } from "./connessione";
 import { apriDatabaseInMemoria } from "./inMemoria";
 import type { Database } from "./tipi";
 import { SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
-import type { AttivitaClienteRow, MetaDailyRow } from "@/types/kpi";
+import type { AttivitaClienteRow, MetaDailyRow, TemplateTask } from "@/types/kpi";
 
 // Tutte le scritture dell'archivio su un Postgres vero in memoria, creato dalle stesse migrazioni
 // del database reale. I test di una sezione partono da ciò che hanno lasciato quelli prima: il
@@ -45,6 +45,24 @@ function attivita(over: Partial<AttivitaClienteRow>): AttivitaClienteRow {
     dataFine: "2026-10-10",
     stato: "todo",
     notaTeam: "",
+    ordine: 1,
+    ...over,
+  };
+}
+
+function modello(over: Partial<TemplateTask>): TemplateTask {
+  return {
+    prodottoId: "prova",
+    taskId: "P1",
+    blocco: "setup",
+    fase: "Sett. 1",
+    descrizione: "Prima",
+    assegnatari: ["Project Manager"],
+    tipo: "PM",
+    settimanaInizio: 1,
+    settimanaFine: 1,
+    giorniTesto: "gg 1",
+    nota: "",
     ordine: 1,
     ...over,
   };
@@ -296,6 +314,195 @@ describe("prospect e report commerciali", () => {
     await archivio.eliminaProspect("p1");
     expect(await archivio.getReportCommerciale()).toEqual([]);
     await expect(archivio.eliminaProspect("p1")).rejects.toThrow("Prospect non trovato: p1");
+  });
+});
+
+describe("squadra: consulenti e commerciali gestiti dall'app", () => {
+  it("una persona nuova nasce attiva; l'elenco che arriva alle pagine non contiene la password", async () => {
+    await archivio.creaMembroSquadra({ ruolo: "consulente", id: "mario", nome: "Mario Rossi", email: "mario@esempio.it", password: "impronta-mario" });
+    await archivio.creaMembroSquadra({ ruolo: "commerciale", id: "mario", nome: "Mario Venditore", email: "", password: "impronta-mario-comm" });
+    const consulente = (await archivio.getConsulenti()).find((c) => c.consulenteId === "mario");
+    expect(consulente).toEqual({ consulenteId: "mario", nome: "Mario Rossi", attivo: true, email: "mario@esempio.it" });
+    expect(consulente).not.toHaveProperty("password");
+    expect((await archivio.getCommerciali()).find((c) => c.commercialeId === "mario")).toEqual({ commercialeId: "mario", nome: "Mario Venditore", attivo: true, email: "" });
+  });
+
+  it("le credenziali si leggono a parte: prima i consulenti, poi i commerciali, ognuno col suo ruolo", async () => {
+    expect(await archivio.getCredenzialiAccesso()).toEqual([
+      { ruolo: "consulente", id: "mario", attivo: true, password: "impronta-mario" },
+      { ruolo: "commerciale", id: "mario", attivo: true, password: "impronta-mario-comm" },
+    ]);
+  });
+
+  it("due persone con lo stesso id nello stesso ruolo: errore", async () => {
+    await expect(archivio.creaMembroSquadra({ ruolo: "consulente", id: "mario", nome: "Altro", email: "", password: "x" })).rejects.toThrow('Esiste già un consulente con id "mario"');
+    await expect(archivio.creaMembroSquadra({ ruolo: "commerciale", id: "mario", nome: "Altro", email: "", password: "x" })).rejects.toThrow('Esiste già un commerciale con id "mario"');
+  });
+
+  it("aggiorna solo i campi indicati: disattivare non tocca la password, cambiare password non tocca il resto", async () => {
+    await archivio.aggiornaMembroSquadra({ ruolo: "commerciale", id: "mario", attivo: false });
+    await archivio.aggiornaMembroSquadra({ ruolo: "consulente", id: "mario", password: "impronta-nuova" });
+    expect(await archivio.getCredenzialiAccesso()).toEqual([
+      { ruolo: "consulente", id: "mario", attivo: true, password: "impronta-nuova" },
+      { ruolo: "commerciale", id: "mario", attivo: false, password: "impronta-mario-comm" },
+    ]);
+    expect((await archivio.getConsulenti()).find((c) => c.consulenteId === "mario")?.email).toBe("mario@esempio.it");
+  });
+
+  it("un consulente che cambia nome resta l'assegnatario delle sue attività, nei clienti e nei modelli", async () => {
+    await archivio.creaCliente(nuovoCliente("gamma", "codice-gamma"));
+    await archivio.creaAttivitaPerCliente([
+      attivita({ attivitaId: "g1", clienteId: "gamma", assegnatari: ["Mario Rossi", "Cliente"] }),
+      attivita({ attivitaId: "g2", clienteId: "gamma", assegnatari: ["Mario"] }),
+      attivita({ attivitaId: "g3", clienteId: "gamma", assegnatari: ["Altra Persona"] }),
+    ]);
+    await archivio.creaProdotto({ prodottoId: "prova", nome: "Prodotto di prova", durataSettimane: 8 });
+    await archivio.salvaTemplateTask(modello({ taskId: "P1", assegnatari: ["Mario Rossi"] }));
+
+    await archivio.aggiornaMembroSquadra({ ruolo: "consulente", id: "mario", nome: "Mario Rossi Bianchi" });
+
+    const perId = new Map((await archivio.getAttivitaCliente()).map((a) => [a.attivitaId, a.assegnatari]));
+    expect(perId.get("g1")).toEqual(["Mario Rossi Bianchi", "Cliente"]);
+    // Il nome di battesimo non è cambiato: le attività intestate a "Mario" restano sue così come sono.
+    expect(perId.get("g2")).toEqual(["Mario"]);
+    expect(perId.get("g3")).toEqual(["Altra Persona"]);
+    expect((await archivio.getTemplateAttivita()).find((t) => t.taskId === "P1")?.assegnatari).toEqual(["Mario Rossi Bianchi"]);
+  });
+
+  it("se cambia il nome di battesimo lo seguono anche le attività intestate solo a quello, maiuscole o minuscole che siano", async () => {
+    await archivio.creaAttivitaPerCliente([attivita({ attivitaId: "g4", clienteId: "gamma", assegnatari: ["Cliente", "mario "] })]);
+    await archivio.aggiornaMembroSquadra({ ruolo: "consulente", id: "mario", nome: "Marino Rossi Bianchi" });
+    const perId = new Map((await archivio.getAttivitaCliente()).map((a) => [a.attivitaId, a.assegnatari]));
+    expect(perId.get("g1")).toEqual(["Marino Rossi Bianchi", "Cliente"]);
+    expect(perId.get("g2")).toEqual(["Marino"]);
+    expect(perId.get("g4")).toEqual(["Cliente", "Marino"]);
+    expect(perId.get("g3")).toEqual(["Altra Persona"]);
+  });
+
+  it("con due consulenti dallo stesso nome di battesimo, le attività intestate solo a quello non si toccano", async () => {
+    await archivio.creaMembroSquadra({ ruolo: "consulente", id: "marino-verdi", nome: "Marino Verdi", email: "", password: "impronta-verdi" });
+    await archivio.aggiornaMembroSquadra({ ruolo: "consulente", id: "mario", nome: "Mario Rossi Bianchi" });
+    const perId = new Map((await archivio.getAttivitaCliente()).map((a) => [a.attivitaId, a.assegnatari]));
+    expect(perId.get("g1")).toEqual(["Mario Rossi Bianchi", "Cliente"]);
+    expect(perId.get("g2")).toEqual(["Marino"]);
+    await archivio.eliminaMembroSquadra("consulente", "marino-verdi");
+  });
+
+  it("il nome di un commerciale non è scritto nelle attività: cambiarlo non le tocca", async () => {
+    await archivio.aggiornaMembroSquadra({ ruolo: "commerciale", id: "mario", nome: "Altra Persona 2" });
+    await archivio.aggiornaMembroSquadra({ ruolo: "commerciale", id: "mario", nome: "Mario Venditore" });
+    expect((await archivio.getAttivitaCliente()).find((a) => a.attivitaId === "g3")?.assegnatari).toEqual(["Altra Persona"]);
+  });
+
+  it("una persona che non esiste: errore, sia modificandola sia eliminandola", async () => {
+    await expect(archivio.aggiornaMembroSquadra({ ruolo: "consulente", id: "nessuno", attivo: false })).rejects.toThrow("Consulente non trovato: nessuno");
+    await expect(archivio.eliminaMembroSquadra("commerciale", "nessuno")).rejects.toThrow("Commerciale non trovato: nessuno");
+  });
+
+  it("eliminare un commerciale non tocca il consulente con lo stesso id", async () => {
+    await archivio.eliminaMembroSquadra("commerciale", "mario");
+    expect((await archivio.getCredenzialiAccesso()).map((c) => `${c.ruolo}/${c.id}`)).toEqual(["consulente/mario"]);
+  });
+});
+
+describe("prodotti e modelli di attività gestiti dall'app", () => {
+  it("un prodotto nuovo nasce attivo; lo stesso id due volte è un errore", async () => {
+    expect((await archivio.getProdotti()).find((p) => p.prodottoId === "prova")).toEqual({ prodottoId: "prova", nome: "Prodotto di prova", attivo: true, durataSettimane: 8, note: "" });
+    await expect(archivio.creaProdotto({ prodottoId: "prova", nome: "Doppio", durataSettimane: 1 })).rejects.toThrow('Esiste già un prodotto con id "prova"');
+  });
+
+  it("aggiorna solo i campi indicati; un prodotto che non esiste è un errore", async () => {
+    await archivio.aggiornaProdotto({ prodottoId: "prova", durataSettimane: 12.4, note: "nota" });
+    expect((await archivio.getProdotti()).find((p) => p.prodottoId === "prova")).toEqual({ prodottoId: "prova", nome: "Prodotto di prova", attivo: true, durataSettimane: 12, note: "nota" });
+    await expect(archivio.aggiornaProdotto({ prodottoId: "nessuno", nome: "x" })).rejects.toThrow("Prodotto non trovato: nessuno");
+  });
+
+  it("un'attività del modello nuova viene creata, la stessa salvata di nuovo viene aggiornata", async () => {
+    expect(await archivio.salvaTemplateTask(modello({ taskId: "P2", descrizione: "Seconda", assegnatari: ["Project Manager", "Cliente"], ordine: 2 }))).toEqual({ aggiornato: false });
+    expect(await archivio.salvaTemplateTask(modello({ taskId: "P2", descrizione: "Seconda, rivista", assegnatari: ["Cliente", "Project Manager"], ordine: 2, settimanaFine: 3 }))).toEqual({ aggiornato: true });
+    const p2 = (await archivio.getTemplateAttivita()).filter((t) => t.prodottoId === "prova" && t.taskId === "P2");
+    expect(p2).toHaveLength(1);
+    expect(p2[0]).toMatchObject({ descrizione: "Seconda, rivista", assegnatari: ["Cliente", "Project Manager"], settimanaFine: 3 });
+  });
+
+  it("riordina: le attività prendono 1, 2, 3… nell'ordine dato; quelle di altri prodotti restano com'erano", async () => {
+    await archivio.creaProdotto({ prodottoId: "altro", nome: "Altro", durataSettimane: 4 });
+    await archivio.salvaTemplateTask(modello({ prodottoId: "altro", taskId: "P1", ordine: 7 }));
+    await archivio.salvaTemplateTask(modello({ taskId: "P3", ordine: 3 }));
+    await archivio.riordinaTemplateAttivita("prova", ["P3", "P1", "P2"]);
+    const tutte = await archivio.getTemplateAttivita();
+    expect(Object.fromEntries(tutte.filter((t) => t.prodottoId === "prova").map((t) => [t.taskId, t.ordine]))).toEqual({ P3: 1, P1: 2, P2: 3 });
+    expect(tutte.find((t) => t.prodottoId === "altro")?.ordine).toBe(7);
+  });
+
+  it("elimina un'attività del modello; una che non c'è è un errore", async () => {
+    await archivio.eliminaTemplateTask("prova", "P3");
+    expect((await archivio.getTemplateAttivita()).filter((t) => t.prodottoId === "prova").map((t) => t.taskId).sort()).toEqual(["P1", "P2"]);
+    await expect(archivio.eliminaTemplateTask("prova", "P3")).rejects.toThrow("Riga non trovata in TemplateAttivita: prova/P3");
+  });
+
+  it("eliminare un prodotto porta via il suo modello, e solo il suo", async () => {
+    await archivio.eliminaProdotto("prova");
+    expect((await archivio.getTemplateAttivita()).map((t) => `${t.prodottoId}/${t.taskId}`)).toEqual(["altro/P1"]);
+    await expect(archivio.eliminaProdotto("prova")).rejects.toThrow("Prodotto non trovato: prova");
+  });
+});
+
+describe("risultati inseriti a mano", () => {
+  const riga = (tipoCampagna: string, vendite: number, fatturato: number) => ({ tipoCampagna, richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite, fatturato });
+
+  it("salva le righe di una sede per un periodo, una per tipo di campagna", async () => {
+    await archivio.creaSede(nuovaSede("gamma--principale", "gamma"));
+    await archivio.salvaRisultatiCommerciali({ clienteId: "gamma", sedeId: "gamma--principale", periodo: "2026-09-28", righe: [riga("Cucine", 2, 9000.5), riga("", 1, 3000)] });
+    expect(await archivio.getRisultatiCommerciali()).toEqual([
+      { periodo: "2026-09-28", clienteId: "gamma", sedeId: "gamma--principale", tipoCampagna: "Cucine", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 2, fatturato: 9000.5 },
+      { periodo: "2026-09-28", clienteId: "gamma", sedeId: "gamma--principale", tipoCampagna: "", richieste: 10, appuntamentiFissati: 6, appuntamentiEffettuati: 4, vendite: 1, fatturato: 3000 },
+    ]);
+  });
+
+  it("salvare di nuovo lo stesso periodo sostituisce, non somma; gli altri periodi restano", async () => {
+    await archivio.salvaRisultatiCommerciali({ clienteId: "gamma", sedeId: "gamma--principale", periodo: "2026-08", righe: [riga("Cucine", 5, 20000)] });
+    await archivio.salvaRisultatiCommerciali({ clienteId: "gamma", sedeId: "gamma--principale", periodo: "2026-09-28", righe: [riga("Cucine", 3, 12000)] });
+    const righe = await archivio.getRisultatiCommerciali();
+    expect(righe.map((r) => `${r.periodo}/${r.tipoCampagna}/${r.vendite}`).sort()).toEqual(["2026-08/Cucine/5", "2026-09-28/Cucine/3"]);
+  });
+
+  it("nessuna riga: il periodo torna non compilato", async () => {
+    await archivio.salvaRisultatiCommerciali({ clienteId: "gamma", sedeId: "gamma--principale", periodo: "2026-09-28", righe: [] });
+    expect((await archivio.getRisultatiCommerciali()).map((r) => r.periodo)).toEqual(["2026-08"]);
+  });
+
+  it("due righe uguali per periodo, sede e tipo non possono esistere: se il salvataggio fallisce resta tutto com'era", async () => {
+    await expect(
+      archivio.salvaRisultatiCommerciali({ clienteId: "gamma", sedeId: "gamma--principale", periodo: "2026-08", righe: [riga("Cucine", 1, 1), riga("Cucine", 2, 2)] })
+    ).rejects.toThrow();
+    expect((await archivio.getRisultatiCommerciali()).map((r) => `${r.periodo}/${r.vendite}`)).toEqual(["2026-08/5"]);
+  });
+
+  it("risultati dei venditori: stesso meccanismo, per sede e mese", async () => {
+    await archivio.creaVenditore({ venditoreId: "v-anna", sedeId: "gamma--principale", nome: "Anna", capienzaAppuntamentiMensile: 20 });
+    await archivio.creaVenditore({ venditoreId: "v-luca", sedeId: "gamma--principale", nome: "Luca", capienzaAppuntamentiMensile: 15 });
+    const mese = (appuntamenti: number) => ({
+      sedeId: "gamma--principale",
+      mese: "2026-09",
+      righe: [
+        { venditoreId: "v-anna", appuntamentiFissati: appuntamenti, vendite: 2, fatturato: 8000 },
+        { venditoreId: "v-luca", appuntamentiFissati: 4, vendite: 0, fatturato: 0 },
+      ],
+    });
+    await archivio.salvaRisultatiVenditori(mese(9));
+    await archivio.salvaRisultatiVenditori(mese(11));
+    expect(await archivio.getRisultatiVenditori()).toEqual([
+      { mese: "2026-09", sedeId: "gamma--principale", venditoreId: "v-anna", appuntamentiFissati: 11, vendite: 2, fatturato: 8000 },
+      { mese: "2026-09", sedeId: "gamma--principale", venditoreId: "v-luca", appuntamentiFissati: 4, vendite: 0, fatturato: 0 },
+    ]);
+    await archivio.salvaRisultatiVenditori({ sedeId: "gamma--principale", mese: "2026-09", righe: [] });
+    expect(await archivio.getRisultatiVenditori()).toEqual([]);
+  });
+
+  it("con il cliente se ne vanno i suoi risultati commerciali", async () => {
+    await archivio.eliminaCliente("gamma");
+    expect(await archivio.getRisultatiCommerciali()).toEqual([]);
   });
 });
 

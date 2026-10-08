@@ -7,8 +7,12 @@ import type { Database } from "./tipi";
 // facoltativi vuoti, una riga orfana, un doppione sui dati giornalieri, un decimale dove serve un intero.
 function foglio(): DatiFoglio {
   return {
-    consulenti: [{ consulenteId: "fc", nome: "Francesco", password: "segreta", attivo: true, email: "" }],
-    commerciali: [{ commercialeId: "mr", nome: "Matteo", password: "segreta", attivo: true, email: "" }],
+    consulenti: [{ consulenteId: "fc", nome: "Francesco", attivo: true, email: "" }],
+    commerciali: [{ commercialeId: "mr", nome: "Matteo", attivo: true, email: "" }],
+    credenziali: [
+      { ruolo: "consulente", id: "fc", attivo: true, password: "segreta-fc" },
+      { ruolo: "commerciale", id: "mr", attivo: true, password: "segreta-mr" },
+    ],
     prodotti: [{ prodottoId: "gtm", nome: "GTM", attivo: true, durataSettimane: 12, note: "" }],
     templateAttivita: [
       {

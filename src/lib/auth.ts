@@ -1,5 +1,7 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import { getCommerciali, getConsulenti } from "@/lib/archivio";
+import { chiaveSquadra, creaControlloSquadra } from "@/lib/squadraAttiva";
 import type { Sessione } from "@/types/kpi";
 
 const SESSION_COOKIE = "mmalc_session";
@@ -20,10 +22,6 @@ export function verifyTeamPassword(password: string): boolean {
   const expected = process.env.TEAM_PASSWORD;
   if (!expected) throw new Error("TEAM_PASSWORD non configurato");
   return timingSafeStringEqual(password, expected);
-}
-
-export function verifyConsulentePassword(password: string, atteso: string): boolean {
-  return timingSafeStringEqual(password, atteso);
 }
 
 /** Verifica l'header Authorization del cron Vercel a tempo costante. Fail-closed se CRON_SECRET non è configurato. */
@@ -68,15 +66,42 @@ export function parseSessionCookieValue(cookieValue: string | undefined): Sessio
   return null;
 }
 
-/** Verifica solo che la sessione sia valida, senza bisogno del ruolo (usata dove basta "è autenticato"). */
+/** Verifica solo la firma del cookie, senza controllare che la persona sia ancora attiva: per quello c'è getSessione. */
 export function isValidSessionCookieValue(cookieValue: string | undefined): boolean {
   return parseSessionCookieValue(cookieValue) !== null;
 }
 
-/** Legge e valida la sessione dal cookie della richiesta corrente (route handler o server component). */
+// Uno solo per istanza del server, come il collegamento al database (vedi src/lib/db/connessione.ts).
+const globale = globalThis as typeof globalThis & { __controlloSquadra?: ReturnType<typeof creaControlloSquadra> };
+
+function controlloSquadra() {
+  if (!globale.__controlloSquadra) {
+    globale.__controlloSquadra = creaControlloSquadra(async () => {
+      const [consulenti, commerciali] = await Promise.all([getConsulenti(), getCommerciali()]);
+      return new Set([
+        ...consulenti.filter((c) => c.attivo).map((c) => chiaveSquadra("consulente", c.consulenteId)),
+        ...commerciali.filter((c) => c.attivo).map((c) => chiaveSquadra("commerciale", c.commercialeId)),
+      ]);
+    });
+  }
+  return globale.__controlloSquadra;
+}
+
+/** Da chiamare dopo aver attivato, disattivato, aggiunto o eliminato qualcuno: l'elenco degli attivi si rilegge subito. */
+export function squadraCambiata(): void {
+  controlloSquadra().dimentica();
+}
+
+/**
+ * Legge e valida la sessione dal cookie della richiesta corrente (route handler o server component).
+ * Una firma valida non basta: un consulente o un commerciale disattivato o eliminato dopo aver fatto
+ * l'accesso non ha più una sessione (vedi src/lib/squadraAttiva.ts).
+ */
 export async function getSessione(): Promise<Sessione | null> {
   const cookieStore = await cookies();
-  return parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  const sessione = parseSessionCookieValue(cookieStore.get(SESSION_COOKIE_NAME)?.value);
+  if (!sessione) return null;
+  return (await controlloSquadra().ancoraAttiva(sessione)) ? sessione : null;
 }
 
 export const SESSION_COOKIE_NAME = SESSION_COOKIE;

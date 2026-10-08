@@ -5,10 +5,10 @@
  * `MeetingDataLoose": un campo mancante nell'estrazione arriva vuoto, mai un crash a runtime.
  */
 
+// Come Consulente: la password non è qui ma in CredenzialeAccesso (src/types/kpi.ts).
 export type Commerciale = {
   commercialeId: string;
   nome: string;
-  password: string;
   attivo: boolean;
   // Mittente reale dell'invio automatico (Gmail API, delega a livello di dominio — vedi
   // src/lib/gmail.ts): l'email parte "da" questa casella, impersonata via service account.

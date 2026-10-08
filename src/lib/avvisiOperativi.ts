@@ -178,7 +178,7 @@ export function generaAvvisiOperativi(input: {
       id: "risultati-commerciali-mancanti",
       tono: "da-sistemare",
       titolo: "Risultati commerciali non compilati",
-      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${mesi}.`,
+      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${mesi}. Si inseriscono da "Inserisci risultati", in alto.`,
     });
   }
 

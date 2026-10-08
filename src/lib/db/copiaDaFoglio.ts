@@ -7,6 +7,7 @@ import type {
   CategoriaCommerciale,
   Cliente,
   Consulente,
+  CredenzialeAccesso,
   FaseCompletataRow,
   MetaDailyRow,
   Prodotto,
@@ -39,6 +40,8 @@ import type { ConnessioneCanale } from "@/types/connessioniCanale";
 export type DatiFoglio = {
   consulenti: Consulente[];
   commerciali: Commerciale[];
+  /** Le password così come sono scritte nel foglio: lette a parte, non stanno in Consulente/Commerciale. */
+  credenziali: CredenzialeAccesso[];
   prodotti: Prodotto[];
   templateAttivita: TemplateTask[];
   clienti: Cliente[];
@@ -117,9 +120,22 @@ export function preparaCopia(dati: DatiFoglio): CopiaPreparata {
   }
   if (doppioniGiornalieri > 0) avvisi.push(`meta_daily: ${doppioniGiornalieri} righe con la stessa chiave di un'altra; tenuta l'ultima.`);
 
+  const password = new Map(dati.credenziali.map((c) => [`${c.ruolo}/${c.id}`, c.password]));
   const tabelle: Record<string, RigaTabella[]> = {
-    consulenti: dati.consulenti.map((c) => ({ consulente_id: c.consulenteId, nome: c.nome, password: c.password, attivo: c.attivo, email: c.email })),
-    commerciali: dati.commerciali.map((c) => ({ commerciale_id: c.commercialeId, nome: c.nome, password: c.password, attivo: c.attivo, email: c.email })),
+    consulenti: dati.consulenti.map((c) => ({
+      consulente_id: c.consulenteId,
+      nome: c.nome,
+      password: password.get(`consulente/${c.consulenteId}`) ?? "",
+      attivo: c.attivo,
+      email: c.email,
+    })),
+    commerciali: dati.commerciali.map((c) => ({
+      commerciale_id: c.commercialeId,
+      nome: c.nome,
+      password: password.get(`commerciale/${c.commercialeId}`) ?? "",
+      attivo: c.attivo,
+      email: c.email,
+    })),
     prodotti: dati.prodotti.map((p) => ({
       prodotto_id: p.prodottoId,
       nome: p.nome,

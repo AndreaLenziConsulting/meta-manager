@@ -4,7 +4,7 @@ import { sqlAggiornamento, sqlInserimento, sqlLettura, tabella, type RigaTabella
 import type { Sessione } from "@/lib/db/tipi";
 import { SENTINELLA_NON_ASSEGNATO } from "@/lib/assegnatari";
 import { estraiMeetingIdDaTaskId } from "@/lib/meeting";
-import type { Canale, Cliente, StatoAttivita } from "@/types/kpi";
+import type { Canale, Cliente, CredenzialeAccesso, RuoloSquadra, StatoAttivita } from "@/types/kpi";
 import type { MeetingDataLoose } from "@/types/meeting";
 import type { Prospect, ReportCommercialeDataLoose } from "@/types/prospect";
 
@@ -497,23 +497,96 @@ export const migraAssegnatariEsistenti: typeof Foglio.migraAssegnatariEsistenti 
 
 // ───────────────────────── Persone e prodotti ─────────────────────────
 
+// Consulenti e commerciali hanno la stessa forma in due tabelle diverse: qui i nomi che cambiano.
+const SQUADRA = {
+  consulente: { tabella: "consulenti", chiave: "consulente_id", nome: "consulente", Nome: "Consulente" },
+  commerciale: { tabella: "commerciali", chiave: "commerciale_id", nome: "commerciale", Nome: "Commerciale" },
+} as const;
+
+/** Senza la password: questi oggetti arrivano fino al browser (vedi getCredenzialiAccesso). */
 export const getConsulenti: typeof Foglio.getConsulenti = async () =>
-  (await leggi("consulenti")).map((r) => ({
+  (await database().esegui("select consulente_id, nome, attivo, email from public.consulenti order by posizione")).map((r) => ({
     consulenteId: testo(r.consulente_id),
     nome: testo(r.nome),
-    password: testo(r.password),
     attivo: Boolean(r.attivo),
     email: testo(r.email),
   }));
 
 export const getCommerciali: typeof Foglio.getCommerciali = async () =>
-  (await leggi("commerciali")).map((r) => ({
+  (await database().esegui("select commerciale_id, nome, attivo, email from public.commerciali order by posizione")).map((r) => ({
     commercialeId: testo(r.commerciale_id),
     nome: testo(r.nome),
-    password: testo(r.password),
     attivo: Boolean(r.attivo),
     email: testo(r.email),
   }));
+
+export const getCredenzialiAccesso: typeof Foglio.getCredenzialiAccesso = async () => {
+  const leggiRuolo = async (ruolo: RuoloSquadra): Promise<CredenzialeAccesso[]> => {
+    const t = SQUADRA[ruolo];
+    const righe = await database().esegui(`select ${t.chiave} as id, attivo, password from public.${t.tabella} order by posizione`);
+    return righe.map((r) => ({ ruolo, id: testo(r.id), attivo: Boolean(r.attivo), password: testo(r.password) }));
+  };
+  const [consulenti, commerciali] = await Promise.all([leggiRuolo("consulente"), leggiRuolo("commerciale")]);
+  return [...consulenti, ...commerciali];
+};
+
+export const creaMembroSquadra: typeof Foglio.creaMembroSquadra = async (input) => {
+  const t = SQUADRA[input.ruolo];
+  if (await esiste(t.tabella, t.chiave, input.id)) {
+    throw new Error(`Esiste già un ${t.nome} con id "${input.id}"`);
+  }
+  await inserisci(t.tabella, [{ [t.chiave]: input.id, nome: input.nome, password: input.password, attivo: true, email: input.email }]);
+};
+
+export const aggiornaMembroSquadra: typeof Foglio.aggiornaMembroSquadra = async (input) => {
+  const t = SQUADRA[input.ruolo];
+  await database().transazione(async (tx) => {
+    const [attuale] = await tx.esegui<{ nome: string }>(`select nome from public.${t.tabella} where ${t.chiave} = $1`, [input.id]);
+    if (!attuale) throw new Error(`${t.Nome} non trovato: ${input.id}`);
+    await aggiorna(t.tabella, { [t.chiave]: input.id }, { nome: input.nome, email: input.email, attivo: input.attivo, password: input.password }, tx);
+    if (input.ruolo === "consulente" && input.nome !== undefined && input.nome !== attuale.nome) {
+      await rinominaAssegnatario(tx, input.id, attuale.nome, input.nome);
+    }
+  });
+};
+
+/**
+ * Le attività ricordano chi le deve fare per nome, non per identificativo: se un consulente cambia
+ * nome, il nuovo deve prendere il posto del vecchio, altrimenti le sue attività resterebbero
+ * intestate a un nome che non c'è più (e sparirebbero dalle "sue" attività).
+ *
+ * Un'attività può portare il nome intero ("Eliano Ricci") o solo quello di battesimo ("Eliano"), che
+ * l'app riconosce lo stesso (nomeCoincideConConsulente in src/lib/assegnatari.ts): si aggiornano
+ * tutti e due. Il solo nome di battesimo però si tocca soltanto se è cambiato e se nessun altro
+ * consulente lo porta: con due "Marco" non si saprebbe di chi sono le attività intestate a "Marco".
+ */
+async function rinominaAssegnatario(tx: Sessione, consulenteId: string, vecchio: string, nuovo: string): Promise<void> {
+  const battesimo = (nome: string) => nome.trim().split(/\s+/)[0] ?? "";
+  const sostituzioni: [string, string][] = [[vecchio.trim(), nuovo.trim()]];
+  const [prima, dopo] = [battesimo(vecchio), battesimo(nuovo)];
+  if (prima && dopo && prima.toLowerCase() !== dopo.toLowerCase()) {
+    const omonimi = await tx.esegui("select 1 as ok from public.consulenti where consulente_id <> $1 and lower(split_part(btrim(nome), ' ', 1)) = lower($2) limit 1", [consulenteId, prima]);
+    if (omonimi.length === 0) sostituzioni.push([prima, dopo]);
+  }
+  for (const [da, a] of sostituzioni) {
+    if (!da || da.toLowerCase() === a.toLowerCase()) continue;
+    for (const tabellaAttivita of ["attivita_cliente", "template_attivita"]) {
+      await tx.esegui(
+        `update public.${tabellaAttivita} set assegnatari = (
+           select array_agg(case when lower(btrim(u.a)) = lower($1::text) then $2::text else u.a end order by u.n)
+           from unnest(assegnatari) with ordinality as u(a, n)
+         )
+         where exists (select 1 from unnest(assegnatari) as v(a) where lower(btrim(v.a)) = lower($1::text))`,
+        [da, a]
+      );
+    }
+  }
+}
+
+export const eliminaMembroSquadra: typeof Foglio.eliminaMembroSquadra = async (ruolo, id) => {
+  const t = SQUADRA[ruolo];
+  if ((await elimina(t.tabella, t.chiave, id)) === 0) throw new Error(`${t.Nome} non trovato: ${id}`);
+};
 
 export const getProdotti: typeof Foglio.getProdotti = async () =>
   (await leggi("prodotti")).map((r) => ({
@@ -523,6 +596,36 @@ export const getProdotti: typeof Foglio.getProdotti = async () =>
     durataSettimane: numero(r.durata_settimane),
     note: testo(r.note),
   }));
+
+export const creaProdotto: typeof Foglio.creaProdotto = async (input) => {
+  if (await esiste("prodotti", "prodotto_id", input.prodottoId)) {
+    throw new Error(`Esiste già un prodotto con id "${input.prodottoId}"`);
+  }
+  await inserisci("prodotti", [
+    { prodotto_id: input.prodottoId, nome: input.nome, attivo: true, durata_settimane: intero(input.durataSettimane), note: input.note ?? "" },
+  ]);
+};
+
+export const aggiornaProdotto: typeof Foglio.aggiornaProdotto = async (input) => {
+  if (!(await esiste("prodotti", "prodotto_id", input.prodottoId))) {
+    throw new Error(`Prodotto non trovato: ${input.prodottoId}`);
+  }
+  await aggiorna(
+    "prodotti",
+    { prodotto_id: input.prodottoId },
+    {
+      nome: input.nome,
+      attivo: input.attivo,
+      durata_settimane: input.durataSettimane === undefined ? undefined : intero(input.durataSettimane),
+      note: input.note,
+    }
+  );
+};
+
+/** Il modello di attività del prodotto se ne va con lui (chiave esterna). */
+export const eliminaProdotto: typeof Foglio.eliminaProdotto = async (prodottoId) => {
+  if ((await elimina("prodotti", "prodotto_id", prodottoId)) === 0) throw new Error(`Prodotto non trovato: ${prodottoId}`);
+};
 
 export const getTemplateAttivita: typeof Foglio.getTemplateAttivita = async () =>
   (await leggi("template_attivita")).map((r) => ({
@@ -539,6 +642,44 @@ export const getTemplateAttivita: typeof Foglio.getTemplateAttivita = async () =
     nota: testo(r.nota),
     ordine: numero(r.ordine),
   }));
+
+export const salvaTemplateTask: typeof Foglio.salvaTemplateTask = async (task) => {
+  const chiave = { prodotto_id: task.prodottoId, task_id: task.taskId };
+  const campi = {
+    blocco: task.blocco,
+    fase: task.fase,
+    descrizione: task.descrizione,
+    assegnatari: task.assegnatari,
+    tipo: task.tipo,
+    settimana_inizio: intero(task.settimanaInizio),
+    settimana_fine: intero(task.settimanaFine),
+    giorni_testo: task.giorniTesto,
+    nota: task.nota,
+    ordine: intero(task.ordine),
+  };
+  const giaPresente = await database().esegui("select 1 as ok from public.template_attivita where prodotto_id = $1 and task_id = $2", [task.prodottoId, task.taskId]);
+  if (giaPresente.length > 0) {
+    await aggiorna("template_attivita", chiave, campi);
+    return { aggiornato: true };
+  }
+  await inserisci("template_attivita", [{ ...chiave, ...campi }]);
+  return { aggiornato: false };
+};
+
+export const eliminaTemplateTask: typeof Foglio.eliminaTemplateTask = async (prodottoId, taskId) => {
+  const esito = await database().esegui("delete from public.template_attivita where prodotto_id = $1 and task_id = $2 returning 1 as ok", [prodottoId, taskId]);
+  if (esito.length === 0) throw new Error(`Riga non trovata in TemplateAttivita: ${prodottoId}/${taskId}`);
+};
+
+export const riordinaTemplateAttivita: typeof Foglio.riordinaTemplateAttivita = async (prodottoId, taskIdInOrdine) => {
+  if (taskIdInOrdine.length === 0) return;
+  await database().esegui(
+    `update public.template_attivita as t set ordine = x.n::int
+     from jsonb_array_elements_text($2::text::jsonb) with ordinality as x(task_id, n)
+     where t.prodotto_id = $1 and t.task_id = x.task_id`,
+    [prodottoId, JSON.stringify(taskIdInOrdine)]
+  );
+};
 
 // ───────────────────────── Campagne e dati pubblicitari ─────────────────────────
 
@@ -700,6 +841,48 @@ export const getRisultatiCommerciali: typeof Foglio.getRisultatiCommerciali = as
     fatturato: numero(r.fatturato),
     sedeId: testo(r.sede_id),
   }));
+
+/** Via le righe che la sede ha in quel periodo, dentro quelle nuove: tutto insieme o niente. */
+export const salvaRisultatiCommerciali: typeof Foglio.salvaRisultatiCommerciali = async (input) => {
+  await database().transazione(async (tx) => {
+    await tx.esegui("delete from public.risultati_commerciali where cliente_id = $1 and sede_id = $2 and periodo = $3", [input.clienteId, input.sedeId, input.periodo]);
+    await inserisci(
+      "risultati_commerciali",
+      input.righe.map((r) => ({
+        periodo: input.periodo,
+        cliente_id: input.clienteId,
+        sede_id: input.sedeId,
+        tipo_campagna: r.tipoCampagna,
+        richieste: r.richieste,
+        appuntamenti_fissati: r.appuntamentiFissati,
+        appuntamenti_effettuati: r.appuntamentiEffettuati,
+        vendite: r.vendite,
+        fatturato: r.fatturato,
+      })),
+      "",
+      tx
+    );
+  });
+};
+
+export const salvaRisultatiVenditori: typeof Foglio.salvaRisultatiVenditori = async (input) => {
+  await database().transazione(async (tx) => {
+    await tx.esegui("delete from public.risultati_venditori where sede_id = $1 and mese = $2", [input.sedeId, input.mese]);
+    await inserisci(
+      "risultati_venditori",
+      input.righe.map((r) => ({
+        mese: input.mese,
+        sede_id: input.sedeId,
+        venditore_id: r.venditoreId,
+        appuntamenti_fissati: r.appuntamentiFissati,
+        vendite: r.vendite,
+        fatturato: r.fatturato,
+      })),
+      "",
+      tx
+    );
+  });
+};
 
 // ───────────────────────── Attività e tappe ─────────────────────────
 

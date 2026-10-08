@@ -91,7 +91,7 @@ describe("generaAvvisiOperativi", () => {
       id: "risultati-commerciali-mancanti",
       tono: "da-sistemare",
       titolo: "Risultati commerciali non compilati",
-      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${formatMese("2026-06")}, ${formatMese("2026-07")}.`,
+      messaggio: `Spesa pubblicitaria registrata ma Risultati Commerciali non compilati per ${formatMese("2026-06")}, ${formatMese("2026-07")}. Si inseriscono da "Inserisci risultati", in alto.`,
     });
   });
 

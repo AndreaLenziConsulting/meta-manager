@@ -22,6 +22,19 @@ export function generaClienteId(nome: string, esistenti: Set<string>): string {
   return `${base}-${n}`;
 }
 
+/**
+ * Id leggibile per ciò che si crea dalla pagina Impostazioni (un consulente, un commerciale, un
+ * prodotto): lo slug del nome, con lo stesso suffisso numerico di generaClienteId se è già preso.
+ * `ripiego` è l'id usato quando il nome non contiene lettere né cifre.
+ */
+export function generaIdDaNome(nome: string, esistenti: Set<string>, ripiego: string): string {
+  const base = slugify(nome) || ripiego;
+  if (!esistenti.has(base)) return base;
+  let n = 2;
+  while (esistenti.has(`${base}-${n}`)) n++;
+  return `${base}-${n}`;
+}
+
 /** Codice d'accesso per il link cliente pubblico: 10 caratteri esadecimali, nessuna nuova dipendenza. */
 export function generaAccessCode(): string {
   return randomBytes(5).toString("hex");
