@@ -23,8 +23,8 @@ const OPZIONI: OpzioneGrafico<Vista>[] = [
  * stessa tendina per passare da un grafico all'altro. Per ora i grafici sono due:
  *   - "Andamento venditori" (nuovo, quello che si apre): totali e andamento nel periodo scelto, e
  *     per le campagne scelte (il filtro campagne vale anche qui dall'08/10/2026, scelta dell'utente);
- *   - "Ritmo sul target": la vista di prima, che guarda il mese in corso qualunque siano il periodo
- *     e le campagne scelti in alto.
+ *   - "Ritmo sul target": la vista di prima, che guarda il mese in corso qualunque sia il periodo
+ *     scelto in alto. Segue invece il filtro campagne (chiesto dall'utente l'08/10/2026).
  * Un grafico nuovo si aggiunge qui: una voce in OPZIONI e il suo componente sotto.
  *
  * Mai sul link pubblico del cliente: lo decide chi lo monta (KpiSection.tsx).
@@ -40,6 +40,7 @@ export function AndamentoCommerciale({
   ghl,
   mensili,
   filtroCampagneAttivo,
+  parametroCampagne,
   onRisultatiSalvati,
 }: {
   clienteId: string;
@@ -56,6 +57,8 @@ export function AndamentoCommerciale({
   mensili: RisultatoMensileVenditore[];
   /** Vero se in alto è scelto un sottoinsieme di campagne (anche quello predefinito della sede). */
   filtroCampagneAttivo: boolean;
+  /** Il valore di `campagne` che la pagina passa a /api/ghl: null = predefinito della sede. */
+  parametroCampagne: string | null;
   onRisultatiSalvati: () => void;
 }) {
   const [vista, setVista] = useState<Vista>("andamento");
@@ -98,7 +101,13 @@ export function AndamentoCommerciale({
       ) : vista === "andamento" ? (
         <AndamentoVenditori andamento={andamento} />
       ) : (
-        <PacingVenditoriChart clienteId={clienteId} sedeId={sedeId} haConnessioneGhl={haConnessioneGhl} />
+        <PacingVenditoriChart
+          clienteId={clienteId}
+          sedeId={sedeId}
+          haConnessioneGhl={haConnessioneGhl}
+          parametroCampagne={parametroCampagne}
+          filtroCampagneAttivo={filtroCampagneAttivo}
+        />
       )}
 
       {inserimentoAperto && (

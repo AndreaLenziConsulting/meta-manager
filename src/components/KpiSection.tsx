@@ -950,6 +950,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               ghl={ghlVenditori}
               mensili={dati.sede.risultatiVenditoriMensili ?? NESSUN_RISULTATO_MENSILE}
               filtroCampagneAttivo={campagneSelezionate !== null}
+              parametroCampagne={parametroCampagne}
               onRisultatiSalvati={rileggiSubito}
             />
           )}

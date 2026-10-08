@@ -6,7 +6,6 @@ import { oggiIso } from "@/lib/roadmap";
 import { ultimoGiornoDelMese } from "@/lib/kpi";
 import { calcolaPacingMensile } from "@/lib/targetPacing";
 import { calcolaQuoteVenditori } from "@/lib/venditori";
-import { PARAMETRO_TUTTE_LE_CAMPAGNE } from "@/lib/campagneAlc";
 import { BloccoPacing } from "@/components/BloccoPacing";
 import type { KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
@@ -35,10 +34,34 @@ function meseCorrente(): string {
  * (ghlDati.perVenditore[venditore.venditoreId], join su assignedUserId/assignedTo — vedi
  * riepilogoPerVenditoreGhl in lib/ghl.ts) invece dei RisultatiVenditori inseriti a mano. Un
  * venditore senza ghlUserId (o una sede senza GHL) si comporta esattamente come in Fase 2, invariato.
+ *
+ * Filtro campagne (08/10/2026, chiesto dall'utente: "deve seguire il filtro campagne"): i numeri da
+ * GHL sono quelli delle campagne scelte in alto, come nella vista "Andamento venditori" — lo stesso
+ * parametro `campagne` passato a /api/ghl da KpiSection.tsx, che senza parametro applica il
+ * predefinito della sede. Il periodo scelto in alto invece continua a non contare: il ritmo è sempre
+ * quello del mese in corso. I risultati inseriti a mano non portano la campagna e restano quelli
+ * inseriti. La nota sopra i blocchi dice sempre quali contatti stanno contando.
  */
-export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { clienteId: string; sedeId: string; haConnessioneGhl: boolean }) {
+export function PacingVenditoriChart({
+  clienteId,
+  sedeId,
+  haConnessioneGhl,
+  parametroCampagne,
+  filtroCampagneAttivo,
+}: {
+  clienteId: string;
+  sedeId: string;
+  haConnessioneGhl: boolean;
+  /** Il valore di `campagne` per /api/ghl, lo stesso della pagina: null = predefinito della sede. */
+  parametroCampagne: string | null;
+  /** Vero se in alto è scelto un sottoinsieme di campagne (anche quello predefinito della sede). */
+  filtroCampagneAttivo: boolean;
+}) {
   const [dati, setDati] = useState<KpiResponse | null>(null);
   const [ghlDati, setGhlDati] = useState<GhlRiepilogoResponse | null>(null);
+  // Per quale filtro campagne sono i `ghlDati` che ho in mano ("" = predefinito). Cambiando le
+  // campagne quelli di prima restano, attenuati, finché non arrivano i nuovi.
+  const [campagneGhl, setCampagneGhl] = useState<string | null>(null);
   const [caricamento, setCaricamento] = useState(true);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -83,21 +106,21 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
           return undefined;
         }
         const mese = meseCorrente();
-        // Tutte le campagne, chiesto in modo esplicito: dall'08/10/2026 /api/ghl restringe i numeri
-        // per venditore al filtro campagne, e senza parametro applicherebbe il predefinito della sede
-        // (solo campagne ALC). Questa vista confronta il venditore con la sua quota del target, che
-        // vale per tutto il suo lavoro del mese: resta com'era, su tutti i contatti.
-        const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese, campagne: PARAMETRO_TUTTE_LE_CAMPAGNE });
+        const params = new URLSearchParams({ clienteId, sedeId, da: mese, a: mese });
+        if (parametroCampagne) params.set("campagne", parametroCampagne);
         return fetch(`/api/ghl?${params.toString()}`, { signal: controller.signal })
           .then((res) => (res.ok ? res.json() : null))
-          .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
+          .then((body: GhlRiepilogoResponse | null) => {
+            setGhlDati(body);
+            setCampagneGhl(parametroCampagne ?? "");
+          });
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
         setGhlDati(null);
       });
     return () => controller.abort();
-  }, [clienteId, sedeId, haConnessioneGhl]);
+  }, [clienteId, sedeId, haConnessioneGhl, parametroCampagne]);
 
   if (caricamento) return <p className="text-sm text-ink-500">Caricamento…</p>;
   if (errore) return <p className="text-sm text-critico">{errore}</p>;
@@ -161,18 +184,37 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
     );
   }
 
+  // Quali contatti contano nei numeri arrivati da GHL (vedi PerimetroVenditori in types/ghl.ts); null
+  // se da GHL non arriva nessun venditore.
+  const perimetro = ghlDati?.connesso && blocchi.some((b) => b.daGhl) ? (ghlDati.perimetroVenditori ?? "tutti") : null;
+  const aManoNonDivisi = filtroCampagneAttivo && blocchi.some((b) => !b.daGhl);
+  const inAggiornamento = haConnessioneGhl && ghlDati !== null && campagneGhl !== (parametroCampagne ?? "");
+
   return (
     <div className="space-y-4">
       <p className="text-xs text-ink-500">
-        Mese in corso, giorno {giornoDelMese} di {giorniNelMese} — la quota di ciascun venditore è proporzionale alla capienza dichiarata. Non segue i filtri in alto: conta tutto il mese,
-        qualunque sia la campagna.
+        Mese in corso, giorno {giornoDelMese} di {giorniNelMese}, qualunque sia il periodo scelto in alto — la quota di ciascun venditore è proporzionale alla capienza dichiarata.
+        {perimetro === "campagne-scelte" && " Segue il filtro campagne: da GHL contano solo i contatti arrivati dalle campagne scelte in alto."}
+        {perimetro === "tutti" && " Da GHL contano tutti i contatti, qualunque sia la campagna."}
+        {perimetro === "non-distinguibili" &&
+          " Il filtro campagne qui non si applica: su GHL nessun contatto di questa sede risulta arrivato da una campagna, quindi contano tutti."}
+        {aManoNonDivisi && " I risultati inseriti a mano non si dividono per campagna: restano quelli inseriti."}
+        {inAggiornamento && (
+          <span role="status" className="font-semibold text-ink-700">
+            {" "}
+            Aggiornamento…
+          </span>
+        )}
       </p>
-      <div className="space-y-5">
+      {/* Cambiate le campagne, i numeri di prima restano attenuati finché arrivano i nuovi. */}
+      <div className="space-y-5" aria-busy={inAggiornamento} style={{ opacity: inAggiornamento ? 0.6 : 1, transition: "opacity 150ms" }}>
         {blocchi.map(({ venditore, quota, metriche, chiusura, daGhl }) => (
           <BloccoPacing
             key={venditore.venditoreId}
             titolo={venditore.nome}
-            sottotitolo={`${quota > 0 ? `${formatPercentuale(quota)} del carico` : "capienza non indicata"}${chiusura != null ? ` · chiusura ${formatPercentuale(chiusura)}` : ""}${daGhl ? " · via GHL" : ""}`}
+            sottotitolo={`${quota > 0 ? `${formatPercentuale(quota)} del carico` : "capienza non indicata"}${chiusura != null ? ` · chiusura ${formatPercentuale(chiusura)}` : ""}${
+              daGhl ? (perimetro === "campagne-scelte" ? " · via GHL, solo campagne scelte" : " · via GHL") : filtroCampagneAttivo ? " · a mano, non diviso per campagna" : ""
+            }`}
             metriche={metriche}
             fraz={fraz}
           />
