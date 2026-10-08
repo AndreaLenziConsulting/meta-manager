@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leggiStringaConnessione, limitatore } from "./postgres";
+import { collegamentoLocale, leggiStringaConnessione, limitatore } from "./postgres";
 
 describe("leggiStringaConnessione", () => {
   it("scompone la stringa del pooler di Supabase", () => {
@@ -32,6 +32,15 @@ describe("leggiStringaConnessione", () => {
 
   it("una stringa che non è un indirizzo Postgres dà un errore che dice la forma attesa", () => {
     expect(() => leggiStringaConnessione("https://esempio.supabase.co")).toThrow("postgresql://utente:password@host:porta/database");
+  });
+});
+
+describe("collegamentoLocale", () => {
+  it("solo un indirizzo di questa macchina è il database di prova; il pooler di Supabase no", () => {
+    expect(collegamentoLocale(leggiStringaConnessione("postgresql://prova:prova@127.0.0.1:54329/postgres").host)).toBe(true);
+    expect(collegamentoLocale("localhost")).toBe(true);
+    expect(collegamentoLocale("aws-1-eu-central-1.pooler.supabase.com")).toBe(false);
+    expect(collegamentoLocale("localhost.esempio.it")).toBe(false);
   });
 });
 

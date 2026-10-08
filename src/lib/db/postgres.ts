@@ -32,6 +32,15 @@ export function leggiStringaConnessione(url: string): ParametriConnessione {
 }
 
 /**
+ * Vero se il database sta su questa stessa macchina: è il database di prova in memoria
+ * (scripts/database-di-prova.ts), mai quello vero. Lì non c'è cifratura da chiedere e c'è una sola
+ * connessione disponibile.
+ */
+export function collegamentoLocale(host: string): boolean {
+  return host === "localhost" || host === "127.0.0.1";
+}
+
+/**
  * Lascia girare insieme al massimo `massimo` lavori; gli altri aspettano il loro turno, in ordine di
  * arrivo. Un lavoro che fallisce libera comunque il suo posto.
  */
@@ -76,12 +85,17 @@ export function limitatore(massimo: number): <T>(lavoro: () => Promise<T>) => Pr
  * Una transazione occupa un posto del limitatore dall'inizio alla fine, e dentro lavora sulla sua
  * connessione: il codice di una transazione deve usare solo la sessione che riceve (`tx`), una
  * query alla volta. Se usasse il collegamento generale aspetterebbe un posto che lei stessa occupa.
+ *
+ * Fa eccezione il database di prova in locale (vedi `collegamentoLocale`): senza cifratura e con una
+ * sola connessione, perché è un Postgres in memoria che ne serve una per volta.
  */
 export function apriDatabase(url: string, opzioni: { massimoConnessioni?: number } = {}): Database {
-  const massimo = opzioni.massimoConnessioni ?? 5;
+  const parametri = leggiStringaConnessione(url);
+  const locale = collegamentoLocale(parametri.host);
+  const massimo = locale ? 1 : (opzioni.massimoConnessioni ?? 5);
   const sql = postgres({
-    ...leggiStringaConnessione(url),
-    ssl: "require",
+    ...parametri,
+    ssl: locale ? false : "require",
     prepare: false,
     max: massimo,
     idle_timeout: 20,

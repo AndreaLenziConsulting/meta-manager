@@ -3,6 +3,8 @@ import { PGlite, type Transaction } from "@electric-sql/pglite";
 import { applicaMigrazioni, elencoMigrazioni } from "@/lib/db/migrazioni";
 import type { Database, Esegui, Riga, Sessione } from "@/lib/db/tipi";
 
+const CARTELLA_MIGRAZIONI = path.join(process.cwd(), "supabase", "migrations");
+
 /**
  * Un database Postgres vero, in memoria (PGlite), con lo schema dell'app già creato: applica in
  * ordine i file di supabase/migrations con la stessa procedura usata sul database reale
@@ -12,7 +14,13 @@ import type { Database, Esegui, Riga, Sessione } from "@/lib/db/tipi";
  * Solo per test e script: non va importato dal codice che gira su Vercel (PGlite è una dipendenza
  * di sviluppo).
  */
-export async function apriDatabaseInMemoria(cartellaMigrazioni = path.join(process.cwd(), "supabase", "migrations")): Promise<Database> {
+export async function apriDatabaseInMemoria(cartellaMigrazioni = CARTELLA_MIGRAZIONI): Promise<Database> {
+  return (await apriPgliteConSchema(cartellaMigrazioni)).db;
+}
+
+/** Come apriDatabaseInMemoria, ma restituisce anche il motore PGlite: serve a chi deve esporlo su una
+ * porta locale (scripts/database-di-prova.ts). */
+export async function apriPgliteConSchema(cartellaMigrazioni = CARTELLA_MIGRAZIONI): Promise<{ pg: PGlite; db: Database }> {
   const pg = new PGlite();
 
   const sessione = (cliente: PGlite | Transaction): Sessione => {
@@ -31,5 +39,5 @@ export async function apriDatabaseInMemoria(cartellaMigrazioni = path.join(proce
     chiudi: () => pg.close(),
   };
   await applicaMigrazioni(db, elencoMigrazioni(cartellaMigrazioni));
-  return db;
+  return { pg, db };
 }
