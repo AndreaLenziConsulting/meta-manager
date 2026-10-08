@@ -24,10 +24,11 @@ import {
   riepilogoAppuntamenti,
   riepilogoOpportunita,
   riepilogoPerTag,
+  andamentoPerVenditoreGhl,
   riepilogoPerVenditoreGhl,
   riepilogoSenzaTag,
 } from "@/lib/ghl";
-import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse } from "@/types/ghl";
+import type { GhlBreakdownCampagna, GhlBreakdownTag, GhlRiepilogoResponse, GhlSettimanaVenditore } from "@/types/ghl";
 
 export const runtime = "nodejs";
 // Rete di sicurezza, non più il fix principale: il 25/09/2026 questa route arrivava a ~40s (la
@@ -227,6 +228,7 @@ export async function GET(req: NextRequest) {
     // sugli oggetti già scaricati sopra. `appuntamenti` GREZZI (non appuntamentiPrimi): per il
     // carico di lavoro di un venditore ogni appuntamento tenuto conta, vedi riepilogoPerVenditoreGhl.
     const perVenditore: Record<string, GhlBreakdownCampagna> = {};
+    const perVenditoreSettimanale: Record<string, GhlSettimanaVenditore[]> = {};
     for (const venditore of venditoriConGhl) {
       perVenditore[venditore.venditoreId] = riepilogoPerVenditoreGhl(
         venditore.ghlUserId.trim(),
@@ -235,6 +237,8 @@ export async function GET(req: NextRequest) {
         startMs,
         endMs
       );
+      // Lo stesso, settimana per settimana, per il grafico "Andamento venditori".
+      perVenditoreSettimanale[venditore.venditoreId] = andamentoPerVenditoreGhl(venditore.ghlUserId.trim(), appuntamenti, opportunitaVinte, startMs, endMs);
     }
 
     // Sempre calcolato (non solo quando `campagne` è in query): alimenta la tabella "per singola
@@ -280,6 +284,7 @@ export async function GET(req: NextRequest) {
       perTag,
       senzaTag,
       perVenditore,
+      perVenditoreSettimanale,
     };
     return NextResponse.json(risposta);
   } catch (err) {

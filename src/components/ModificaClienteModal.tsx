@@ -1381,7 +1381,7 @@ function VenditoriBlock({
     <div className="space-y-2">
       {venditori.length === 0 && !attiva && (
         <p className="text-xs text-ink-500">
-          Nessuno — la vista &quot;Performance venditori&quot; (tab KPI) resta vuota finché non ne aggiungi almeno uno.
+          Nessuno — il riquadro dei venditori in fondo al tab KPI resta vuoto finché non ne aggiungi almeno uno.
         </p>
       )}
       <div className="space-y-2">
@@ -1419,7 +1419,9 @@ function VenditoreRow({
 }) {
   const [nome, setNome] = useState(venditore.nome);
   const [ghlUserId, setGhlUserId] = useState(venditore.ghlUserId);
-  const [capienza, setCapienza] = useState(String(venditore.capienzaAppuntamentiMensile));
+  // 0 = capienza non indicata (facoltativa dall'08/10/2026): il campo resta vuoto, non mostra uno zero.
+  const [capienza, setCapienza] = useState(venditore.capienzaAppuntamentiMensile > 0 ? String(venditore.capienzaAppuntamentiMensile) : "");
+  const [attivo, setAttivo] = useState(venditore.attivo);
   const [salvando, setSalvando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
   const [salvato, setSalvato] = useState(false);
@@ -1432,7 +1434,7 @@ function VenditoreRow({
       const res = await fetch("/api/venditori", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ venditoreId: venditore.venditoreId, nome, ghlUserId, capienzaAppuntamentiMensile: Number(capienza) }),
+        body: JSON.stringify({ venditoreId: venditore.venditoreId, nome, ghlUserId, capienzaAppuntamentiMensile: capienza.trim() === "" ? 0 : Number(capienza), attivo }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Salvataggio non riuscito");
@@ -1446,7 +1448,7 @@ function VenditoreRow({
     }
   }
 
-  const capienzaValida = Number(capienza) > 0;
+  const capienzaValida = capienza.trim() === "" || Number(capienza) >= 0;
 
   return (
     <div className="rounded-lg border border-ink-300/60 p-2.5 space-y-2">
@@ -1454,16 +1456,23 @@ function VenditoreRow({
         <Field label="Nome">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} />
         </Field>
-        <Field label="Appuntamenti/mese sostenibili">
-          <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} />
+        <Field label="Appuntamenti al mese">
+          <Input type="number" step="1" min={0} value={capienza} onChange={(e) => setCapienza(e.target.value)} placeholder="facoltativo" />
         </Field>
       </div>
       <Field
-        label="GHL User ID (opzionale)"
-        hint="Se impostato e la sede è connessa a GHL, appuntamenti e vendite/fatturato di questo venditore vengono calcolati automaticamente dagli appuntamenti/opportunità assegnati a questo utente su GHL, al posto dei dati inseriti a mano."
+        label="Utente GHL (facoltativo)"
+        hint="Il codice del suo utente su GHL. Se c'è e la sede è collegata a GHL, i suoi appuntamenti, vendite e fatturato si leggono da lì; altrimenti si inseriscono a mano dal tab KPI."
       >
-        <Input value={ghlUserId} onChange={(e) => setGhlUserId(e.target.value)} placeholder="id utente GHL" />
+        <Input value={ghlUserId} onChange={(e) => setGhlUserId(e.target.value)} placeholder="codice utente GHL" />
       </Field>
+      <label className="flex min-h-8 cursor-pointer items-start gap-2 text-sm text-ink-700">
+        <input type="checkbox" checked={attivo} onChange={(e) => setAttivo(e.target.checked)} className="mt-0.5 h-[18px] w-[18px] flex-shrink-0 cursor-pointer accent-[var(--brand-primary)]" />
+        <span>
+          <span className="font-semibold text-ink-900">Attivo</span>
+          <span className="block text-xs text-ink-500">Un venditore non attivo non compare più nel tab KPI. I risultati inseriti per lui restano.</span>
+        </span>
+      </label>
       {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
@@ -1520,6 +1529,7 @@ function NuovoVenditoreForm({
 }) {
   const [nome, setNome] = useState("");
   const [capienza, setCapienza] = useState("");
+  const [ghlUserId, setGhlUserId] = useState("");
   const [creando, setCreando] = useState(false);
   const [errore, setErrore] = useState<string | null>(null);
 
@@ -1530,7 +1540,7 @@ function NuovoVenditoreForm({
       const res = await fetch("/api/venditori", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sedeId, nome, capienzaAppuntamentiMensile: Number(capienza) }),
+        body: JSON.stringify({ sedeId, nome, capienzaAppuntamentiMensile: capienza.trim() === "" ? 0 : Number(capienza), ghlUserId }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Creazione non riuscita");
@@ -1542,7 +1552,7 @@ function NuovoVenditoreForm({
     }
   }
 
-  const capienzaValida = Number(capienza) > 0;
+  const capienzaValida = capienza.trim() === "" || Number(capienza) >= 0;
 
   return (
     <div className="rounded-lg border border-dashed border-ink-300 p-2.5 space-y-2">
@@ -1550,10 +1560,13 @@ function NuovoVenditoreForm({
         <Field label="Nome">
           <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="es. Mario Rossi" />
         </Field>
-        <Field label="Appuntamenti/mese sostenibili">
-          <Input type="number" step="1" value={capienza} onChange={(e) => setCapienza(e.target.value)} placeholder="es. 20" />
+        <Field label="Appuntamenti al mese" hint="Facoltativo: serve solo a dividere il target fra i venditori.">
+          <Input type="number" step="1" min={0} value={capienza} onChange={(e) => setCapienza(e.target.value)} placeholder="es. 20" />
         </Field>
       </div>
+      <Field label="Utente GHL (facoltativo)" hint="Il codice del suo utente su GHL: con quello i suoi numeri si leggono da GHL invece di inserirli a mano.">
+        <Input value={ghlUserId} onChange={(e) => setGhlUserId(e.target.value)} placeholder="codice utente GHL" />
+      </Field>
       {errore && <p className="text-xs text-critico">{errore}</p>}
       <div className="flex gap-2">
         <Button variant="crea" type="button" size="sm" onClick={crea} disabled={creando || !nome.trim() || !capienzaValida}>

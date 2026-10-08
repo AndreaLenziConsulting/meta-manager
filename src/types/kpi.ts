@@ -343,6 +343,11 @@ export type KpiResponse = {
     // [] = nessun venditore configurato: il chiamante (PacingVenditoriChart.tsx) non mostra nulla.
     venditori?: Venditore[];
     risultatiVenditoriPeriodo?: { venditoreId: string; appuntamentiFissati: number; vendite: number; fatturato: number }[];
+    // I risultati inseriti a mano per i venditori della sede, mese per mese, per i SOLI mesi che
+    // stanno per intero nel periodo richiesto (08/10/2026, riquadro "Venditori" che segue il periodo
+    // scelto in alto — vedi src/lib/andamentoVenditori.ts). `risultatiVenditoriPeriodo` sopra resta
+    // com'è per "Ritmo sul target", che guarda il mese in corso.
+    risultatiVenditoriMensili?: { mese: string; venditoreId: string; appuntamentiFissati: number; vendite: number; fatturato: number }[];
   };
   // Sempre presente (anche su code): popola il selettore quando il cliente ha più di una sede.
   sediDisponibili: { sedeId: string; nome: string }[];

@@ -132,9 +132,11 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
       leadMese: 0,
       appuntamentiMese,
       targetBudgetMensile: null,
-      targetFatturatoMensile: dati.sede.targetFatturatoMensile != null ? dati.sede.targetFatturatoMensile * quota : null,
+      // Senza capienza indicata (facoltativa dall'08/10/2026) il venditore non ha una quota: nessun
+      // target da inseguire, mai un target a zero.
+      targetFatturatoMensile: dati.sede.targetFatturatoMensile != null && quota > 0 ? dati.sede.targetFatturatoMensile * quota : null,
       targetLeadSettimana: null,
-      targetAppuntamentiSettimana: dati.sede.targetAppuntamentiSettimana != null ? dati.sede.targetAppuntamentiSettimana * quota : null,
+      targetAppuntamentiSettimana: dati.sede.targetAppuntamentiSettimana != null && quota > 0 ? dati.sede.targetAppuntamentiSettimana * quota : null,
       giornoDelMese,
       giorniNelMese,
     });
@@ -147,7 +149,9 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
   if (blocchi.every((b) => b.metriche.length === 0)) {
     return (
       <p className="text-sm text-ink-500">
-        Nessun target di appuntamenti/fatturato impostato per questa sede — impostalo da &quot;Modifica cliente&quot; per vedere qui il ritmo dei venditori.
+        {quote.size === 0 && (dati.sede.targetFatturatoMensile != null || dati.sede.targetAppuntamentiSettimana != null)
+          ? "Nessun venditore ha una capienza indicata: senza, il target della sede non si può dividere fra loro. Si indica da \"Modifica cliente\", fra le impostazioni della sede."
+          : "Nessun target di appuntamenti o fatturato impostato per questa sede: si imposta da \"Modifica cliente\", fra le impostazioni della sede."}
       </p>
     );
   }
@@ -162,7 +166,7 @@ export function PacingVenditoriChart({ clienteId, sedeId, haConnessioneGhl }: { 
           <BloccoPacing
             key={venditore.venditoreId}
             titolo={venditore.nome}
-            sottotitolo={`${formatPercentuale(quota)} del carico${chiusura != null ? ` · chiusura ${formatPercentuale(chiusura)}` : ""}${daGhl ? " · via GHL" : ""}`}
+            sottotitolo={`${quota > 0 ? `${formatPercentuale(quota)} del carico` : "capienza non indicata"}${chiusura != null ? ` · chiusura ${formatPercentuale(chiusura)}` : ""}${daGhl ? " · via GHL" : ""}`}
             metriche={metriche}
             fraz={fraz}
           />

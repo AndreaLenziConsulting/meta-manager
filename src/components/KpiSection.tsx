@@ -25,6 +25,7 @@ import { risultatiDaBreakdown } from "@/lib/dettaglioGhl";
 import { confrontaTargetCommerciali } from "@/lib/targetCommerciali";
 import { attivitaInRitardo } from "@/lib/roadmap";
 import { applicaOverlayGhl, applicaOverlayGhlTrend } from "@/lib/kpiGhlOverlay";
+import type { GhlPerVenditori } from "@/lib/andamentoVenditori";
 import type { AttivitaClienteRow, KpiResponse } from "@/types/kpi";
 import type { GhlRiepilogoResponse } from "@/types/ghl";
 
@@ -33,6 +34,9 @@ type Props = { code?: string; clienteId?: string; haConnessioneGhl?: boolean; ru
 // Riferimento stabile per il link pubblico `code` (dove KpiResponse.anagraficaCampagne non arriva):
 // un `[]` scritto inline sarebbe un array nuovo a ogni render, vedi ghlDettaglio più sotto.
 const EMPTY_ANAGRAFICA_CAMPAGNE: NonNullable<KpiResponse["anagraficaCampagne"]> = [];
+// Stesso motivo, per il riquadro dei venditori: una sede senza venditori o senza risultati inseriti.
+const NESSUN_VENDITORE: NonNullable<KpiResponse["sede"]["venditori"]> = [];
+const NESSUN_RISULTATO_MENSILE: NonNullable<KpiResponse["sede"]["risultatiVenditoriMensili"]> = [];
 
 /**
  * Contenuto della voce "KPI" dell'accordion in SchedaCliente.tsx — sostituisce KpiDashboard.tsx.
@@ -94,6 +98,11 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
   // GHL non ancora arrivati" da "GHL non disponibile" per gli avvisi operativi (vedi
   // generaAvvisiOperativi: ghlAtteso/ghlErrore). Azzerato a ogni nuovo fetch.
   const [ghlErrore, setGhlErrore] = useState(false);
+  // Per quale sede e quale periodo sono i `ghlDati` che ho in mano. Cambiando periodo quelli vecchi
+  // restano finché non arrivano i nuovi (le tessere li tengono, attenuate); il riquadro dei
+  // venditori invece mostra numeri per venditore con accanto il periodo nuovo, e lì un numero del
+  // periodo di prima non deve comparire: finché le due cose non combaciano dice "lettura in corso".
+  const [periodoGhl, setPeriodoGhl] = useState<string | null>(null);
   // Stesse due variabili ma per il periodo precedente (confronto sotto alle tessere) — null finché
   // il rispettivo fetch non è arrivato o se non c'è un periodo precedente comparabile.
   const [datiPrecedenti, setDatiPrecedenti] = useState<KpiResponse | null>(null);
@@ -282,7 +291,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             setGhlErrore(!res.ok);
             return res.ok ? res.json() : null;
           })
-          .then((body: GhlRiepilogoResponse | null) => setGhlDati(body));
+          .then((body: GhlRiepilogoResponse | null) => {
+            setGhlDati(body);
+            setPeriodoGhl(`${sedeGhl}|${da}|${a}`);
+          });
       })
       .catch((err) => {
         if (err instanceof DOMException && err.name === "AbortError") return;
@@ -403,6 +415,24 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     return tipi.length > 0 ? tipi : [""];
   }, [dati, predefiniteSede]);
 
+  // Cosa si sa di GHL per i venditori della sede (riquadro "Venditori" in fondo, vedi
+  // src/lib/andamentoVenditori.ts). "assente" anche per una sede che legge dal file contatti: lì non
+  // c'è scritto quale venditore ha seguito quale contatto, valgono i risultati inseriti a mano.
+  const ghlVenditori = useMemo<GhlPerVenditori>(() => {
+    if (!clienteId || !haConnessioneGhl) return { stato: "assente" };
+    if (ghlErrore) return { stato: "errore" };
+    if (ghlDati === null || periodoGhl !== `${sedeGhl}|${da}|${a}`) return { stato: "caricamento" };
+    if (!ghlDati.connesso || ghlDati.fonte === "foglio") return { stato: "assente" };
+    return {
+      stato: "ok",
+      calendariCollegati: ghlDati.calendariConfigurati,
+      perVenditore: ghlDati.perVenditore ?? {},
+      perSettimana: ghlDati.perVenditoreSettimanale ?? {},
+    };
+  }, [clienteId, haConnessioneGhl, ghlErrore, ghlDati, periodoGhl, sedeGhl, da, a]);
+  // I lunedì delle settimane del periodo: la stessa griglia su cui disegnano i grafici del marketing.
+  const settimanePeriodo = useMemo(() => (dati?.trendSettimanale ?? []).map((s) => s.settimana), [dati]);
+
   // Fatturato/Vendite/ROAS/CPA/Appuntamenti fissati mostrati sotto: da GHL se connesso (scoped
   // alle campagne selezionate quando quella sede ha attribuzione disponibile), altrimenti da
   // RisultatiCommerciali come sempre — vedi kpiGhlOverlay.ts per il dettaglio di quali tessere e
@@ -441,6 +471,16 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
         : [],
     [dati, ghlDati, campagneSelezionate]
   );
+
+  // Dopo un inserimento a mano (risultati commerciali o dei venditori) i numeri si rileggono subito
+  // e senza la cache: chi ha appena salvato deve vederli.
+  function rileggiSubito() {
+    setRefreshTick((t) => {
+      const nuovo = t + 1;
+      frescoPerTickRef.current = nuovo;
+      return nuovo;
+    });
+  }
 
   // "Aggiorna KPI" controlla ora sia Meta che GHL — Meta Ads sincronizza davvero (scrive righe in
   // MetaDaily, da cui la dashboard legge), GHL invece è già letto in diretta dal tab KPI stesso
@@ -821,11 +861,24 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
             filtroCampagne={campagneSelezionate}
           />
 
-          {/* Blocco 8 — "Performance venditori" (Fase 2/4), spostato qui da BoxGrafici.tsx (richiesta
-              utente 20/09/2026: è andamento commerciale, non un grafico ads). Mai sul link pubblico
-              `code`, stesso motivo del blocco 4 sopra: i venditori/target non sono mai esposti lì. */}
+          {/* Blocco 8 — i venditori della sede. Dall'08/10/2026 segue il periodo scelto in alto e ha la
+              tendina dei grafici, come BoxGrafici sopra (vedi AndamentoCommerciale.tsx). Mai sul link
+              pubblico `code`, stesso motivo del blocco 4: venditori e target non sono mai esposti lì. */}
           {clienteId && (
-            <AndamentoCommerciale clienteId={clienteId} sedeId={dati.sede.sedeId} haConnessioneGhl={Boolean(haConnessioneGhl)} />
+            <AndamentoCommerciale
+              // Cambiando sede il riquadro riparte: la vista scelta e la finestra di inserimento valgono per una sede.
+              key={dati.sede.sedeId}
+              clienteId={clienteId}
+              sedeId={dati.sede.sedeId}
+              haConnessioneGhl={Boolean(haConnessioneGhl)}
+              venditori={dati.sede.venditori ?? NESSUN_VENDITORE}
+              settimane={settimanePeriodo}
+              da={da}
+              a={a}
+              ghl={ghlVenditori}
+              mensili={dati.sede.risultatiVenditoriMensili ?? NESSUN_RISULTATO_MENSILE}
+              onRisultatiSalvati={rileggiSubito}
+            />
           )}
         </div>
       )}
@@ -841,14 +894,7 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
           tipiCampagna={tipiPerRisultati}
           fonteAutomatica={Boolean(haConnessioneGhl)}
           onClose={() => setRisultatiAperti(false)}
-          // I numeri sotto si rileggono subito, senza la cache: chi ha appena salvato deve vederli.
-          onSalvato={() =>
-            setRefreshTick((t) => {
-              const nuovo = t + 1;
-              frescoPerTickRef.current = nuovo;
-              return nuovo;
-            })
-          }
+          onSalvato={rileggiSubito}
         />
       )}
     </div>

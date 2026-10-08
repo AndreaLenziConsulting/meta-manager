@@ -10,6 +10,7 @@ import {
   riepilogoOpportunita,
   riepilogoPerTag,
   riepilogoPerVenditoreGhl,
+  andamentoPerVenditoreGhl,
 } from "./ghl";
 import type { GhlAppuntamento, GhlAttribuzione, GhlOpportunita } from "@/types/ghl";
 import { riepilogoSenzaTag } from "./ghl";
@@ -576,6 +577,47 @@ describe("riepilogoPerVenditoreGhl", () => {
       appuntamenti: { totali: 0, confermati: 0, annullati: 0, effettuati: 0 },
       opportunita: { vendite: 0, fatturato: 0 },
     });
+  });
+});
+
+describe("andamentoPerVenditoreGhl", () => {
+  it("mette insieme, settimana per settimana, appuntamenti e vendite assegnati al venditore", () => {
+    const appuntamenti = [
+      // Settimana di lunedi 3 agosto: due presi, uno gia tenuto e uno annullato.
+      appuntamento({ id: "a1", assignedUserId: "u1", dateAdded: "2026-08-04T09:00:00Z", startTime: "2026-08-06T10:00:00Z" }),
+      appuntamento({ id: "a2", assignedUserId: "u1", dateAdded: "2026-08-05T09:00:00Z", startTime: "2026-08-07T10:00:00Z", appointmentStatus: "cancelled" }),
+      // Settimana di lunedi 24 agosto: preso, l'incontro e dopo l'ora di riferimento.
+      appuntamento({ id: "a3", assignedUserId: "u1", dateAdded: "2026-08-25T09:00:00Z", startTime: "2026-08-29T10:00:00Z" }),
+      // Di un altro venditore: non conta.
+      appuntamento({ id: "a4", assignedUserId: "u2", dateAdded: "2026-08-04T09:00:00Z" }),
+    ];
+    const vinte = [
+      opportunita({ id: "o1", assignedTo: "u1", status: "won", monetaryValue: 3000, lastStatusChangeAt: "2026-08-12T10:00:00Z" }),
+      opportunita({ id: "o2", assignedTo: "u1", status: "won", monetaryValue: 1500, lastStatusChangeAt: "2026-08-26T10:00:00Z" }),
+      opportunita({ id: "o3", assignedTo: "u2", status: "won", monetaryValue: 9999, lastStatusChangeAt: "2026-08-12T10:00:00Z" }),
+    ];
+    expect(andamentoPerVenditoreGhl("u1", appuntamenti, vinte, AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([
+      { settimana: "2026-08-03", fissati: 2, effettuati: 1, vendite: 0, fatturato: 0 },
+      { settimana: "2026-08-10", fissati: 0, effettuati: 0, vendite: 1, fatturato: 3000 },
+      { settimana: "2026-08-24", fissati: 1, effettuati: 0, vendite: 1, fatturato: 1500 },
+    ]);
+  });
+
+  it("conta ogni appuntamento, anche due con lo stesso contatto; chi non ha nulla non ha settimane", () => {
+    const appuntamenti = [
+      appuntamento({ id: "a1", contactId: "stesso", assignedUserId: "u1", dateAdded: "2026-08-04T09:00:00Z" }),
+      appuntamento({ id: "a2", contactId: "stesso", assignedUserId: "u1", dateAdded: "2026-08-05T09:00:00Z" }),
+    ];
+    expect(andamentoPerVenditoreGhl("u1", appuntamenti, [], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)[0].fissati).toBe(2);
+    expect(andamentoPerVenditoreGhl("u-mai-visto", appuntamenti, [], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([]);
+  });
+
+  it("le settimane ai bordi del periodo sono intere, come nei grafici del marketing", () => {
+    // Sabato 1 agosto sta nella settimana di lunedi 27 luglio: un appuntamento preso il 28 luglio vi rientra.
+    const appuntamenti = [appuntamento({ id: "a1", assignedUserId: "u1", dateAdded: "2026-07-28T09:00:00Z" })];
+    expect(andamentoPerVenditoreGhl("u1", appuntamenti, [], AGOSTO_INIZIO, AGOSTO_FINE, ORA_RIFERIMENTO)).toEqual([
+      { settimana: "2026-07-27", fissati: 1, effettuati: 1, vendite: 0, fatturato: 0 },
+    ]);
   });
 });
 

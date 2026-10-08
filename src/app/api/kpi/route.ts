@@ -17,6 +17,7 @@ import { chiaveCampagna, computeKpi, computeKpiPerCampagna, haRisultatiCommercia
 import { campagneDaConsiderare, campagnePredefinite, leggiFiltroCampagne } from "@/lib/campagneAlc";
 import { mesiConSpesaSenzaRisultatiCommerciali } from "@/lib/kpiQualita";
 import { aggregaRisultatiVenditori } from "@/lib/venditori";
+import { risultatiVenditoriInteriNelPeriodo } from "@/lib/andamentoVenditori";
 import type { CampagnaDisponibile, Canale, KpiResponse, Sede } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -193,6 +194,9 @@ export async function GET(req: NextRequest) {
           risultatiVenditoriPeriodo: Array.from(
             aggregaRisultatiVenditori(risultatiVenditori, sede.sedeId, da.slice(0, 7), a.slice(0, 7)).entries()
           ).map(([venditoreId, agg]) => ({ venditoreId, ...agg })),
+          // Per il riquadro "Venditori", che segue il periodo scelto: qui solo i mesi interi, nessuna
+          // approssimazione (vedi src/lib/andamentoVenditori.ts).
+          risultatiVenditoriMensili: risultatiVenditoriInteriNelPeriodo(risultatiVenditori, sede.sedeId, da, a),
         }
       : { sedeId: sede.sedeId, nome: sede.nome },
     sediDisponibili: sediCliente.map((s) => ({ sedeId: s.sedeId, nome: s.nome })),

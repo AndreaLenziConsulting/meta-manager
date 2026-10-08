@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { ChevronDown, LineChart } from "lucide-react";
+import { useState } from "react";
+import { SelettoreGrafico, type OpzioneGrafico } from "@/components/SelettoreGrafico";
 import { FunnelConversioneChart } from "@/components/FunnelConversioneChart";
 import { CostoPerRisultatoChart } from "@/components/CostoPerRisultatoChart";
 import { SaldoNettoCumulatoChart } from "@/components/SaldoNettoCumulatoChart";
@@ -10,14 +10,14 @@ import { PacingTargetChart } from "@/components/PacingTargetChart";
 
 type TipoGrafico = "pacing" | "funnel" | "costoPerRisultato" | "saldoNetto" | "andamentoAppuntamenti";
 
-const OPZIONI_BASE: { id: TipoGrafico; label: string; descrizione: string }[] = [
+const OPZIONI_BASE: OpzioneGrafico<TipoGrafico>[] = [
   { id: "funnel", label: "Funnel di conversione", descrizione: "Lead → appuntamenti fissati → effettuati → vendite" },
   { id: "costoPerRisultato", label: "Costo per Risultato", descrizione: "Spesa, costo/lead, costo/appuntamento e CAC per settimana" },
   { id: "saldoNetto", label: "Saldo netto cumulato", descrizione: "Contrattualizzato meno investimento, nel periodo selezionato" },
   { id: "andamentoAppuntamenti", label: "Andamento appuntamenti", descrizione: "Fissati vs effettuati per settimana" },
 ];
 
-const OPZIONE_PACING: { id: TipoGrafico; label: string; descrizione: string } = {
+const OPZIONE_PACING: OpzioneGrafico<TipoGrafico> = {
   id: "pacing",
   label: "Target mensili",
   descrizione: "Ritmo di spesa/fatturato/lead/appuntamenti rispetto a oggi",
@@ -45,8 +45,8 @@ type SerieSettimanaleOverlay = {
 
 /**
  * Blocco 6 del redesign KPI — un solo riquadro, un menù a tendina vero (non pillole tab, scelta
- * esplicita di design del blocco 6) per scegliere quale dei grafici mostrare alla volta. Stesso
- * pattern open/close/click-fuori già scritto in CampagneFilter.tsx, non reinventato qui.
+ * esplicita di design del blocco 6) per scegliere quale dei grafici mostrare alla volta. La tendina
+ * è SelettoreGrafico.tsx, la stessa del riquadro dei venditori.
  *
  * "Target mensili" (richiesta utente, 11/2026) è l'unica opzione che riceve una prop dedicata
  * (`pacing`) invece di leggere `funnel`/`trendSettimanaleConOverlay` come le altre: guarda un mese
@@ -89,25 +89,6 @@ export function BoxGrafici({
   const [selezionato, setSelezionato] = useState<TipoGrafico>(
     !pacing ? "funnel" : pacingHaTarget ? "pacing" : "costoPerRisultato"
   );
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    function handleClick(e: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    function handleTasto(e: KeyboardEvent) {
-      if (e.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("mousedown", handleClick);
-    document.addEventListener("keydown", handleTasto);
-    return () => {
-      document.removeEventListener("mousedown", handleClick);
-      document.removeEventListener("keydown", handleTasto);
-    };
-  }, [open]);
-
   const attivo = OPZIONI.find((o) => o.id === selezionato) ?? OPZIONI[0];
 
   return (
@@ -117,43 +98,7 @@ export function BoxGrafici({
           <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{attivo.label}</h3>
         </div>
 
-        <div className="relative" ref={rootRef}>
-          <button
-            type="button"
-            onClick={() => setOpen((o) => !o)}
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-label={`Grafico mostrato: ${attivo.label}. Clicca per cambiarlo`}
-            className="flex items-center gap-2 min-h-10 rounded-lg border border-bordo-campo bg-surface-card px-3 py-2 text-sm text-ink-900 hover:border-brand transition cursor-pointer"
-          >
-            <LineChart size={16} aria-hidden="true" className="text-ink-500" />
-            {attivo.label}
-            <ChevronDown size={16} aria-hidden="true" className="text-ink-500" />
-          </button>
-
-          {open && (
-            <div role="menu" className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-2">
-              {OPZIONI.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={o.id === selezionato}
-                  onClick={() => {
-                    setSelezionato(o.id);
-                    setOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer ${
-                    o.id === selezionato ? "bg-brand-light" : "hover:bg-surface"
-                  }`}
-                >
-                  <p className={`text-sm font-semibold ${o.id === selezionato ? "text-brand" : "text-ink-900"}`}>{o.label}</p>
-                  <p className="text-xs text-ink-500">{o.descrizione}</p>
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
+        <SelettoreGrafico opzioni={OPZIONI} selezionato={selezionato} onChange={setSelezionato} />
       </div>
 
       {selezionato === "pacing" && pacing && <PacingTargetChart {...pacing} />}

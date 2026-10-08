@@ -142,6 +142,10 @@ export type GhlBreakdownCampagna = {
   opportunita: { vendite: number; fatturato: number };
 };
 
+/** Una settimana (il suo lunedì) di lavoro di UN venditore, da GHL: appuntamenti presi ed effettuati,
+ * vendite e fatturato — vedi andamentoPerVenditoreGhl in src/lib/ghl.ts. */
+export type GhlSettimanaVenditore = { settimana: string; fissati: number; effettuati: number; vendite: number; fatturato: number };
+
 /** Come GhlBreakdownCampagna, ma per UN tag contatto GHL (Fase 3 categorie commerciali, 11/2026) —
  * vedi riepilogoPerTag in src/lib/ghl.ts. `richieste` in più rispetto a GhlBreakdownCampagna: qui
  * il "lead" è il contatto stesso taggato (join diretto), mentre per una campagna Meta il lead è già
@@ -221,4 +225,9 @@ export type GhlRiepilogoResponse =
       // stesso motivo di `perTag` sopra. Consumato da PacingVenditoriChart.tsx per sostituire
       // appuntamenti/fatturato dei RisultatiVenditori inseriti a mano con quelli derivati da GHL.
       perVenditore?: Record<string, GhlBreakdownCampagna>;
+      // Gli stessi venditori di `perVenditore`, settimana per settimana (08/10/2026): alimenta il
+      // grafico "Andamento venditori" (AndamentoVenditori.tsx). Solo le settimane in cui il venditore
+      // ha avuto almeno un appuntamento o una vendita: le altre valgono zero. Stessa griglia di
+      // settimane di `appuntamentiPerSettimana` (quelle di bordo sono intere).
+      perVenditoreSettimanale?: Record<string, GhlSettimanaVenditore[]>;
     };

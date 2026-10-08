@@ -1,6 +1,6 @@
 import { settimanaDiData } from "@/lib/kpi";
 import { conCacheGhl, richiestaGhlConRiprova } from "@/lib/ghlRichieste";
-import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline } from "@/types/ghl";
+import type { GhlAppuntamento, GhlBreakdownCampagna, GhlBreakdownTag, GhlCalendario, GhlOpportunita, GhlPipeline, GhlSettimanaVenditore } from "@/types/ghl";
 
 /**
  * Client per l'API di Go High Level / Squadd — mirror strutturale di src/lib/meta.ts (funzioni
@@ -673,6 +673,47 @@ export function riepilogoPerVenditoreGhl(
   };
 }
 
+/**
+ * L'andamento di un venditore settimana per settimana: appuntamenti presi ed effettuati, vendite e
+ * fatturato, dagli appuntamenti e dalle opportunità vinte assegnati a lui su GHL. Stessi criteri di
+ * riepilogoPerVenditoreGhl (ogni appuntamento conta, anche i successivi con lo stesso contatto) e
+ * stessa griglia di settimane dei grafici del marketing (appuntamentiGhlPerSettimana e
+ * fatturatoGhlPerSettimana: le settimane ai bordi del periodo sono intere).
+ *
+ * Restituisce solo le settimane in cui è successo qualcosa, in ordine: per le altre il valore è
+ * zero — uno zero vero, perché GHL è stato letto e non c'era nulla.
+ */
+export function andamentoPerVenditoreGhl(
+  ghlUserId: string,
+  appuntamenti: GhlAppuntamento[],
+  opportunitaVinte: GhlOpportunita[],
+  startMs: number,
+  endMs: number,
+  oraAttualeMs: number = Date.now()
+): GhlSettimanaVenditore[] {
+  const perSettimana = new Map<string, GhlSettimanaVenditore>();
+  const voce = (settimana: string) => {
+    let v = perSettimana.get(settimana);
+    if (!v) {
+      v = { settimana, fissati: 0, effettuati: 0, vendite: 0, fatturato: 0 };
+      perSettimana.set(settimana, v);
+    }
+    return v;
+  };
+  const suoiAppuntamenti = appuntamenti.filter((a) => a.assignedUserId === ghlUserId);
+  for (const s of appuntamentiGhlPerSettimana(suoiAppuntamenti, startMs, endMs, oraAttualeMs)) {
+    const v = voce(s.settimana);
+    v.fissati = s.fissati;
+    v.effettuati = s.effettuati;
+  }
+  const sueVendite = opportunitaVinte.filter((o) => o.assignedTo === ghlUserId);
+  for (const s of fatturatoGhlPerSettimana(sueVendite, startMs, endMs)) {
+    const v = voce(s.settimana);
+    v.vendite = s.vendite;
+    v.fatturato = s.fatturato;
+  }
+  return Array.from(perSettimana.values()).sort((a, b) => a.settimana.localeCompare(b.settimana));
+}
 
 /** Id pipeline di una categoria commerciale (CategoriaCommerciale.pipelineGhl, separati da virgola)
  * — [] se la categoria non è definita per pipeline. */

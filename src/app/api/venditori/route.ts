@@ -30,7 +30,16 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ venditori: risultato });
 }
 
-type BodyPost = { sedeId?: string; nome?: string; capienzaAppuntamentiMensile?: number };
+type BodyPost = { sedeId?: string; nome?: string; capienzaAppuntamentiMensile?: number | null; ghlUserId?: string };
+
+/**
+ * La capienza (appuntamenti al mese che il venditore può reggere) è facoltativa dall'08/10/2026:
+ * serve solo a dividere il target della sede fra i venditori in "Ritmo sul target". Obbligarla
+ * voleva dire inventare un numero per chi vuole solo vedere l'andamento. 0 = non indicata.
+ */
+function capienzaValida(valore: number | null | undefined): boolean {
+  return valore === undefined || valore === null || (Number.isFinite(valore) && valore >= 0);
+}
 
 export async function POST(req: NextRequest) {
   const sessione = await getSessione();
@@ -52,8 +61,8 @@ export async function POST(req: NextRequest) {
   if (!nome) {
     return NextResponse.json({ error: "Il nome del venditore è obbligatorio" }, { status: 400 });
   }
-  if (capienza === undefined || capienza === null || !(capienza > 0)) {
-    return NextResponse.json({ error: "La capienza (appuntamenti/mese) deve essere un numero maggiore di zero" }, { status: 400 });
+  if (!capienzaValida(capienza)) {
+    return NextResponse.json({ error: "La capienza (appuntamenti al mese) deve essere un numero da zero in su, oppure vuota" }, { status: 400 });
   }
 
   const [sedi, esistenti] = await Promise.all([getSedi(), getVenditori({ noCache: true })]);
@@ -67,14 +76,16 @@ export async function POST(req: NextRequest) {
 
   const venditoreId = `${sedeId}--${randomUUID().slice(0, 8)}`;
   try {
-    await creaVenditore({ venditoreId, sedeId, nome, capienzaAppuntamentiMensile: capienza });
+    await creaVenditore({ venditoreId, sedeId, nome, capienzaAppuntamentiMensile: capienza ?? 0 });
+    const ghlUserId = body.ghlUserId?.trim();
+    if (ghlUserId) await aggiornaVenditore({ venditoreId, ghlUserId });
     return NextResponse.json({ venditoreId }, { status: 201 });
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : "Errore nella creazione" }, { status: 502 });
   }
 }
 
-type BodyPatch = { venditoreId?: string; nome?: string; ghlUserId?: string; capienzaAppuntamentiMensile?: number; attivo?: boolean };
+type BodyPatch = { venditoreId?: string; nome?: string; ghlUserId?: string; capienzaAppuntamentiMensile?: number | null; attivo?: boolean };
 
 export async function PATCH(req: NextRequest) {
   const sessione = await getSessione();
@@ -94,8 +105,8 @@ export async function PATCH(req: NextRequest) {
   if (body.nome !== undefined && !nome) {
     return NextResponse.json({ error: "Il nome del venditore è obbligatorio" }, { status: 400 });
   }
-  if (body.capienzaAppuntamentiMensile !== undefined && !(body.capienzaAppuntamentiMensile > 0)) {
-    return NextResponse.json({ error: "La capienza (appuntamenti/mese) deve essere un numero maggiore di zero" }, { status: 400 });
+  if (!capienzaValida(body.capienzaAppuntamentiMensile)) {
+    return NextResponse.json({ error: "La capienza (appuntamenti al mese) deve essere un numero da zero in su, oppure vuota" }, { status: 400 });
   }
 
   const venditori = await getVenditori({ noCache: true });
@@ -115,8 +126,8 @@ export async function PATCH(req: NextRequest) {
       venditoreId,
       nome,
       ghlUserId: body.ghlUserId !== undefined ? body.ghlUserId.trim() : undefined,
-      capienzaAppuntamentiMensile: body.capienzaAppuntamentiMensile,
-      attivo: body.attivo,
+      capienzaAppuntamentiMensile: body.capienzaAppuntamentiMensile === null ? 0 : body.capienzaAppuntamentiMensile,
+      attivo: typeof body.attivo === "boolean" ? body.attivo : undefined,
     });
     return NextResponse.json({ ok: true });
   } catch (err) {
