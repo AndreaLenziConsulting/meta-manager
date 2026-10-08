@@ -88,20 +88,32 @@ export type DettaglioInserzioni = {
   altre: Record<string, AnagraficaInserzioneFuoriPeriodo>;
 };
 
-const TABELLA = "w-full border-collapse text-sm leading-5 text-ink-700";
+// Tabella fitta: fino a quindici colonne. Rispetto alla "Tabella" del Design System ALC (corpo a 14px)
+// il corpo è a 13px, perché qui i numeri sono tanti e a 14px si toccavano (segnalato dall'utente
+// l'08/10/2026: "scritte troppo grandi e appiccicate"). Il resto è quello del sistema: intestazioni
+// maiuscole piccole, numeri a destra con cifre tabellari, totale su accento tenue.
+const TABELLA = "w-full border-collapse text-[13px] leading-[18px] text-ink-700";
 const RIGA = "border-b border-linea";
-const TH_BASE = "bg-surface px-2.5 py-3 text-[11px] leading-4 font-bold uppercase tracking-[.1em] text-ink-500 align-bottom";
+// Spazio di ogni cella: 12px per lato, quindi 24px fra una colonna e l'altra (prima erano 20).
+const CELLA = "px-3 py-2.5";
+const TH_BASE = `bg-surface ${CELLA} text-[11px] leading-[14px] font-bold uppercase tracking-[.06em] text-ink-500 align-bottom`;
 const TH = `${TH_BASE} text-right`;
 const TH_SINISTRA = `${TH_BASE} text-left`;
-const TH_PRIMA = `${TH_BASE} pl-5 text-left sticky left-0 min-w-[168px]`;
-const TD = "text-right px-2.5 py-3 whitespace-nowrap tabular-nums";
-const TD_LEAD = "text-right px-2.5 py-3 whitespace-nowrap tabular-nums font-bold text-brand";
-const TD_TOTALE = "text-right px-2.5 py-3 font-extrabold whitespace-nowrap tabular-nums text-ink-900";
-const TD_TOTALE_LEAD = "text-right px-2.5 py-3 font-extrabold whitespace-nowrap tabular-nums text-brand";
-const TD_PRIMA = "pl-5 pr-2.5 py-3 sticky left-0 bg-surface-card text-left font-semibold text-ink-900";
+// La prima colonna resta ferma mentre le altre scorrono. Per i tipi di campagna, che hanno nomi
+// brevi, basta poco; per campagne e inserzioni è larga, perché i loro nomi sono lunghi e in una
+// colonna stretta andavano a capo su tre o quattro righe. Su telefono resta stretta: ferma com'è,
+// una colonna larga coprirebbe quasi tutto lo schermo.
+const PRIMA_BASE = `${TH_BASE} pl-5 pr-4 text-left sticky left-0`;
+const TH_PRIMA = `${PRIMA_BASE} min-w-[168px]`;
+const TH_PRIMA_NOME = `${PRIMA_BASE} min-w-[168px] sm:min-w-[220px] lg:w-[280px] lg:min-w-[280px]`;
+const TD = `text-right ${CELLA} whitespace-nowrap tabular-nums`;
+const TD_LEAD = `text-right ${CELLA} whitespace-nowrap tabular-nums font-bold text-brand`;
+const TD_TOTALE = `text-right ${CELLA} font-extrabold whitespace-nowrap tabular-nums text-ink-900`;
+const TD_TOTALE_LEAD = `text-right ${CELLA} font-extrabold whitespace-nowrap tabular-nums text-brand`;
+const TD_PRIMA = "pl-5 pr-4 py-2.5 sticky left-0 bg-surface-card text-left font-semibold text-ink-900";
 const RIGA_TOTALE = "bg-brand-light";
-const TD_PRIMA_TOTALE = "pl-5 pr-2.5 py-3 sticky left-0 bg-brand-light text-left font-extrabold text-ink-900";
-const SOTTOTITOLO = "text-xs leading-4 text-ink-500 font-normal";
+const TD_PRIMA_TOTALE = "pl-5 pr-4 py-2.5 sticky left-0 bg-brand-light text-left font-extrabold text-ink-900";
+const SOTTOTITOLO = "text-[11px] leading-[15px] text-ink-500 font-normal";
 
 type Verso = "asc" | "desc";
 type Ordine<K extends string> = { chiave: K; verso: Verso } | null;
@@ -147,14 +159,21 @@ function ThOrdinabile<K extends string>({
   const Icona = attivo === "asc" ? ArrowUp : attivo === "desc" ? ArrowDown : ChevronsUpDown;
   return (
     <th scope="col" aria-sort={attivo === "asc" ? "ascending" : attivo === "desc" ? "descending" : "none"} className={classe}>
+      {/* La freccia sta nello spazio fra una colonna e l'altra, a sinistra dell'etichetta, e non le
+          toglie larghezza: tredici frecce in fila allargavano ogni colonna di 16px e riempivano
+          l'intestazione di segni. Ora si vede solo sulla colonna ordinata, e al passaggio del mouse. */}
       <button
         type="button"
         onClick={() => onOrdina(chiave)}
         title="Ordina per questa colonna"
-        className={`-my-1 inline-flex min-h-6 items-end gap-1 py-1 text-inherit font-bold uppercase tracking-[.1em] cursor-pointer hover:text-ink-900 ${attivo ? "text-ink-900" : ""}`}
+        className={`group relative -my-1 inline-flex min-h-6 items-end py-1 text-inherit font-bold uppercase tracking-[.06em] cursor-pointer hover:text-ink-900 ${attivo ? "text-ink-900" : ""}`}
       >
+        <Icona
+          size={11}
+          aria-hidden="true"
+          className={`absolute -left-3 bottom-[5px] ${attivo ? "" : "opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-60"}`}
+        />
         <span>{children}</span>
-        <Icona size={12} aria-hidden="true" className={`mb-0.5 shrink-0 ${attivo ? "" : "opacity-60"}`} />
       </button>
     </th>
   );
@@ -186,7 +205,7 @@ function IntestazioniRisultati() {
 function CelleRisultati({ risultati, motivoAssente, classe = TD }: { risultati: RisultatiGhl | null; motivoAssente?: string; classe?: string }) {
   if (!risultati) {
     return (
-      <td colSpan={4} className="px-2.5 py-3 text-right text-xs text-ink-500">
+      <td colSpan={4} className={`${CELLA} text-right text-xs text-ink-500`}>
         {motivoAssente ?? "Dato non disponibile"}
       </td>
     );
@@ -208,7 +227,7 @@ function CelleSenzaDatoMeta({ quante }: { quante: number }) {
   return (
     <>
       {Array.from({ length: quante }, (_, i) => (
-        <td key={i} className="text-right px-2.5 py-3 text-ink-500">
+        <td key={i} className={`text-right ${CELLA} text-ink-500`}>
           —
         </td>
       ))}
@@ -476,7 +495,7 @@ export function DettaglioCampagneEsteso({
 
       {vista === "tipo" && (
         <div className="overflow-x-auto mt-4">
-          <table className={`${TABELLA} ${mostraRisultatiTipo ? "min-w-[1080px]" : "min-w-[800px]"}`}>
+          <table className={`${TABELLA} ${mostraRisultatiTipo ? "min-w-[1040px]" : "min-w-[760px]"}`}>
             <thead>
               <tr className={RIGA}>
                 <th scope="col" className={TH_PRIMA}>
@@ -568,10 +587,10 @@ export function DettaglioCampagneEsteso({
 
       {vista === "campagna" && (
         <div className="overflow-x-auto mt-4">
-          <table className={`${TABELLA} ${ghlCampagne ? "min-w-[1560px]" : "min-w-[1180px]"}`}>
+          <table className={`${TABELLA} ${ghlCampagne ? "min-w-[1320px]" : "min-w-[1040px]"}`}>
             <thead>
               <tr className={RIGA}>
-                <ThOrdinabile chiave="nome" ordine={ordineCampagne} onOrdina={ordinaCampagne} classe={TH_PRIMA}>
+                <ThOrdinabile chiave="nome" ordine={ordineCampagne} onOrdina={ordinaCampagne} classe={TH_PRIMA_NOME}>
                   Campagna
                 </ThOrdinabile>
                 <th scope="col" className={TH_SINISTRA}>
@@ -646,11 +665,11 @@ export function DettaglioCampagneEsteso({
                         </span>
                       </span>
                     </th>
-                    <td className="px-2.5 py-3 whitespace-nowrap">
+                    <td className={`${CELLA} whitespace-nowrap`}>
                       {stato ? (
                         <>
                           <Badge classe={stato.classe}>{stato.label}</Badge>
-                          {c.statoDal && <span className="block text-xs text-ink-500 mt-1">dal {formatDataBreve(c.statoDal)}</span>}
+                          {c.statoDal && <span className="mt-1 block text-[11px] leading-[15px] text-ink-500">dal {formatDataBreve(c.statoDal)}</span>}
                         </>
                       ) : (
                         <span className="text-xs text-ink-500">—</span>
@@ -704,14 +723,14 @@ export function DettaglioCampagneEsteso({
                   <th scope="row" className={TD_PRIMA_TOTALE}>
                     Totale
                   </th>
-                  <td className="px-2.5 py-3" />
+                  <td className={CELLA} />
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.investimento)}</td>
                   <td className={TD_TOTALE}>{formatNumero(totaleCampagne.impressions)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.cpm)}</td>
                   <td className={TD_TOTALE}>{formatNumero(totaleCampagne.clicLink)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.costoPerClic)}</td>
                   <td className={TD_TOTALE}>{formatPercentuale(totaleCampagne.ctrClicLink)}</td>
-                  {mostraValutazione && <td className="px-2.5 py-3" />}
+                  {mostraValutazione && <td className={CELLA} />}
                   <td className={TD_TOTALE_LEAD}>{formatNumero(totaleCampagne.numeroLead)}</td>
                   <td className={TD_TOTALE}>{formatEuro(totaleCampagne.costoPerLead)}</td>
                   {ghlCampagne && <CelleRisultati risultati={ghlCampagne.totale} classe={TD_TOTALE} />}
@@ -733,10 +752,10 @@ export function DettaglioCampagneEsteso({
           </p>
         ) : (
           <div className="overflow-x-auto mt-4">
-            <table className={`${TABELLA} ${vistaInserzioni.totaleGhl ? "min-w-[1120px]" : "min-w-[750px]"}`}>
+            <table className={`${TABELLA} ${vistaInserzioni.totaleGhl ? "min-w-[1040px]" : "min-w-[720px]"}`}>
               <thead>
                 <tr className={RIGA}>
-                  <ThOrdinabile chiave="nome" ordine={ordineInserzioni} onOrdina={ordinaInserzioni} classe={TH_PRIMA}>
+                  <ThOrdinabile chiave="nome" ordine={ordineInserzioni} onOrdina={ordinaInserzioni} classe={TH_PRIMA_NOME}>
                     Inserzione
                   </ThOrdinabile>
                   <th scope="col" className={TH_SINISTRA}>
@@ -770,7 +789,7 @@ export function DettaglioCampagneEsteso({
                           <span className={SOTTOTITOLO}>{i.nomeCampagna}</span>
                         </span>
                       </th>
-                      <td className="px-2.5 py-3 whitespace-nowrap">
+                      <td className={`${CELLA} whitespace-nowrap`}>
                         {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-500">—</span>}
                       </td>
                       <td className={TD}>{formatEuro(i.spesa)}</td>
@@ -794,7 +813,7 @@ export function DettaglioCampagneEsteso({
                           </span>
                         </span>
                       </th>
-                      <td className="px-2.5 py-3 whitespace-nowrap">
+                      <td className={`${CELLA} whitespace-nowrap`}>
                         {stato ? <Badge classe={stato.classe}>{stato.label}</Badge> : <span className="text-xs text-ink-500">—</span>}
                       </td>
                       <CelleSenzaDatoMeta quante={3} />
@@ -825,7 +844,7 @@ export function DettaglioCampagneEsteso({
                     <th scope="row" className={TD_PRIMA_TOTALE}>
                       Totale
                     </th>
-                    <td className="px-2.5 py-3" />
+                    <td className={CELLA} />
                     <td className={TD_TOTALE}>{formatEuro(vistaInserzioni.totaleMeta.spesa)}</td>
                     <td className={TD_TOTALE_LEAD}>{formatNumero(vistaInserzioni.totaleMeta.lead)}</td>
                     <td className={TD_TOTALE}>{formatEuro(vistaInserzioni.totaleMeta.costoPerLead)}</td>
