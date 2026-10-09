@@ -52,12 +52,14 @@ const NESSUN_RISULTATO_MENSILE: NonNullable<KpiResponse["sede"]["risultatiVendit
  */
 export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Props) {
   // Periodo = due giorni inclusi (selettore in stile Meta, 26/09/2026 — vedi DateRangePicker.tsx e
-  // lib/periodo.ts), default "Ultimi 30 giorni" esatti, oggi compreso (l'intento originale della
-  // richiesta "ultimi 30 giorni", finora approssimato ai mesi interi coperti). `confronto` = periodo
-  // di paragone scelto a mano nel picker, null = automatico (stesso numero di giorni subito prima).
+  // lib/periodo.ts). Default "Ultimi 7 giorni", oggi compreso: lo stesso intervallo della finestra
+  // salute della home dell'area team (finestraSalute in lib/saluteClienti.ts, 7 giorni oggi compreso),
+  // così da fuori e dentro al cliente si vedono gli stessi numeri (richiesta utente, 09/10/2026; prima
+  // era "Ultimi 30 giorni"). `confronto` = periodo di paragone scelto a mano nel picker, null =
+  // automatico (stesso numero di giorni subito prima).
   const [periodo, setPeriodo] = useState<SelezionePeriodo>(() => ({
-    ...intervalloPreset("ultimi-30-giorni"),
-    preset: "ultimi-30-giorni",
+    ...intervalloPreset("ultimi-7-giorni"),
+    preset: "ultimi-7-giorni",
     confronto: null,
   }));
   const { da, a } = periodo;
