@@ -1,7 +1,7 @@
 import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMeetingCliente, getMetaDaily, getSedi } from "@/lib/archivio";
 import { inviaEmailInterna } from "@/lib/gmail";
 import { fetchSpesaCampagne } from "@/lib/meta";
-import { componiRiepilogoAdmin, vociDaGuardare, type DatiMetaFermi, type RiepilogoAdmin } from "@/lib/riepilogoAdmin";
+import { componiRiepilogoAdmin, destinatariDa, vociDaGuardare, type DatiMetaFermi, type RiepilogoAdmin } from "@/lib/riepilogoAdmin";
 import { oggiIso } from "@/lib/roadmap";
 import { costruisciSaluteClienti, finestraSalute } from "@/lib/saluteClienti";
 import { diagnosticaDatiFermi, sediConDatiMetaFermi } from "@/lib/sincronizzazioneMeta";
@@ -11,19 +11,17 @@ import { diagnosticaDatiFermi, sediConDatiMetaFermi } from "@/lib/sincronizzazio
  * src/lib/riepilogoAdmin.ts, puro). La usano l'invio programmato del lunedì
  * (/api/cron/riepilogo-admin) e la sezione "Notifiche" delle Impostazioni (anteprima e "Manda ora").
  *
- * A chi e da chi: di norma la casella dell'agenzia scrive a sé stessa. Si cambiano con due variabili
- * d'ambiente, senza toccare il codice — RIEPILOGO_ADMIN_DESTINATARI (uno o più indirizzi separati da
- * virgola) e RIEPILOGO_ADMIN_MITTENTE (una casella vera del dominio: l'invio parte "come" lei).
+ * A chi e da chi: di norma parte dalla casella dell'agenzia e arriva ai destinatari predefiniti (vedi
+ * DESTINATARI_PREDEFINITI in riepilogoAdmin.ts). Si cambiano con due variabili d'ambiente, senza
+ * toccare il codice — RIEPILOGO_ADMIN_DESTINATARI (uno o più indirizzi separati da virgola, al posto
+ * di quelli predefiniti) e RIEPILOGO_ADMIN_MITTENTE (una casella vera del dominio: l'invio parte
+ * "come" lei).
  */
 const CASELLA_AGENZIA = "info@andrealenziconsulting.com";
 const INDIRIZZO_APP = "https://app.andrealenziconsulting.com";
 
 export function destinatariRiepilogo(): string[] {
-  const scelti = (process.env.RIEPILOGO_ADMIN_DESTINATARI ?? "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
-  return scelti.length > 0 ? scelti : [CASELLA_AGENZIA];
+  return destinatariDa(process.env.RIEPILOGO_ADMIN_DESTINATARI);
 }
 
 export function mittenteRiepilogo(): string {

@@ -19,6 +19,19 @@ import type { Consulente } from "@/types/kpi";
  * distingue "tutto a posto" da "si è rotto l'invio".
  */
 
+/**
+ * Chi riceve il riepilogo se nessuno ha indicato altro: la casella dell'agenzia e Francesco (aggiunto
+ * su richiesta dell'utente il 09/10/2026). Per cambiarli senza toccare il codice c'è la variabile
+ * d'ambiente RIEPILOGO_ADMIN_DESTINATARI, che li SOSTITUISCE.
+ */
+export const DESTINATARI_PREDEFINITI = ["info@andrealenziconsulting.com", "francesco@andrealenziconsulting.com"];
+
+/** I destinatari da una riga di indirizzi separati da virgola; vuota o assente = quelli predefiniti. */
+export function destinatariDa(indicati: string | undefined): string[] {
+  const scelti = Array.from(new Set((indicati ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)));
+  return scelti.length > 0 ? scelti : DESTINATARI_PREDEFINITI;
+}
+
 /** Quante attività in ritardo si elencano per cliente: le altre si contano soltanto. */
 const ATTIVITA_ELENCATE = 3;
 

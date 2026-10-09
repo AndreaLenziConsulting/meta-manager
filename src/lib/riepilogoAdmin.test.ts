@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { SaluteClienteItem } from "./dashboardAdmin";
-import { componiRiepilogoAdmin, vociDaGuardare } from "./riepilogoAdmin";
+import { componiRiepilogoAdmin, destinatariDa, vociDaGuardare } from "./riepilogoAdmin";
 import type { AttivitaClienteRow, Cliente, Sede } from "@/types/kpi";
 
 const OGGI = "2026-10-12";
@@ -43,6 +43,17 @@ function item(over: Partial<SaluteClienteItem>): SaluteClienteItem {
 }
 
 const voci = (items: SaluteClienteItem[]) => vociDaGuardare({ items, consulenti: CONSULENTI, oggi: OGGI, indirizzoApp: APP });
+
+describe("chi riceve il riepilogo", () => {
+  it("se nessuno indica altro: la casella dell'agenzia e Francesco", () => {
+    expect(destinatariDa(undefined)).toEqual(["info@andrealenziconsulting.com", "francesco@andrealenziconsulting.com"]);
+    expect(destinatariDa("  ,  ")).toEqual(["info@andrealenziconsulting.com", "francesco@andrealenziconsulting.com"]);
+  });
+
+  it("gli indirizzi indicati prendono il posto di quelli predefiniti, senza spazi né doppioni", () => {
+    expect(destinatariDa(" Uno@Esempio.it, due@esempio.it ,uno@esempio.it")).toEqual(["uno@esempio.it", "due@esempio.it"]);
+  });
+});
 
 describe("chi richiede attenzione", () => {
   it("solo chi ha il costo oltre il target, attività in ritardo o il clima negativo", () => {

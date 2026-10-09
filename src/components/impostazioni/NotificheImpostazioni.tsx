@@ -44,7 +44,7 @@ export function NotificheImpostazioni() {
       const res = await fetch("/api/impostazioni/riepilogo", { method: "POST" });
       const body = (await res.json().catch(() => ({}))) as { destinatari?: number; error?: string };
       if (!res.ok) throw new Error(body.error || "L'email non è partita");
-      setEsito({ tipo: "ok", testo: body.destinatari === 1 ? "Email mandata. Controlla la casella." : `Email mandata a ${body.destinatari} indirizzi.` });
+      setEsito({ tipo: "ok", testo: body.destinatari === 1 ? "Email mandata. Controlla la casella." : `Email mandata a ${body.destinatari} indirizzi. Controlla la casella.` });
     } catch (err) {
       setEsito({ tipo: "errore", testo: err instanceof Error ? err.message : "Errore sconosciuto" });
     } finally {
