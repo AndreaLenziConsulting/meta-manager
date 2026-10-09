@@ -6,6 +6,7 @@ import { Pencil, Frown } from "lucide-react";
 import type { Consulente, Salute } from "@/types/kpi";
 import { perNomeCliente, type SaluteClienteItem } from "@/lib/dashboardAdmin";
 import { formatEuro, formatNumero } from "@/lib/format";
+import type { ValutazioneSalute } from "@/lib/salute";
 import type { LivelloStato } from "@/lib/statusStyles";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
 import { PallinoStato } from "@/components/ui/PallinoStato";
@@ -26,6 +27,29 @@ const STILE_STATO: Record<Salute, { label: string; tono: LivelloStato; barraClas
 };
 
 type Zona = { key: string; titolo: string; criterio: string; compatta: boolean; items: SaluteClienteItem[] };
+
+/**
+ * "Costo per lead €15,20 vs target €10,00": il numero su cui è dato il giudizio. Solo se c'è un
+ * target (senza, lo stato dice già "Nessun target" e non c'è nulla con cui confrontare).
+ */
+function CostoVsTarget({ valutazione }: { valutazione: ValutazioneSalute }) {
+  if (!valutazione.metricaUsata) return null;
+  const target = <span className="font-semibold text-ink-900">{formatEuro(valutazione.targetUsato)}</span>;
+  // Senza lead (o vendite) nel periodo un costo non esiste: lo si dice, invece di scrivere "— vs target".
+  if (valutazione.valoreAttuale === null) {
+    return (
+      <>
+        {valutazione.metricaUsata === "vendita" ? "Nessuna vendita" : "Nessun lead"} nel periodo · target {target}
+      </>
+    );
+  }
+  return (
+    <>
+      {valutazione.metricaUsata === "vendita" ? "CPA su vendita" : "Costo per lead"}{" "}
+      <span className="font-semibold text-ink-900">{formatEuro(valutazione.valoreAttuale)}</span> vs target {target}
+    </>
+  );
+}
 
 function ClienteCard({
   item,
@@ -75,16 +99,32 @@ function ClienteCard({
 
       {item.sedi.length > 1 ? (
         // Più sedi: la valutazione aggregata in alto ("il peggio vince") non basta da sola a
-        // capire dove intervenire — qui sotto ogni sede col proprio stato, non un unico CPA/target
-        // che apparterrebbe solo a una di esse.
-        <div className="mt-3 space-y-1.5">
+        // capire dove intervenire — qui sotto ogni sede col proprio stato e, dal 09/10/2026 (segnalato
+        // dall'utente: per chi ha più sedi il costo contro il target non si vedeva), col suo costo
+        // per lead contro il suo target. Mai un unico CPA/target: apparterrebbe solo a una di esse.
+        <div className="mt-3 space-y-2">
           {item.sedi.map((s) => {
             const stileSede = STILE_STATO[s.valutazione.stato];
             return (
-              <div key={s.sede.sedeId} className="flex items-center gap-2 text-sm">
-                <PallinoStato tono={stileSede.tono} />
-                <span className="text-ink-700 font-medium">{s.sede.nome}</span>
-                <span className={`text-xs font-semibold ${stileSede.testoClasse}`}>{stileSede.label}</span>
+              <div key={s.sede.sedeId} className="text-sm">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <PallinoStato tono={stileSede.tono} />
+                  <span className="text-ink-700 font-medium">{s.sede.nome}</span>
+                  <span className={`text-xs font-semibold ${stileSede.testoClasse}`}>{stileSede.label}</span>
+                </div>
+                {/* Rientrato quanto il pallino e il suo spazio: sta sotto il nome della sede. */}
+                {s.valutazione.metricaUsata ? (
+                  <p className="pl-3.5 text-xs leading-5 text-ink-700">
+                    <CostoVsTarget valutazione={s.valutazione} />
+                  </p>
+                ) : (
+                  // Una sede senza target: il suo costo per lead si vede lo stesso, se ha avuto lead.
+                  s.numeroLead > 0 && (
+                    <p className="pl-3.5 text-xs leading-5 text-ink-700">
+                      Costo per lead <span className="font-semibold text-ink-900">{formatEuro(s.investimento / s.numeroLead)}</span>, senza un target impostato
+                    </p>
+                  )
+                )}
               </div>
             );
           })}
@@ -92,9 +132,7 @@ function ClienteCard({
       ) : (
         item.valutazione.metricaUsata && (
           <p className="text-sm text-ink-700 mt-3">
-            {item.valutazione.metricaUsata === "vendita" ? "CPA su vendita" : "Costo per lead"}{" "}
-            <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.valoreAttuale)}</span> vs target{" "}
-            <span className="font-semibold text-ink-900">{formatEuro(item.valutazione.targetUsato)}</span>
+            <CostoVsTarget valutazione={item.valutazione} />
           </p>
         )
       )}
