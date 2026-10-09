@@ -17,6 +17,8 @@ import { Nota } from "@/components/ui/Nota";
 import { SintesiTessere, type StatoFontiCommerciali } from "@/components/SintesiTessere";
 import { AvvisiOperativi } from "@/components/AvvisiOperativi";
 import { FaseCompletataBanner } from "@/components/FaseCompletataBanner";
+import { SintesiCliente } from "@/components/SintesiCliente";
+import { inizioFrasePeriodo } from "@/lib/sintesiCliente";
 import { AndamentoCommerciale } from "@/components/AndamentoCommerciale";
 import { RisultatiCommercialiModal } from "@/components/RisultatiCommercialiModal";
 import { calcolaSalute } from "@/lib/salute";
@@ -668,6 +670,22 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
     });
   }, [clienteId, dati, attivitaInRitardoCount, ghlDati, haConnessioneGhl, ghlErrore, campagneFrequenzaAlta, inserzioniOutlier, confrontoTarget]);
 
+  // La sintesi per il cliente (vedi SintesiCliente.tsx): gli stessi numeri delle tessere che vede lui
+  // — `dati.totale`, cioè Meta più i risultati inseriti a mano, senza ciò che il team legge da GHL.
+  const sintesiCliente = dati && (
+    <SintesiCliente
+      code={code}
+      clienteId={clienteId}
+      inizio={inizioFrasePeriodo(periodo.preset, da, a)}
+      totale={dati.totale}
+      precedente={datiPrecedenti?.totale ?? null}
+      confronto={periodo.confronto ? `a ${etichettaIntervallo(periodo.confronto.da, periodo.confronto.a)}` : "al periodo precedente"}
+      commercialiInseriti={Boolean(dati.risultatiCommercialiNelPeriodo)}
+      nomeSede={dati.sediDisponibili.length > 1 ? dati.sede.nome : undefined}
+      campagneScelteAMano={sceltaCampagne !== "predefinito" && campagneSelezionate !== null}
+    />
+  );
+
   function tornaAiFiltri() {
     const senzaMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     rigaFiltri.current?.scrollIntoView({ behavior: senzaMovimento ? "auto" : "smooth", block: "center" });
@@ -810,6 +828,10 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
               dell'eventuale avviso ad account sotto. Visibile anche sul link pubblico `code`. */}
           <FaseCompletataBanner fasi={fasiCompletate} />
 
+          {/* Sul link del cliente la sintesi è la prima cosa che legge, prima dei numeri. Nella scheda
+              del team sta più sotto, chiusa: lì la prima schermata resta ai numeri. */}
+          {code && sintesiCliente}
+
           {/* Ad account opzionale alla creazione (vedi /api/clienti) — senza, questa sede non ha
               nessun dato Meta Ads da mostrare/sincronizzare. Mai sul link pubblico (gated su
               clienteId, mai valorizzato lì): un avviso "collega il tuo ad account" non avrebbe
@@ -876,6 +898,8 @@ export function KpiSection({ code, clienteId, haConnessioneGhl, ruoloAdmin }: Pr
 
           {/* Blocco 4 — mai sul link pubblico `code` (gated su clienteId, mai valorizzato lì). */}
           {clienteId && <AvvisiOperativi avvisi={avvisiOperativi} />}
+
+          {clienteId && sintesiCliente}
 
           <BoxGrafici
             funnel={{
