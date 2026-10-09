@@ -1,7 +1,7 @@
 import { classificaAssegnatario } from "@/lib/assegnatari";
 import { formatEuro, formatNumero, giornoMeseBreve } from "@/lib/format";
 import { etichettaIntervallo, type PresetPeriodoId } from "@/lib/periodo";
-import { GIORNI_FINESTRA_DA_FARE_ORA, aggiungiGiorni, giorniTra } from "@/lib/roadmap";
+import { GIORNI_FINESTRA_DA_FARE_ORA, aggiungiGiorni, attivitaDiRoadmap, giorniTra } from "@/lib/roadmap";
 import type { AttivitaClienteRow, KpiGroup } from "@/types/kpi";
 
 /**
@@ -134,8 +134,6 @@ export type SintesiLavori = {
   altreDaTe: number;
 };
 
-/** `prodottoId` delle attività che non vengono dalla roadmap di un prodotto: aggiunte a mano o nate da un meeting. */
-const FUORI_ROADMAP = new Set(["", "manuale", "meeting"]);
 /** La sigla delle tappe (vedi TIPI_ATTIVITA in impostazioni.ts): segnano un traguardo, non un compito. */
 const TIPO_TAPPA = "MIL";
 
@@ -146,7 +144,7 @@ const delCliente = (a: AttivitaClienteRow) => a.assegnatari.some((nome) => class
  * dirgli: nessuna roadmap e nessun compito suo.
  */
 export function sintesiLavori(tutte: AttivitaClienteRow[], oggi: string): SintesiLavori | null {
-  const attivita = tutte.filter((a) => !FUORI_ROADMAP.has(a.prodottoId.trim()));
+  const attivita = tutte.filter(attivitaDiRoadmap);
 
   // Una fase è in corso se ha qualcosa di cominciato (avviato a mano, o con la data di inizio già
   // arrivata) e non è ancora tutta fatta. Le attività senza fase non fanno una fase.

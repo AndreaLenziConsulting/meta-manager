@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  attivitaDiRoadmap,
+  faseDiRoadmap,
   attivitaDaFareOra,
   attivitaInRitardo,
   dataFineSettimana,
@@ -325,5 +327,27 @@ describe("attivitaDaFareOra", () => {
 
   it("già fatta: no, anche se la scadenza è passata", () => {
     expect(attivitaDaFareOra(riga({ dataFine: "2026-09-20", stato: "done" }), oggi)).toBe(false);
+  });
+});
+
+describe("una tappa è una fase della roadmap del prodotto", () => {
+  const con = (prodottoId: string) => ({ prodottoId });
+
+  it("le attività del modello di un prodotto sono roadmap; quelle a mano o da meeting no", () => {
+    expect(attivitaDiRoadmap(con("ac"))).toBe(true);
+    expect(attivitaDiRoadmap(con("go-to-market"))).toBe(true);
+    expect(attivitaDiRoadmap(con("meeting"))).toBe(false);
+    expect(attivitaDiRoadmap(con("manuale"))).toBe(false);
+    expect(attivitaDiRoadmap(con(""))).toBe(false);
+  });
+
+  it("i compiti di un meeting non fanno una fase del progetto, nemmeno se sono tutti fatti", () => {
+    expect(faseDiRoadmap([con("meeting"), con("meeting")])).toBe(false);
+    expect(faseDiRoadmap([con("manuale")])).toBe(false);
+    expect(faseDiRoadmap([])).toBe(false);
+  });
+
+  it("una fase del prodotto resta tale anche con un'attività aggiunta a mano dentro", () => {
+    expect(faseDiRoadmap([con("ac"), con("manuale")])).toBe(true);
   });
 });

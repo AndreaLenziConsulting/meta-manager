@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
 import { aggiornaStatoAttivita, getAttivitaCliente, getClienti, registraFaseCompletata } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
-import { faseCompletata, oggiIso } from "@/lib/roadmap";
+import { faseCompletata, faseDiRoadmap, oggiIso } from "@/lib/roadmap";
 import type { StatoAttivita } from "@/types/kpi";
 
 export const runtime = "nodejs";
@@ -64,8 +64,10 @@ export async function POST(req: NextRequest) {
   const stessaFaseDopo = stessaFasePrima.map((a) => (a.attivitaId === attivitaId ? { ...a, stato: stato as StatoAttivita } : a));
   // riga.fase vuota (opzionale in creazione, richiesta utente 18/09/2026) non è una vera fase da
   // festeggiare — "raggruppamento residuo dei task senza fase" non è la stessa cosa di una tappa
-  // della roadmap completata, mai una riga FasiCompletate/banner per quel caso.
-  if (riga.fase && !completataPrima && faseCompletata(stessaFaseDopo)) {
+  // della roadmap completata, mai una riga FasiCompletate/banner per quel caso. Per lo stesso motivo
+  // (09/10/2026) vale solo per le fasi della roadmap del prodotto: i compiti di un meeting stanno
+  // sotto una "fase" che è il nome del meeting, e finirli tutti non è una tappa del progetto.
+  if (riga.fase && faseDiRoadmap(stessaFaseDopo) && !completataPrima && faseCompletata(stessaFaseDopo)) {
     try {
       await registraFaseCompletata(clienteId, riga.fase, oggiIso());
     } catch {

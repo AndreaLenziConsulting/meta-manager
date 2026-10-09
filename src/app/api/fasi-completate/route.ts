@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { getClienteByAccessCode, getClienti, getFasiCompletate } from "@/lib/archivio";
+import { getAttivitaCliente, getClienteByAccessCode, getClienti, getFasiCompletate } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
-import { fasiCompletateRecenti } from "@/lib/roadmap";
+import { attivitaDiRoadmap, fasiCompletateRecenti } from "@/lib/roadmap";
 
 export const runtime = "nodejs";
 
@@ -40,8 +40,14 @@ export async function GET(req: NextRequest) {
     clienteId = clienteIdParam;
   }
 
-  const fasi = await getFasiCompletate();
-  const recenti = fasiCompletateRecenti(fasi, clienteId).map((f) => ({ fase: f.fase, completataIl: f.completataIl }));
+  const [fasi, attivita] = await Promise.all([getFasiCompletate(), getAttivitaCliente()]);
+  // Solo le fasi della roadmap del prodotto (vedi faseDiRoadmap in roadmap.ts). Fino al 09/10/2026
+  // veniva registrata come tappa anche la "fase" dei compiti di un meeting: quelle righe restano
+  // nell'archivio ma non si mostrano più, né al team né al cliente.
+  const fasiDelProgetto = new Set(attivita.filter((a) => a.clienteId === clienteId && attivitaDiRoadmap(a)).map((a) => a.fase));
+  const recenti = fasiCompletateRecenti(fasi, clienteId)
+    .filter((f) => fasiDelProgetto.has(f.fase))
+    .map((f) => ({ fase: f.fase, completataIl: f.completataIl }));
 
   return NextResponse.json({ fasi: recenti });
 }

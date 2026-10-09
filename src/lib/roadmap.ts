@@ -162,6 +162,27 @@ export function raggruppaAttivitaPerCliente(attivita: AttivitaClienteRow[]): Map
   return mappa;
 }
 
+/** `prodottoId` delle attività che non vengono dalla roadmap di un prodotto: aggiunte a mano o nate da un meeting. */
+const FUORI_ROADMAP = new Set(["", "manuale", "meeting"]);
+
+/** Vero se l'attività viene dal modello di un prodotto: fa parte del piano del progetto. */
+export function attivitaDiRoadmap(attivita: Pick<AttivitaClienteRow, "prodottoId">): boolean {
+  return !FUORI_ROADMAP.has(attivita.prodottoId.trim());
+}
+
+/**
+ * Vero se un gruppo di attività con lo stesso nome di fase è una fase del PROGETTO: almeno una viene
+ * dalla roadmap del prodotto (un'attività aggiunta a mano dentro una fase esistente ne fa parte).
+ * Non lo sono i raggruppamenti che usano il campo "fase" per altro — i compiti di un meeting stanno
+ * sotto "Meeting: <titolo> (data)" — né le fasi fatte solo di attività aggiunte a mano.
+ *
+ * Serve a "Tappa raggiunta" (09/10/2026, segnalato dall'utente): spuntati tutti i compiti di un
+ * meeting, l'app festeggiava "Fase Meeting: … completata", anche sulla pagina del cliente.
+ */
+export function faseDiRoadmap(attivitaFase: Pick<AttivitaClienteRow, "prodottoId">[]): boolean {
+  return attivitaFase.some(attivitaDiRoadmap);
+}
+
 /**
  * Una fase è "completata" quando TUTTE le sue attività sono "done" — una fase senza attività non
  * è mai completata (non ha senso raggiungere una tappa vuota). Usata da POST /api/attivita/stato
