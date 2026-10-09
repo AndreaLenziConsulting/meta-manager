@@ -3,17 +3,8 @@ import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
 import { getAttivitaCliente, getCampagne, getClienti, getConsulenti, getMeetingCliente, getMetaDaily, getSedi } from "@/lib/archivio";
 import { clientiVisibili } from "@/lib/authz";
-import { computeSpesaLeadPeriodo } from "@/lib/kpi";
-import { campagnePredefinite } from "@/lib/campagneAlc";
-import { aggregaValutazioniSedi, calcolaSalute } from "@/lib/salute";
-import { attivitaInRitardo, raggruppaAttivitaPerCliente } from "@/lib/roadmap";
-import { andamentoSentiment, raggruppaMeetingPerCliente } from "@/lib/sentimentCliente";
-import {
-  calcolaRiepilogo,
-  ordinaPerPriorita,
-  type SaluteClienteItem,
-  type SaluteSedeValutazione,
-} from "@/lib/dashboardAdmin";
+import { calcolaRiepilogo, ordinaPerPriorita } from "@/lib/dashboardAdmin";
+import { GIORNI_FINESTRA_SALUTE, costruisciSaluteClienti, finestraSalute } from "@/lib/saluteClienti";
 import { DashboardClienti } from "@/components/DashboardClienti";
 import { RiepilogoAllarmiAdmin } from "@/components/RiepilogoAllarmiAdmin";
 import { AvvisoSincronizzazioneMeta, type ProblemaSincronizzazioneVista } from "@/components/AvvisoSincronizzazioneMeta";
@@ -27,11 +18,7 @@ import { cn } from "@/lib/cn";
 
 export const metadata: Metadata = { title: "Clienti" };
 
-const GIORNI_FINESTRA = 7;
-
-function formatData(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
+const GIORNI_FINESTRA = GIORNI_FINESTRA_SALUTE;
 
 /**
  * Pagina Clienti unificata — sostituisce sia la vecchia "Dashboard Amministratore" (admin-only)
@@ -54,11 +41,7 @@ export default async function DashboardHomePage() {
   }
 
   const isAdmin = sessione.ruolo === "admin";
-  const oggi = new Date();
-  const inizio = new Date(oggi);
-  inizio.setDate(inizio.getDate() - (GIORNI_FINESTRA - 1));
-  const daData = formatData(inizio);
-  const aData = formatData(oggi);
+  const { da: daData, a: aData } = finestraSalute();
 
   const [clienti, metaDaily, campagne, attivitaTutte, consulenti, sedi, meetingTutti] = await Promise.all([
     getClienti(),
@@ -82,51 +65,9 @@ export default async function DashboardHomePage() {
     );
   }
 
-  const attivitaPerCliente = raggruppaAttivitaPerCliente(attivitaTutte);
-  // Solo i meeting con un sentiment davvero compilato: un meeting recente a volte non è ancora
-  // stato revisionato (sentiment vuoto) e non deve interrompere una serie di segnali precedenti
-  // ancora validi — vedi caso reale osservato: ultimo meeting vuoto, penultimo "Negativo".
-  const meetingConSentimentPerCliente = raggruppaMeetingPerCliente(meetingTutti.filter((m) => m.sentiment.trim() !== ""));
-
-  const items: SaluteClienteItem[] = visibili.map((cliente) => {
-    const sediValutate: SaluteSedeValutazione[] = sedi
-      .filter((s) => s.clienteId === cliente.clienteId && s.attivo)
-      .map((sede) => {
-        // Stesso filtro predefinito della pagina cliente (06/10/2026, vedi src/lib/campagneAlc.ts): se
-        // la sede ha campagne con ALC nel nome, spesa e lead della scheda contano solo quelle.
-        const predefinite = campagnePredefinite(sede, campagne);
-        const { investimento, numeroLead, costoPerLead } = computeSpesaLeadPeriodo(
-          cliente.clienteId,
-          sede.sedeId,
-          daData,
-          aData,
-          metaDaily,
-          predefinite ? campagne.filter((c) => predefinite.has(c.campaignId)) : campagne
-        );
-        const valutazione = calcolaSalute(
-          { investimento, numeroVendite: 0, cpa: null, costoPerLead },
-          sede.targetCpa,
-          sede.targetCpl
-        );
-        return { sede, investimento, numeroLead, valutazione };
-      });
-    // "Il peggio vince" tra le sedi decide lo stato della card — vedi aggregaValutazioniSedi.
-    // Un cliente senza nessuna sede attiva (caso limite, es. subito dopo la creazione) non ha
-    // nulla da aggregare: resta "no-target" come farebbe calcolaSalute senza target impostato.
-    const valutazione =
-      sediValutate.length > 0
-        ? aggregaValutazioniSedi(sediValutate.map((s) => s.valutazione))
-        : { stato: "no-target" as const, metricaUsata: null, valoreAttuale: null, targetUsato: null };
-    return {
-      cliente,
-      sedi: sediValutate,
-      valutazione,
-      investimento: sediValutate.reduce((somma, s) => somma + s.investimento, 0),
-      numeroLead: sediValutate.reduce((somma, s) => somma + s.numeroLead, 0),
-      attivitaInRitardo: attivitaInRitardo(attivitaPerCliente.get(cliente.clienteId) ?? []),
-      sentimentCritico: andamentoSentiment(meetingConSentimentPerCliente.get(cliente.clienteId) ?? []).aRischio,
-    };
-  });
+  // I segnali di ogni cliente (salute ads, attività in ritardo, clima): lo stesso calcolo del
+  // riepilogo via email per l'amministrazione, vedi src/lib/saluteClienti.ts.
+  const items = costruisciSaluteClienti({ clienti: visibili, sedi, campagne, metaDaily, attivita: attivitaTutte, meeting: meetingTutti, da: daData, a: aData });
   const itemsOrdinati = ordinaPerPriorita(items);
   const riepilogo = calcolaRiepilogo(itemsOrdinati);
 

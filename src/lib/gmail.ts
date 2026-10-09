@@ -111,3 +111,36 @@ export async function inviaEmailMeeting(input: InvioEmailMeetingInput): Promise<
     requestBody: { raw: raw.toString("base64url") },
   });
 }
+
+export type InvioEmailInternaInput = {
+  mittenteNome: string;
+  /** Una casella vera del dominio: l'invio parte "come" lei (delega a livello di dominio, vedi sopra). */
+  mittenteEmail: string;
+  destinatari: string[];
+  oggetto: string;
+  testo: string;
+  html: string;
+};
+
+/** Opzioni per MailComposer di un'email interna (il riepilogo per l'amministrazione) — pura. */
+export function costruisciOpzioniEmailInterna(input: InvioEmailInternaInput) {
+  return {
+    from: { name: input.mittenteNome, address: input.mittenteEmail },
+    to: input.destinatari,
+    subject: input.oggetto,
+    text: input.testo,
+    html: input.html,
+  };
+}
+
+/**
+ * Invia un'email interna, senza allegato e senza la copia nascosta dei report ai clienti: è già
+ * diretta all'amministrazione. Stesso canale di inviaEmailMeeting (Gmail API, casella del dominio
+ * impersonata dal service account).
+ */
+export async function inviaEmailInterna(input: InvioEmailInternaInput): Promise<void> {
+  if (input.destinatari.length === 0) throw new Error("Nessun destinatario per l'email");
+  const raw = await new MailComposer(costruisciOpzioniEmailInterna(input)).compile().build();
+  const gmail = getGmailClient(input.mittenteEmail);
+  await gmail.users.messages.send({ userId: "me", requestBody: { raw: raw.toString("base64url") } });
+}

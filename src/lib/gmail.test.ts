@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { costruisciOpzioniEmail, type InvioEmailMeetingInput } from "./gmail";
+import { costruisciOpzioniEmail, costruisciOpzioniEmailInterna, type InvioEmailMeetingInput } from "./gmail";
 
 const INPUT_TEST: InvioEmailMeetingInput = {
   consulenteNome: "Andrea Lenzi",
@@ -44,5 +44,25 @@ describe("costruisciOpzioniEmail", () => {
   it("nell'html esegue l'escaping di & < > del testo, prima di applicare il grassetto", () => {
     const opts = costruisciOpzioniEmail({ ...INPUT_TEST, corpo: "Tom & Jerry <script>" });
     expect(opts.html).toContain("Tom &amp; Jerry &lt;script&gt;");
+  });
+});
+
+describe("costruisciOpzioniEmailInterna", () => {
+  it("mittente e destinatari come dati, con testo e html; niente copia nascosta né allegati", () => {
+    const opts = costruisciOpzioniEmailInterna({
+      mittenteNome: "Meta Manager ALC",
+      mittenteEmail: "info@andrealenziconsulting.com",
+      destinatari: ["a@esempio.it", "b@esempio.it"],
+      oggetto: "Clienti da guardare: 2 su 24",
+      testo: "testo",
+      html: "<p>html</p>",
+    });
+    expect(opts).toEqual({
+      from: { name: "Meta Manager ALC", address: "info@andrealenziconsulting.com" },
+      to: ["a@esempio.it", "b@esempio.it"],
+      subject: "Clienti da guardare: 2 su 24",
+      text: "testo",
+      html: "<p>html</p>",
+    });
   });
 });
