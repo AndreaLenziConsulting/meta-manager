@@ -35,9 +35,21 @@ export function generaIdDaNome(nome: string, esistenti: Set<string>, ripiego: st
   return `${base}-${n}`;
 }
 
-/** Codice d'accesso per il link cliente pubblico: 10 caratteri esadecimali, nessuna nuova dipendenza. */
+/**
+ * Codice d'accesso per il link cliente pubblico: 20 caratteri esadecimali presi a caso. Chi ha il
+ * link vede la pagina del cliente senza altra password, quindi il codice non deve potersi indovinare
+ * né provare a tentativi: dal 09/10/2026 è lungo il doppio di prima (erano 10 caratteri). I codici
+ * già in uso restano validi: questo vale per i clienti nuovi e per i link rigenerati.
+ */
 export function generaAccessCode(): string {
-  return randomBytes(5).toString("hex");
+  return randomBytes(10).toString("hex");
+}
+
+/** Un codice nuovo che nessun cliente ha già. */
+export function generaAccessCodeNuovo(esistenti: Set<string>): string {
+  let codice = generaAccessCode();
+  while (esistenti.has(codice)) codice = generaAccessCode();
+  return codice;
 }
 
 /** Genera un prospectId leggibile dallo slug della ragione sociale — stesso schema di generaClienteId. */

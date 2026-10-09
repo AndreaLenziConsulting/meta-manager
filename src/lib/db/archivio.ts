@@ -159,6 +159,12 @@ export const aggiornaCliente: typeof Foglio.aggiornaCliente = async (input) => {
   );
 };
 
+export const cambiaAccessCodeCliente: typeof Foglio.cambiaAccessCodeCliente = async (clienteId, accessCode) => {
+  if (!accessCode.trim()) throw new Error("Il codice del link pubblico non può essere vuoto");
+  // Due clienti con lo stesso codice non possono esistere: lo garantisce l'indice unico della tabella.
+  if ((await aggiorna("clienti", { cliente_id: clienteId }, { access_code: accessCode })) === 0) throw new Error(`Cliente non trovato: ${clienteId}`);
+};
+
 export const migraFunnelClientiEsistenti: typeof Foglio.migraFunnelClientiEsistenti = async () => {
   let migrati = 0;
   for (const c of await getClienti()) {

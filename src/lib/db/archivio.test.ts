@@ -103,6 +103,24 @@ describe("clienti", () => {
     expect((await archivio.getClienteByAccessCode("codice-beta"))?.clienteId).toBe("beta");
     expect(await archivio.getClienteByAccessCode("sbagliato")).toBeNull();
   });
+
+  it("cambiato il codice, quello di prima non trova più nessuno e il nuovo trova il cliente", async () => {
+    await archivio.cambiaAccessCodeCliente("beta", "codice-beta-nuovo");
+    expect(await archivio.getClienteByAccessCode("codice-beta")).toBeNull();
+    expect((await archivio.getClienteByAccessCode("codice-beta-nuovo"))?.clienteId).toBe("beta");
+    // Il resto del cliente non cambia.
+    expect((await archivio.getClienti()).find((c) => c.clienteId === "beta")).toMatchObject({ nome: "Cliente beta", attivo: true });
+  });
+
+  it("un codice vuoto, un cliente che non c'è o un codice già di un altro: nessun cambio", async () => {
+    await expect(archivio.cambiaAccessCodeCliente("beta", "  ")).rejects.toThrow("non può essere vuoto");
+    await expect(archivio.cambiaAccessCodeCliente("nessuno", "codice-x")).rejects.toThrow("Cliente non trovato: nessuno");
+    const altro = (await archivio.getClienti()).find((c) => c.clienteId !== "beta");
+    await expect(archivio.cambiaAccessCodeCliente("beta", altro!.accessCode)).rejects.toThrow();
+    expect((await archivio.getClienteByAccessCode("codice-beta-nuovo"))?.clienteId).toBe("beta");
+    // Rimesso com'era, per i test che seguono.
+    await archivio.cambiaAccessCodeCliente("beta", "codice-beta");
+  });
 });
 
 describe("sedi e ciò che appartiene a una sede", () => {

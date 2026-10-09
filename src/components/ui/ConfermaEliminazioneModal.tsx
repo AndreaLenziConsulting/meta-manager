@@ -16,12 +16,15 @@ export function ConfermaEliminazioneModal({
   titolo,
   messaggio,
   labelConferma = "Elimina",
+  labelInCorso = "Eliminazione…",
   onConferma,
   onClose,
 }: {
   titolo: string;
   messaggio: ReactNode;
   labelConferma?: string;
+  /** La scritta del pulsante mentre l'azione è in corso, per le conferme che non sono eliminazioni. */
+  labelInCorso?: string;
   onConferma: () => Promise<void>;
   onClose: () => void;
 }) {
@@ -49,7 +52,7 @@ export function ConfermaEliminazioneModal({
         {errore && <p className="text-xs text-critico">{errore}</p>}
         <div className="flex gap-2 pt-2 border-t border-ink-300/60">
           <Button type="button" variant="danger" onClick={handleConferma} disabled={eliminando}>
-            {eliminando ? "Eliminazione…" : labelConferma}
+            {eliminando ? labelInCorso : labelConferma}
           </Button>
           <Button type="button" variant="ghost" onClick={onClose} disabled={eliminando}>
             Annulla

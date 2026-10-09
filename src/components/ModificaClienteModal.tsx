@@ -12,6 +12,7 @@ import { ConfermaEliminazioneModal } from "@/components/ui/ConfermaEliminazioneM
 import { ConfermaEliminazioneNomeModal } from "@/components/ui/ConfermaEliminazioneNomeModal";
 import { PersonalizzazioneCliente } from "@/components/PersonalizzazioneCliente";
 import { ProdottoCliente } from "@/components/ProdottoCliente";
+import { LinkPubblicoCliente } from "@/components/LinkPubblicoCliente";
 import { Tabs } from "@/components/Tabs";
 import { Nota } from "@/components/ui/Nota";
 import { erroreStadi, nomiStadi, stadiEscludibili } from "@/lib/ghlStadi";
@@ -293,6 +294,9 @@ export function ModificaClienteModal({ cliente, sedi, consulenti, ruoloAdmin, on
             />
           </Field>
         </div>
+
+        {/* Non fa parte di "Salva modifiche": copiare e rigenerare agiscono subito, ognuno per conto suo. */}
+        <LinkPubblicoCliente cliente={cliente} ruoloAdmin={ruoloAdmin} />
 
         </div>
 

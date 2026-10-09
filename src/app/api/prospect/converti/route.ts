@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessione } from "@/lib/auth";
-import { generaAccessCode, generaClienteId, generaSedeId } from "@/lib/accessCode";
+import { generaAccessCodeNuovo, generaClienteId, generaSedeId } from "@/lib/accessCode";
 import { generaAttivitaPerCliente } from "@/lib/roadmap";
 import {
   aggiornaProspect,
@@ -124,8 +124,7 @@ export async function POST(req: NextRequest) {
 
   const clienteId = generaClienteId(nome, new Set(clienti.map((c) => c.clienteId)));
   const codiciEsistenti = new Set(clienti.map((c) => c.accessCode));
-  let accessCode = generaAccessCode();
-  while (codiciEsistenti.has(accessCode)) accessCode = generaAccessCode();
+  const accessCode = generaAccessCodeNuovo(codiciEsistenti);
 
   try {
     await creaCliente({

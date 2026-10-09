@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generaAccessCode, generaClienteId, generaTaskIdManuale } from "./accessCode";
+import { generaAccessCode, generaAccessCodeNuovo, generaClienteId, generaTaskIdManuale } from "./accessCode";
 
 describe("generaClienteId", () => {
   it("crea uno slug minuscolo con trattini dal nome", () => {
@@ -49,9 +49,16 @@ describe("generaTaskIdManuale", () => {
 });
 
 describe("generaAccessCode", () => {
-  it("genera una stringa esadecimale di 10 caratteri", () => {
+  it("genera una stringa esadecimale di 20 caratteri", () => {
     const code = generaAccessCode();
-    expect(code).toMatch(/^[0-9a-f]{10}$/);
+    expect(code).toMatch(/^[0-9a-f]{20}$/);
+  });
+
+  it("un codice nuovo non è mai uno di quelli già in uso", () => {
+    const esistenti = new Set(["codice-vecchio"]);
+    const nuovo = generaAccessCodeNuovo(esistenti);
+    expect(nuovo).toMatch(/^[0-9a-f]{20}$/);
+    expect(esistenti.has(nuovo)).toBe(false);
   });
 
   it("due chiamate producono codici diversi", () => {

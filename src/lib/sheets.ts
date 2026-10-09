@@ -2445,6 +2445,14 @@ export async function salvaRisultatiVenditori(input: RisultatiVenditoriMeseInput
   soloSulDatabase(`Salvare i risultati dei venditori di ${input.mese}`);
 }
 
+/**
+ * Cambia il codice del link pubblico di un cliente (09/10/2026): il link di prima smette di
+ * funzionare nello stesso momento. Prima un codice non si poteva cambiare dall'app.
+ */
+export async function cambiaAccessCodeCliente(clienteId: string, accessCode: string): Promise<void> {
+  soloSulDatabase(`Rigenerare il link pubblico di ${clienteId} (${accessCode.length} caratteri)`);
+}
+
 export type AssegnaProdottoInput = { clienteId: string; prodottoId: string; dataInizioProgetto: string; righe: AttivitaClienteRow[] };
 
 /**
