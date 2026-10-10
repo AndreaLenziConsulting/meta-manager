@@ -1,9 +1,14 @@
+import { dividiInDue, nomeNelloSchema } from "@/lib/schemaTesto";
 import { ALTEZZA_RIQUADRO, ALTEZZA_RIQUADRO_CON_ESEMPIO, Anello, COLORE, Freccia, FrecciaCircolare, Riquadro, Scheda, Testo, TONO, type TonoRiquadro } from "@/components/processi/primitive";
 
 /**
  * Schema "Appointment setting: i primi 7 giorni" — cosa fa il commerciale da quando entra il lead.
  * Ridisegnato il 10/10/2026 dallo schema dell'utente del 7 ottobre 2026: stessi contenuti e stessa
  * disposizione, in vettoriale (ingrandito resta nitido) e coi colori del Design System ALC.
+ *
+ * Nel vocale d'esempio del giorno 1 («Ciao, sono X di Y…») al posto di "Y" c'è il nome del cliente
+ * della scheda in cui lo schema è aperto (richiesta dell'utente, 10/10/2026: il nome dell'azienda
+ * dove ha senso). "X" resta: chi chiama può essere un setter che l'app non conosce.
  *
  * Senza logo, titolo e descrizione in testa al foglio (tolti su richiesta dell'utente il 10/10/2026:
  * "sono ridondanti"): il titolo e la descrizione stanno già nella barra del visualizzatore, anche a
@@ -16,7 +21,13 @@ import { ALTEZZA_RIQUADRO, ALTEZZA_RIQUADRO_CON_ESEMPIO, Anello, COLORE, Freccia
 export const LARGHEZZA_SETTING = 1600;
 export const ALTEZZA_SETTING = 705;
 
-type Passo = { tono: TonoRiquadro; titolo: string; esempio?: string[] };
+type Passo = {
+  tono: TonoRiquadro;
+  titolo: string;
+  esempio?: string[];
+  /** Le stesse parole d'esempio, col nome dell'azienda del cliente al posto del segnaposto. */
+  esempioCon?: (azienda: string) => string;
+};
 type Giorno = { x: number; titolo: string; sotto: string; passi: Passo[]; conto: string };
 
 const GIORNI: Giorno[] = [
@@ -26,7 +37,12 @@ const GIORNI: Giorno[] = [
     sotto: "Ore 0–24 · da fare subito",
     passi: [
       { tono: "chiamata", titolo: "1ª chiamata" },
-      { tono: "whatsapp", titolo: "Vocale su WhatsApp", esempio: ["«Ciao, sono X di Y, ti sto contattando", "perché hai richiesto Z…»"] },
+      {
+        tono: "whatsapp",
+        titolo: "Vocale su WhatsApp",
+        esempio: ["«Ciao, sono X di Y, ti sto contattando", "perché hai richiesto Z…»"],
+        esempioCon: (azienda) => `«Ciao, sono X di ${azienda}, ti sto contattando perché hai richiesto Z…»`,
+      },
       { tono: "chiamata", titolo: "2ª chiamata" },
       { tono: "emailAutomatica", titolo: "Email automatica" },
     ],
@@ -102,7 +118,16 @@ function disponiPassi(passi: Passo[]): { passo: Passo; y: number }[] {
   return disposti;
 }
 
-function SchedaGiorno({ giorno }: { giorno: Giorno }) {
+// Nel messaggio d'esempio il nome dell'azienda ha poco posto: oltre questa misura si accorcia.
+const NOME_NEL_MESSAGGIO = 34;
+
+/** Le parole d'esempio di un passo: con l'azienda del cliente, se la scheda ne ha una e il passo la nomina. */
+function esempioDi(passo: Passo, azienda: string | null): string[] | undefined {
+  if (azienda && passo.esempioCon) return dividiInDue(passo.esempioCon(azienda));
+  return passo.esempio;
+}
+
+function SchedaGiorno({ giorno, azienda }: { giorno: Giorno; azienda: string | null }) {
   const xPassi = giorno.x + MARGINE_SCHEDA;
   const larghezzaPassi = LARGHEZZA_GIORNO - MARGINE_SCHEDA * 2;
   const fondoScheda = Y_SCHEDE + ALTEZZA_SCHEDE;
@@ -116,7 +141,7 @@ function SchedaGiorno({ giorno }: { giorno: Giorno }) {
         {giorno.sotto}
       </Testo>
       {passi.map(({ passo, y: yPasso }) => (
-        <Riquadro key={passo.titolo} x={xPassi} y={yPasso} larghezza={larghezzaPassi} tono={passo.tono} titolo={passo.titolo} esempio={passo.esempio} />
+        <Riquadro key={passo.titolo} x={xPassi} y={yPasso} larghezza={larghezzaPassi} tono={passo.tono} titolo={passo.titolo} esempio={esempioDi(passo, azienda)} />
       ))}
       <line x1={xPassi} y1={fondoScheda - 36} x2={xPassi + larghezzaPassi} y2={fondoScheda - 36} stroke={COLORE.linea} strokeWidth={1} />
       <Testo x={xPassi} y={fondoScheda - 16} misura={11.5} colore={COLORE.secondario}>
@@ -126,7 +151,8 @@ function SchedaGiorno({ giorno }: { giorno: Giorno }) {
   );
 }
 
-export function SettingPrimi7Giorni() {
+export function SettingPrimi7Giorni({ nomeCliente }: { nomeCliente?: string }) {
+  const azienda = nomeNelloSchema(nomeCliente, NOME_NEL_MESSAGGIO);
   return (
     <g>
       {/* Linea del tempo: dal lead che entra al giorno 7. */}
@@ -161,7 +187,7 @@ export function SettingPrimi7Giorni() {
       <circle cx={X_GIORNO_7} cy={Y_LINEA} r={RAGGIO_GIORNO_7} fill={COLORE.inchiostro} />
 
       {GIORNI.map((g) => (
-        <SchedaGiorno key={g.titolo} giorno={g} />
+        <SchedaGiorno key={g.titolo} giorno={g} azienda={azienda} />
       ))}
 
       {/* Giorni 4–7: il giro si ripete, senza passi fissi. */}

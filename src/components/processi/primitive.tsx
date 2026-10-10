@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { larghezzaStimata } from "@/lib/schemaTesto";
 
 /**
  * Mattoni con cui si disegnano gli schemi della sezione "Processi": elementi SVG nello stile del
@@ -43,7 +44,11 @@ export type TonoRiquadro = keyof typeof TONO;
 
 type Ancora = "start" | "middle" | "end";
 
-/** Una riga di testo. `spaziata` = maiuscoletto dei sopratitoli del sistema (.12em). */
+/**
+ * Una riga di testo. `spaziata` = maiuscoletto dei sopratitoli del sistema (.12em).
+ * `larghezzaMassima`: lo spazio che la riga ha. Serve quando dentro c'è un nome che cambia da cliente
+ * a cliente: se la riga rischia di uscire, viene stretta quanto basta per starci.
+ */
 export function Testo({
   x,
   y,
@@ -54,6 +59,7 @@ export function Testo({
   corsivo = false,
   spaziata = false,
   sottolineato = false,
+  larghezzaMassima,
   children,
 }: {
   x: number;
@@ -65,8 +71,10 @@ export function Testo({
   corsivo?: boolean;
   spaziata?: boolean;
   sottolineato?: boolean;
+  larghezzaMassima?: number;
   children: ReactNode;
 }) {
+  const daStringere = larghezzaMassima !== undefined && typeof children === "string" && larghezzaStimata(children) * misura > larghezzaMassima;
   return (
     <text
       x={x}
@@ -78,6 +86,8 @@ export function Testo({
       fontStyle={corsivo ? "italic" : undefined}
       letterSpacing={spaziata ? "0.12em" : undefined}
       textDecoration={sottolineato ? "underline" : undefined}
+      textLength={daStringere ? larghezzaMassima : undefined}
+      lengthAdjust={daStringere ? "spacingAndGlyphs" : undefined}
     >
       {children}
     </text>
@@ -114,7 +124,7 @@ export function Riquadro({
         {titolo}
       </Testo>
       {esempio?.map((riga, i) => (
-        <Testo key={riga} x={centro} y={y + 40 + i * 14} misura={10} peso={400} colore={COLORE.secondario} ancora="middle" corsivo>
+        <Testo key={riga} x={centro} y={y + 40 + i * 14} misura={10} peso={400} colore={COLORE.secondario} ancora="middle" corsivo larghezzaMassima={larghezza - 18}>
           {riga}
         </Testo>
       ))}

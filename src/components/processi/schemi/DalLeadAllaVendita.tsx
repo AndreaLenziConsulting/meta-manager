@@ -1,3 +1,4 @@
+import { nomeNelloSchema } from "@/lib/schemaTesto";
 import { Casella, COLORE, Freccia, FrecciaSpezzata, Pillola, Testo } from "@/components/processi/primitive";
 
 /**
@@ -5,6 +6,11 @@ import { Casella, COLORE, Freccia, FrecciaSpezzata, Pillola, Testo } from "@/com
  * commerciale chiude e fa follow-up. Ridisegnato il 10/10/2026 dallo schema dell'utente del 21
  * settembre 2026 (su Drive, cartella Serveco: `ALC_Schema_DalLeadAllaVendita.png`): stessi passaggi
  * e stesse parole.
+ *
+ * Nella fascia "COMMERCIALE" compare il nome del cliente della scheda in cui lo schema è aperto
+ * (richiesta dell'utente, 10/10/2026: il nome dell'azienda dove ha senso): discovery, offerta,
+ * chiusura e follow-up li fa la sua squadra. La fascia "MARKETING" resta senza nome: dentro c'è anche
+ * la prima chiamata, che non sempre fa ALC.
  *
  * Colori: nell'originale marketing e commerciale erano viola e rosso; qui sono blu e grigio, perché
  * il sistema ALC tiene il rosso per ciò che va male ("Non compra") e non ha un viola.
@@ -51,7 +57,8 @@ function Kpi({ x, larghezza, numero, domanda, formula }: { x: number; larghezza:
   );
 }
 
-export function DalLeadAllaVendita() {
+export function DalLeadAllaVendita({ nomeCliente }: { nomeCliente?: string }) {
+  const azienda = nomeNelloSchema(nomeCliente, 60);
   return (
     <g>
       {/* Il setting: dalla prima chiamata alla discovery. */}
@@ -140,7 +147,7 @@ export function DalLeadAllaVendita() {
       </Testo>
       <rect x={925} y={466} width={1001} height={71} rx={12} fill={COLORE.sfondo} stroke={COLORE.grigio} strokeWidth={1.5} />
       <Testo x={1425.5} y={496} misura={17} peso={800} colore={COLORE.inchiostro} ancora="middle">
-        COMMERCIALE
+        {azienda ? `COMMERCIALE · ${azienda}` : "COMMERCIALE"}
       </Testo>
       <Testo x={1425.5} y={519} misura={15} colore={COLORE.testo} ancora="middle">
         discovery, offerta, chiusura e follow-up

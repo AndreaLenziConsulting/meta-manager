@@ -66,7 +66,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Marketing genera e qualifica, il setting fissa e prepara, il commerciale chiude e fa follow-up.",
     larghezza: LARGHEZZA_LEAD_VENDITA,
     altezza: ALTEZZA_LEAD_VENDITA,
-    disegna: () => <DalLeadAllaVendita />,
+    disegna: ({ nomeCliente }) => <DalLeadAllaVendita nomeCliente={nomeCliente} />,
   },
   {
     id: "momenti-educazione-lead",
@@ -84,7 +84,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Cosa fa il commerciale da quando entra il lead, giorno per giorno.",
     larghezza: LARGHEZZA_SETTING,
     altezza: ALTEZZA_SETTING,
-    disegna: () => <SettingPrimi7Giorni />,
+    disegna: ({ nomeCliente }) => <SettingPrimi7Giorni nomeCliente={nomeCliente} />,
   },
   {
     id: "piramide-rovesciata-vendita",

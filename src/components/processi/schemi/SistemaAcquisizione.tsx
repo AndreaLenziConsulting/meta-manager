@@ -1,3 +1,4 @@
+import { nomeNelloSchema } from "@/lib/schemaTesto";
 import { Casella, COLORE, Freccia, Testo } from "@/components/processi/primitive";
 
 /**
@@ -81,13 +82,6 @@ const LARGHEZZA_PILLOLA_TEMPO = 200;
 
 // Il nome del cliente sta su una riga sola della fascia: oltre questa misura si accorcia.
 const NOME_MASSIMO = 60;
-
-/** Il nome da scrivere nella fascia di chi gestisce appuntamenti, trattative e vendite. */
-function nomeAzienda(nomeCliente: string | undefined): string {
-  const nome = nomeCliente?.trim();
-  if (!nome) return "La tua azienda";
-  return nome.length > NOME_MASSIMO ? `${nome.slice(0, NOME_MASSIMO - 1).trimEnd()}…` : nome;
-}
 
 export function SistemaAcquisizione({ nomeCliente }: { nomeCliente?: string }) {
   return (
@@ -205,7 +199,7 @@ export function SistemaAcquisizione({ nomeCliente }: { nomeCliente?: string }) {
       </Testo>
       <rect x={806} y={685} width={1102} height={98} rx={12} fill={COLORE.sfondo} stroke={COLORE.grigio} strokeWidth={1.5} />
       <Testo x={1357} y={729} misura={22} peso={700} colore={COLORE.inchiostro} ancora="middle">
-        {nomeAzienda(nomeCliente)}
+        {nomeNelloSchema(nomeCliente, NOME_MASSIMO) ?? "La tua azienda"}
       </Testo>
       <Testo x={1357} y={757} misura={19} colore={COLORE.testo} ancora="middle">
         appuntamenti, trattative e vendite · con il coaching ALC del lunedì sera
