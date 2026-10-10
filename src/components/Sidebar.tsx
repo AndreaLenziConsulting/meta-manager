@@ -140,7 +140,7 @@ export function Sidebar({
           aria-current={attivaOra ? "page" : undefined}
           className={cn(
             "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
-            attivaOra ? "bg-brand-light text-accento-testo" : "text-ink-700 hover:bg-surface hover:text-ink-900"
+            attivaOra ? "bg-white/[0.12] text-su-notte" : "text-su-notte-secondario hover:bg-white/[0.06] hover:text-su-notte"
           )}
         >
           <Icon size={20} className="flex-shrink-0" aria-hidden="true" />
@@ -152,21 +152,25 @@ export function Sidebar({
 
   return (
     <>
-      {/* Rail desktop — sticky così resta ferma mentre <main> scorre. Superficie piena con bordo
-          `linea` (Design System ALC). `z-20`: il menù dell'account in fondo si apre verso l'alto e,
-          a rail compressa, esce dalla sua larghezza sopra il contenuto. */}
+      {/* Rail desktop — sticky così resta ferma mentre <main> scorre. Dal 10/10/2026 è una barra
+          `notte` sfumata (`alc-notte-testata`, Design System ALC "Profondità e luce": scelta
+          dell'utente), col logo bianco e un filo di luce al posto del bordo. `z-20`: il menù
+          dell'account in fondo si apre verso l'alto e, a rail compressa, esce dalla sua larghezza
+          sopra il contenuto. */}
       <aside
         className={cn(
-          "hidden lg:flex flex-col sticky top-0 z-20 h-screen flex-shrink-0 border-r border-linea bg-surface-card transition-[width] duration-200",
+          "alc-notte-testata hidden lg:flex flex-col sticky top-0 z-20 h-screen flex-shrink-0 border-r border-white/[0.07] transition-[width] duration-200",
           collapsed ? "w-16" : "w-56"
         )}
       >
         {/* Logo disteso sull'intera larghezza del blocco (richiesta utente, 09/2026), non più una
             piccola immagine con largo margine intorno — solo px-3 di respiro dai bordi, w-full così
             scala insieme alla rail invece di restare a dimensione fissa. */}
-        <div className="h-16 flex items-center px-3 border-b border-linea overflow-hidden">
+        {/* Il logo orizzontale reso tutto bianco: è la versione per i fondi scuri (il blu del logo su
+            `notte` non si legge), che in orizzontale non esiste ancora come file. */}
+        <div className="h-16 flex items-center px-3 border-b border-white/[0.07] overflow-hidden">
           {!collapsed && (
-            <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={220} height={56} className="object-contain w-full h-auto" />
+            <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={220} height={56} className="object-contain w-full h-auto [filter:brightness(0)_invert(1)]" />
           )}
         </div>
         <nav aria-label="Sezioni" className="flex-1 px-2 py-4 space-y-1">
@@ -176,7 +180,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="flex min-h-11 items-center gap-3 px-3 m-2 mt-1 rounded-lg text-ink-500 hover:text-accento-testo hover:bg-surface transition cursor-pointer"
+          className="flex min-h-11 items-center gap-3 px-3 m-2 mt-1 rounded-lg text-su-notte-secondario hover:text-su-notte hover:bg-white/[0.06] transition cursor-pointer"
           aria-label={collapsed ? "Espandi menu" : "Comprimi menu"}
         >
           {collapsed ? <PanelLeftOpen size={20} aria-hidden="true" /> : <PanelLeftClose size={20} aria-hidden="true" />}
@@ -195,11 +199,11 @@ export function Sidebar({
             aria-label="Menu di navigazione"
             onMouseDown={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
-            className="fixed inset-y-0 left-0 w-64 bg-surface-card border-r border-linea shadow-lg flex flex-col"
+            className="alc-notte-testata fixed inset-y-0 left-0 w-64 border-r border-white/[0.07] shadow-lg flex flex-col"
           >
-            <div className="h-16 flex items-center justify-between pl-4 pr-2 border-b border-linea">
-              <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={110} height={38} className="object-contain h-8 w-auto" />
-              <PulsanteIcona etichetta="Chiudi menu" dimensione="lg" onClick={onCloseMobile} autoFocus>
+            <div className="h-16 flex items-center justify-between pl-4 pr-2 border-b border-white/[0.07]">
+              <Image src="/lenzi.webp" alt="Andrea Lenzi Consulting" width={110} height={38} className="object-contain h-8 w-auto [filter:brightness(0)_invert(1)]" />
+              <PulsanteIcona etichetta="Chiudi menu" dimensione="lg" onClick={onCloseMobile} autoFocus className="text-su-notte-secondario hover:bg-white/10 hover:text-su-notte">
                 <X size={20} aria-hidden="true" />
               </PulsanteIcona>
             </div>

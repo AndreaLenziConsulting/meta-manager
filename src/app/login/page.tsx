@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Field } from "@/components/ui/Field";
@@ -41,10 +40,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface flex flex-col">
-      <AppHeader />
-      <main className="flex-1 flex items-center justify-center px-4 py-10">
-        <Card padding="lg" evidenza className="w-full max-w-sm">
+    // Fondo `notte` sfumato del Design System ALC (scelta dell'utente, 10/10/2026: "proviamo tutti").
+    // Il logo è la versione bianca ufficiale, sopra la card; la card resta chiara, perché dentro c'è
+    // un campo da compilare.
+    <div className="alc-notte-fondo min-h-screen flex flex-col">
+      <main className="flex-1 flex flex-col items-center justify-center gap-8 px-4 py-10">
+        {/* eslint-disable-next-line @next/next/no-img-element -- SVG del logo, nulla da ottimizzare */}
+        <img src="/alc-logo-verticale-bianco.svg" alt="Andrea Lenzi Consulting" width={214} height={140} className="h-[140px] w-auto" />
+        <Card padding="lg" evidenza className="w-full max-w-sm shadow-[var(--shadow-riquadro-notte)]">
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
               <p className={CLASSE_SOPRATITOLO}>Meta Manager ALC</p>

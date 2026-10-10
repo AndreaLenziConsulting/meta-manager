@@ -66,35 +66,40 @@ export function SintesiCliente({
   const numeri = frasiNumeri({ inizio, totale, precedente, confronto, commercialiInseriti });
   const stato = lavori?.lavori ?? null;
 
+  // Lo stesso contenuto su due fondi: chiaro nella scheda del team, `notte` sul link del cliente.
+  const colori = vistaTeam
+    ? { testo: "text-ink-700", forte: "text-ink-900", tenue: "text-ink-500", ritardo: "text-critico" }
+    : { testo: "text-su-notte", forte: "text-su-notte", tenue: "text-su-notte-secondario", ritardo: "text-critico-su-notte" };
+
   const contenuto = (
-    <div className="space-y-3 text-sm leading-[22px] text-ink-700">
+    <div className={`space-y-3 text-sm leading-[22px] ${colori.testo}`}>
       <p>
         {numeri.join(" ")}
-        {campagneScelteAMano && <span className="text-ink-500"> (Solo le campagne selezionate.)</span>}
+        {campagneScelteAMano && <span className={colori.tenue}> (Solo le campagne selezionate.)</span>}
       </p>
       {stato?.avanzamento && (
         <p>
-          <strong className="font-semibold text-ink-900">A che punto siamo:</strong> {fraseLavori(stato.avanzamento)}
+          <strong className={`font-bold ${colori.forte}`}>A che punto siamo:</strong> {fraseLavori(stato.avanzamento)}
         </p>
       )}
       {stato && lavori && stato.serveDaTe.length > 0 && (
         <div>
           <p>
-            <strong className="font-semibold text-ink-900">Serve da te:</strong>
+            <strong className={`font-bold ${colori.forte}`}>Serve da te:</strong>
           </p>
           <ul className="mt-1 list-disc space-y-0.5 pl-5">
             {stato.serveDaTe.map((a) => (
               <li key={`${a.descrizione}|${a.scadenza}`}>
-                {a.descrizione} <span className={a.giorniDiRitardo > 0 ? "font-semibold text-critico" : "text-ink-500"}>— {quandoScade(a, lavori.oggi)}</span>
+                {a.descrizione} <span className={a.giorniDiRitardo > 0 ? `font-semibold ${colori.ritardo}` : colori.tenue}>— {quandoScade(a, lavori.oggi)}</span>
               </li>
             ))}
-            {stato.altreDaTe > 0 && <li className="text-ink-500">e {stato.altreDaTe === 1 ? "un'altra" : `altre ${stato.altreDaTe}`}</li>}
+            {stato.altreDaTe > 0 && <li className={colori.tenue}>e {stato.altreDaTe === 1 ? "un'altra" : `altre ${stato.altreDaTe}`}</li>}
           </ul>
         </div>
       )}
       {stato && stato.serveDaTe.length === 0 && (
         <p>
-          <strong className="font-semibold text-ink-900">Serve da te:</strong> al momento nulla.
+          <strong className={`font-bold ${colori.forte}`}>Serve da te:</strong> al momento nulla.
         </p>
       )}
     </div>
@@ -118,8 +123,10 @@ export function SintesiCliente({
   }
 
   return (
-    <section aria-label="In sintesi" className="rounded-xl border border-bordo-card border-l-4 border-l-brand bg-surface-card px-5 py-4 shadow-[var(--shadow-card)]">
-      <h2 className="mb-2 font-heading text-xl leading-[26px] font-bold text-ink-900">{titolo}</h2>
+    // Sezione `notte` sfumata del Design System ALC (scelta dell'utente, 10/10/2026): è il blocco che
+    // il cliente legge per primo. Sulla pagina di un cliente coi suoi colori prende i suoi.
+    <section aria-label="In sintesi" className="alc-notte-fondo rounded-l-[4px] rounded-r-xl border-l-4 border-l-blu-luce px-6 py-5 shadow-[var(--shadow-notte)]">
+      <h2 className="mb-2 font-heading text-xl leading-[26px] font-bold text-su-notte">{titolo}</h2>
       {contenuto}
     </section>
   );

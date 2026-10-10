@@ -75,17 +75,24 @@ export function AccountMenu({
         aria-label={mostraNome ? undefined : `Account: ${etichetta}`}
         title={mostraNome ? undefined : etichetta}
         className={cn(
-          "flex min-h-11 items-center gap-3 rounded-lg text-left text-sm text-ink-900 transition cursor-pointer hover:bg-surface",
-          laterale ? "w-full px-2" : "px-1.5"
+          "flex min-h-11 items-center gap-3 rounded-lg text-left text-sm transition cursor-pointer",
+          // In fondo al menù laterale sta su fondo `notte`: testi chiari. Nella barra in alto (telefono) no.
+          laterale ? "w-full px-2 text-su-notte hover:bg-white/[0.06]" : "px-1.5 text-ink-900 hover:bg-surface"
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-su-accento">
+        <span
+          className={cn(
+            "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+            // Su `notte` l'accento è `blu-luce`, col suo testo scuro.
+            laterale ? "bg-blu-luce text-su-blu-luce" : "bg-brand text-su-accento"
+          )}
+        >
           {nome ? iniziali(nome) : <Shield size={16} aria-hidden="true" />}
         </span>
         {mostraNome && (
           <span className="min-w-0">
             <span className="block truncate font-semibold">{etichetta}</span>
-            {nome && <span className="block truncate text-xs text-ink-500">{ETICHETTA_RUOLO[ruolo]}</span>}
+            {nome && <span className={cn("block truncate text-xs", laterale ? "text-su-notte-secondario" : "text-ink-500")}>{ETICHETTA_RUOLO[ruolo]}</span>}
           </span>
         )}
       </button>

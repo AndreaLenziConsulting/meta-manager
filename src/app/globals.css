@@ -42,6 +42,9 @@
   --attenzione-tenue: #fcefd2;
   --critico: #b03a34;
   --critico-tenue: #fbe9e7;
+  /* Il rosso dello stato su un fondo `notte` (è il `critico` del tema scuro del sistema): quello dei
+     fondi chiari lì non si legge. */
+  --critico-su-notte: #ff8a80;
   --focus: #08599c;
   --accento: #08599c;
   --accento-testo: #08599c;
@@ -60,6 +63,7 @@
   --shadow-sollevata: 0 1px 2px rgba(0, 47, 84, 0.05), 0 18px 44px rgba(0, 47, 84, 0.14);
   --shadow-alta: 0 12px 32px rgba(0, 47, 84, 0.16);
   --shadow-notte: 0 10px 24px rgba(0, 0, 0, 0.25);
+  --shadow-riquadro-notte: 0 20px 50px rgba(0, 0, 0, 0.3);
   --glow-blu: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(8, 89, 156, 0.32);
   --glow-blu-alto: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 12px 28px rgba(8, 89, 156, 0.32);
   --glow-luce: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 30px rgba(60, 135, 197, 0.45);
@@ -130,6 +134,8 @@
   --color-attenzione-tenue: var(--attenzione-tenue);
   --color-critico: var(--critico);
   --color-critico-tenue: var(--critico-tenue);
+  --color-critico-su-notte: var(--critico-su-notte);
+  --color-su-blu-luce: var(--su-blu-luce);
   --font-sans: var(--font-montserrat);
   --font-heading: var(--font-montserrat);
   /* Forma del sistema: card e pannelli `radius-lg` 12px. `rounded-2xl` era il raggio dei pannelli
@@ -295,6 +301,16 @@ body {
   background-image: var(--alone-notte-alto), var(--alone-notte-basso), var(--gradiente-notte);
   background-repeat: no-repeat;
   background-size: cover;
+}
+
+/*
+ * Barra di navigazione scura ("SezioneNotte", variante testata): sfumatura verticale, più profonda
+ * in basso. Dentro, l'anello di focus prende l'azzurro chiaro: il blu dei fondi chiari qui non si vede.
+ */
+.alc-notte-testata {
+  background-color: var(--notte);
+  background-image: var(--gradiente-testata);
+  --focus: var(--accento-su-notte);
 }
 
 /* Solo per screen reader e tastiera: il link "Salta al contenuto" compare quando riceve il focus. */
