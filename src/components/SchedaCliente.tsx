@@ -6,6 +6,7 @@ import { Accordion, type AccordionItemDef } from "@/components/Accordion";
 import { KpiSection } from "@/components/KpiSection";
 import { AttivitaTab } from "@/components/AttivitaTab";
 import { MeetingTab } from "@/components/MeetingTab";
+import { ProcessiTab } from "@/components/ProcessiTab";
 import { ReportVenditaTab } from "@/components/ReportVenditaTab";
 import type { Cliente, Consulente, Sede } from "@/types/kpi";
 
@@ -153,6 +154,10 @@ export function SchedaCliente({
           },
         ]
       : []),
+    // Processi: gli schemi con cui il consulente spiega il lavoro al cliente in call (10/10/2026).
+    // Solo per il team, stesso cancello `!code` di Attività e Vendita; in fondo perché è materiale
+    // di consultazione, non lavoro sul cliente. Non legge nessun dato: vedi ProcessiTab.tsx.
+    ...(!code ? [{ id: "processi", label: "Processi", content: <ProcessiTab /> }] : []),
   ];
 
   // Un `?tab=` che non corrisponde a nessuna sezione visibile (scritto a mano, o di un ruolo che
