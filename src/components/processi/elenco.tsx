@@ -20,6 +20,9 @@ export type Processo = {
  * metodi di lavoro dell'agenzia: uguali per tutti i clienti, visibili solo al team.
  *
  * Per aggiungerne uno: un file in `schemi/` che disegna coi mattoni di `primitive.tsx`, e una voce qui.
+ * Il foglio di uno schema comincia dal contenuto: niente logo, titolo o descrizione disegnati dentro
+ * (l'utente li ha fatti togliere il 10/10/2026, "sono ridondanti"). `titolo` e `descrizione` di qui
+ * sotto compaiono già nella barra del visualizzatore.
  */
 export const PROCESSI: Processo[] = [
   {

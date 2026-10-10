@@ -5,11 +5,15 @@ import { ALTEZZA_RIQUADRO, ALTEZZA_RIQUADRO_CON_ESEMPIO, Anello, COLORE, Freccia
  * Ridisegnato il 10/10/2026 dallo schema dell'utente del 7 ottobre 2026: stessi contenuti e stessa
  * disposizione, in vettoriale (ingrandito resta nitido) e coi colori del Design System ALC.
  *
+ * Senza logo, titolo e descrizione in testa al foglio (tolti su richiesta dell'utente il 10/10/2026:
+ * "sono ridondanti"): il titolo e la descrizione stanno già nella barra del visualizzatore, anche a
+ * schermo intero. Vale per ogni schema: il foglio comincia dal contenuto.
+ *
  * I numeri del riepilogo in fondo ("5 chiamate · 2 messaggi WhatsApp · 4 email") sono la somma dei
  * passi dei tre giorni qui sotto: se cambia un passo, va cambiato anche il riepilogo.
  */
 export const LARGHEZZA_SETTING = 1600;
-export const ALTEZZA_SETTING = 830;
+export const ALTEZZA_SETTING = 734;
 
 type Passo = { tono: TonoRiquadro; titolo: string; esempio?: string[] };
 type Giorno = { x: number; titolo: string; sotto: string; passi: Passo[]; conto: string };
@@ -53,12 +57,12 @@ const GIORNI: Giorno[] = [
 ];
 
 // Linea del tempo e schede.
-const Y_LINEA = 176;
-const Y_SCHEDE = 217;
+const Y_LINEA = 80;
+const Y_SCHEDE = 121;
 const ALTEZZA_SCHEDE = 390;
 const LARGHEZZA_GIORNO = 248;
 const MARGINE_SCHEDA = 19;
-const Y_PRIMO_PASSO = 297;
+const Y_PRIMO_PASSO = 201;
 const SPAZIO_FRA_PASSI = 27;
 
 // "Giorni 4–7": la scheda larga, senza passi fissi.
@@ -74,9 +78,9 @@ const LARGHEZZA_ESITO = 258;
 const ALTEZZA_ESITO = 99;
 
 const ESITI = [
-  { y: 216, titolo: "Risponde", sotto: "si fissa l'appuntamento", fondo: COLORE.okTenue, bordo: COLORE.ok, coloreTitolo: COLORE.ok, freccia: COLORE.ok },
-  { y: 341, titolo: "Non risponde proprio", sotto: "silenzio totale, chiuso", fondo: COLORE.sfondo, bordo: COLORE.secondario, coloreTitolo: COLORE.testo, freccia: COLORE.secondario },
-  { y: 465, titolo: "Non mi interessa", sotto: "risposta chiara, chiuso", fondo: COLORE.criticoTenue, bordo: COLORE.critico, coloreTitolo: COLORE.critico, freccia: COLORE.critico },
+  { y: 120, titolo: "Risponde", sotto: "si fissa l'appuntamento", fondo: COLORE.okTenue, bordo: COLORE.ok, coloreTitolo: COLORE.ok, freccia: COLORE.ok },
+  { y: 245, titolo: "Non risponde proprio", sotto: "silenzio totale, chiuso", fondo: COLORE.sfondo, bordo: COLORE.secondario, coloreTitolo: COLORE.testo, freccia: COLORE.secondario },
+  { y: 369, titolo: "Non mi interessa", sotto: "risposta chiara, chiuso", fondo: COLORE.criticoTenue, bordo: COLORE.critico, coloreTitolo: COLORE.critico, freccia: COLORE.critico },
 ];
 
 const LEGENDA = [
@@ -124,19 +128,6 @@ function SchedaGiorno({ giorno }: { giorno: Giorno }) {
 export function SettingPrimi7Giorni() {
   return (
     <g>
-      {/* Intestazione. */}
-      <image href="/lenzi.webp" x={54} y={50} width={160} height={39.33} />
-      <line x1={238} y1={42} x2={238} y2={112} stroke={COLORE.linea} strokeWidth={1.5} />
-      <Testo x={262} y={56} misura={12} peso={700} colore={COLORE.blu} spaziata>
-        ANDREA LENZI CONSULTING · APPOINTMENT SETTING
-      </Testo>
-      <Testo x={262} y={88} misura={28} peso={800} colore={COLORE.inchiostro}>
-        Schema — Appointment setting: i primi 7 giorni
-      </Testo>
-      <Testo x={262} y={112} misura={15} colore={COLORE.secondario}>
-        Cosa fa il commerciale da quando entra il lead, giorno per giorno
-      </Testo>
-
       {/* Linea del tempo: dal lead che entra al giorno 7. */}
       <Testo x={54} y={Y_LINEA - 22} misura={11} peso={700} colore={COLORE.inchiostro} spaziata>
         ENTRA IL LEAD
@@ -180,13 +171,13 @@ export function SettingPrimi7Giorni() {
         <Testo x={X_RIPETI + MARGINE_SCHEDA} y={Y_SCHEDE + 57} misura={12} peso={600} colore={COLORE.inchiostro}>
           Se non risponde, il giro si ripete
         </Testo>
-        <FrecciaCircolare cx={CENTRO_RIPETI} cy={350}>
+        <FrecciaCircolare cx={CENTRO_RIPETI} cy={254}>
           ripeti
         </FrecciaCircolare>
         {[
-          { y: 423, colore: COLORE.ok, testo: "Aggiungi una comunicazione" },
-          { y: 452, colore: COLORE.critico, testo: "Togli una comunicazione" },
-          { y: 481, colore: COLORE.blu, testo: "Fino al giorno 7" },
+          { y: 327, colore: COLORE.ok, testo: "Aggiungi una comunicazione" },
+          { y: 356, colore: COLORE.critico, testo: "Togli una comunicazione" },
+          { y: 385, colore: COLORE.blu, testo: "Fino al giorno 7" },
         ].map((voce) => (
           <g key={voce.testo}>
             <circle cx={X_RIPETI + 26} cy={voce.y - 4.5} r={5.5} fill={voce.colore} />
@@ -195,16 +186,16 @@ export function SettingPrimi7Giorni() {
             </Testo>
           </g>
         ))}
-        <rect x={X_RIPETI + 18} y={513} width={LARGHEZZA_RIPETI - 36} height={77} rx={6} fill={COLORE.bluTenue} stroke={COLORE.blu} strokeWidth={1.5} />
+        <rect x={X_RIPETI + 18} y={417} width={LARGHEZZA_RIPETI - 36} height={77} rx={6} fill={COLORE.bluTenue} stroke={COLORE.blu} strokeWidth={1.5} />
         {["I messaggi sono i più invasivi,", "ma sono anche quelli che", "rispondono di più."].map((riga, i) => (
-          <Testo key={riga} x={CENTRO_RIPETI} y={538 + i * 18} misura={13} peso={600} colore={COLORE.inchiostro} ancora="middle">
+          <Testo key={riga} x={CENTRO_RIPETI} y={442 + i * 18} misura={13} peso={600} colore={COLORE.inchiostro} ancora="middle">
             {riga}
           </Testo>
         ))}
       </Scheda>
 
       {/* I tre esiti. */}
-      <Testo x={X_ESITI} y={199} misura={10.5} peso={700} colore={COLORE.secondario} spaziata>
+      <Testo x={X_ESITI} y={103} misura={10.5} peso={700} colore={COLORE.secondario} spaziata>
         ENTRO 7 GIORNI, UNA DI TRE
       </Testo>
       {ESITI.map((esito) => (
@@ -222,31 +213,31 @@ export function SettingPrimi7Giorni() {
       {/* Legenda. */}
       {LEGENDA.map((voce) => (
         <g key={voce.testo}>
-          <Anello x={voce.x} y={645} colore={voce.colore} />
-          <Testo x={voce.x + 15} y={649.5} misura={13} peso={600} colore={COLORE.inchiostro}>
+          <Anello x={voce.x} y={549} colore={voce.colore} />
+          <Testo x={voce.x + 15} y={553.5} misura={13} peso={600} colore={COLORE.inchiostro}>
             {voce.testo}
           </Testo>
         </g>
       ))}
 
       {/* Riepilogo. */}
-      <rect x={54} y={676} width={1492} height={71} rx={8} fill={COLORE.bluTenue} stroke={COLORE.blu20} strokeWidth={1.25} />
-      <Testo x={78} y={707} misura={14} peso={700} colore={COLORE.blu}>
+      <rect x={54} y={580} width={1492} height={71} rx={8} fill={COLORE.bluTenue} stroke={COLORE.blu20} strokeWidth={1.25} />
+      <Testo x={78} y={611} misura={14} peso={700} colore={COLORE.blu}>
         Prime 72 ore: 5 chiamate · 2 messaggi WhatsApp · 4 email (3 automatiche, 1 manuale)
       </Testo>
-      <Testo x={78} y={727} misura={14} peso={700} colore={COLORE.inchiostro}>
+      <Testo x={78} y={631} misura={14} peso={700} colore={COLORE.inchiostro}>
         Obiettivo: entro 7 giorni il contatto risponde, dice di no o tace. Poi ci si ferma.
       </Testo>
 
       {/* Piè di pagina. */}
-      <line x1={54} y1={780} x2={1546} y2={780} stroke={COLORE.linea} strokeWidth={1} />
-      <Testo x={54} y={805} misura={11.5} colore={COLORE.secondario}>
+      <line x1={54} y1={684} x2={1546} y2={684} stroke={COLORE.linea} strokeWidth={1} />
+      <Testo x={54} y={709} misura={11.5} colore={COLORE.secondario}>
         Andrea Lenzi Consulting
       </Testo>
-      <Testo x={1546} y={805} misura={11.5} colore={COLORE.secondario} ancora="end">
+      <Testo x={1546} y={709} misura={11.5} colore={COLORE.secondario} ancora="end">
         Aggiornato al 7 ottobre 2026
       </Testo>
-      <rect x={0} y={822} width={LARGHEZZA_SETTING} height={8} fill={COLORE.blu} />
+      <rect x={0} y={726} width={LARGHEZZA_SETTING} height={8} fill={COLORE.blu} />
     </g>
   );
 }
