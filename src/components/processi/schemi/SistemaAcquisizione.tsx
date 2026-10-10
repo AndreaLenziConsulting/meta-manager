@@ -1,4 +1,4 @@
-import { nomeNelloSchema } from "@/lib/schemaTesto";
+import { nomeNelloSchema, rigaCommerciali, type CommercialiDiSede } from "@/lib/schemaTesto";
 import { Casella, COLORE, Freccia, Testo } from "@/components/processi/primitive";
 
 /**
@@ -12,6 +12,9 @@ import { Casella, COLORE, Freccia, Testo } from "@/components/processi/primitive
  * "che venga scritta l'azienda dentro alla quale sono"); senza un nome resta "La tua azienda". Le
  * parole restano quelle del settore arredo ("nel punto vendita", "progetto e preventivo"), come
  * nell'originale.
+ *
+ * Se sulle sedi del cliente ci sono commerciali registrati, la stessa fascia li cita per nome
+ * (richiesta dell'utente, 10/10/2026): sono loro a gestire appuntamenti, trattative e vendite.
  *
  * Colori: nell'originale tempi e misure avevano magenta e viola; qui i toni del sistema ALC.
  */
@@ -83,7 +86,9 @@ const LARGHEZZA_PILLOLA_TEMPO = 200;
 // Il nome del cliente sta su una riga sola della fascia: oltre questa misura si accorcia.
 const NOME_MASSIMO = 60;
 
-export function SistemaAcquisizione({ nomeCliente }: { nomeCliente?: string }) {
+export function SistemaAcquisizione({ nomeCliente, commerciali }: { nomeCliente?: string; commerciali?: CommercialiDiSede[] }) {
+  const chiVende = rigaCommerciali(commerciali);
+  const compiti = "appuntamenti, trattative e vendite · con il coaching ALC del lunedì sera";
   return (
     <g>
       {/* I tempi, in fila, e la discesa di ognuno sulla sua fase. */}
@@ -201,8 +206,8 @@ export function SistemaAcquisizione({ nomeCliente }: { nomeCliente?: string }) {
       <Testo x={1357} y={729} misura={22} peso={700} colore={COLORE.inchiostro} ancora="middle">
         {nomeNelloSchema(nomeCliente, NOME_MASSIMO) ?? "La tua azienda"}
       </Testo>
-      <Testo x={1357} y={757} misura={19} colore={COLORE.testo} ancora="middle">
-        appuntamenti, trattative e vendite · con il coaching ALC del lunedì sera
+      <Testo x={1357} y={757} misura={19} colore={COLORE.testo} ancora="middle" larghezzaMassima={1060}>
+        {chiVende ? `${chiVende}: ${compiti}` : compiti}
       </Testo>
 
       {/* Chiusura del foglio: la barra di ALC. */}

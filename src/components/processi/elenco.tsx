@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { CommercialiDiSede } from "@/lib/schemaTesto";
 import { ALTEZZA_LEAD_VENDITA, DalLeadAllaVendita, LARGHEZZA_LEAD_VENDITA } from "@/components/processi/schemi/DalLeadAllaVendita";
 import { ALTEZZA_PUBBLICITA_VENDITA, DallaPubblicitaAllaVendita, LARGHEZZA_PUBBLICITA_VENDITA } from "@/components/processi/schemi/DallaPubblicitaAllaVendita";
 import { ALTEZZA_EDUCAZIONE, LARGHEZZA_EDUCAZIONE, MomentiEducazioneLead } from "@/components/processi/schemi/MomentiEducazioneLead";
@@ -10,6 +11,8 @@ import { ALTEZZA_ACQUISIZIONE, LARGHEZZA_ACQUISIZIONE, SistemaAcquisizione } fro
 export type ContestoSchema = {
   /** Nome del cliente della scheda aperta: lo schema può scriverlo dove parla della sua azienda. */
   nomeCliente?: string;
+  /** I commerciali registrati sulle sedi del cliente: lo schema li cita dove parla di chi vende. */
+  commerciali?: CommercialiDiSede[];
 };
 
 export type Processo = {
@@ -29,7 +32,8 @@ export type Processo = {
 /**
  * Gli schemi della sezione "Processi" della scheda cliente, nell'ordine in cui compaiono. Sono i
  * metodi di lavoro dell'agenzia: uguali per tutti i clienti, visibili solo al team. L'unica cosa che
- * cambia da un cliente all'altro è il suo nome, dove uno schema lo mostra (`ContestoSchema`).
+ * cambia da un cliente all'altro sono il suo nome e i suoi commerciali, dove uno schema li mostra
+ * (`ContestoSchema`).
  *
  * Per aggiungerne uno: un file in `schemi/` che disegna coi mattoni di `primitive.tsx`, e una voce qui.
  * Il foglio di uno schema comincia dal contenuto: niente logo, titolo, descrizione o piè di pagina disegnati dentro
@@ -48,7 +52,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Dalla pubblicità al fatturato: le fasi, i tempi, gli scarti fisiologici e i numeri da misurare.",
     larghezza: LARGHEZZA_ACQUISIZIONE,
     altezza: ALTEZZA_ACQUISIZIONE,
-    disegna: ({ nomeCliente }) => <SistemaAcquisizione nomeCliente={nomeCliente} />,
+    disegna: ({ nomeCliente, commerciali }) => <SistemaAcquisizione nomeCliente={nomeCliente} commerciali={commerciali} />,
   },
   {
     id: "dalla-pubblicita-alla-vendita",
@@ -66,7 +70,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Marketing genera e qualifica, il setting fissa e prepara, il commerciale chiude e fa follow-up.",
     larghezza: LARGHEZZA_LEAD_VENDITA,
     altezza: ALTEZZA_LEAD_VENDITA,
-    disegna: ({ nomeCliente }) => <DalLeadAllaVendita nomeCliente={nomeCliente} />,
+    disegna: ({ nomeCliente, commerciali }) => <DalLeadAllaVendita nomeCliente={nomeCliente} commerciali={commerciali} />,
   },
   {
     id: "momenti-educazione-lead",
@@ -93,6 +97,6 @@ export const PROCESSI: Processo[] = [
     descrizione: "Sei fasi in sequenza: la stimolazione è quella che trasforma una vendita tecnica in una decisione.",
     larghezza: LARGHEZZA_PIRAMIDE,
     altezza: ALTEZZA_PIRAMIDE,
-    disegna: () => <PiramideRovesciataVendita />,
+    disegna: ({ commerciali }) => <PiramideRovesciataVendita commerciali={commerciali} />,
   },
 ];

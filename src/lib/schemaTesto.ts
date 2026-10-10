@@ -51,3 +51,32 @@ export function larghezzaStimata(testo: string): number {
   }
   return em;
 }
+
+/** I commerciali di una sede. `sede` vuoto = il cliente ha una sede sola, il suo nome non serve. */
+export type CommercialiDiSede = { sede: string; nomi: string[] };
+
+/**
+ * Un elenco di nomi come lo si dice: "Anna", "Anna e Marco", "Anna, Marco e Sara". Oltre `massimo`
+ * nomi i restanti si contano: "Anna, Marco, Sara, Luca e altri 2".
+ */
+export function elencoNomi(nomi: string[], massimo = 4): string {
+  if (nomi.length <= 1) return nomi[0] ?? "";
+  if (nomi.length <= massimo) return `${nomi.slice(0, -1).join(", ")} e ${nomi[nomi.length - 1]}`;
+  const restanti = nomi.length - massimo;
+  return `${nomi.slice(0, massimo).join(", ")} e ${restanti === 1 ? "un altro" : `altri ${restanti}`}`;
+}
+
+/**
+ * I commerciali di un cliente in una riga, o `null` se non ce ne sono (lo schema resta generico).
+ * Sede sola: "Vittorio e Stefano". Più sedi: "Sesto (Giovanni e Ruben) · Anagnina (Claudia)".
+ */
+export function rigaCommerciali(commerciali: CommercialiDiSede[] | undefined, massimoPerSede = 4): string | null {
+  const gruppi = (commerciali ?? []).filter((g) => g.nomi.length > 0);
+  if (gruppi.length === 0) return null;
+  return gruppi.map((g) => (g.sede ? `${g.sede} (${elencoNomi(g.nomi, massimoPerSede)})` : elencoNomi(g.nomi, massimoPerSede))).join(" · ");
+}
+
+/** Quanti commerciali in tutto: serve a scegliere fra singolare e plurale ("conduce" / "conducono"). */
+export function quantiCommerciali(commerciali: CommercialiDiSede[] | undefined): number {
+  return (commerciali ?? []).reduce((somma, g) => somma + g.nomi.length, 0);
+}

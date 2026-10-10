@@ -1,4 +1,4 @@
-import { nomeNelloSchema } from "@/lib/schemaTesto";
+import { nomeNelloSchema, rigaCommerciali, type CommercialiDiSede } from "@/lib/schemaTesto";
 import { Casella, COLORE, Freccia, FrecciaSpezzata, Pillola, Testo } from "@/components/processi/primitive";
 
 /**
@@ -10,7 +10,8 @@ import { Casella, COLORE, Freccia, FrecciaSpezzata, Pillola, Testo } from "@/com
  * Nella fascia "COMMERCIALE" compare il nome del cliente della scheda in cui lo schema è aperto
  * (richiesta dell'utente, 10/10/2026: il nome dell'azienda dove ha senso): discovery, offerta,
  * chiusura e follow-up li fa la sua squadra. La fascia "MARKETING" resta senza nome: dentro c'è anche
- * la prima chiamata, che non sempre fa ALC.
+ * la prima chiamata, che non sempre fa ALC. Se sulle sedi del cliente ci sono commerciali registrati,
+ * la fascia "COMMERCIALE" li cita per nome (richiesta dell'utente, 10/10/2026).
  *
  * Colori: nell'originale marketing e commerciale erano viola e rosso; qui sono blu e grigio, perché
  * il sistema ALC tiene il rosso per ciò che va male ("Non compra") e non ha un viola.
@@ -57,8 +58,10 @@ function Kpi({ x, larghezza, numero, domanda, formula }: { x: number; larghezza:
   );
 }
 
-export function DalLeadAllaVendita({ nomeCliente }: { nomeCliente?: string }) {
+export function DalLeadAllaVendita({ nomeCliente, commerciali }: { nomeCliente?: string; commerciali?: CommercialiDiSede[] }) {
   const azienda = nomeNelloSchema(nomeCliente, 60);
+  const chiVende = rigaCommerciali(commerciali);
+  const compiti = "discovery, offerta, chiusura e follow-up";
   return (
     <g>
       {/* Il setting: dalla prima chiamata alla discovery. */}
@@ -149,8 +152,8 @@ export function DalLeadAllaVendita({ nomeCliente }: { nomeCliente?: string }) {
       <Testo x={1425.5} y={496} misura={17} peso={800} colore={COLORE.inchiostro} ancora="middle">
         {azienda ? `COMMERCIALE · ${azienda}` : "COMMERCIALE"}
       </Testo>
-      <Testo x={1425.5} y={519} misura={15} colore={COLORE.testo} ancora="middle">
-        discovery, offerta, chiusura e follow-up
+      <Testo x={1425.5} y={519} misura={15} colore={COLORE.testo} ancora="middle" larghezzaMassima={960}>
+        {chiVende ? `${chiVende}: ${compiti}` : compiti}
       </Testo>
 
       {/* Chiusura del foglio: la barra di ALC. */}

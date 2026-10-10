@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getSessione } from "@/lib/auth";
-import { getClienti, getConsulenti, getGhlConnessioni, getSedi } from "@/lib/archivio";
+import { getClienti, getConsulenti, getGhlConnessioni, getSedi, getVenditori } from "@/lib/archivio";
 import { puoVedereCliente } from "@/lib/authz";
+import { commercialiDelCliente } from "@/lib/commercialiCliente";
 import { settimanaCorrente } from "@/lib/roadmap";
 import { SchedaCliente } from "@/components/SchedaCliente";
 import { styleTemaCliente } from "@/lib/temaCliente";
@@ -35,7 +36,7 @@ export default async function ClienteSchedaPage({
   }
 
   // Tutte insieme: una sola lettura del foglio invece di due (vedi le letture raggruppate in sheets.ts).
-  const [clienti, sedi, connessioniGhl, consulenti] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni(), getConsulenti()]);
+  const [clienti, sedi, connessioniGhl, consulenti, venditori] = await Promise.all([getClienti(), getSedi(), getGhlConnessioni(), getConsulenti(), getVenditori()]);
   if (!puoVedereCliente(sessione, clienteId, clienti)) {
     redirect("/dashboard");
   }
@@ -83,6 +84,8 @@ export default async function ClienteSchedaPage({
         consulenti={consulenti}
         nomeConsulenteCorrente={nomeConsulenteCorrente}
         tabIniziale={typeof tab === "string" ? tab : undefined}
+        // Solo i nomi dei commerciali attivi, sede per sede: li citano gli schemi della sezione Processi.
+        commerciali={commercialiDelCliente(sediCliente, venditori)}
       />
     </div>
   );

@@ -1,3 +1,4 @@
+import { quantiCommerciali, rigaCommerciali, type CommercialiDiSede } from "@/lib/schemaTesto";
 import { COLORE, FrecciaSpezzata, Testo } from "@/components/processi/primitive";
 
 /**
@@ -5,6 +6,9 @@ import { COLORE, FrecciaSpezzata, Testo } from "@/components/processi/primitive"
  * divise su due appuntamenti; la stimolazione è quella che trasforma una vendita tecnica in una
  * decisione. Ridisegnato il 10/10/2026 dallo schema dell'utente del 21 settembre 2026 (su Drive,
  * cartella Serveco: `ALC_Schema_PiramideRovesciataVendita.png`): stesse fasi e stesse parole.
+ *
+ * Se sulle sedi del cliente ci sono commerciali registrati, il riquadro in fondo dice chi conduce i
+ * due appuntamenti (richiesta dell'utente, 10/10/2026). Senza commerciali resta com'era.
  */
 export const LARGHEZZA_PIRAMIDE = 2000;
 export const ALTEZZA_PIRAMIDE = 982;
@@ -58,7 +62,9 @@ function Graffa({ da, a, titolo, righe }: { da: number; a: number; titolo: strin
   );
 }
 
-export function PiramideRovesciataVendita() {
+export function PiramideRovesciataVendita({ commerciali }: { commerciali?: CommercialiDiSede[] }) {
+  const chiVende = rigaCommerciali(commerciali);
+  const conduce = quantiCommerciali(commerciali) === 1 ? "Conduce" : "Conducono";
   return (
     <g>
       {FASI.map((fase, i) => {
@@ -119,9 +125,15 @@ export function PiramideRovesciataVendita() {
 
       {/* Quanto dura. */}
       <rect x={88} y={838} width={1823} height={90} rx={12} fill={COLORE.bluTenue} stroke={COLORE.blu20} strokeWidth={1.5} />
-      <Testo x={129} y={890} misura={20} peso={700} colore={COLORE.blu}>
+      {/* Con i commerciali le righe a sinistra sono due: la durata sale per far posto ai nomi. */}
+      <Testo x={129} y={chiVende ? 876 : 890} misura={20} peso={700} colore={COLORE.blu}>
         Durata totale dell&apos;appuntamento: 75–90 minuti
       </Testo>
+      {chiVende && (
+        <Testo x={129} y={905} misura={17.5} peso={600} colore={COLORE.inchiostro} larghezzaMassima={1100}>
+          {`${conduce} App 1 e App 2: ${chiVende}`}
+        </Testo>
+      )}
       <Testo x={1870} y={890} misura={17.5} colore={COLORE.testo} ancora="end">
         con un&apos;offerta su misura, le fasi si dividono su due appuntamenti
       </Testo>

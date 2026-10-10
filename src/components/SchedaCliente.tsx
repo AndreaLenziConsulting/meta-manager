@@ -9,6 +9,7 @@ import { MeetingTab } from "@/components/MeetingTab";
 import { ProcessiTab } from "@/components/ProcessiTab";
 import { ReportVenditaTab } from "@/components/ReportVenditaTab";
 import type { Cliente, Consulente, Sede } from "@/types/kpi";
+import type { CommercialiDiSede } from "@/lib/schemaTesto";
 
 type Props = {
   code?: string;
@@ -48,6 +49,9 @@ type Props = {
   // Sezione da aprire, letta dall'indirizzo (`?tab=attivita`) lato server in
   // dashboard/cliente/[clienteId]/page.tsx. Assente = KPI.
   tabIniziale?: string;
+  // I commerciali registrati sulle sedi del cliente (solo nomi), calcolati lato server: li citano
+  // gli schemi della sezione Processi. Assenti sul link pubblico, dove quella sezione non c'è.
+  commerciali?: CommercialiDiSede[];
 };
 
 export function SchedaCliente({
@@ -67,6 +71,7 @@ export function SchedaCliente({
   consulenti = [],
   nomeConsulenteCorrente,
   tabIniziale,
+  commerciali,
 }: Props) {
   const [tabScelto, setTabScelto] = useState(tabIniziale ?? "kpi");
   // Click su un badge "Meeting" nel tab Attività: passa al tab Meeting e apre proprio quello.
@@ -156,8 +161,9 @@ export function SchedaCliente({
       : []),
     // Processi: gli schemi con cui il consulente spiega il lavoro al cliente in call (10/10/2026).
     // Solo per il team, stesso cancello `!code` di Attività e Vendita; in fondo perché è materiale
-    // di consultazione, non lavoro sul cliente. Del cliente usa solo il nome: vedi ProcessiTab.tsx.
-    ...(!code ? [{ id: "processi", label: "Processi", content: <ProcessiTab clienteNome={clienteNome} /> }] : []),
+    // di consultazione, non lavoro sul cliente. Del cliente usa solo il nome e i nomi dei suoi
+    // commerciali: vedi ProcessiTab.tsx.
+    ...(!code ? [{ id: "processi", label: "Processi", content: <ProcessiTab clienteNome={clienteNome} commerciali={commerciali} /> }] : []),
   ];
 
   // Un `?tab=` che non corrisponde a nessuna sezione visibile (scritto a mano, o di un ruolo che
