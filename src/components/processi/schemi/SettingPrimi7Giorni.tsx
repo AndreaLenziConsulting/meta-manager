@@ -7,13 +7,14 @@ import { ALTEZZA_RIQUADRO, ALTEZZA_RIQUADRO_CON_ESEMPIO, Anello, COLORE, Freccia
  *
  * Senza logo, titolo e descrizione in testa al foglio (tolti su richiesta dell'utente il 10/10/2026:
  * "sono ridondanti"): il titolo e la descrizione stanno già nella barra del visualizzatore, anche a
- * schermo intero. Vale per ogni schema: il foglio comincia dal contenuto.
+ * schermo intero. Vale per ogni schema: il foglio comincia dal contenuto. Lo stesso giorno ha fatto
+ * togliere anche il piè di pagina ("Andrea Lenzi Consulting" e "Aggiornato al 7 ottobre 2026").
  *
  * I numeri del riepilogo in fondo ("5 chiamate · 2 messaggi WhatsApp · 4 email") sono la somma dei
  * passi dei tre giorni qui sotto: se cambia un passo, va cambiato anche il riepilogo.
  */
 export const LARGHEZZA_SETTING = 1600;
-export const ALTEZZA_SETTING = 734;
+export const ALTEZZA_SETTING = 705;
 
 type Passo = { tono: TonoRiquadro; titolo: string; esempio?: string[] };
 type Giorno = { x: number; titolo: string; sotto: string; passi: Passo[]; conto: string };
@@ -229,15 +230,8 @@ export function SettingPrimi7Giorni() {
         Obiettivo: entro 7 giorni il contatto risponde, dice di no o tace. Poi ci si ferma.
       </Testo>
 
-      {/* Piè di pagina. */}
-      <line x1={54} y1={684} x2={1546} y2={684} stroke={COLORE.linea} strokeWidth={1} />
-      <Testo x={54} y={709} misura={11.5} colore={COLORE.secondario}>
-        Andrea Lenzi Consulting
-      </Testo>
-      <Testo x={1546} y={709} misura={11.5} colore={COLORE.secondario} ancora="end">
-        Aggiornato al 7 ottobre 2026
-      </Testo>
-      <rect x={0} y={726} width={LARGHEZZA_SETTING} height={8} fill={COLORE.blu} />
+      {/* Chiusura del foglio: la barra di ALC. */}
+      <rect x={0} y={ALTEZZA_SETTING - 8} width={LARGHEZZA_SETTING} height={8} fill={COLORE.blu} />
     </g>
   );
 }
