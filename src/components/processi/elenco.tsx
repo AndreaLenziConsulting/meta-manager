@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import { ALTEZZA_LEAD_VENDITA, DalLeadAllaVendita, LARGHEZZA_LEAD_VENDITA } from "@/components/processi/schemi/DalLeadAllaVendita";
+import { ALTEZZA_PUBBLICITA_VENDITA, DallaPubblicitaAllaVendita, LARGHEZZA_PUBBLICITA_VENDITA } from "@/components/processi/schemi/DallaPubblicitaAllaVendita";
 import { ALTEZZA_EDUCAZIONE, LARGHEZZA_EDUCAZIONE, MomentiEducazioneLead } from "@/components/processi/schemi/MomentiEducazioneLead";
 import { ALTEZZA_PIRAMIDE, LARGHEZZA_PIRAMIDE, PiramideRovesciataVendita } from "@/components/processi/schemi/PiramideRovesciataVendita";
 import { ALTEZZA_SETTING, LARGHEZZA_SETTING, SettingPrimi7Giorni } from "@/components/processi/schemi/SettingPrimi7Giorni";
+import { ALTEZZA_ACQUISIZIONE, LARGHEZZA_ACQUISIZIONE, SistemaAcquisizione } from "@/components/processi/schemi/SistemaAcquisizione";
 
 export type Processo = {
   /** Stabile: un domani potrà finire in un indirizzo o in una scelta per cliente. */
@@ -27,10 +29,29 @@ export type Processo = {
  * (l'utente li ha fatti togliere il 10/10/2026, "sono ridondanti"). `titolo` e `descrizione` di qui
  * sotto compaiono già nella barra del visualizzatore.
  *
- * L'ordine segue il percorso del cliente: il quadro d'insieme, il marketing, il setting, la vendita.
+ * L'ordine segue il percorso del cliente: il quadro d'insieme (i tre schemi del funnel, dalla
+ * pubblicità alla vendita), il marketing, il setting, la vendita.
  * Gli originali dell'utente stanno su Google Drive, nelle cartelle cliente, come `<CLIENTE>_Schema…png`.
  */
 export const PROCESSI: Processo[] = [
+  {
+    id: "sistema-acquisizione",
+    nome: "Sistema di acquisizione",
+    titolo: "Il sistema di acquisizione",
+    descrizione: "Dalla pubblicità al fatturato: le fasi, i tempi, gli scarti fisiologici e i numeri da misurare.",
+    larghezza: LARGHEZZA_ACQUISIZIONE,
+    altezza: ALTEZZA_ACQUISIZIONE,
+    schema: <SistemaAcquisizione />,
+  },
+  {
+    id: "dalla-pubblicita-alla-vendita",
+    nome: "Dalla pubblicità alla vendita",
+    titolo: "Dalla pubblicità alla vendita del progetto",
+    descrizione: "Quanti lead entrano nel processo commerciale e in quanto tempo diventano vendita.",
+    larghezza: LARGHEZZA_PUBBLICITA_VENDITA,
+    altezza: ALTEZZA_PUBBLICITA_VENDITA,
+    schema: <DallaPubblicitaAllaVendita />,
+  },
   {
     id: "dal-lead-alla-vendita",
     nome: "Dal lead alla vendita",

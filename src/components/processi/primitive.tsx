@@ -53,6 +53,7 @@ export function Testo({
   ancora = "start",
   corsivo = false,
   spaziata = false,
+  sottolineato = false,
   children,
 }: {
   x: number;
@@ -63,6 +64,7 @@ export function Testo({
   ancora?: Ancora;
   corsivo?: boolean;
   spaziata?: boolean;
+  sottolineato?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -75,6 +77,7 @@ export function Testo({
       textAnchor={ancora}
       fontStyle={corsivo ? "italic" : undefined}
       letterSpacing={spaziata ? "0.12em" : undefined}
+      textDecoration={sottolineato ? "underline" : undefined}
     >
       {children}
     </text>
@@ -247,6 +250,7 @@ export function Casella({
   pesoTitolo = 700,
   misuraRighe = 16.5,
   raggio = 12,
+  titoloSottolineato = false,
 }: {
   x: number;
   y: number;
@@ -266,6 +270,7 @@ export function Casella({
   pesoTitolo?: number;
   misuraRighe?: number;
   raggio?: number;
+  titoloSottolineato?: boolean;
 }) {
   const titoli = Array.isArray(titolo) ? titolo : [titolo];
   const passoTitolo = misuraTitolo * 1.2;
@@ -279,7 +284,7 @@ export function Casella({
       <rect x={x} y={y} width={larghezza} height={altezza} rx={raggio} fill={fondo} stroke={bordo} strokeWidth={spessoreBordo} strokeDasharray={tratteggiata ? "6 4" : undefined} />
       {barra && <BarraInCima x={x} y={y} larghezza={larghezza} raggio={raggio} spessore={6} colore={barra} />}
       {titoli.map((riga, i) => (
-        <Testo key={riga} x={centro} y={cima + i * passoTitolo + misuraTitolo * 0.84} misura={misuraTitolo} peso={pesoTitolo} colore={coloreTitolo} ancora="middle">
+        <Testo key={riga} x={centro} y={cima + i * passoTitolo + misuraTitolo * 0.84} misura={misuraTitolo} peso={pesoTitolo} colore={coloreTitolo} ancora="middle" sottolineato={titoloSottolineato}>
           {riga}
         </Testo>
       ))}
@@ -317,9 +322,27 @@ export function Pillola({ x, y, larghezza, altezza, righe, nota }: { x: number; 
 }
 
 /** Rombo: un momento o una decisione. */
-export function Rombo({ cx, cy, mezzaLarghezza, mezzaAltezza, righe, misura = 24 }: { cx: number; cy: number; mezzaLarghezza: number; mezzaAltezza: number; righe: string[]; misura?: number }) {
+export function Rombo({
+  cx,
+  cy,
+  mezzaLarghezza,
+  mezzaAltezza,
+  righe,
+  misura = 24,
+  nota,
+}: {
+  cx: number;
+  cy: number;
+  mezzaLarghezza: number;
+  mezzaAltezza: number;
+  righe: string[];
+  misura?: number;
+  /** Riga più leggera sotto il nome. */
+  nota?: string;
+}) {
   const passo = misura * 1.25;
-  const cima = cy - (righe.length * passo) / 2;
+  const passoNota = nota ? misura * 1.1 : 0;
+  const cima = cy - (righe.length * passo + passoNota) / 2;
   return (
     <g>
       <polygon
@@ -334,6 +357,11 @@ export function Rombo({ cx, cy, mezzaLarghezza, mezzaAltezza, righe, misura = 24
           {riga}
         </Testo>
       ))}
+      {nota && (
+        <Testo x={cx} y={cima + righe.length * passo + misura * 0.74} misura={misura * 0.88} colore={COLORE.testo} ancora="middle">
+          {nota}
+        </Testo>
+      )}
     </g>
   );
 }

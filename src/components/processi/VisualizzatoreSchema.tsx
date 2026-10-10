@@ -347,7 +347,9 @@ export function VisualizzatoreSchema({
         onKeyDown={suTasto}
         className={cn(
           "relative touch-none select-none overflow-hidden bg-surface focus-visible:[outline-offset:-2px]",
-          schermoIntero ? "min-h-0 flex-1" : "h-[max(26rem,calc(100dvh-19rem))]",
+          // Altezza: quel che resta dello schermo sotto barra, schede del cliente, riga degli schemi e
+          // barra del visualizzatore, così l'aiuto in fondo si vede senza scorrere la pagina.
+          schermoIntero ? "min-h-0 flex-1" : "h-[max(26rem,calc(100dvh-22.5rem))]",
           strumento === "sposta" ? "cursor-grab active:cursor-grabbing" : "cursor-crosshair"
         )}
       >
