@@ -100,7 +100,7 @@ function MeseCalendario({
                 futuro
                   ? "text-ink-500 opacity-50 cursor-not-allowed"
                   : estremo
-                    ? "bg-brand text-white font-bold rounded-lg cursor-pointer"
+                    ? "bg-brand text-su-accento font-bold rounded-lg cursor-pointer"
                     : dentro
                       ? "bg-brand-light text-ink-900 cursor-pointer"
                       : "text-ink-700 hover:bg-surface rounded-lg cursor-pointer"
@@ -256,7 +256,7 @@ export function DateRangePicker({ valore, onChange, compatto = false }: Props) {
         <div
           role="dialog"
           aria-label="Scegli il periodo"
-          className={`absolute z-20 mt-2 w-[min(780px,calc(100vw-2rem))] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 flex flex-col sm:flex-row gap-4 ${
+          className={`absolute z-20 mt-2 w-[min(780px,calc(100vw-2rem))] rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4 flex flex-col sm:flex-row gap-4 ${
             compatto ? "left-0 max-h-[calc(100dvh_-_var(--barra-fissa,0px)_-_5rem)] overflow-y-auto" : ""
           }`}
         >
@@ -276,7 +276,7 @@ export function DateRangePicker({ valore, onChange, compatto = false }: Props) {
                   aria-checked={attivo}
                   onClick={() => applicaPreset(p.id)}
                   className={`w-full min-h-8 flex items-center gap-2.5 text-left text-sm px-2 py-1 rounded-lg transition-colors cursor-pointer ${
-                    attivo ? "bg-brand-light text-brand font-bold" : "text-ink-700 hover:bg-surface"
+                    attivo ? "bg-brand-light text-accento-testo font-bold" : "text-ink-700 hover:bg-surface"
                   }`}
                 >
                   <span

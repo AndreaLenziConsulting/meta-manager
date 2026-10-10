@@ -324,7 +324,7 @@ function SelettoreMese({ mese, meseMassimo, onChange }: { mese: string; meseMass
         <ChevronRight size={16} />
       </button>
       {!alMassimo && (
-        <button type="button" className="text-xs font-semibold text-brand underline underline-offset-2" onClick={() => onChange(meseMassimo)}>
+        <button type="button" className="text-xs font-semibold text-accento-testo underline underline-offset-2" onClick={() => onChange(meseMassimo)}>
           Torna al mese corrente
         </button>
       )}

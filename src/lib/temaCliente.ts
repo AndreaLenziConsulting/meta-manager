@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
-import { isHexValido, schiarisci, scurisci } from "@/lib/colore";
+import { isHexValido } from "@/lib/colore";
+import { palettaCliente } from "@/lib/palettaCliente";
 import type { Cliente } from "@/types/kpi";
 
 /** Font aggiuntivi caricati staticamente in layout.tsx (next/font/google richiede un import fisso
@@ -19,28 +20,24 @@ export type CampiTema = Pick<Cliente, "colorePrimario" | "coloreSecondario" | "f
  * di un cliente, per sovrascrivere il brand ALC di default con quello del cliente — mai un tema
  * fisso in globals.css (i colori arrivano da dati, uno per cliente, non da un set enumerato).
  *
- * Da 2 soli colori forniti (primario + secondario) derivo le stesse 3 varianti che il brand ALC ha
- * in globals.css (primary/dark/light): il secondario diventa la tinta chiara di sfondo (schiarito
- * verso il bianco — un colore chiaro come #D6DE3F letto direttamente avrebbe contrasto pessimo come
- * testo, ma è perfetto come tint di sfondo con testo scuro sopra), il primario resta la tinta
- * principale e genera anche una variante più scura scurendolo (oggi --brand-primary-dark non è
- * consumato da nessun componente, ma il token esiste per coerenza col sistema ALC).
- *
- * `--brand-primary*` sono l'accento del Design System ALC (`accento`, `notte`, `accento-tenue`, vedi
- * globals.css): pulsanti principali, link, barre e schede attive leggono da qui, quindi sulla
- * scheda di un cliente prendono il suo colore.
+ * Dal 10/10/2026 i due colori del cliente sovrascrivono TUTTI i colori di marca di ALC, non più il
+ * solo accento (richiesta dell'utente): titoli, testi, bordi, fondi, ombre e sfumature. Il calcolo
+ * sta in palettaCliente.ts, che garantisce anche il contrasto di ogni testo sul suo fondo. Con un
+ * colore solo si usa quello per entrambi i ruoli.
  *
  * Mai i colori di STATO (successo/attenzione/critico, vedi statusStyles.ts) o il verde `crea`: quelli
  * restano identici per ogni cliente — sono semantica applicativa (verde = successo ovunque), non
  * identità di brand, personalizzarli confonderebbe la lettura degli stati.
+ *
+ * Perché la tavolozza scrive anche gli alias (`--brand-primary`, `--ink-900`…) e non solo i token di
+ * base: un alias dichiarato sulla radice come `var(--inchiostro)` viene risolto LÌ, e i discendenti
+ * ereditano il valore già calcolato; cambiare `--inchiostro` più in basso non lo ricalcola.
  *
  * Per il font, sovrascrivo `--font-montserrat` (il nome REALE generato da next/font in layout.tsx,
  * l'unica famiglia del Design System ALC) e non `--font-heading`/`--font-sans` (l'alias semantico intermedio
  * definito in `@theme inline` di globals.css) — `@theme inline` fa risolvere a Tailwind le utility
  * `font-heading`/`font-sans` fino al valore FOGLIA già al momento della build, saltando quell'alias
  * intermedio: sovrascriverlo a runtime non avrebbe alcun effetto sulle classi già generate.
- * Stesso motivo per cui i colori funzionano invece sovrascrivendo `--brand-primary` (già la foglia,
- * nessun alias in mezzo da saltare) — qui il livello scelto deve essere lo stesso, quello foglia.
  *
  * `undefined` se il cliente non ha alcuna personalizzazione — il chiamante può fare
  * `style={styleTemaCliente(cliente)}` senza controlli, uno style vuoto/undefined non ha effetto.
@@ -53,12 +50,10 @@ export type CampiTema = Pick<Cliente, "colorePrimario" | "coloreSecondario" | "f
 export function styleTemaCliente(cliente: CampiTema): CSSProperties | undefined {
   const style: Record<string, string> = {};
 
-  if (isHexValido(cliente.colorePrimario)) {
-    style["--brand-primary"] = cliente.colorePrimario;
-    style["--brand-primary-dark"] = scurisci(cliente.colorePrimario, 0.35);
-  }
-  if (isHexValido(cliente.coloreSecondario)) {
-    style["--brand-primary-light"] = schiarisci(cliente.coloreSecondario, 0.85);
+  const primario = isHexValido(cliente.colorePrimario) ? cliente.colorePrimario : null;
+  const secondario = isHexValido(cliente.coloreSecondario) ? cliente.coloreSecondario : null;
+  if (primario || secondario) {
+    Object.assign(style, palettaCliente((primario ?? secondario)!, (secondario ?? primario)!));
   }
   if (isFontClienteValido(cliente.fontPersonalizzato)) {
     style["--font-montserrat"] = `var(--font-${cliente.fontPersonalizzato})`;

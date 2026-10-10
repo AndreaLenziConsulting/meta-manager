@@ -51,7 +51,7 @@ export function BulletListEditor({
           </button>
         </div>
       ))}
-      <button type="button" onClick={add} className="text-xs font-medium ml-4 mt-1.5 hover:underline text-brand">
+      <button type="button" onClick={add} className="text-xs font-medium ml-4 mt-1.5 hover:underline text-accento-testo">
         + {placeholder || "Aggiungi"}
       </button>
     </div>

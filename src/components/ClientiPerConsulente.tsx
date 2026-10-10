@@ -36,7 +36,7 @@ export function ClientiPerConsulente({
 
   if (gruppi.every((g) => g.items.length === 0) && nonAssegnati.length === 0) {
     return (
-      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
+      <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -49,7 +49,7 @@ export function ClientiPerConsulente({
           <div key={consulente.consulenteId}>
             <IntestazioneGruppo nome={consulente.nome} conteggio={itemsConsulente.length} />
             {itemsConsulente.length > 0 ? (
-              <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
+              <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
                 {itemsConsulente.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}
@@ -68,7 +68,7 @@ export function ClientiPerConsulente({
         {nonAssegnati.length > 0 && (
           <div>
             <IntestazioneGruppo nome="Non assegnato" conteggio={nonAssegnati.length} />
-            <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
+            <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
               {nonAssegnati.map((item) => (
                 <ClienteRiga
                   key={item.cliente.clienteId}
@@ -102,7 +102,7 @@ export function ClientiPerConsulente({
 function IntestazioneGruppo({ nome, conteggio }: { nome: string; conteggio: number }) {
   return (
     <div className="flex items-center gap-3 mb-3">
-      <span aria-hidden="true" className="w-8 h-8 rounded-full bg-brand text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+      <span aria-hidden="true" className="w-8 h-8 rounded-full bg-brand text-su-accento text-xs font-bold flex items-center justify-center flex-shrink-0">
         {iniziali(nome)}
       </span>
       <h2 className={CLASSE_TITOLO_SEZIONE}>{nome}</h2>

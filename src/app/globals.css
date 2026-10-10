@@ -1,14 +1,20 @@
 @import "tailwindcss";
 
 /*
- * Token del Design System ALC — fonte: artifact "ALC" (tokens.json v1, 07/10/2026), stessi nomi e
- * stessi valori. Regole d'uso nel README di quel sistema; qui solo ciò che serve a questa app:
+ * Token del Design System ALC — fonte: artifact "ALC" (tokens.json, riletto il 10/10/2026 con la
+ * sezione "Profondità e luce": ombre a due strati, pulsanti con sfumatura e bagliore, card in
+ * evidenza col velo, fondi scuri sfumati), stessi nomi e stessi valori. Regole d'uso nel README di
+ * quel sistema; qui solo ciò che serve a questa app:
  * - un solo tema, chiaro. Il sistema definisce anche un tema scuro (blu notte): non è attivo qui,
  *   e `color-scheme: light` lo dichiara al browser;
  * - `--brand-primary*` sono l'ACCENTO del sistema (`accento`, `notte`, `accento-tenue`) con il nome
- *   che l'app usa da sempre: è la sola terna che la personalizzazione per-cliente sovrascrive
- *   (src/lib/temaCliente.ts), quindi i componenti leggono l'accento da lì (classi `brand`), mai da
- *   `--blu` direttamente — altrimenti la scheda di un cliente col suo colore resterebbe blu ALC;
+ *   che l'app usa da sempre nelle classi `brand`;
+ * - sulla scheda di un cliente coi suoi colori la personalizzazione riscrive TUTTI i colori di marca
+ *   qui sotto, sfumature e ombre comprese (src/lib/palettaCliente.ts): chi aggiunge qui un token di
+ *   marca lo aggiunge anche là, altrimenti su quelle schede resta blu ALC. Non i colori di stato;
+ * - l'accento ha due ruoli: riempimento (`accento`, classi `bg-brand`/`border-brand`) e testo
+ *   (`accento-testo`, classe `text-accento-testo`). Per ALC sono lo stesso blu; per un cliente col
+ *   colore chiaro no: il testo viene scurito finché si legge. Mai `text-brand` per un testo;
  * - `--bordo-campo` non è nel sistema: `linea` è dichiarata decorativa ("non regge da sola il
  *   confine di un campo di input"), e un campo ha bisogno di un bordo a 3:1 sul fondo.
  */
@@ -37,6 +43,11 @@
   --critico: #b03a34;
   --critico-tenue: #fbe9e7;
   --focus: #08599c;
+  --accento: #08599c;
+  --accento-testo: #08599c;
+  --notte-fondo: #00213d;
+  --su-blu-luce: #001226;
+  --superficie-velata: #f3f8fd;
   --notte-superficie: #0b3d66;
   --su-notte: #ffffff;
   --su-notte-secondario: #a9bed3;
@@ -44,10 +55,32 @@
   --blu-10: #e6eff7;
   --blu-20: #c9ddee;
   --blu-40: #9dc1e2;
-  --shadow-card: 0 4px 14px rgba(0, 47, 84, 0.08);
+  /* Profondità e luce: ombre a due strati (contatto + ombra morbida), bagliori dei pulsanti. */
+  --shadow-card: 0 1px 2px rgba(0, 47, 84, 0.05), 0 10px 28px rgba(0, 47, 84, 0.09);
+  --shadow-sollevata: 0 1px 2px rgba(0, 47, 84, 0.05), 0 18px 44px rgba(0, 47, 84, 0.14);
   --shadow-alta: 0 12px 32px rgba(0, 47, 84, 0.16);
+  --shadow-notte: 0 10px 24px rgba(0, 0, 0, 0.25);
+  --glow-blu: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 6px 18px rgba(8, 89, 156, 0.32);
+  --glow-blu-alto: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 12px 28px rgba(8, 89, 156, 0.32);
+  --glow-luce: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06), 0 10px 30px rgba(60, 135, 197, 0.45);
+  --glow-luce-alto: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 40px rgba(60, 135, 197, 0.6);
+  --anello-icona: 0 0 0 4px rgba(8, 89, 156, 0.06);
+  /* Sfumature: ognuna ha un ruolo, non se ne inventano altre (README del sistema). */
+  --gradiente-pulsante: linear-gradient(180deg, #1b75bc 0%, #08599c 100%);
+  --gradiente-pulsante-luce: linear-gradient(180deg, #4d97d2 0%, #3c87c5 55%, #2f7ab8 100%);
+  --gradiente-barra: linear-gradient(90deg, #08599c 0, #3c87c5 4px, transparent 4px);
+  --gradiente-velo-chiaro: linear-gradient(180deg, #f3f8fd 0%, #ffffff 38%);
+  --gradiente-cerchio-icona: linear-gradient(180deg, #f3f8fd, #e6eff7);
+  --gradiente-velo-notte: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02));
+  --gradiente-notte: linear-gradient(135deg, #0b3d66 0%, #002f54 42%, #00213d 100%);
+  --alone-notte-alto: radial-gradient(900px 480px at 100% 0%, rgba(60, 135, 197, 0.22), transparent 60%);
+  --alone-notte-basso: radial-gradient(700px 420px at 0% 100%, rgba(11, 61, 102, 0.9), transparent 60%);
+  --gradiente-testata: linear-gradient(180deg, #002f54 0%, #00213d 100%);
   --barra: 4px;
   --bordo-campo: #7f8da0;
+  /* Bordo delle card: quasi invisibile, la card si stacca dal fondo con l'ombra. */
+  --bordo-card: rgba(0, 47, 84, 0.07);
+  --bordo-icona: rgba(8, 89, 156, 0.35);
 
   /* Montserrat di ALC, al riparo dalla personalizzazione per-cliente: quella sovrascrive
      `--font-montserrat` sulla scheda del cliente (src/lib/temaCliente.ts), mentre questo valore è già
@@ -88,6 +121,9 @@
   --color-linea: var(--linea);
   --color-grigio: var(--grigio);
   --color-bordo-campo: var(--bordo-campo);
+  --color-bordo-card: var(--bordo-card);
+  --color-accento-testo: var(--accento-testo);
+  --color-su-accento: var(--su-accento);
   --color-ok: var(--ok);
   --color-ok-tenue: var(--ok-tenue);
   --color-attenzione: var(--attenzione);
@@ -147,60 +183,83 @@ body {
     padding: 0.625rem 1.375rem;
     border: 2px solid transparent;
     border-radius: 999px;
-    background: var(--brand-primary);
+    background-color: var(--brand-primary);
+    background-image: var(--gradiente-pulsante);
     color: var(--su-accento);
+    box-shadow: var(--glow-blu);
     font-size: 0.9375rem;
     line-height: 1.25rem;
     font-weight: 700;
     text-decoration: none;
     cursor: pointer;
     transition:
-      filter 0.15s ease,
-      background-color 0.15s ease,
-      transform 0.1s ease;
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      background-color 0.15s ease;
   }
+  /* Al passaggio del mouse il pulsante si alza di 2px e il bagliore cresce. */
   .alc-btn:hover {
-    filter: brightness(1.08);
+    transform: translateY(-2px);
+    box-shadow: var(--glow-blu-alto);
   }
   .alc-btn:active {
-    transform: scale(0.98);
+    transform: translateY(0);
   }
   .alc-btn:disabled,
   .alc-btn[aria-disabled="true"] {
     opacity: 0.45;
     cursor: not-allowed;
-    filter: none;
+    box-shadow: none;
     transform: none;
   }
-  /* Solo le azioni che creano qualcosa ("+ Nuovo cliente"): è l'unico uso del verde. */
+  /* Solo le azioni che creano qualcosa ("+ Nuovo cliente"): è l'unico uso del verde. Piatto, con
+     l'ombra di una card: sfumatura e bagliore sono del solo pulsante principale. */
   .alc-btn--crea {
-    background: var(--crea);
+    background-color: var(--crea);
+    background-image: none;
     color: var(--su-crea);
+    box-shadow: var(--shadow-card);
   }
-  /* Azione alternativa accanto alla principale: contorno nel colore di accento. */
+  .alc-btn--crea:hover {
+    box-shadow: var(--shadow-sollevata);
+  }
+  /* Azione alternativa accanto alla principale: contorno nel colore di accento, piatta. */
   .alc-btn--secondario {
     background: transparent;
-    color: var(--brand-primary);
+    color: var(--accento-testo);
     border-color: var(--brand-primary);
+    box-shadow: none;
   }
   .alc-btn--secondario:hover:not(:disabled) {
     background: var(--brand-primary-light);
-    filter: none;
+    box-shadow: none;
+    transform: none;
   }
-  /* Annulla e azioni terziarie: contorno neutro (`bordo-campo` regge 3:1 sul fondo). */
+  /* Annulla e azioni terziarie: contorno neutro (`bordo-campo` regge 3:1 sul fondo), piatta. */
   .alc-btn--neutro {
     background: transparent;
     color: var(--testo);
     border-color: var(--bordo-campo);
+    box-shadow: none;
   }
   .alc-btn--neutro:hover:not(:disabled) {
     background: var(--sfondo);
-    filter: none;
+    box-shadow: none;
+    transform: none;
   }
-  /* Azione distruttiva, mai per qualcosa di reversibile. */
+  /* Azione distruttiva, mai per qualcosa di reversibile. Piatta: il bagliore blu non è suo. */
   .alc-btn--critico {
-    background: var(--critico);
+    background-color: var(--critico);
+    background-image: none;
     color: #ffffff;
+    box-shadow: var(--shadow-card);
+  }
+  .alc-btn--critico:hover {
+    box-shadow: var(--shadow-sollevata);
+  }
+  .alc-btn--crea:disabled,
+  .alc-btn--critico:disabled {
+    box-shadow: none;
   }
   .alc-btn--piccolo {
     min-height: 2rem;
@@ -210,8 +269,12 @@ body {
   }
 }
 
-/* Chi ha chiesto meno movimento al sistema operativo non vede transizioni né animazioni. */
+/* Chi ha chiesto meno movimento al sistema operativo non vede transizioni né animazioni, e i
+   pulsanti non si alzano. */
 @media (prefers-reduced-motion: reduce) {
+  .alc-btn:hover {
+    transform: none;
+  }
   *,
   *::before,
   *::after {
@@ -220,6 +283,18 @@ body {
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
   }
+}
+
+/*
+ * Fondo delle sezioni `notte` del Design System ALC ("SezioneNotte"): mai piatto. Sopra il colore
+ * `notte` tre strati: alone azzurro in alto a destra, schiarita in basso a sinistra, diagonale dal
+ * chiaro al profondo. Sulla scheda di un cliente gli strati prendono i suoi colori.
+ */
+.alc-notte-fondo {
+  background-color: var(--notte);
+  background-image: var(--alone-notte-alto), var(--alone-notte-basso), var(--gradiente-notte);
+  background-repeat: no-repeat;
+  background-size: cover;
 }
 
 /* Solo per screen reader e tastiera: il link "Salta al contenuto" compare quando riceve il focus. */
@@ -267,7 +342,7 @@ body {
      fra le bande e alle etichette dirette, mai dal colore isolato. */
   --funnel-1: var(--blu-20);
   --funnel-2: var(--blu-40);
-  --funnel-3: var(--blu-luce);
+  --funnel-3: var(--blu-60, var(--blu-luce));
   --funnel-4: var(--blu);
   /* Stati (in attivo / in perdita / in ritardo): i tre colori di stato del sistema. Passano 4,5:1
      anche come testo su `superficie`, a differenza dei verdi/rossi chiari di prima. */

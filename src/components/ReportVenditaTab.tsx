@@ -64,7 +64,7 @@ export function ReportVenditaTab({ clienteId }: { clienteId: string }) {
   return (
     <div className="space-y-4">
       {haCalcolatore && (
-        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6">
+        <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6">
           <p className="text-sm font-semibold text-ink-900">Calcolatore Budget</p>
           <p className="text-xs text-ink-500 mt-0.5 mb-1">Proiezione compilata dal commerciale prima della vendita.</p>
           <SimulatoreRoi value={calcolatoreBudget} onChange={() => {}} editable={false} />
@@ -80,7 +80,7 @@ export function ReportVenditaTab({ clienteId }: { clienteId: string }) {
                 <button
                   type="button"
                   onClick={() => setEspanso(aperto ? null : r.reportId)}
-                  className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
+                  className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
                 >
                   <div className="min-w-0">
                     <p className="font-semibold text-ink-900 truncate">{r.dati.titolo || "(senza titolo)"}</p>

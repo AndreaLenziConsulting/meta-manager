@@ -316,7 +316,7 @@ export function AndamentoVenditori({ andamento }: { andamento: Andamento }) {
 
       {statoGrafico === "ok" && haDati && (
         <details className="text-sm">
-          <summary className="cursor-pointer text-xs font-semibold text-ink-700 hover:text-brand">Numeri del grafico</summary>
+          <summary className="cursor-pointer text-xs font-semibold text-ink-700 hover:text-accento-testo">Numeri del grafico</summary>
           <div className="mt-2 overflow-x-auto">
             <table className="w-full min-w-[360px] border-collapse text-sm">
               <caption className="sr-only">

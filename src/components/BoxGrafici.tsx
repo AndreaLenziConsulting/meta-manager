@@ -92,7 +92,7 @@ export function BoxGrafici({
   const attivo = OPZIONI.find((o) => o.id === selezionato) ?? OPZIONI[0];
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{attivo.label}</h3>

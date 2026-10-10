@@ -49,7 +49,7 @@ export function SelettoreGrafico<T extends string>({ opzioni, selezionato, onCha
       </button>
 
       {aperto && (
-        <div role="menu" className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-2">
+        <div role="menu" className="absolute right-0 z-20 mt-2 w-72 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-2">
           {opzioni.map((o) => (
             <button
               key={o.id}
@@ -62,7 +62,7 @@ export function SelettoreGrafico<T extends string>({ opzioni, selezionato, onCha
               }}
               className={`w-full text-left px-3 py-2 rounded-lg transition-colors cursor-pointer ${o.id === selezionato ? "bg-brand-light" : "hover:bg-surface"}`}
             >
-              <p className={`text-sm font-semibold ${o.id === selezionato ? "text-brand" : "text-ink-900"}`}>{o.label}</p>
+              <p className={`text-sm font-semibold ${o.id === selezionato ? "text-accento-testo" : "text-ink-900"}`}>{o.label}</p>
               <p className="text-xs text-ink-500">{o.descrizione}</p>
             </button>
           ))}

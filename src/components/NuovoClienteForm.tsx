@@ -107,7 +107,7 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
             <button
               type="button"
               onClick={() => navigator.clipboard?.writeText(link)}
-              className="font-mono text-brand hover:underline break-all text-left"
+              className="font-mono text-accento-testo hover:underline break-all text-left"
               title="Copia negli appunti"
             >
               {link}
@@ -157,7 +157,7 @@ export function NuovoClienteForm({ consulenti, prodotti }: Props) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-6 space-y-4">
       <Field label="Nome cliente">
         <Input value={nome} onChange={(e) => setNome(e.target.value)} placeholder="Es. Mobilieri Bianchi Srl" required />
       </Field>

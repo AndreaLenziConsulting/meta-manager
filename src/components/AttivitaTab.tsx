@@ -325,7 +325,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
                 type="button"
                 onClick={() => setSoloOrfane((v) => !v)}
                 className={`text-xs font-semibold px-3 py-2 rounded-xl border transition cursor-pointer ${
-                  soloOrfane ? "bg-brand text-white border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
+                  soloOrfane ? "bg-brand text-su-accento border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
                 }`}
               >
                 Da assegnare
@@ -335,7 +335,7 @@ export function AttivitaTab({ clienteId, onVaiAMeeting, consulenti = [], nomeCon
                   type="button"
                   onClick={() => setSoloMie((v) => !v)}
                   className={`text-xs font-semibold px-3 py-2 rounded-xl border transition cursor-pointer ${
-                    soloMie ? "bg-brand text-white border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
+                    soloMie ? "bg-brand text-su-accento border-brand" : "bg-surface-card text-ink-700 border-ink-300 hover:border-brand/40"
                   }`}
                 >
                   Le mie task

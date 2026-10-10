@@ -36,7 +36,7 @@ export default async function CalcolatoreProspectPage({ params }: { params: Prom
       <div className="space-y-3">
         <Link
           href={`/dashboard/commerciale/${encodeURIComponent(prospectId)}`}
-          className="inline-flex min-h-8 items-center text-sm font-semibold text-brand hover:underline"
+          className="inline-flex min-h-8 items-center text-sm font-semibold text-accento-testo hover:underline"
         >
           ← {prospect.ragioneSociale}
         </Link>

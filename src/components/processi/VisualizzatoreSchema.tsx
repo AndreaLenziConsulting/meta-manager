@@ -282,7 +282,7 @@ export function VisualizzatoreSchema({
   return (
     <div
       ref={radice}
-      className={cn("flex flex-col overflow-hidden bg-surface-card", schermoIntero ? "h-full w-full" : "rounded-xl border border-linea shadow-[var(--shadow-card)]")}
+      className={cn("flex flex-col overflow-hidden bg-surface-card", schermoIntero ? "h-full w-full" : "rounded-xl border border-bordo-card shadow-[var(--shadow-card)]")}
     >
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b border-linea px-4 py-2.5">
         <div className="min-w-0">

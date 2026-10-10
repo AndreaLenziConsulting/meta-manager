@@ -56,7 +56,7 @@ export default async function ProspectListaPage() {
             <a
               key={p.prospectId}
               href={`/dashboard/commerciale/${encodeURIComponent(p.prospectId)}`}
-              className="flex flex-col gap-2 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
+              className="flex flex-col gap-2 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
             >
               <p className={`${CLASSE_TITOLO_SEZIONE} truncate`}>{p.ragioneSociale}</p>
               {/* Lo stato è scritto, non affidato a un'icona di 13px col significato nel tooltip. */}

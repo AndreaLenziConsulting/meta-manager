@@ -156,7 +156,7 @@ export function RisultatiVenditoriModal({
                 onClick={() => vaiA(m)}
                 aria-current={m === mese ? "true" : undefined}
                 className={`min-h-8 cursor-pointer rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
-                  m === mese ? "border-brand bg-brand-light text-brand" : "border-linea bg-surface-card text-ink-700 hover:border-brand hover:text-brand"
+                  m === mese ? "border-brand bg-brand-light text-accento-testo" : "border-linea bg-surface-card text-ink-700 hover:border-brand hover:text-accento-testo"
                 }`}
               >
                 {etichettaPeriodo(m)}

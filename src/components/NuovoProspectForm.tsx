@@ -55,7 +55,7 @@ export function NuovoProspectForm({ commerciali }: { commerciali?: { commerciale
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5 space-y-3">
       <Field label="Ragione sociale">
         <Input value={ragioneSociale} onChange={(e) => setRagioneSociale(e.target.value)} placeholder="Es. Rossi Impianti Srl" required autoFocus />
       </Field>

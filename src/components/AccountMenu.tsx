@@ -79,7 +79,7 @@ export function AccountMenu({
           laterale ? "w-full px-2" : "px-1.5"
         )}
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-white">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-xs font-bold text-su-accento">
           {nome ? iniziali(nome) : <Shield size={16} aria-hidden="true" />}
         </span>
         {mostraNome && (
@@ -94,7 +94,7 @@ export function AccountMenu({
         <div
           role="menu"
           className={cn(
-            "absolute z-30 w-52 rounded-xl border border-linea bg-surface-card py-1.5 shadow-[var(--shadow-alta)]",
+            "absolute z-30 w-52 rounded-xl border border-bordo-card bg-surface-card py-1.5 shadow-[var(--shadow-alta)]",
             laterale ? "bottom-full left-0 mb-2" : "right-0 top-full mt-2"
           )}
         >

@@ -29,7 +29,7 @@ export function GuidaCollegareGhl() {
 
       <section className="space-y-3">
         <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">1. Crea il token in GHL (Private Integration)</h3>
-        <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-brand">
+        <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-accento-testo">
           <li>Entra nel sub-account GHL del cliente (non nell&apos;agenzia/agency view — deve essere la location specifica).</li>
           <li>
             Vai su <strong>Settings → Private Integrations</strong> (nel menù impostazioni della location).
@@ -72,7 +72,7 @@ export function GuidaCollegareGhl() {
 
       <section className="space-y-3">
         <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">3. Collegalo nell&apos;app</h3>
-        <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-brand">
+        <ol className="list-decimal list-inside space-y-2 marker:font-semibold marker:text-accento-testo">
           <li>
             Apri <strong>Clienti</strong> → il cliente → icona di modifica (matita).
           </li>

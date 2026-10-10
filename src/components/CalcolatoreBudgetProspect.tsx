@@ -43,7 +43,7 @@ export function CalcolatoreBudgetProspect({ prospect }: { prospect: Prospect }) 
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6 space-y-4">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5 sm:p-6 space-y-4">
       <SimulatoreRoi value={valore} onChange={setValore} editable />
 
       {errore && <p className="text-xs text-critico">{errore}</p>}

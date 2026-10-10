@@ -85,7 +85,7 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
       <div className="flex items-center justify-between px-5 pt-5 pb-3 flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Roadmap</h3>
@@ -119,7 +119,7 @@ export function RoadmapGantt({ gruppi, onCambiaStato }: Props) {
               ))}
               {oggiInRange && (
                 <span
-                  className="absolute top-1.5 text-xs font-semibold text-brand -translate-x-1/2 whitespace-nowrap"
+                  className="absolute top-1.5 text-xs font-semibold text-accento-testo -translate-x-1/2 whitespace-nowrap"
                   style={{ left: `${oggiPct}%` }}
                 >
                   Oggi
@@ -277,7 +277,7 @@ function RigaAttivita({
         )}
 
         {popoverAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-3 space-y-2">
+          <div className="absolute right-0 top-full mt-1 z-30 w-64 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-3 space-y-2">
             <p className="text-xs font-semibold text-ink-900">Perché è bloccata?</p>
             <textarea
               autoFocus

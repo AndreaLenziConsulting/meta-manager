@@ -2,8 +2,8 @@ export function PlaceholderTab({ titolo, descrizione }: { titolo: string; descri
   return (
     <div className="rounded-xl border border-linea bg-surface-card p-8 sm:p-12 flex items-center justify-center min-h-[240px]">
       <div className="text-center max-w-xs">
-        <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4 bg-brand-light">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-brand">
+        <div className="w-14 h-14 rounded-full mx-auto flex items-center justify-center mb-4 border-[1.5px] border-[color:var(--bordo-icona)] bg-brand-light [background-image:var(--gradiente-cerchio-icona)] shadow-[var(--anello-icona)]">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-accento-testo">
             <rect x="3" y="4" width="18" height="18" rx="2" />
             <line x1="3" y1="10" x2="21" y2="10" />
             <line x1="8" y1="2" x2="8" y2="6" />

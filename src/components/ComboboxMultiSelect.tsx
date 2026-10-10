@@ -107,7 +107,7 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
       </button>
 
       {open && (
-        <div className="absolute z-20 mt-2 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4">
+        <div className="absolute z-20 mt-2 w-72 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4">
           {ricercabile && (
             <input
               autoFocus
@@ -122,7 +122,7 @@ export function ComboboxMultiSelect({ etichettaTutti, nomePlurale, opzioni, sele
           <button
             type="button"
             onClick={toggleTutte}
-            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2 cursor-pointer"
+            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-accento-testo hover:bg-brand-light transition-colors mb-2 cursor-pointer"
           >
             {tutteSelezionate ? "Deseleziona tutte" : "Seleziona tutte"}
           </button>

@@ -36,7 +36,7 @@ export function Intestazione({
 }
 
 /** `sopratitolo` del sistema: 12/16, grassetto, maiuscolo con spaziatura .12em, colore di accento. */
-export const CLASSE_SOPRATITOLO = "text-xs leading-4 font-bold uppercase tracking-[.12em] text-brand";
+export const CLASSE_SOPRATITOLO = "text-xs leading-4 font-bold uppercase tracking-[.12em] text-accento-testo";
 
 /** `titolo-3` del sistema (20/26, grassetto, `inchiostro`): il titolo di una scheda o di un pannello. */
 export const CLASSE_TITOLO_SEZIONE = "font-heading text-xl leading-[26px] font-bold text-ink-900";

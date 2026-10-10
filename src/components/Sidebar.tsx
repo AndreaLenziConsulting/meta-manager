@@ -140,7 +140,7 @@ export function Sidebar({
           aria-current={attivaOra ? "page" : undefined}
           className={cn(
             "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition",
-            attivaOra ? "bg-brand-light text-brand" : "text-ink-700 hover:bg-surface hover:text-ink-900"
+            attivaOra ? "bg-brand-light text-accento-testo" : "text-ink-700 hover:bg-surface hover:text-ink-900"
           )}
         >
           <Icon size={20} className="flex-shrink-0" aria-hidden="true" />
@@ -176,7 +176,7 @@ export function Sidebar({
         <button
           type="button"
           onClick={onToggleCollapsed}
-          className="flex min-h-11 items-center gap-3 px-3 m-2 mt-1 rounded-lg text-ink-500 hover:text-brand hover:bg-surface transition cursor-pointer"
+          className="flex min-h-11 items-center gap-3 px-3 m-2 mt-1 rounded-lg text-ink-500 hover:text-accento-testo hover:bg-surface transition cursor-pointer"
           aria-label={collapsed ? "Espandi menu" : "Comprimi menu"}
         >
           {collapsed ? <PanelLeftOpen size={20} aria-hidden="true" /> : <PanelLeftClose size={20} aria-hidden="true" />}

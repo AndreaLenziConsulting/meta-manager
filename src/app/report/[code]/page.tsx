@@ -4,6 +4,7 @@ import { getClienteByAccessCode } from "@/lib/archivio";
 import { AppHeader } from "@/components/AppHeader";
 import { SchedaCliente } from "@/components/SchedaCliente";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
+import { indirizzoLogo } from "@/lib/logoCliente";
 import { styleTemaCliente } from "@/lib/temaCliente";
 
 // Il link è personale: nella scheda del browser il cliente vede il proprio nome, non quello dell'app.
@@ -32,11 +33,7 @@ export default async function ReportPage({ params }: { params: Promise<{ code: s
       <AppHeader subtitle={cliente.nome} />
       <main className="max-w-6xl mx-auto px-4 sm:px-8 py-8 space-y-6">
         <h1>
-          <LogoONomeCliente
-            nome={cliente.nome}
-            logoUrl={cliente.logoUrl}
-            className={cliente.logoUrl ? "h-10 w-auto object-contain" : "font-heading text-[28px] leading-[34px] font-extrabold text-ink-900"}
-          />
+          <LogoONomeCliente nome={cliente.nome} logoUrl={indirizzoLogo({ code }, cliente.logoUrl)} misura="pagina" />
         </h1>
         <SchedaCliente code={code} tuttiITab={cliente.mostraTabExtra} />
       </main>

@@ -35,7 +35,7 @@ const Y_CENTRO_FASI = Y_FASI + ALTEZZA_FASE / 2;
 type Colonna = {
   x: number;
   larghezza: number;
-  tempo: { testo: string; colore: string };
+  tempo: { testo: string; colore: string; suColore: string };
   fase: { titolo: string; righe: string[]; piena?: string };
   misura: { titolo: string | string[]; riga: string; barra: string; fondo: string };
 };
@@ -44,28 +44,28 @@ const COLONNE: Colonna[] = [
   {
     x: 368,
     larghezza: 257,
-    tempo: { testo: "Day 1", colore: COLORE.secondario },
+    tempo: { testo: "Day 1", colore: COLORE.secondario, suColore: COLORE.bianco },
     fase: { titolo: "Contatti", righe: ["potenziali clienti"] },
     misura: { titolo: "Costo per contatto", riga: "€10–15 a regime", barra: COLORE.ok, fondo: COLORE.okTenue },
   },
   {
     x: 806,
     larghezza: 273,
-    tempo: { testo: "Entro day 7", colore: COLORE.blu },
+    tempo: { testo: "Entro day 7", colore: COLORE.blu, suColore: COLORE.suPieno },
     fase: { titolo: "Appuntamenti", righe: ["nel punto vendita"] },
     misura: { titolo: ["Costo per", "appuntamento"], riga: "spesa ÷ appuntamenti", barra: COLORE.attenzione, fondo: COLORE.attenzioneTenue },
   },
   {
     x: 1260,
     larghezza: 257,
-    tempo: { testo: "Entro day 14", colore: COLORE.secondario },
+    tempo: { testo: "Entro day 14", colore: COLORE.secondario, suColore: COLORE.bianco },
     fase: { titolo: "Trattative", righe: ["progetto e", "preventivo"] },
     misura: { titolo: "Valore preventivi", riga: "le offerte generate", barra: COLORE.blu, fondo: COLORE.bluTenue },
   },
   {
     x: 1698,
     larghezza: 210,
-    tempo: { testo: "Entro day 28", colore: COLORE.inchiostro },
+    tempo: { testo: "Entro day 28", colore: COLORE.inchiostro, suColore: COLORE.bianco },
     fase: { titolo: "Vendite", righe: ["contratti firmati"], piena: COLORE.ok },
     misura: { titolo: "Fatturato", riga: "il risultato finale", barra: COLORE.inchiostro, fondo: COLORE.sfondo },
   },
@@ -108,7 +108,7 @@ export function SistemaAcquisizione({ nomeCliente, commerciali }: { nomeCliente?
             <Freccia da={[centro, Y_TEMPI + ALTEZZA_TEMPO]} a={[centro, Y_FASI]} colore={COLORE.bordo} spessore={2} />
             <Freccia da={[centro, Y_FASI + ALTEZZA_FASE]} a={[centro, Y_MISURE]} colore={COLORE.bordo} spessore={2} />
             <rect x={centro - LARGHEZZA_PILLOLA_TEMPO / 2} y={Y_TEMPI} width={LARGHEZZA_PILLOLA_TEMPO} height={ALTEZZA_TEMPO} rx={ALTEZZA_TEMPO / 2} fill={c.tempo.colore} />
-            <Testo x={centro} y={Y_TEMPI + 35} misura={20} peso={600} colore={COLORE.suPieno} ancora="middle">
+            <Testo x={centro} y={Y_TEMPI + 35} misura={20} peso={600} colore={c.tempo.suColore} ancora="middle">
               {c.tempo.testo}
             </Testo>
           </g>
@@ -147,8 +147,8 @@ export function SistemaAcquisizione({ nomeCliente, commerciali }: { nomeCliente?
           righe={c.fase.righe}
           fondo={c.fase.piena ?? COLORE.superficie}
           bordo={c.fase.piena ?? COLORE.linea}
-          coloreTitolo={c.fase.piena ? COLORE.suPieno : COLORE.inchiostro}
-          coloreRighe={c.fase.piena ? COLORE.suPieno : COLORE.testo}
+          coloreTitolo={c.fase.piena ? COLORE.bianco : COLORE.inchiostro}
+          coloreRighe={c.fase.piena ? COLORE.bianco : COLORE.testo}
           misuraTitolo={26}
           misuraRighe={19.5}
         />

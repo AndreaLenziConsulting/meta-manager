@@ -75,7 +75,7 @@ function ClienteCard({
           router.push(href);
         }
       }}
-      className={`rounded-l-[4px] rounded-r-xl border border-linea border-l-4 ${stile.barraClasse} bg-surface-card shadow-[var(--shadow-card)] hover:shadow-[var(--shadow-alta)] transition cursor-pointer py-4 pl-5 pr-3`}
+      className={`rounded-l-[4px] rounded-r-xl border border-bordo-card border-l-4 ${stile.barraClasse} bg-surface-card shadow-[var(--shadow-card)] hover:-translate-y-1 hover:shadow-[var(--shadow-sollevata)] motion-reduce:hover:translate-y-0 transition cursor-pointer py-4 pl-5 pr-3`}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
@@ -224,7 +224,7 @@ export function SaluteClienti({
 
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
+      <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-6 text-sm text-ink-500">
         Nessun cliente attivo.
       </div>
     );
@@ -284,7 +284,7 @@ export function SaluteClienti({
             </div>
 
             {zona.compatta ? (
-              <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
+              <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden divide-y divide-linea">
                 {zona.items.map((item) => (
                   <ClienteRiga
                     key={item.cliente.clienteId}

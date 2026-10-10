@@ -14,15 +14,28 @@ describe("styleTemaCliente", () => {
     expect(styleTemaCliente(clienteVuoto({ colorePrimario: "verde" }))).toBeUndefined();
   });
 
-  it("imposta --brand-primary e --brand-primary-dark dal colore primario", () => {
-    const style = styleTemaCliente(clienteVuoto({ colorePrimario: "#76943C" }));
-    expect(style).toMatchObject({ "--brand-primary": "#76943C" });
-    expect(style?.["--brand-primary-dark" as keyof typeof style]).toBeTruthy();
+  it("dai due colori ricava tutta la tavolozza: accento, titoli, testi, fondo", () => {
+    const style = styleTemaCliente(clienteVuoto({ colorePrimario: "#1C864C", coloreSecondario: "#B1DB32" })) as Record<string, string>;
+    // Un primario che regge il testo bianco resta identico (vedi palettaCliente.test.ts per i casi).
+    expect(style["--brand-primary"]).toBe("#1C864C");
+    expect(style["--accento"]).toBe("#1C864C");
+    // Non resta nulla del blu ALC: titoli, testo e fondo vengono dai colori del cliente.
+    for (const chiave of ["--inchiostro", "--ink-900", "--testo", "--ink-700", "--sfondo", "--surface", "--linea", "--notte", "--gradiente-pulsante", "--shadow-card"]) {
+      expect(style[chiave], chiave).toBeTruthy();
+    }
+    expect(style["--inchiostro"].toLowerCase()).not.toBe("#002f54");
   });
 
-  it("imposta --brand-primary-light dal colore secondario, schiarito", () => {
-    const style = styleTemaCliente(clienteVuoto({ coloreSecondario: "#D6DE3F" }));
-    expect(style?.["--brand-primary-light" as keyof typeof style]).toBe("#f9fae2");
+  it("il fondo tenue viene dal più chiaro dei due colori, schiarito", () => {
+    const style = styleTemaCliente(clienteVuoto({ colorePrimario: "#76943C", coloreSecondario: "#D6DE3F" })) as Record<string, string>;
+    expect(style["--brand-primary-light"]).toBe("#f9fae2");
+  });
+
+  it("con un colore solo lo usa per entrambi i ruoli", () => {
+    const soloPrimario = styleTemaCliente(clienteVuoto({ colorePrimario: "#166B85" })) as Record<string, string>;
+    const soloSecondario = styleTemaCliente(clienteVuoto({ coloreSecondario: "#166B85" })) as Record<string, string>;
+    expect(soloPrimario["--accento"]).toBe("#166B85");
+    expect(soloSecondario).toEqual(soloPrimario);
   });
 
   it("imposta --font-montserrat (il nome foglia, non l'alias semantico) solo per un font nella whitelist", () => {
@@ -34,10 +47,15 @@ describe("styleTemaCliente", () => {
     expect(styleTemaCliente(clienteVuoto({ fontPersonalizzato: "comic-sans" }))).toBeUndefined();
   });
 
-  it("combina più personalizzazioni insieme", () => {
-    // colorePrimario -> 2 chiavi (primary + dark), coloreSecondario -> 1 (light), font -> 1 (Montserrat)
-    const style = styleTemaCliente({ colorePrimario: "#76943C", coloreSecondario: "#D6DE3F", fontPersonalizzato: "poppins" });
-    expect(Object.keys(style ?? {})).toHaveLength(4);
+  it("combina colori e font insieme", () => {
+    const style = styleTemaCliente({ colorePrimario: "#76943C", coloreSecondario: "#D6DE3F", fontPersonalizzato: "poppins" }) as Record<string, string>;
+    expect(style["--font-montserrat"]).toBe("var(--font-poppins)");
+    expect(style["--accento"]).toBeTruthy();
+  });
+
+  it("il solo font non tocca i colori", () => {
+    const style = styleTemaCliente(clienteVuoto({ fontPersonalizzato: "poppins" })) as Record<string, string>;
+    expect(Object.keys(style)).toEqual(["--font-montserrat"]);
   });
 });
 

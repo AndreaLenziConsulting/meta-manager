@@ -8,6 +8,10 @@ import { larghezzaStimata } from "@/lib/schemaTesto";
  *
  * I colori sono quelli di ALC, non l'accento del cliente (`--brand-primary`): gli schemi raccontano
  * il metodo di lavoro dell'agenzia e sono uguali per tutti.
+ *
+ * Dal 10/10/2026 quella regola vale solo per il font: sulla scheda di un cliente coi suoi colori
+ * anche gli schemi li prendono, perché la personalizzazione riscrive tutti i token di marca
+ * (palettaCliente.ts). I colori di stato (verde, ambra, rosso) restano quelli.
  */
 export const COLORE = {
   blu: "var(--blu)",
@@ -28,8 +32,10 @@ export const COLORE = {
   attenzioneTenue: "var(--attenzione-tenue)",
   /** Linee di collegamento e contorni che devono vedersi: più scuro di `linea`, che è decorativa. */
   bordo: "var(--bordo-campo)",
-  /** Testo sopra un fondo pieno (blu, verde, rosso). */
+  /** Testo sopra un riempimento di accento (`blu`): bianco per ALC, scuro per un cliente col colore chiaro. */
   suPieno: "var(--su-accento)",
+  /** Testo sopra un colore di stato pieno (verde, rosso, ambra) o sopra lo scuro: quelli non cambiano. */
+  bianco: "#ffffff",
 } as const;
 
 /** I quattro tipi di comunicazione, ciascuno col suo colore: lo stesso nei riquadri e nella legenda. */

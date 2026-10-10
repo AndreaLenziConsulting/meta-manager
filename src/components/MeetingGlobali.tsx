@@ -142,7 +142,7 @@ export function MeetingGlobali() {
           const aperto = espanso === m.meetingId;
           const nomeCliente = nomeClientePer.get(m.clienteId) ?? m.clienteId;
           return (
-            <div key={m.meetingId} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
+            <div key={m.meetingId} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
               <button
                 type="button"
                 onClick={() => setEspanso(aperto ? null : m.meetingId)}

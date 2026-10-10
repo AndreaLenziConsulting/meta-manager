@@ -42,7 +42,7 @@ export function DallaPubblicitaAllaVendita() {
 
       <Casella x={X_ESITI} y={50} larghezza={LARGHEZZA_ESITO} altezza={205} titolo={["Entrano nel", "Processo", "Commerciale"]} fondo={COLORE.okTenue} bordo={COLORE.ok} spessoreBordo={1.25} misuraTitolo={23} raggio={6} />
       <rect x={1156} y={338} width={206} height={176} rx={6} fill={COLORE.attenzione} />
-      <Testo x={CENTRO_ESITI} y={439} misura={36} peso={800} colore={COLORE.suPieno} ancora="middle">
+      <Testo x={CENTRO_ESITI} y={439} misura={36} peso={800} colore={COLORE.bianco} ancora="middle">
         15–20%
       </Testo>
       <Casella x={X_ESITI} y={612} larghezza={LARGHEZZA_ESITO} altezza={205} titolo={["NON Entrano", "nel Processo", "Commerciale"]} fondo={COLORE.criticoTenue} bordo={COLORE.critico} spessoreBordo={1.25} misuraTitolo={23} raggio={6} />

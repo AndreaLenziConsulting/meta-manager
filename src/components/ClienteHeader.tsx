@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ClipboardList, Filter, Folder, Pencil, Trash2 } from "lucide-react";
 import { LogoONomeCliente } from "@/components/LogoONomeCliente";
+import { indirizzoLogo } from "@/lib/logoCliente";
 import { TopbarPortal } from "@/components/TopbarSlot";
 import { ModificaClienteModal } from "@/components/ModificaClienteModal";
 import { Badge } from "@/components/ui/Badge";
@@ -156,12 +157,8 @@ export function ClienteHeader({
         <PulsanteIcona etichetta="Torna indietro" onClick={tornaIndietro} className="text-ink-700">
           <ArrowLeft size={20} aria-hidden="true" />
         </PulsanteIcona>
-        <h1 className="min-w-0 truncate">
-          <LogoONomeCliente
-            nome={clienteNome}
-            logoUrl={clienteLogoUrl}
-            className={clienteLogoUrl ? "h-8 w-auto object-contain" : "font-heading text-xl leading-[26px] font-extrabold text-ink-900 truncate"}
-          />
+        <h1 className="min-w-0">
+          <LogoONomeCliente nome={clienteNome} logoUrl={indirizzoLogo({ clienteId }, clienteLogoUrl)} misura="barra" />
         </h1>
         {cliente && sedi && consulenti && (
           <PulsanteIcona etichetta="Modifica cliente" onClick={() => setModificaAperta(true)}>
@@ -407,7 +404,7 @@ function FunnelPopover({ clienteId, funnelsIniziali }: { clienteId: string; funn
         <Filter size={16} aria-hidden="true" /> Funnel{funnels.length > 0 ? ` (${funnels.length})` : ""}
       </button>
       {aperto && (
-        <div className="absolute right-0 top-full mt-2 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
+        <div className="absolute right-0 top-full mt-2 z-30 w-80 max-w-[calc(100vw-2rem)] rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
           <p className="text-sm font-bold text-ink-900">Funnel attivi</p>
           {funnels.length > 0 ? (
             <ul className="max-h-56 overflow-y-auto -mr-2">
@@ -418,7 +415,7 @@ function FunnelPopover({ clienteId, funnelsIniziali }: { clienteId: string; funn
                     target="_blank"
                     rel="noopener noreferrer"
                     title={f.url}
-                    className="flex-1 min-w-0 truncate py-1.5 text-sm font-semibold text-brand hover:underline"
+                    className="flex-1 min-w-0 truncate py-1.5 text-sm font-semibold text-accento-testo hover:underline"
                   >
                     {f.nome}
                   </a>

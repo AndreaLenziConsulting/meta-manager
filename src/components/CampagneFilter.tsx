@@ -116,12 +116,12 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
         <div
           role="dialog"
           aria-label="Scegli le campagne"
-          className={`absolute z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 ${compatto ? "left-0" : ""}`}
+          className={`absolute z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4 ${compatto ? "left-0" : ""}`}
         >
           <button
             type="button"
             onClick={toggleTutte}
-            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-brand hover:bg-brand-light transition-colors mb-2 cursor-pointer"
+            className="w-full min-h-8 text-left text-sm font-semibold px-2 py-1.5 rounded-lg text-accento-testo hover:bg-brand-light transition-colors mb-2 cursor-pointer"
           >
             {tutteSelezionate ? "Deseleziona tutte" : "Seleziona tutte"}
           </button>
@@ -133,7 +133,7 @@ export function CampagneFilter({ campagneDisponibili, selezionate, onChange, pre
                 <button
                   type="button"
                   onClick={predefinito.onRipristina}
-                  className="font-semibold text-brand underline underline-offset-2"
+                  className="font-semibold text-accento-testo underline underline-offset-2"
                 >
                   Torna al predefinito (solo campagne ALC)
                 </button>

@@ -24,5 +24,5 @@ export const STILE_LIVELLO: Record<LivelloStato, StileLivello> = {
   neutro: { classe: "bg-surface text-ink-500 border-linea", puntino: "bg-grigio", barra: "#bcbec0" },
   // Un "da sapere" che non è un problema (es. calendari GHL momentaneamente irraggiungibili): il blu
   // di accento su `accento-tenue`, come il badge di categoria del sistema.
-  info: { classe: "bg-brand-light text-brand border-brand/20", puntino: "bg-brand", barra: "#08599c" },
+  info: { classe: "bg-brand-light text-accento-testo border-brand/20", puntino: "bg-brand", barra: "#08599c" },
 };

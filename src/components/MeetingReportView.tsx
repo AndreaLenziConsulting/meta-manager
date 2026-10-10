@@ -48,9 +48,9 @@ export function MeetingReportView({
   const actionItems = meeting.actionItems ?? [];
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Header */}
-      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand-dark border-l-4 border-l-blu-luce">
+      <div className="alc-notte-fondo px-6 sm:px-10 py-7 sm:py-8 border-l-4 border-l-blu-luce">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-accento-su-notte text-xs leading-4 font-bold uppercase tracking-[.12em] mb-2">Meeting Report</p>
@@ -108,7 +108,7 @@ export function MeetingReportView({
         {/* Cliente / Referente / Data consulenza */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="rounded-xl bg-brand-light px-4 py-3">
-            <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">Cliente</p>
+            <p className="text-xs uppercase tracking-[.12em] font-semibold text-accento-testo">Cliente</p>
             <p className="mt-1 text-sm font-semibold text-ink-900 truncate">{clienteNome || "—"}</p>
           </div>
           <InfoBlock label="Referente" value={meeting.referente ?? ""} onChange={(v) => set({ referente: v })} editable={editable} />
@@ -223,7 +223,7 @@ export function MeetingReportView({
         <div className="pt-5 mt-2 border-t border-ink-300/40 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
           <span>{COMPANY_NAME} — Report meeting</span>
           {meeting.rawUrl && (
-            <a href={meeting.rawUrl} className="hover:underline font-medium text-brand" target="_blank" rel="noopener noreferrer">
+            <a href={meeting.rawUrl} className="hover:underline font-medium text-accento-testo" target="_blank" rel="noopener noreferrer">
               Apri il meeting originale →
             </a>
           )}
@@ -248,7 +248,7 @@ function ActionItemsEditor({
       <ul className="mt-3 space-y-2">
         {items.map((item, i) => (
           <li key={i} className="flex items-start gap-3 text-sm">
-            <span className="mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-white bg-brand">{i + 1}</span>
+            <span className="mt-0.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-su-accento bg-brand">{i + 1}</span>
             <span className="text-ink-700 flex-1">{item.text}</span>
             {item.assignee && <span className="text-xs text-ink-500 font-medium flex-shrink-0">{item.assignee}</span>}
           </li>
@@ -269,7 +269,7 @@ function ActionItemsEditor({
     <div className="mt-3 space-y-1.5">
       {items.map((item, i) => (
         <div key={i} className="group flex items-start gap-2 text-sm">
-          <span className="mt-1.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-white bg-brand">{i + 1}</span>
+          <span className="mt-1.5 w-5 h-5 rounded flex-shrink-0 flex items-center justify-center text-xs font-bold text-su-accento bg-brand">{i + 1}</span>
           <input
             type="text"
             value={item.text}
@@ -289,7 +289,7 @@ function ActionItemsEditor({
           </button>
         </div>
       ))}
-      <button type="button" onClick={add} className="text-xs font-medium ml-7 mt-1.5 hover:underline text-brand">
+      <button type="button" onClick={add} className="text-xs font-medium ml-7 mt-1.5 hover:underline text-accento-testo">
         + Aggiungi action item
       </button>
     </div>
@@ -310,7 +310,7 @@ function ParticipantsEditor({
     return (
       <div className="flex flex-wrap gap-2 mt-3">
         {items.map((p, i) => (
-          <span key={i} className="px-3 py-1 rounded-full text-xs font-medium text-white bg-brand">
+          <span key={i} className="px-3 py-1 rounded-full text-xs font-medium text-su-accento bg-brand">
             {p}
           </span>
         ))}
@@ -328,7 +328,7 @@ function ParticipantsEditor({
   return (
     <div className="flex flex-wrap items-center gap-2 mt-3">
       {items.map((p, i) => (
-        <span key={i} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full text-xs font-bold text-white bg-brand">
+        <span key={i} className="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full text-xs font-bold text-su-accento bg-brand">
           <input
             type="text"
             value={p}
@@ -343,7 +343,7 @@ function ParticipantsEditor({
           </button>
         </span>
       ))}
-      <button type="button" onClick={add} className="inline-flex min-h-8 items-center text-sm font-semibold hover:underline text-brand cursor-pointer">
+      <button type="button" onClick={add} className="inline-flex min-h-8 items-center text-sm font-semibold hover:underline text-accento-testo cursor-pointer">
         + partecipante
       </button>
     </div>
@@ -378,7 +378,7 @@ function InfoBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-accento-testo">{label}</p>
       {editable ? (
         <input
           type="text"
@@ -408,7 +408,7 @@ function KpiBlock({
   if (!editable && !text) return null;
   return (
     <div className="rounded-xl border border-ink-300/40 p-4 bg-surface-card">
-      <p className="text-xs font-semibold uppercase tracking-[.12em] text-brand">{label}</p>
+      <p className="text-xs font-semibold uppercase tracking-[.12em] text-accento-testo">{label}</p>
       <div className="mt-2">
         <EditableTextarea value={text} onChange={onChange} editable={editable} className="text-sm text-ink-700 leading-relaxed" placeholder="—" />
       </div>

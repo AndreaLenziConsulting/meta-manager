@@ -21,7 +21,7 @@ type Ambito = "ora" | "aperte" | "tutte";
 // con i loro conteggi e si apre solo quello che interessa.
 const SOGLIA_CLIENTI_APERTI = 3;
 const CLASSE_FILTRO_RAPIDO =
-  "min-h-10 rounded-full border-2 px-4 text-sm font-semibold transition cursor-pointer aria-pressed:bg-brand aria-pressed:border-brand aria-pressed:text-white border-bordo-campo bg-surface-card text-ink-700 hover:border-brand";
+  "min-h-10 rounded-full border-2 px-4 text-sm font-semibold transition cursor-pointer aria-pressed:bg-brand aria-pressed:border-brand aria-pressed:text-su-accento border-bordo-campo bg-surface-card text-ink-700 hover:border-brand";
 
 type ClienteRef = { clienteId: string; nome: string };
 type Risposta = { clienti: ClienteRef[]; attivita: AttivitaClienteRow[] };

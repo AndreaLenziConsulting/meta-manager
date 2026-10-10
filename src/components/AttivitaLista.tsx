@@ -222,7 +222,7 @@ export function AttivitaLista({
             const oltreSoglia = righeOrdinate.length > SOGLIA_MOSTRA_ALTRE;
             const righe = espanso ? righeOrdinate : righeOrdinate.slice(0, SOGLIA_MOSTRA_ALTRE);
             return (
-              <div key={gruppo.stato} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)]">
+              <div key={gruppo.stato} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)]">
                 <GruppoCollassabile
                   aperto={aperto}
                   onToggle={() => toggleGruppo(gruppo.stato)}
@@ -275,7 +275,7 @@ export function AttivitaLista({
                       <button
                         type="button"
                         onClick={() => setGruppiEspansi((prev) => new Set(prev).add(gruppo.stato))}
-                        className="w-full min-h-11 text-center text-sm font-semibold text-brand hover:bg-brand-light/60 border-t border-linea rounded-b-xl cursor-pointer"
+                        className="w-full min-h-11 text-center text-sm font-semibold text-accento-testo hover:bg-brand-light/60 border-t border-linea rounded-b-xl cursor-pointer"
                       >
                         Mostra altre {righeOrdinate.length - SOGLIA_MOSTRA_ALTRE}
                       </button>
@@ -346,7 +346,7 @@ function AvatarAssegnatario({ nome }: { nome: string }) {
     return (
       <span
         title={nome}
-        className="w-7 h-7 rounded-full bg-brand-light text-brand text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
+        className="w-7 h-7 rounded-full bg-brand-light text-accento-testo text-xs font-bold flex items-center justify-center flex-shrink-0 ring-2 ring-surface-card"
       >
         {iniziali(nome)}
       </span>
@@ -441,7 +441,7 @@ function PopoverAssegnatari({
   }
 
   return (
-    <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
+    <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
       <p className="text-sm font-bold text-ink-900">Assegnatari</p>
       <div className="max-h-56 overflow-y-auto pr-1">
         {tutteLeOpzioni.map((nome) => (
@@ -598,7 +598,7 @@ function RigaAttivita({
               type="button"
               onClick={() => onVaiAMeeting(meetingId)}
               title={`${attivita.fase} — vai al meeting`}
-              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-brand-light text-brand hover:brightness-95 cursor-pointer transition"
+              className="inline-flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full bg-brand-light text-accento-testo hover:brightness-95 cursor-pointer transition"
             >
               <Calendar size={12} aria-hidden="true" className="flex-shrink-0" />
               {faseCompatta(attivita.fase, true)}
@@ -609,7 +609,7 @@ function RigaAttivita({
             attivita.fase && (
               <span
                 className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full truncate max-w-[220px] ${
-                  isMeeting ? "bg-brand-light text-brand" : "bg-surface text-ink-500 shadow-[inset_0_0_0_1px_var(--linea)]"
+                  isMeeting ? "bg-brand-light text-accento-testo" : "bg-surface text-ink-500 shadow-[inset_0_0_0_1px_var(--linea)]"
                 }`}
                 title={attivita.fase}
               >
@@ -682,7 +682,7 @@ function RigaAttivita({
         </button>
 
         {menuAperto && (
-          <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] py-1">
+          <div role="menu" className="absolute right-0 top-full mt-1 z-20 w-40 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] py-1">
             {STATI_MENU.map((s) => {
               const opzione = formatStatoAttivita(s);
               return (
@@ -702,7 +702,7 @@ function RigaAttivita({
         )}
 
         {popoverBloccoAperto && (
-          <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
+          <div className="absolute right-0 top-full mt-1 z-30 w-72 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-4 space-y-3">
             <p className="text-sm font-bold text-ink-900">Perché è bloccata?</p>
             <textarea
               autoFocus
@@ -745,7 +745,7 @@ function RigaAttivita({
         </PulsanteIcona>
 
         {menuKebabAperto && (
-          <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-40 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] py-1">
+          <div role="menu" className="absolute right-0 top-full mt-1 z-30 w-40 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] py-1">
             <button
               type="button"
               role="menuitem"

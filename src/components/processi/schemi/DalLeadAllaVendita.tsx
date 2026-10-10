@@ -42,7 +42,7 @@ function Kpi({ x, larghezza, numero, domanda, formula }: { x: number; larghezza:
     <g>
       <rect x={x} y={Y_KPI} width={larghezza} height={ALTEZZA_KPI} rx={12} fill={COLORE.attenzioneTenue} stroke={COLORE.attenzione} strokeWidth={1.5} strokeDasharray="6 4" />
       <circle cx={x + 38} cy={Y_KPI + ALTEZZA_KPI / 2} r={19} fill={COLORE.attenzione} />
-      <Testo x={x + 38} y={Y_KPI + ALTEZZA_KPI / 2 + 8} misura={22} peso={800} colore={COLORE.suPieno} ancora="middle">
+      <Testo x={x + 38} y={Y_KPI + ALTEZZA_KPI / 2 + 8} misura={22} peso={800} colore={COLORE.bianco} ancora="middle">
         ?
       </Testo>
       <Testo x={x + 73} y={Y_KPI + 29} misura={12.5} peso={700} colore={COLORE.attenzione} spaziata>
@@ -66,7 +66,7 @@ export function DalLeadAllaVendita({ nomeCliente, commerciali }: { nomeCliente?:
     <g>
       {/* Il setting: dalla prima chiamata alla discovery. */}
       <rect x={567} y={50} width={234} height={44} rx={22} fill={COLORE.inchiostro} />
-      <Testo x={684} y={78} misura={16} peso={700} colore={COLORE.suPieno} ancora="middle" spaziata>
+      <Testo x={684} y={78} misura={16} peso={700} colore={COLORE.bianco} ancora="middle" spaziata>
         SETTING
       </Testo>
       <FrecciaSpezzata punti={[[684, 94], [684, 121]]} colore={COLORE.inchiostro} punta={false} />
@@ -123,9 +123,9 @@ export function DalLeadAllaVendita({ nomeCliente, commerciali }: { nomeCliente?:
       />
 
       {/* I tre esiti. */}
-      <Casella x={X_ESITI} y={Y_SOPRA} larghezza={LARGHEZZA_ESITO} altezza={ALTEZZA_FILA} titolo="Compra" fondo={COLORE.ok} bordo={COLORE.ok} coloreTitolo={COLORE.suPieno} pesoTitolo={800} />
+      <Casella x={X_ESITI} y={Y_SOPRA} larghezza={LARGHEZZA_ESITO} altezza={ALTEZZA_FILA} titolo="Compra" fondo={COLORE.ok} bordo={COLORE.ok} coloreTitolo={COLORE.bianco} pesoTitolo={800} />
       <Casella x={X_ESITI} y={Y_FILA} larghezza={LARGHEZZA_ESITO} altezza={ALTEZZA_FILA} titolo="Follow up" righe={["non ha ancora", "deciso"]} fondo={COLORE.attenzioneTenue} bordo={COLORE.attenzioneTenue} barra={COLORE.attenzione} />
-      <Casella x={X_ESITI} y={Y_SOTTO} larghezza={LARGHEZZA_ESITO} altezza={ALTEZZA_FILA} titolo={["Non", "compra"]} fondo={COLORE.critico} bordo={COLORE.critico} coloreTitolo={COLORE.suPieno} pesoTitolo={800} />
+      <Casella x={X_ESITI} y={Y_SOTTO} larghezza={LARGHEZZA_ESITO} altezza={ALTEZZA_FILA} titolo={["Non", "compra"]} fondo={COLORE.critico} bordo={COLORE.critico} coloreTitolo={COLORE.bianco} pesoTitolo={800} />
 
       {/* Dopo il follow-up. */}
       <Casella x={X_DOPO} y={Y_SOPRA} larghezza={LARGHEZZA_DOPO} altezza={ALTEZZA_FILA} titolo="Breve termine" righe={["Call 3 · chiusura del", "deal"]} fondo={COLORE.okTenue} bordo={COLORE.okTenue} barra={COLORE.ok} misuraTitolo={18} misuraRighe={14.5} />

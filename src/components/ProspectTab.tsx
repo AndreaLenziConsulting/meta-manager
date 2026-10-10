@@ -286,7 +286,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
       )}
 
       {!anteprima && (
-        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
+        <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-4">
           {!mostraForm ? (
             <Button variant="crea" type="button" onClick={() => setMostraForm(true)}>
               + Nuovo report
@@ -401,7 +401,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : r.reportId)}
-              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
+              className="w-full text-left px-5 py-3.5 flex items-center justify-between gap-3 rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] transition-colors cursor-pointer"
             >
               <div className="min-w-0">
                 <p className="font-semibold text-ink-900 truncate">{r.dati.titolo || "(senza titolo)"}</p>
@@ -429,7 +429,7 @@ export function ProspectTab({ prospectId, ragioneSociale, prospectEmail }: Props
               <div className="space-y-3">
                 <ReportCommercialeView report={r.dati} />
                 <div className="flex justify-end">
-                  <button type="button" onClick={() => iniziaModifica(r)} className="text-xs font-semibold text-brand hover:underline cursor-pointer">
+                  <button type="button" onClick={() => iniziaModifica(r)} className="text-xs font-semibold text-accento-testo hover:underline cursor-pointer">
                     ✎ Modifica report
                   </button>
                 </div>

@@ -39,9 +39,9 @@ export function ReportCommercialeView({
   const partecipanti = report.partecipanti ?? [];
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
       {/* Header */}
-      <div className="px-6 sm:px-10 py-7 sm:py-8 bg-brand-dark border-l-4 border-l-blu-luce">
+      <div className="alc-notte-fondo px-6 sm:px-10 py-7 sm:py-8 border-l-4 border-l-blu-luce">
         <div className="flex items-start justify-between gap-4">
           <div className="min-w-0 flex-1">
             <p className="text-accento-su-notte text-xs leading-4 font-bold uppercase tracking-[.12em] mb-2">Report Commerciale</p>
@@ -110,7 +110,7 @@ export function ReportCommercialeView({
           <ol className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-sm">
             {SEZIONI.map((s, i) => (
               <li key={s.id}>
-                <a href={`#${s.id}`} className="text-brand hover:underline">
+                <a href={`#${s.id}`} className="text-accento-testo hover:underline">
                   {i + 1}. {s.titolo}
                 </a>
               </li>
@@ -188,7 +188,7 @@ export function ReportCommercialeView({
         <div className="pt-5 mt-2 border-t border-ink-300/60 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-500">
           <span>{COMPANY_NAME} — Report commerciale</span>
           {report.rawUrl && (
-            <a href={report.rawUrl} className="hover:underline font-medium text-brand" target="_blank" rel="noopener noreferrer">
+            <a href={report.rawUrl} className="hover:underline font-medium text-accento-testo" target="_blank" rel="noopener noreferrer">
               Apri la chiamata originale →
             </a>
           )}
@@ -223,7 +223,7 @@ function InfoBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-accento-testo">{label}</p>
       {editable ? (
         <input
           type="text"
@@ -252,7 +252,7 @@ function NumeroBlock({
 }) {
   return (
     <div className="rounded-xl bg-brand-light px-4 py-3">
-      <p className="text-xs uppercase tracking-[.12em] font-semibold text-brand">{label}</p>
+      <p className="text-xs uppercase tracking-[.12em] font-semibold text-accento-testo">{label}</p>
       {editable ? (
         <input
           type="number"

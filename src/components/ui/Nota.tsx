@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
 const TONO = {
-  accento: { box: "border-l-brand bg-brand-light", etichetta: "text-brand" },
+  accento: { box: "border-l-brand bg-brand-light", etichetta: "text-accento-testo" },
   ok: { box: "border-l-ok bg-ok-tenue", etichetta: "text-ok" },
   attenzione: { box: "border-l-attenzione bg-attenzione-tenue", etichetta: "text-attenzione" },
   critico: { box: "border-l-critico bg-critico-tenue", etichetta: "text-critico" },

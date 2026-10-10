@@ -67,7 +67,7 @@ export function ProspectDatiCommerciali({
   const nomeConsulenteSuggerito = consulenti?.find((c) => c.consulenteId === prospect.consulenteSuggeritoId)?.nome;
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-4">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm font-semibold text-ink-900">Dati commerciali</p>
         <div className="flex items-center gap-3">
@@ -81,7 +81,7 @@ export function ProspectDatiCommerciali({
           ) : (
             <>
               {proposto && (
-                <span className="text-xs font-semibold text-brand flex items-center gap-1.5">
+                <span className="text-xs font-semibold text-accento-testo flex items-center gap-1.5">
                   <Send size={13} />
                   {ruoloAdmin
                     ? `Proposto${nomeConsulenteSuggerito ? ` — consulente suggerito: ${nomeConsulenteSuggerito}` : ""}`
@@ -103,7 +103,7 @@ export function ProspectDatiCommerciali({
           <button
             type="button"
             onClick={() => setModificaAperta(true)}
-            className="text-ink-500 hover:text-brand transition cursor-pointer"
+            className="text-ink-500 hover:text-accento-testo transition cursor-pointer"
             aria-label="Modifica dati commerciali"
           >
             <Pencil size={14} />
@@ -137,7 +137,7 @@ export function ProspectDatiCommerciali({
                 href={prospect.driveFolderUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-sm font-medium text-brand hover:underline break-all"
+                className="text-sm font-medium text-accento-testo hover:underline break-all"
               >
                 {prospect.driveFolderUrl}
               </a>

@@ -26,7 +26,7 @@ export default async function GuidaIndicePage() {
           <a
             key={g.slug}
             href={`/dashboard/guida/${g.slug}`}
-            className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
+            className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5 hover:shadow-[var(--shadow-alta)] transition"
           >
             <p className={CLASSE_TITOLO_SEZIONE}>{g.titolo}</p>
             <p className="text-sm leading-[22px] text-ink-500 mt-1.5">{g.descrizione}</p>

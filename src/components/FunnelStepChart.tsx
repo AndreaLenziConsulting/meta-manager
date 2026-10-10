@@ -77,7 +77,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
 
   if (sedi.length === 0) {
     return (
-      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+      <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
         <p className="text-sm text-ink-500">Nessuna sede da confrontare.</p>
       </div>
     );
@@ -106,7 +106,7 @@ export function FunnelStepChart({ sedi }: { sedi: SedeConteggi[] }) {
   };
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center gap-2 mb-3">
         <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">Funnel a confronto per sede</h3>
       </div>

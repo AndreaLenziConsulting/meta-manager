@@ -53,7 +53,7 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
   return (
     <div className="max-w-screen-2xl mx-auto px-4 sm:px-8 py-8 space-y-6">
       <div className="space-y-3">
-        <Link href="/dashboard/commerciale" className="inline-flex min-h-8 items-center text-sm font-semibold text-brand hover:underline">
+        <Link href="/dashboard/commerciale" className="inline-flex min-h-8 items-center text-sm font-semibold text-accento-testo hover:underline">
           ← Tutti i prospect
         </Link>
         <Intestazione
@@ -74,7 +74,7 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
 
       <Link
         href={`/dashboard/commerciale/${encodeURIComponent(p.prospectId)}/calcolatore`}
-        className="block rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4 hover:border-brand transition-colors"
+        className="block rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-4 hover:border-brand transition-colors"
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
@@ -85,7 +85,7 @@ export default async function ProspectDettaglioPage({ params }: { params: Promis
                 : "Non ancora compilato — ricava budget, appuntamenti e lead necessari da un fatturato obiettivo"}
             </p>
           </div>
-          <span className="text-brand text-lg flex-shrink-0" aria-hidden>
+          <span className="text-accento-testo text-lg flex-shrink-0" aria-hidden>
             →
           </span>
         </div>

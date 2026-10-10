@@ -100,7 +100,7 @@ export function Modal({
         tabIndex={-1}
         onMouseDown={(e) => e.stopPropagation()}
         onClick={(e) => e.stopPropagation()}
-        className={cn("w-full rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] p-6 space-y-4 my-auto outline-none", maxWidth)}
+        className={cn("w-full rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] p-6 space-y-4 my-auto outline-none", maxWidth)}
       >
         <div className="flex items-start justify-between gap-3">
           <div>

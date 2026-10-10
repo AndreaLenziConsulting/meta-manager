@@ -171,7 +171,7 @@ export function NuovoMeetingForm({ clienteId: clienteIdFisso, clienteNome: clien
       )}
 
       {!anteprima && (
-        <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4">
+        <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-4">
           <form onSubmit={handleEstrai} className="space-y-2">
             {!clienteIdFisso && (
               <div>

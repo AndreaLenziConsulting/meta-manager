@@ -38,14 +38,14 @@ export default async function GuidaDettaglioPage({ params }: { params: Promise<{
           href="/dashboard/guida"
           aria-label="Torna alla guida"
           title="Torna alla guida"
-          className="-ml-2 flex items-center justify-center w-10 h-10 rounded-full text-ink-700 hover:bg-surface-card hover:text-brand transition shrink-0"
+          className="-ml-2 flex items-center justify-center w-10 h-10 rounded-full text-ink-700 hover:bg-surface-card hover:text-accento-testo transition shrink-0"
         >
           <ArrowLeft size={20} aria-hidden="true" />
         </Link>
         <h1 className="font-heading text-[28px] leading-[34px] font-extrabold text-ink-900 text-balance">{meta.titolo}</h1>
       </div>
 
-      <article className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-6 sm:p-8 max-w-3xl">
+      <article className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-6 sm:p-8 max-w-3xl">
         <Contenuto />
       </article>
     </div>

@@ -63,7 +63,7 @@ export function StrisciaFiltri({ rigaPiena, children }: { rigaPiena: RefObject<H
         // La fascia di fondo copre ciò che scorre fra la barra fissa e la striscia.
         <div ref={striscia} className="bg-surface py-2">
           {/* `relative`: su telefono i pannelli dei selettori si allineano al bordo della striscia, non al loro pulsante (vedi `compatto` in DateRangePicker e CampagneFilter). */}
-          <div role="group" aria-label="Filtri" className="relative flex flex-wrap items-center gap-2 rounded-xl border border-linea bg-surface-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:px-3">
+          <div role="group" aria-label="Filtri" className="relative flex flex-wrap items-center gap-2 rounded-xl border border-bordo-card bg-surface-card px-2 py-1.5 shadow-[var(--shadow-card)] sm:px-3">
             {children}
           </div>
         </div>

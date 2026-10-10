@@ -27,7 +27,7 @@ export function PulsanteIcona({
       aria-label={etichetta}
       title={etichetta}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors cursor-pointer hover:bg-surface hover:text-brand disabled:opacity-45 disabled:cursor-not-allowed",
+        "inline-flex shrink-0 items-center justify-center rounded-full text-ink-500 transition-colors cursor-pointer hover:bg-surface hover:text-accento-testo disabled:opacity-45 disabled:cursor-not-allowed",
         DIMENSIONE[dimensione],
         className
       )}

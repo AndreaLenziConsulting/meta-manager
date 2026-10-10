@@ -142,7 +142,7 @@ export function SimulatoreRoi({
 function KpiCard({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <div className={highlight ? "rounded-xl bg-brand-light px-4 py-3" : "rounded-xl border border-ink-300/60 bg-surface-card px-3 py-2.5"}>
-      <p className={highlight ? "text-xs uppercase tracking-[.12em] font-semibold text-brand" : "text-xs font-bold uppercase tracking-[.12em] text-ink-500"}>{label}</p>
+      <p className={highlight ? "text-xs uppercase tracking-[.12em] font-semibold text-accento-testo" : "text-xs font-bold uppercase tracking-[.12em] text-ink-500"}>{label}</p>
       <p className={highlight ? "mt-1 text-lg font-heading font-bold text-ink-900 tabular-nums" : "mt-1 text-sm font-semibold text-ink-900 tabular-nums"}>{value}</p>
       {sub && <p className="text-xs text-ink-500 mt-0.5">{sub}</p>}
     </div>
@@ -156,7 +156,7 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       onClick={onClick}
       className={
         active
-          ? "px-3 py-1.5 rounded-md text-xs font-semibold bg-surface-card text-brand shadow-sm"
+          ? "px-3 py-1.5 rounded-md text-xs font-semibold bg-surface-card text-accento-testo shadow-sm"
           : "px-3 py-1.5 rounded-md text-xs font-medium text-ink-500 hover:text-ink-700"
       }
     >
@@ -196,7 +196,7 @@ function PianoAnnualeTable({ input }: { input: CalcolatoreBudgetInput }) {
           {piano.map((m) => (
             <tr key={m.mese} className="border-b border-ink-300/40 last:border-b-0">
               <td className="px-2 py-2 font-semibold text-ink-900">{m.mese}</td>
-              <td className="px-2 py-2 text-right tabular-nums font-semibold text-brand">{formatNumero(m.appuntamenti)}</td>
+              <td className="px-2 py-2 text-right tabular-nums font-semibold text-accento-testo">{formatNumero(m.appuntamenti)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-ink-700">{formatUnaDecimale(m.appuntamentiSettimana)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-ink-700">{formatNumero(m.vendite)}</td>
               <td className="px-2 py-2 text-right tabular-nums text-ink-700">{formatEuro(m.budget)}</td>
@@ -207,13 +207,13 @@ function PianoAnnualeTable({ input }: { input: CalcolatoreBudgetInput }) {
         </tbody>
         <tfoot>
           <tr className="bg-brand-light">
-            <td className="px-2 py-2.5 font-semibold text-brand">Totale anno</td>
-            <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-brand">{formatNumero(totaleAppuntamenti)}</td>
+            <td className="px-2 py-2.5 font-semibold text-accento-testo">Totale anno</td>
+            <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-accento-testo">{formatNumero(totaleAppuntamenti)}</td>
             <td className="px-2 py-2.5 text-right text-ink-500">—</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatNumero(totaleVendite)}</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatEuro(totaleBudget)}</td>
             <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-ink-900">{formatEuro(totaleMargine)}</td>
-            <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-brand">{formatEuro(fatturatoAnnuo)}</td>
+            <td className="px-2 py-2.5 text-right tabular-nums font-semibold text-accento-testo">{formatEuro(fatturatoAnnuo)}</td>
           </tr>
         </tfoot>
       </table>

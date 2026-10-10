@@ -135,7 +135,7 @@ export function SmallMultiplesCosto({ metriche }: SmallMultiplesCostoProps) {
           const max = haDati ? Math.max(...valoriValidi) : 0;
 
           return (
-            <div key={metrica.chiave} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+            <div key={metrica.chiave} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
               <div className="flex items-center gap-2 mb-3">
                 <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{metrica.titolo}</h3>
               </div>

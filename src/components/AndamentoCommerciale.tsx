@@ -72,7 +72,7 @@ export function AndamentoCommerciale({
   const aMano = venditori.filter((v) => !venditoreDaGhl(v, ghl));
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <h3 className="font-heading text-xl leading-[26px] font-bold text-ink-900">{venditori.length === 0 ? "Venditori" : attiva.label}</h3>
         {venditori.length > 0 && (

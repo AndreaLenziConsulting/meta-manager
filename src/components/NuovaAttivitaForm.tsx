@@ -117,7 +117,7 @@ export function NuovaAttivitaForm({ clienteId: clienteIdFisso, clienti = [], fas
   }
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-4 space-y-2.5">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-4 space-y-2.5">
       {!clienteIdFisso && (
         <div>
           <label className={labelClass}>Cliente</label>
@@ -298,7 +298,7 @@ function SelettoreFase({ value, onChange, opzioni }: { value: string; onChange: 
         <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-500 pointer-events-none" />
       </div>
       {aperto && opzioni.length > 0 && (
-        <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-alta)] py-1">
+        <div className="absolute z-20 mt-1 w-full max-h-48 overflow-y-auto rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-alta)] py-1">
           {filtrate.length > 0 ? (
             filtrate.map((f) => (
               <button

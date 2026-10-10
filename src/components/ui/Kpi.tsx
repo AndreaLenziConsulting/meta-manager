@@ -4,8 +4,9 @@ import { cn } from "@/lib/cn";
 const VARIANTE = {
   // Barra nel colore di accento: la tessera normale.
   accento: "border-linea border-l-brand bg-surface-card",
-  // Il numero che conta di più nella vista: fondo blu notte. Uno, al massimo due per schermata.
-  notte: "border-notte border-l-blu-luce bg-notte",
+  // Il numero che conta di più nella vista: tessera scura (`notte-superficie` col velo, bordo di luce,
+  // `shadow-notte`). Una, al massimo due per schermata.
+  notte: "border-white/10 border-l-blu-luce bg-notte-superficie [background-image:var(--gradiente-velo-notte)] shadow-[var(--shadow-notte)]",
   // Barra nel colore di stato quando il numero è letto contro un target.
   ok: "border-linea border-l-ok bg-surface-card",
   attenzione: "border-linea border-l-attenzione bg-surface-card",

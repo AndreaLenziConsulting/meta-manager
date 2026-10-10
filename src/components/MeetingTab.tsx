@@ -257,7 +257,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
                   <button
                     type="button"
                     onClick={() => iniziaModifica(m)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-brand hover:underline"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-accento-testo hover:underline"
                   >
                     <Pencil size={12} className="flex-shrink-0" />
                     Modifica report
@@ -283,7 +283,7 @@ export function MeetingTab({ code, clienteId, clienteNome, clienteEmail, meeting
       {meetingPubblico?.map((m) => {
         const aperto = espanso === m.meetingId;
         return (
-          <div key={m.meetingId} className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
+          <div key={m.meetingId} className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] overflow-hidden">
             <button
               type="button"
               onClick={() => setEspanso(aperto ? null : m.meetingId)}

@@ -150,7 +150,7 @@ export function TrendChart({
 
   if (punti.length === 0) {
     return (
-      <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+      <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
         {header}
         <p className="text-sm text-ink-500">Nessun dato nel periodo selezionato.</p>
       </div>
@@ -226,7 +226,7 @@ export function TrendChart({
   const secondarioColore = modalita === "lead" ? "var(--series-3)" : "var(--series-2)";
 
   return (
-    <div className="rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)] p-5">
+    <div className="rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)] p-5">
       {header}
 
       <div className="flex items-center justify-between mb-2 flex-wrap gap-1">

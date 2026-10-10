@@ -104,7 +104,7 @@ export function SintesiCliente({
 
   if (vistaTeam) {
     return (
-      <details className="group rounded-xl border border-linea bg-surface-card shadow-[var(--shadow-card)]">
+      <details className="group rounded-xl border border-bordo-card bg-surface-card shadow-[var(--shadow-card)]">
         <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 [&::-webkit-details-marker]:hidden">
           <span>
             <span className="font-heading text-base font-bold text-ink-900">La sintesi che legge il cliente</span>
@@ -118,7 +118,7 @@ export function SintesiCliente({
   }
 
   return (
-    <section aria-label="In sintesi" className="rounded-xl border border-linea border-l-4 border-l-brand bg-surface-card px-5 py-4 shadow-[var(--shadow-card)]">
+    <section aria-label="In sintesi" className="rounded-xl border border-bordo-card border-l-4 border-l-brand bg-surface-card px-5 py-4 shadow-[var(--shadow-card)]">
       <h2 className="mb-2 font-heading text-xl leading-[26px] font-bold text-ink-900">{titolo}</h2>
       {contenuto}
     </section>
