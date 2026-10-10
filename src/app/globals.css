@@ -49,6 +49,12 @@
   --barra: 4px;
   --bordo-campo: #7f8da0;
 
+  /* Montserrat di ALC, al riparo dalla personalizzazione per-cliente: quella sovrascrive
+     `--font-montserrat` sulla scheda del cliente (src/lib/temaCliente.ts), mentre questo valore è già
+     risolto qui sulla radice e i discendenti lo ereditano così com'è. Serve a ciò che resta di ALC
+     anche dentro la scheda di un cliente col suo font: gli schemi della sezione "Processi". */
+  --font-alc: var(--font-montserrat);
+
   /* Accento, con i nomi storici dell'app: vedi il commento in cima. */
   --brand-primary: var(--blu);
   --brand-primary-dark: var(--notte);

@@ -353,7 +353,9 @@ export function VisualizzatoreSchema({
       >
         {vista && (
           <svg width="100%" height="100%" className="block" xmlns="http://www.w3.org/2000/svg">
-            <g transform={`translate(${vista.x} ${vista.y}) scale(${vista.k})`}>
+            {/* `--font-alc`: gli schemi sono di ALC e restano in Montserrat anche sulla scheda di un
+                cliente che ha il suo font (vedi globals.css). */}
+            <g transform={`translate(${vista.x} ${vista.y}) scale(${vista.k})`} style={{ fontFamily: 'var(--font-alc), "Helvetica Neue", Arial, sans-serif' }}>
               {/* Il foglio su cui sta lo schema. */}
               <rect x={0} y={0} width={larghezza} height={altezza} fill="var(--superficie)" stroke="var(--linea)" strokeWidth={1 / vista.k} />
               {children}

@@ -23,6 +23,12 @@ export const COLORE = {
   okTenue: "var(--ok-tenue)",
   critico: "var(--critico)",
   criticoTenue: "var(--critico-tenue)",
+  attenzione: "var(--attenzione)",
+  attenzioneTenue: "var(--attenzione-tenue)",
+  /** Linee di collegamento e contorni che devono vedersi: più scuro di `linea`, che è decorativa. */
+  bordo: "var(--bordo-campo)",
+  /** Testo sopra un fondo pieno (blu, verde, rosso). */
+  suPieno: "var(--su-accento)",
 } as const;
 
 /** I quattro tipi di comunicazione, ciascuno col suo colore: lo stesso nei riquadri e nella legenda. */
@@ -204,4 +210,168 @@ export function FrecciaCircolare({ cx, cy, raggio = 30, colore = COLORE.blu, chi
 /** Pallino vuoto della legenda: il colore del bordo dice di che tipo di passo si parla. */
 export function Anello({ x, y, colore }: { x: number; y: number; colore: string }) {
   return <circle cx={x} cy={y} r={5} fill={COLORE.superficie} stroke={colore} strokeWidth={2} />;
+}
+
+/** Barra di colore in cima a un rettangolo arrotondato: la parte sopra quella quota, angoli compresi. */
+function BarraInCima({ x, y, larghezza, raggio, spessore, colore }: { x: number; y: number; larghezza: number; raggio: number; spessore: number; colore: string }) {
+  const s = Math.min(spessore, raggio);
+  const rientro = raggio - Math.sqrt(raggio * raggio - (raggio - s) * (raggio - s));
+  return (
+    <path
+      d={`M${x + rientro},${y + s} A${raggio},${raggio} 0 0 1 ${x + raggio},${y} H${x + larghezza - raggio} A${raggio},${raggio} 0 0 1 ${x + larghezza - rientro},${y + s} Z`}
+      fill={colore}
+    />
+  );
+}
+
+/**
+ * Casella di uno schema: un titolo (anche su due righe) e, sotto, qualche riga di spiegazione, il
+ * tutto centrato. Può avere un fondo pieno (allora i testi vanno in `suPieno`) o la barra di colore
+ * in alto.
+ */
+export function Casella({
+  x,
+  y,
+  larghezza,
+  altezza,
+  titolo,
+  righe = [],
+  fondo = COLORE.superficie,
+  bordo = COLORE.linea,
+  spessoreBordo = 1.5,
+  tratteggiata = false,
+  barra,
+  coloreTitolo = COLORE.inchiostro,
+  coloreRighe = COLORE.testo,
+  misuraTitolo = 22,
+  pesoTitolo = 700,
+  misuraRighe = 16.5,
+  raggio = 12,
+}: {
+  x: number;
+  y: number;
+  larghezza: number;
+  altezza: number;
+  titolo: string | string[];
+  righe?: string[];
+  fondo?: string;
+  bordo?: string;
+  spessoreBordo?: number;
+  tratteggiata?: boolean;
+  /** Colore della barra in alto, se c'è. */
+  barra?: string;
+  coloreTitolo?: string;
+  coloreRighe?: string;
+  misuraTitolo?: number;
+  pesoTitolo?: number;
+  misuraRighe?: number;
+  raggio?: number;
+}) {
+  const titoli = Array.isArray(titolo) ? titolo : [titolo];
+  const passoTitolo = misuraTitolo * 1.2;
+  const passoRiga = misuraRighe * 1.3;
+  const stacco = righe.length ? misuraRighe * 0.3 : 0;
+  const blocco = titoli.length * passoTitolo + stacco + righe.length * passoRiga;
+  const cima = y + (altezza - blocco) / 2 + (barra ? 3 : 0);
+  const centro = x + larghezza / 2;
+  return (
+    <g>
+      <rect x={x} y={y} width={larghezza} height={altezza} rx={raggio} fill={fondo} stroke={bordo} strokeWidth={spessoreBordo} strokeDasharray={tratteggiata ? "6 4" : undefined} />
+      {barra && <BarraInCima x={x} y={y} larghezza={larghezza} raggio={raggio} spessore={6} colore={barra} />}
+      {titoli.map((riga, i) => (
+        <Testo key={riga} x={centro} y={cima + i * passoTitolo + misuraTitolo * 0.84} misura={misuraTitolo} peso={pesoTitolo} colore={coloreTitolo} ancora="middle">
+          {riga}
+        </Testo>
+      ))}
+      {righe.map((riga, i) => (
+        <Testo key={riga} x={centro} y={cima + titoli.length * passoTitolo + stacco + i * passoRiga + misuraRighe * 0.8} misura={misuraRighe} colore={coloreRighe} ancora="middle">
+          {riga}
+        </Testo>
+      ))}
+    </g>
+  );
+}
+
+/** Pillola fra due caselle: il passaggio che porta dall'una all'altra ("Prima chiamata", "Closing"). */
+export function Pillola({ x, y, larghezza, altezza, righe, nota }: { x: number; y: number; larghezza: number; altezza: number; righe: string[]; /** Riga piccola sotto. */ nota?: string }) {
+  const misura = 15.5;
+  const passo = misura * 1.22;
+  const blocco = righe.length * passo + (nota ? 17 : 0);
+  const cima = y + (altezza - blocco) / 2;
+  const centro = x + larghezza / 2;
+  return (
+    <g>
+      <rect x={x} y={y} width={larghezza} height={altezza} rx={Math.min(altezza / 2, 34)} fill={COLORE.sfondo} stroke={COLORE.linea} strokeWidth={1.5} />
+      {righe.map((riga, i) => (
+        <Testo key={riga} x={centro} y={cima + i * passo + misura * 0.84} misura={misura} peso={700} colore={COLORE.inchiostro} ancora="middle">
+          {riga}
+        </Testo>
+      ))}
+      {nota && (
+        <Testo x={centro} y={cima + righe.length * passo + 13} misura={13} colore={COLORE.secondario} ancora="middle">
+          {nota}
+        </Testo>
+      )}
+    </g>
+  );
+}
+
+/** Rombo: un momento o una decisione. */
+export function Rombo({ cx, cy, mezzaLarghezza, mezzaAltezza, righe, misura = 24 }: { cx: number; cy: number; mezzaLarghezza: number; mezzaAltezza: number; righe: string[]; misura?: number }) {
+  const passo = misura * 1.25;
+  const cima = cy - (righe.length * passo) / 2;
+  return (
+    <g>
+      <polygon
+        points={`${cx},${cy - mezzaAltezza} ${cx + mezzaLarghezza},${cy} ${cx},${cy + mezzaAltezza} ${cx - mezzaLarghezza},${cy}`}
+        fill={COLORE.superficie}
+        stroke={COLORE.bordo}
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+      {righe.map((riga, i) => (
+        <Testo key={riga} x={cx} y={cima + i * passo + misura * 0.84} misura={misura} peso={800} colore={COLORE.inchiostro} ancora="middle">
+          {riga}
+        </Testo>
+      ))}
+    </g>
+  );
+}
+
+/**
+ * Collegamento che passa per più punti, ad angoli retti o no, con la punta sull'ultimo. Senza punta
+ * (`punta={false}`) è una semplice linea spezzata: serve per le graffe e i richiami tratteggiati.
+ */
+export function FrecciaSpezzata({
+  punti,
+  colore = COLORE.bordo,
+  spessore = 2,
+  tratteggiata = false,
+  punta = true,
+  misuraPunta = 9,
+}: {
+  punti: [number, number][];
+  colore?: string;
+  spessore?: number;
+  tratteggiata?: boolean;
+  punta?: boolean;
+  misuraPunta?: number;
+}) {
+  const ultimo = punti[punti.length - 1];
+  const penultimo = punti[punti.length - 2];
+  const dx = ultimo[0] - penultimo[0];
+  const dy = ultimo[1] - penultimo[1];
+  const lunga = Math.hypot(dx, dy) || 1;
+  const ux = dx / lunga;
+  const uy = dy / lunga;
+  const mezza = misuraPunta * 0.5;
+  // Con la punta, la linea si ferma alla sua base.
+  const fine: [number, number] = punta ? [ultimo[0] - ux * misuraPunta, ultimo[1] - uy * misuraPunta] : ultimo;
+  const tracciato = [...punti.slice(0, -1), fine].map(([px, py]) => `${px},${py}`).join(" ");
+  return (
+    <g>
+      <polyline points={tracciato} fill="none" stroke={colore} strokeWidth={spessore} strokeLinejoin="round" strokeLinecap="round" strokeDasharray={tratteggiata ? "6 5" : undefined} />
+      {punta && <polygon points={`${ultimo[0]},${ultimo[1]} ${fine[0] - uy * mezza},${fine[1] + ux * mezza} ${fine[0] + uy * mezza},${fine[1] - ux * mezza}`} fill={colore} />}
+    </g>
+  );
 }
