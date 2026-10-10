@@ -156,8 +156,8 @@ export function SchedaCliente({
       : []),
     // Processi: gli schemi con cui il consulente spiega il lavoro al cliente in call (10/10/2026).
     // Solo per il team, stesso cancello `!code` di Attività e Vendita; in fondo perché è materiale
-    // di consultazione, non lavoro sul cliente. Non legge nessun dato: vedi ProcessiTab.tsx.
-    ...(!code ? [{ id: "processi", label: "Processi", content: <ProcessiTab /> }] : []),
+    // di consultazione, non lavoro sul cliente. Del cliente usa solo il nome: vedi ProcessiTab.tsx.
+    ...(!code ? [{ id: "processi", label: "Processi", content: <ProcessiTab clienteNome={clienteNome} /> }] : []),
   ];
 
   // Un `?tab=` che non corrisponde a nessuna sezione visibile (scritto a mano, o di un ruolo che

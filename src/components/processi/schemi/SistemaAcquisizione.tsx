@@ -6,9 +6,11 @@ import { Casella, COLORE, Freccia, Testo } from "@/components/processi/primitive
  * settembre 2026 (su Drive, cartella Metra: `METRA_Schema1_SistemaAcquisizione.png`).
  *
  * Versione generale, chiesta dall'utente: stessi passaggi, stessi tempi e stessi numeri (€10–15 a
- * contatto, 15–20% in appuntamento, 20–30% in vendita), senza il nome del cliente. Dove l'originale
- * diceva "METRA" qui c'è "La tua azienda". Le parole restano quelle del settore arredo ("nel punto
- * vendita", "progetto e preventivo"), come nell'originale.
+ * contatto, 15–20% in appuntamento, 20–30% in vendita). Dove l'originale diceva "METRA" qui compare
+ * il nome del cliente della scheda in cui lo schema è aperto (richiesta dell'utente, 10/10/2026:
+ * "che venga scritta l'azienda dentro alla quale sono"); senza un nome resta "La tua azienda". Le
+ * parole restano quelle del settore arredo ("nel punto vendita", "progetto e preventivo"), come
+ * nell'originale.
  *
  * Colori: nell'originale tempi e misure avevano magenta e viola; qui i toni del sistema ALC.
  */
@@ -77,7 +79,17 @@ const LARGHEZZA_PUBBLICITA = 227;
 const LARGHEZZA_PASSAGGIO = 170;
 const LARGHEZZA_PILLOLA_TEMPO = 200;
 
-export function SistemaAcquisizione() {
+// Il nome del cliente sta su una riga sola della fascia: oltre questa misura si accorcia.
+const NOME_MASSIMO = 60;
+
+/** Il nome da scrivere nella fascia di chi gestisce appuntamenti, trattative e vendite. */
+function nomeAzienda(nomeCliente: string | undefined): string {
+  const nome = nomeCliente?.trim();
+  if (!nome) return "La tua azienda";
+  return nome.length > NOME_MASSIMO ? `${nome.slice(0, NOME_MASSIMO - 1).trimEnd()}…` : nome;
+}
+
+export function SistemaAcquisizione({ nomeCliente }: { nomeCliente?: string }) {
   return (
     <g>
       {/* I tempi, in fila, e la discesa di ognuno sulla sua fase. */}
@@ -193,7 +205,7 @@ export function SistemaAcquisizione() {
       </Testo>
       <rect x={806} y={685} width={1102} height={98} rx={12} fill={COLORE.sfondo} stroke={COLORE.grigio} strokeWidth={1.5} />
       <Testo x={1357} y={729} misura={22} peso={700} colore={COLORE.inchiostro} ancora="middle">
-        La tua azienda
+        {nomeAzienda(nomeCliente)}
       </Testo>
       <Testo x={1357} y={757} misura={19} colore={COLORE.testo} ancora="middle">
         appuntamenti, trattative e vendite · con il coaching ALC del lunedì sera

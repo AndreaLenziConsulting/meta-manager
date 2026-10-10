@@ -12,9 +12,10 @@ import { VisualizzatoreSchema } from "@/components/processi/VisualizzatoreSchema
  *
  * Solo per il team, come Attività e Vendita: sul link pubblico del cliente la sezione non esiste
  * (vedi SchedaCliente.tsx). Gli schemi sono gli stessi per ogni cliente e stanno nel codice
- * (processi/elenco.tsx): nessun dato del cliente entra qui.
+ * (processi/elenco.tsx). Del cliente entra qui solo il nome (richiesta dell'utente, 10/10/2026): lo
+ * schema che parla della "sua azienda" lo scrive al posto di una dicitura generica.
  */
-export function ProcessiTab() {
+export function ProcessiTab({ clienteNome }: { clienteNome?: string }) {
   const [scelto, setScelto] = useState(PROCESSI[0].id);
   const processo = PROCESSI.find((p) => p.id === scelto) ?? PROCESSI[0];
 
@@ -24,7 +25,7 @@ export function ProcessiTab() {
       {PROCESSI.length > 1 && <Tabs tabs={PROCESSI.map((p) => ({ id: p.id, label: p.nome }))} attivo={processo.id} onChange={setScelto} etichetta="Processi" />}
       {/* `key`: cambiando schema il visualizzatore riparte da capo (schema intero, nessun segno). */}
       <VisualizzatoreSchema key={processo.id} titolo={processo.titolo} descrizione={processo.descrizione} larghezza={processo.larghezza} altezza={processo.altezza}>
-        {processo.schema}
+        {processo.disegna({ nomeCliente: clienteNome })}
       </VisualizzatoreSchema>
     </div>
   );

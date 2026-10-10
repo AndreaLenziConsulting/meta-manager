@@ -6,6 +6,12 @@ import { ALTEZZA_PIRAMIDE, LARGHEZZA_PIRAMIDE, PiramideRovesciataVendita } from 
 import { ALTEZZA_SETTING, LARGHEZZA_SETTING, SettingPrimi7Giorni } from "@/components/processi/schemi/SettingPrimi7Giorni";
 import { ALTEZZA_ACQUISIZIONE, LARGHEZZA_ACQUISIZIONE, SistemaAcquisizione } from "@/components/processi/schemi/SistemaAcquisizione";
 
+/** Ciò che uno schema può sapere della scheda in cui viene mostrato. */
+export type ContestoSchema = {
+  /** Nome del cliente della scheda aperta: lo schema può scriverlo dove parla della sua azienda. */
+  nomeCliente?: string;
+};
+
 export type Processo = {
   /** Stabile: un domani potrà finire in un indirizzo o in una scelta per cliente. */
   id: string;
@@ -17,12 +23,13 @@ export type Processo = {
   larghezza: number;
   altezza: number;
   /** Il disegno: elementi SVG nelle coordinate del foglio. */
-  schema: ReactNode;
+  disegna: (contesto: ContestoSchema) => ReactNode;
 };
 
 /**
  * Gli schemi della sezione "Processi" della scheda cliente, nell'ordine in cui compaiono. Sono i
- * metodi di lavoro dell'agenzia: uguali per tutti i clienti, visibili solo al team.
+ * metodi di lavoro dell'agenzia: uguali per tutti i clienti, visibili solo al team. L'unica cosa che
+ * cambia da un cliente all'altro è il suo nome, dove uno schema lo mostra (`ContestoSchema`).
  *
  * Per aggiungerne uno: un file in `schemi/` che disegna coi mattoni di `primitive.tsx`, e una voce qui.
  * Il foglio di uno schema comincia dal contenuto: niente logo, titolo, descrizione o piè di pagina disegnati dentro
@@ -41,7 +48,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Dalla pubblicità al fatturato: le fasi, i tempi, gli scarti fisiologici e i numeri da misurare.",
     larghezza: LARGHEZZA_ACQUISIZIONE,
     altezza: ALTEZZA_ACQUISIZIONE,
-    schema: <SistemaAcquisizione />,
+    disegna: ({ nomeCliente }) => <SistemaAcquisizione nomeCliente={nomeCliente} />,
   },
   {
     id: "dalla-pubblicita-alla-vendita",
@@ -50,7 +57,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Quanti lead entrano nel processo commerciale e in quanto tempo diventano vendita.",
     larghezza: LARGHEZZA_PUBBLICITA_VENDITA,
     altezza: ALTEZZA_PUBBLICITA_VENDITA,
-    schema: <DallaPubblicitaAllaVendita />,
+    disegna: () => <DallaPubblicitaAllaVendita />,
   },
   {
     id: "dal-lead-alla-vendita",
@@ -59,7 +66,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Marketing genera e qualifica, il setting fissa e prepara, il commerciale chiude e fa follow-up.",
     larghezza: LARGHEZZA_LEAD_VENDITA,
     altezza: ALTEZZA_LEAD_VENDITA,
-    schema: <DalLeadAllaVendita />,
+    disegna: () => <DalLeadAllaVendita />,
   },
   {
     id: "momenti-educazione-lead",
@@ -68,7 +75,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Dove si educa il cliente: attrazione prima, abilità consulenziale poi.",
     larghezza: LARGHEZZA_EDUCAZIONE,
     altezza: ALTEZZA_EDUCAZIONE,
-    schema: <MomentiEducazioneLead />,
+    disegna: () => <MomentiEducazioneLead />,
   },
   {
     id: "setting-primi-7-giorni",
@@ -77,7 +84,7 @@ export const PROCESSI: Processo[] = [
     descrizione: "Cosa fa il commerciale da quando entra il lead, giorno per giorno.",
     larghezza: LARGHEZZA_SETTING,
     altezza: ALTEZZA_SETTING,
-    schema: <SettingPrimi7Giorni />,
+    disegna: () => <SettingPrimi7Giorni />,
   },
   {
     id: "piramide-rovesciata-vendita",
@@ -86,6 +93,6 @@ export const PROCESSI: Processo[] = [
     descrizione: "Sei fasi in sequenza: la stimolazione è quella che trasforma una vendita tecnica in una decisione.",
     larghezza: LARGHEZZA_PIRAMIDE,
     altezza: ALTEZZA_PIRAMIDE,
-    schema: <PiramideRovesciataVendita />,
+    disegna: () => <PiramideRovesciataVendita />,
   },
 ];
